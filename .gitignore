@@ -1,0 +1,35 @@
+# profilemetananni - files that must NOT be committed to GitHub.
+
+# Pipeline outputs / work directories (can be huge)
+pmn_work/
+*/pmn_work/
+**/results/
+**/multiqc/
+**/host_index/
+
+# Databases (tens of GB) and downloads
+*.k2d
+*.bt2
+*.bt2l
+*.sra
+*.fastq
+*.fastq.gz
+*.fq.gz
+
+# Caches / temporary
+__pycache__/
+*.pyc
+*.tmp
+*.bak
+Rplots.pdf
+size_cache.json
+cache_*.json
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local user configuration (keep the example, ignore the real one)
+config.yaml

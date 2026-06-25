@@ -1,0 +1,79 @@
+# profilemetananni - configuration (the user's answers / le risposte dell'utente)
+# Copy this file to config.yaml and fill it in.
+# Copia questo file in config.yaml e compilalo.
+# It is parsed with a SAFE loader (yaml.safe_load) and every value is validated.
+
+language: en                 # en | it   (output language / lingua dei messaggi)
+
+data_source: ncbi            # ncbi | local | both   (where the reads come from / da dove arrivano le reads)
+# NCBI API key (OPTIONAL): do NOT put it here. Export it in your shell instead:
+#   export NCBI_API_KEY=<your_key>     (chiave API NCBI: NON metterla qui, esportala nella shell)
+# It is read from the environment only and never written to disk/logs.
+project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names / usato nei nomi cartella)
+
+# ---------------------------------------------------------------------------
+# HOST REMOVAL / RIMOZIONE OSPITE
+# Human (grch38) is removed AUTOMATICALLY. Human (uomo) viene rimosso in automatico.
+# List the ADDITIONAL host(s) to remove / elenca gli ospiti AGGIUNTIVI da rimuovere
+# (choose from refs/hosts.tsv). Empty list = human-only.
+# ---------------------------------------------------------------------------
+hosts:
+  - sus_scrofa
+filter_human: true
+
+# ---------------------------------------------------------------------------
+# CLEANUP / PULIZIA DISCO  (asked during preprocessing / chiesto in preprocessing)
+# ---------------------------------------------------------------------------
+cleanup:
+  keep_trimmed: false        # false = delete trimmed reads after host filtering / cancella le reads trimmate
+  keep_host_reads: false     # true = save host-mapped reads / salva le reads dell'ospite
+  host_reads_dir: ""         # empty -> <work_dir>/host_reads
+
+# ---------------------------------------------------------------------------
+# PATHS / CARTELLE   layout: managed (tool owns folders) | custom (you provide them)
+# ---------------------------------------------------------------------------
+paths:
+  layout: managed
+  work_dir: ./pmn_work
+  local_reads_dir: ""        # required if data_source includes 'local'
+  srr_list: ""               # required if data_source includes 'ncbi' (one accession per line)
+  raw_dir: ""                # custom layout only / solo layout custom
+  trim_dir: ""
+  nonhost_dir: ""
+  results_dir: ""
+  logs_dir: ""
+
+# ---------------------------------------------------------------------------
+# PROFILING
+# ---------------------------------------------------------------------------
+profiling:
+  tool: both                 # metaphlan | kraken | both
+  metaphlan_db: ""           # directory; empty + auto_install_db:true -> installed automatically
+  kraken_db: ""              # directory; empty + auto_install_db:true -> built automatically
+  auto_install_db: false     # true = download/build missing DBs automatically (LARGE: MetaPhlAn ~25GB, Kraken ~50-90GB)
+  kraken_db_mode: standard   # standard | custom
+  kraken_custom_genomes: ""  # custom mode only: file with NCBI accessions (one per line) for the custom DB
+  kraken_confidence: 0.4     # lower values inflate richness with false positives
+  bracken_readlen: 150       # MUST match the Bracken DB build length (often 100 or 150)
+  abundance_threshold_pct: 0.001   # 0.001 or 0.005 for complex communities (Edwin 2024)
+
+# ---------------------------------------------------------------------------
+# ANALYSIS / ANALISI
+# ---------------------------------------------------------------------------
+analysis:
+  report: true               # overview Excel (all_taxa; cross-tool comparison columns only when tool == both)
+  diversity: true            # alpha/beta diversity, compositional CLR/Aitchison/PCA (Gloor 2017)
+  metadata: ""               # OPTIONAL .tsv: column 'sample' + grouping column(s). Enables a COLOURED PCA
+                             # and group tests on alpha diversity (Kruskal-Wallis + Dunn post-hoc, BH-adjusted)
+  group_col: ""              # which metadata column to group by (e.g. product, country); needs 'metadata' set
+
+# ---------------------------------------------------------------------------
+# EXECUTION / ESECUZIONE
+# ---------------------------------------------------------------------------
+execution:
+  scheduler: auto            # auto | pbs | local
+  threads: 8
+  pbs_queue: ""              # REQUIRED when scheduler=pbs (your cluster queue, e.g. commonCPUQ)
+  pbs_walltime: "24:00:00"   # PBS walltime per job
+  pbs_mem: "32GB"            # PBS memory per job
+  pbs_select: ""             # optional raw '-l select=...' for non-standard clusters; empty -> select=1:ncpus=<threads>:mem=<pbs_mem>

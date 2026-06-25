@@ -1,0 +1,8 @@
+# Default host genomes for read decontamination (host filtering).
+# Columns: name<TAB>ncbi_assembly_accession<TAB>description
+# Edit freely: add a row (name + RefSeq GCF_/GCA_ accession) to support a new host.
+sus_scrofa	GCF_000003025.6	pig (Sscrofa11.1)
+bos_taurus	GCF_002263795.4	cattle (ARS-UCD2.0)
+gallus_gallus	GCF_016699485.2	chicken (bGalGal1.mat.broiler)
+ovis_aries	GCF_016772045.2	sheep (ARS-UI_Ramb_v2.0)
+grch38	GCF_000001405.40	human (GRCh38.p14)
