@@ -1,5 +1,9 @@
 # profilemetananni
 
+<p align="center">
+  <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni logo" width="400">
+</p>
+
 A **model-agnostic, guided metagenomics assistant** for read-based taxonomic profiling of
 microbial communities. **Any** language model — a local open-source model on **Ollama**, or a
 hosted model such as **Claude** — can drive it by following `SPEC.md`. The intelligence lives
