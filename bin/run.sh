@@ -222,22 +222,45 @@ hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">
 }
 
 process_reads_dir() {  # process_reads_dir <dir>
-  local d="$1" f s mate
+  local d="$1" f s mate pair r1suf r2suf
   [ -d "$d" ] || { warn "reads dir not found (yet): $d"; return 0; }
   shopt -s nullglob
-  for f in "$d"/*_1.fastq.gz; do
-    s="$(basename "${f%_1.fastq.gz}")"; mate="${f%_1.fastq.gz}_2.fastq.gz"
-    validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
-    [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
-    # already fully host-filtered? skip trim+filter (avoids re-trimming when trimmed reads were cleaned up)
-    [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && continue
-    do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
-      --sample "$s" --in1 "$f" --in2 "$mate" --out "$TRIM_DIR" --threads "$PMN_THREADS"
-    hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" "$TRIM_DIR/${s}_trim_2.fastq.gz"
+  # --- Paired-end (EN): recognise the common R1/R2 naming conventions, not just _1/_2.
+  #     (IT): riconosci le convenzioni R1/R2 piu' comuni, non solo _1/_2.
+  # Each entry is "R1-suffix|R2-suffix". The sample name is the FILENAME with the
+  # R1-suffix stripped; the mate is the same path with the R1-suffix swapped for R2.
+  # The default NCBI form (_1/_2.fastq.gz) stays first so existing batches behave identically.
+  # Suffixes are distinct (e.g. *_R1.fastq.gz never also matches *_R1_001.fastq.gz),
+  # so no file is picked up by two patterns.
+  local PAIR_SUFFIXES=(
+    "_1.fastq.gz|_2.fastq.gz"
+    "_R1.fastq.gz|_R2.fastq.gz"
+    "_R1_001.fastq.gz|_R2_001.fastq.gz"
+    "_1.fq.gz|_2.fq.gz"
+    "_R1.fq.gz|_R2.fq.gz"
+  )
+  for pair in "${PAIR_SUFFIXES[@]}"; do
+    r1suf="${pair%%|*}"; r2suf="${pair##*|}"
+    for f in "$d"/*"$r1suf"; do
+      # derive mate + sample by stripping/swapping the R1 token in the FILENAME
+      s="$(basename "${f%"$r1suf"}")"; mate="${f%"$r1suf"}$r2suf"
+      validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
+      [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
+      # already fully host-filtered? skip trim+filter (avoids re-trimming when trimmed reads were cleaned up)
+      [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && continue
+      do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
+        --sample "$s" --in1 "$f" --in2 "$mate" --out "$TRIM_DIR" --threads "$PMN_THREADS"
+      hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" "$TRIM_DIR/${s}_trim_2.fastq.gz"
+    done
   done
-  for f in "$d"/*.fastq.gz; do
-    case "$f" in *_1.fastq.gz|*_2.fastq.gz) continue ;; esac
-    s="$(basename "${f%.fastq.gz}")"
+  # --- Single-end (EN): any *.fastq.gz / *.fq.gz that is NOT one of the paired mates above.
+  #     (IT): qualsiasi *.fastq.gz / *.fq.gz che NON sia un mate di una coppia gia' gestita.
+  for f in "$d"/*.fastq.gz "$d"/*.fq.gz; do
+    # exclude EVERY paired R1/R2 variant we recognise, so a paired file is never re-processed as single-end
+    case "$f" in
+      *_1.fastq.gz|*_2.fastq.gz|*_R1.fastq.gz|*_R2.fastq.gz|*_R1_001.fastq.gz|*_R2_001.fastq.gz|*_1.fq.gz|*_2.fq.gz|*_R1.fq.gz|*_R2.fq.gz) continue ;;
+    esac
+    s="$(basename "$f")"; s="${s%.fastq.gz}"; s="${s%.fq.gz}"
     validate_name "$s" || continue
     [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ] && continue
     do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
@@ -346,6 +369,9 @@ fi
 # Kruskal-Wallis + Dunn (BH) on alpha diversity across groups.
 if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   DIV_ARGS=()
+  # Abundance floor for diversity: convert the percent threshold to a relative fraction in [0,1)
+  # (e.g. 0.001% -> 1e-5). 41_diversity.R drops per-sample taxa below this BEFORE richness/CLR/PCA.
+  MINABUND="$(awk -v p="$PMN_THRESHOLD" 'BEGIN{printf "%.10g", p/100}')"
   if [ -n "$PMN_METADATA" ]; then
     [ -f "$PMN_METADATA" ] || die "analysis.metadata not found: $(sanitize_for_log "$PMN_METADATA")"
     [ -n "$PMN_GROUP_COL" ] || die "analysis.metadata is set but analysis.group_col is empty"
@@ -354,10 +380,10 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   fi
   if [ -n "$MPA_MERGED" ]; then
     do_step pmn_reports_py mpa_matrix -- python "$PMN_ROOT/steps/34_metaphlan_matrix.py" --in "$MPA_MERGED" --out "$RES_DIR/metaphlan_matrix.tsv"
-    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
   if [ -n "$KRK_MATRIX" ]; then
-    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
 fi
 

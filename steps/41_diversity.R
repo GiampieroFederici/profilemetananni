@@ -24,6 +24,10 @@ mat_path  <- getopt("--matrix")
 out_dir   <- getopt("--out")
 meta_path <- getopt("--metadata", NA)
 group_col <- getopt("--group-col", NA)
+# --min-abundance: relative fraction in [0,1). Default 1e-5 (== 0.001%, the
+# project's abundance_threshold_pct default). Scale-independent filter (see below).
+min_abund <- as.numeric(getopt("--min-abundance", "1e-5"))
+if (!is.finite(min_abund) || min_abund < 0) min_abund <- 1e-5
 
 if (is.null(mat_path) || is.null(out_dir)) {
   stop("usage: --matrix FILE --out DIR [--metadata FILE --group-col COL]")
@@ -37,18 +41,51 @@ mode(m) <- "numeric"
 m[is.na(m)] <- 0
 X <- t(m)                                  # samples x taxa
 X <- X[, colSums(X) > 0, drop = FALSE]     # drop all-zero taxa
-if (nrow(X) < 2) stop("need at least 2 samples for diversity analysis")
+
+# --- abundance filter (scale-independent) ---
+# k-mer classifiers (Kraken) report many low-abundance false positives that inflate
+# richness/alpha diversity. We zero out any cell whose per-sample RELATIVE proportion
+# is below --min-abundance, then drop taxa that became all-zero. This works whether
+# the input is in 0-1 fractions (Kraken) or 0-100 percentages (MetaPhlAn) because we
+# normalise each sample by its own rowSums first.
+if (min_abund > 0 && nrow(X) >= 1 && ncol(X) >= 1) {
+  rs  <- rowSums(X)                                  # per-sample total
+  rel <- X                                           # init; fill row by row
+  ok  <- rs > 0                                      # rows safe to divide (avoid /0)
+  rel[ok, ]  <- X[ok, , drop = FALSE] / rs[ok]       # relative proportions per sample
+  rel[!ok, ] <- 0                                    # zero-total samples -> all-zero rel
+  X[rel < min_abund] <- 0                            # drop sub-threshold k-mer noise
+  X <- X[, colSums(X) > 0, drop = FALSE]             # re-drop all-zero taxa
+}
+
+if (nrow(X) < 2) { message("[SKIP] diversity needs >= 2 samples; skipping"); quit(save = "no", status = 0) }
 if (ncol(X) < 1) { message("[SKIP] no non-zero taxa in matrix"); quit(save = "no", status = 0) }
 
-# --- CLR transform; pseudocount = half the minimum positive value ---
-pos <- X[X > 0]
-pc  <- if (length(pos) > 0) min(pos) / 2 else 1e-6
-Xp  <- X + pc
-# Vectorized CLR that ALWAYS keeps the matrix shape (samples x taxa). The old
-# t(apply(Xp, 1, ...)) collapsed the sample axis when there was a single taxon,
-# silently turning N samples into 1 phantom sample.
-gm  <- exp(rowMeans(log(Xp)))
-clr <- log(Xp / gm)
+# --- CLR transform with proper compositional zero handling ---
+# Adding a flat pseudocount to EVERY cell (incl. structural zeros) distorts the
+# Aitchison geometry on sparse data. Prefer zCompositions::cmultRepl (Bayesian-
+# multiplicative replacement, GBM), which only replaces the zeros (Martin-Fernandez
+# et al. 2015, Stat. Modelling 15:134-158). X is already samples (rows) x parts (cols).
+clr <- tryCatch({
+  if (!requireNamespace("zCompositions", quietly = TRUE)) stop("zCompositions missing")
+  if (ncol(X) < 2) stop("need >= 2 parts for cmultRepl")
+  comp <- suppressWarnings(
+    zCompositions::cmultRepl(X, method = "GBM", output = "prop", z.warning = 1)
+  )
+  comp <- as.matrix(comp)
+  # CLR on the zero-replaced composition (rows = samples, cols = parts).
+  log(comp) - rowMeans(log(comp))
+}, error = function(e) {
+  message("[WARN] zCompositions unavailable/failed -> using min/2 pseudocount")
+  # Fallback: half-minimum-positive pseudocount. Vectorized CLR that ALWAYS keeps the
+  # matrix shape (samples x taxa). The old t(apply(Xp, 1, ...)) collapsed the sample
+  # axis when there was a single taxon, silently turning N samples into 1 phantom sample.
+  pos <- X[X > 0]
+  pc  <- if (length(pos) > 0) min(pos) / 2 else 1e-6
+  Xp  <- X + pc
+  gm  <- exp(rowMeans(log(Xp)))
+  log(Xp / gm)
+})
 
 # --- Aitchison distance = Euclidean distance on CLR ---
 ait <- dist(clr, method = "euclidean")

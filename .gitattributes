@@ -1,0 +1,27 @@
+# .gitattributes — protect shipped scripts from CRLF corruption on Windows clones
+# EN: On Windows, git core.autocrlf=true can inject CRLF into shell scripts on
+#     checkout, breaking them with: bad interpreter: /usr/bin/env bash^M
+#     We force LF on all executable/text types and mark binaries as untouchable.
+# IT: Su Windows, core.autocrlf=true puo' inserire CRLF negli script alla
+#     checkout, rompendoli (bad interpreter: ...bash^M).
+#     Forziamo LF su tutti i file di testo/eseguibili e blocchiamo i binari.
+
+# Sane default: let git decide text vs binary, normalize to LF in the repo
+* text=auto
+
+# Force LF on all script/text types that MUST stay LF to run correctly
+*.sh    text eol=lf
+*.py    text eol=lf
+*.R     text eol=lf
+*.r     text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.tsv   text eol=lf
+*.md    text eol=lf
+
+# Binary assets: git must never touch (no EOL or diff conversion)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.pdf   binary
+*.mp4   binary

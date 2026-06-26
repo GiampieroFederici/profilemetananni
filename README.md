@@ -4,6 +4,8 @@
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni logo" width="400">
 </p>
 
+<p align="center"><em>ProfileMetaNanni — read-based metagenomic <strong>Profil</strong>ing assistant.</em></p>
+
 A **model-agnostic, guided metagenomics assistant** for read-based taxonomic profiling of
 microbial communities. **Any** language model — a local open-source model on **Ollama**, or a
 hosted model such as **Claude** — can drive it by following `SPEC.md`. The intelligence lives
@@ -286,6 +288,9 @@ Profiling needs reference databases. They are **large** — install them once.
     `profiling.kraken_custom_genomes` (one `GCF_…`/`GCA_…` per line).
   - In both cases a **Bracken** k-mer distribution is built for your `bracken_readlen`.
 
+> ⚠️ **Memory:** Kraken2 loads the database into RAM, so `pbs_mem` MUST exceed the DB size
+> (≥ ~80 GB for the standard DB). MetaPhlAn-only or a small custom Kraken DB needs much less.
+
 `auto_install_db: true` is treated as your **explicit confirmation** for the large download —
 the AI will also confirm before starting. If you already have DBs, just set the paths.
 
@@ -320,7 +325,7 @@ execution:
   threads: 10
   pbs_queue: "commonCPUQ"    # YOUR cluster's queue name — ask your admin
   pbs_walltime: "48:00:00"   # estimate generously
-  pbs_mem: "40GB"            # Kraken standard DB needs a lot
+  pbs_mem: "80GB"            # Kraken standard DB needs a lot (loaded fully into RAM)
   pbs_select: ""             # advanced: raw 'select=...' override; empty = built from threads+mem
 ```
 
@@ -681,6 +686,9 @@ Il profiling ha bisogno di database di riferimento. Sono **grandi** — installa
     `profiling.kraken_custom_genomes` (un `GCF_…`/`GCA_…` per riga).
   - In entrambi i casi viene costruita una distribuzione k-mer **Bracken** per il tuo `bracken_readlen`.
 
+> ⚠️ **Memoria:** Kraken2 carica il database in RAM, quindi `pbs_mem` DEVE superare la dimensione
+> del DB (≥ ~80 GB per il DB standard). Solo-MetaPhlAn o un piccolo DB Kraken custom richiede molto meno.
+
 `auto_install_db: true` è la tua **conferma esplicita** per il download grande — l'IA confermerà
 comunque prima di iniziare. Se hai già i DB, basta impostare i percorsi.
 
@@ -715,7 +723,7 @@ execution:
   threads: 10
   pbs_queue: "commonCPUQ"    # il nome coda del TUO cluster — chiedi all'admin
   pbs_walltime: "48:00:00"   # stima abbondante
-  pbs_mem: "40GB"            # il DB standard di Kraken richiede molta memoria
+  pbs_mem: "80GB"            # il DB standard di Kraken richiede molta memoria (caricato tutto in RAM)
   pbs_select: ""             # avanzato: override grezzo 'select=...'; vuoto = costruito da threads+mem
 ```
 

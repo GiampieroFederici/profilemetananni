@@ -14,8 +14,10 @@
 #                       [--margin 1.15] [--force]
 #
 # Exit codes:
-#   0  estimated download fits in the available/declared free space
-#   2  estimated download does NOT fit (or some accessions could not be resolved)
+#   0  proceed: the resolved accessions fit in the available/declared free space
+#      (some accessions may have been skipped/unresolved — see the WARN lines + CSV)
+#   2  STOP: either NO accession could be resolved (nothing to download),
+#      or the resolved download does NOT fit in the available/declared free space
 #   1  usage / input error
 import argparse
 import json
@@ -152,8 +154,12 @@ def main():
     save_cache(cache, cache_path)
 
     # Aggregate + write CSV
+    # TOLERANT policy: a single unresolved/empty accession must NOT kill a whole
+    # multi-sample run. Bad accessions are warned about and EXCLUDED from the size
+    # sum; the disk-space gate is computed only on the successfully-resolved ones.
     total_bytes = 0
     n_ok = n_bad = 0
+    bad_accessions = []   # (accession, status) of every skipped/unresolved entry
     with open(csv_path, "w", encoding="utf-8", newline="") as f:
         f.write("accession,status,read_count,base_count,fastq_bytes,gb\n")
         for acc in items:
@@ -161,10 +167,13 @@ def main():
             gb = e.get("fastq_bytes", 0) / 1e9
             f.write(f"{acc},{e['status']},{e.get('read_count',0)},{e.get('base_count',0)},{e.get('fastq_bytes',0)},{gb:.3f}\n")
             if e["status"] == "OK" and e.get("fastq_bytes", 0) > 0:
+                # resolved successfully -> counts toward the size gate
                 total_bytes += e.get("fastq_bytes", 0)
                 n_ok += 1
             else:
+                # unresolved/empty -> warn + skip, but do NOT abort the run for it
                 n_bad += 1
+                bad_accessions.append((acc, e.get("status", "NOT_PROCESSED")))
 
     download_gb = total_bytes / 1e9
     needed_gb = download_gb * a.margin
@@ -198,14 +207,31 @@ def main():
     print(f"  CSV report               : {csv_path}")
     print("=" * 64)
 
+    # Warn about every skipped/unresolved accession, but keep going: these are
+    # excluded from the size sum and from the download — they are NOT a reason to
+    # abort a whole multi-sample run (one ENA hiccup must not kill everything).
     if n_bad > 0:
-        print(f"[WARN] {n_bad} accession(s) could not be resolved — review the CSV before downloading.")
+        print(f"[WARN] {n_bad} accession(s) skipped (excluded from the size estimate "
+              f"AND from the download) — review the CSV: {csv_path}")
+        for acc, status in bad_accessions:
+            print(f"  [SKIP] {acc} -> {status}")
+
+    # Genuine error: nothing resolved means there is literally nothing to download.
+    if n_ok == 0:
+        print("[FAIL] No accession could be resolved — nothing to download. "
+              "Check the SRR list / ENA connectivity and retry.")
+        return 2
+
+    # The real gate: the resolved download must fit in the available space.
     if free_gb is not None and needed_gb > free_gb:
         print(f"[FAIL] Not enough space: need ~{needed_gb:.1f} GB, have {free_gb:.1f} GB.")
         return 2
+
     if n_bad > 0:
-        return 2
-    print("[OK] The estimated download fits in the available space.")
+        print(f"[OK] {n_ok} resolved accession(s) fit in the available space "
+              f"({n_bad} skipped — see above).")
+    else:
+        print("[OK] The estimated download fits in the available space.")
     return 0
 
 

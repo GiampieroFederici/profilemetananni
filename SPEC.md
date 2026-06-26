@@ -136,8 +136,9 @@ Ask the user the following, one topic at a time, and write the answers into
 
 ### Profiler choice — MetaPhlAn vs Kraken2+Bracken
 - **MetaPhlAn 4** (marker-gene, DNA-to-marker): very high precision, few false
-  positives; resolves uncharacterized species via SGBs; guaranteed detection at
-  ≥0.01% relative abundance at standard depth (Blanco-Míguez et al., 2023,
+  positives; resolves uncharacterized species via SGBs; designed to detect taxa
+  down to ~0.01% relative abundance at standard sequencing depth (depth- and
+  SGB-dependent; not a guarantee) (Blanco-Míguez et al., 2023,
   *Nat Biotechnol*, DOI 10.1038/s41587-023-01688-w). Weaker recall on rare taxa and on
   poorly represented matrices.
 - **Kraken2 + Bracken** (k-mer, DNA-to-DNA): higher recall and a larger fraction of

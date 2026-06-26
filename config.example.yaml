@@ -75,5 +75,6 @@ execution:
   threads: 8
   pbs_queue: ""              # REQUIRED when scheduler=pbs (your cluster queue, e.g. commonCPUQ)
   pbs_walltime: "24:00:00"   # PBS walltime per job
-  pbs_mem: "32GB"            # PBS memory per job
+  pbs_mem: "32GB"            # PBS memory per job. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
+                             # the Kraken STANDARD DB is loaded fully into RAM -> needs >= ~80GB
   pbs_select: ""             # optional raw '-l select=...' for non-standard clusters; empty -> select=1:ncpus=<threads>:mem=<pbs_mem>
