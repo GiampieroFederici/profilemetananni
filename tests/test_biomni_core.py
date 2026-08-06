@@ -143,3 +143,44 @@ def test_network_failure_drops_rather_than_confirms():
     ok, dropped = core.verify_pmids({"111"}, boom)
     assert ok == {}
     assert dropped == ["111"]
+
+
+def test_noto_without_verified_citation_is_demoted():
+    claims = (core.Claim("batteriocine", "sakacina", "noto", ()),)
+    out = core.apply_labels(claims)
+    assert out[0].label == "ipotesi"
+
+
+def test_assente_without_verified_citation_is_demoted():
+    claims = (core.Claim("ammine_biogene", "nessuna hdc", "assente", ()),)
+    out = core.apply_labels(claims)
+    assert out[0].label == "ipotesi"
+
+
+def test_noto_with_verified_citation_survives():
+    claims = (core.Claim("batteriocine", "sakacina", "noto", (1,)),)
+    out = core.apply_labels(claims)
+    assert out[0].label == "noto"
+
+
+def test_atteso_is_left_alone_even_without_citations():
+    claims = (core.Claim("cazymes", "inferito dal genere", "atteso", ()),)
+    out = core.apply_labels(claims)
+    assert out[0].label == "atteso"
+
+
+def test_build_dossier_runs_all_the_rules():
+    raw = core.RawDossier(
+        taxon="Latilactobacillus sakei",
+        detected_by="metaphlan+kraken",
+        claims=(
+            core.Claim("batteriocine", "sakacina", "noto", (1,)),
+            core.Claim("resistoma", "tet(M)", "noto", (9,)),
+        ),
+        references=REFS,
+    )
+    d = core.build_dossier(raw)
+    assert d.claims[0].label == "noto"
+    assert d.claims[1].label == "ipotesi"
+    assert d.dropped_refs == 1
+    assert d.references == REFS

@@ -88,6 +88,38 @@ def verify_pmids(pmids, fetch):
     return confirmed, dropped
 
 
+def apply_labels(claims):
+    """Rule 3: 'noto' and 'assente' require at least one SURVIVING reference number.
+
+    Without one the claim is rewritten to 'ipotesi', whatever the model answered.
+    'atteso' is an explicit inference and needs no citation.
+    """
+    out = []
+    for c in claims:
+        if c.label in ("noto", "assente") and not c.refs:
+            out.append(replace(c, label="ipotesi"))
+        else:
+            out.append(c)
+    return tuple(out)
+
+
+def build_dossier(raw: RawDossier) -> Dossier:
+    """Apply the anti-invention rules in order and return a finished Dossier.
+
+    The references were retrieved and verified by the client BEFORE the model saw them,
+    so there is nothing left to fetch here: resolve the numbers, then demote what has no
+    surviving reference.
+    """
+    resolved, dropped = resolve_citations(raw)
+    return Dossier(
+        taxon=resolved.taxon,
+        detected_by=resolved.detected_by,
+        claims=apply_labels(resolved.claims),
+        references=resolved.references,
+        dropped_refs=dropped,
+    )
+
+
 def _display(normalized: str) -> str:
     """Turn a normalized name ('latilactobacillus sakei') into a display name."""
     return normalized[:1].upper() + normalized[1:] if normalized else normalized
