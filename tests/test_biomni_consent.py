@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import stat
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "steps"))
@@ -45,3 +46,50 @@ def test_consent_record_never_contains_a_key(tmp_path):
     cs.save_consent(path, "gpt-4o", cs.provider_for("gpt-4o"), n_taxa=5)
     text = path.read_text(encoding="utf-8").lower()
     assert "key" not in text and "sk-" not in text
+
+
+def test_environment_wins_over_the_credentials_file(tmp_path):
+    path = tmp_path / "credentials"
+    cs.store_credential(path, "OPENAI_API_KEY", "from-file")
+    p = cs.provider_for("gpt-4o")
+    got = cs.resolve_api_key(p, {"OPENAI_API_KEY": "from-env"}, path)
+    assert got == "from-env"
+
+
+def test_credentials_file_is_used_when_the_environment_is_empty(tmp_path):
+    path = tmp_path / "credentials"
+    cs.store_credential(path, "OPENAI_API_KEY", "from-file")
+    got = cs.resolve_api_key(cs.provider_for("gpt-4o"), {}, path)
+    assert got == "from-file"
+
+
+def test_a_local_model_needs_no_key_at_all(tmp_path):
+    got = cs.resolve_api_key(cs.provider_for("ollama/llama3.1"), {}, tmp_path / "nope")
+    assert got == ""
+
+
+def test_a_world_readable_credentials_file_is_refused(tmp_path):
+    if os.name != "posix":
+        return  # POSIX permissions are not enforceable on Windows
+    path = tmp_path / "credentials"
+    cs.store_credential(path, "OPENAI_API_KEY", "secret")
+    os.chmod(path, 0o644)
+    try:
+        cs.read_credentials(path)
+    except PermissionError:
+        return
+    raise AssertionError("a world-readable credentials file must be refused")
+
+
+def test_store_credential_writes_0600_on_posix(tmp_path):
+    if os.name != "posix":
+        return
+    path = tmp_path / "credentials"
+    cs.store_credential(path, "OPENAI_API_KEY", "secret")
+    assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+
+
+def test_provider_errors_are_translated_into_plain_language():
+    assert "valida" in cs.translate_provider_error(401)
+    assert "credito" in cs.translate_provider_error(429)
+    assert "raggiungere" in cs.translate_provider_error(None)

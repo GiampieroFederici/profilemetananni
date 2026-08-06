@@ -3,7 +3,9 @@
 # for Phase C. No Biomni import: fully testable offline.
 # Conda env: pmn_reports_py. Not meant to be run directly.
 import json
+import os
 import pathlib
+import stat as _stat
 from dataclasses import dataclass
 
 
@@ -69,3 +71,65 @@ def save_consent(path, llm: str, provider: Provider, n_taxa: int) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def credentials_path() -> pathlib.Path:
+    return pathlib.Path.home() / ".pmn" / "credentials"
+
+
+def read_credentials(path) -> dict:
+    """Read VAR=value lines. On POSIX a file wider than 0600 is REFUSED, not fixed."""
+    path = pathlib.Path(path)
+    if not path.exists():
+        return {}
+    if os.name == "posix":
+        mode = _stat.S_IMODE(os.stat(path).st_mode)
+        if mode != 0o600:
+            raise PermissionError(
+                f"{path} has permissions {oct(mode)}; expected 0600. "
+                f"Fix it with: chmod 600 {path}"
+            )
+    out = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
+def store_credential(path, env_var: str, value: str) -> None:
+    """Write/replace one VAR=value line, 0600 on POSIX."""
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = []
+    if path.exists():
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines()
+                 if not ln.strip().startswith(f"{env_var}=")]
+    lines.append(f"{env_var}={value}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if os.name == "posix":
+        os.chmod(path, 0o600)
+
+
+def resolve_api_key(provider: Provider, environ, path):
+    """Environment first, credentials file second. Local models need no key ('')."""
+    if provider.local:
+        return ""
+    from_env = (environ or {}).get(provider.env_var, "")
+    if from_env:
+        return from_env
+    return read_credentials(path).get(provider.env_var) or None
+
+
+def translate_provider_error(status) -> str:
+    """Turn a provider HTTP status into something a non-programmer can act on."""
+    if status in (401, 403):
+        return ("La chiave non è valida. Forse è incompleta o è stata revocata: "
+                "creane una nuova e reincollala.")
+    if status in (402, 429):
+        return ("La chiave è valida ma l'account non ha credito o un metodo di pagamento "
+                "attivo. Controlla la sezione fatturazione del fornitore.")
+    return ("Non riesco a raggiungere il fornitore: controlla la connessione a internet "
+            "o le impostazioni del proxy.")
