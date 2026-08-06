@@ -29,6 +29,7 @@
 - Se la variabile d'ambiente è già valorizzata, **l'ambiente vince** sul file delle credenziali.
 - La Fase C **non viene mai sottomessa a PBS**: sotto `scheduler: pbs` viene saltata con messaggio esplicito.
 - Stile del repository, da rispettare: `argparse`, messaggi di errore su `stderr` con prefisso `[FAIL]`, `main()` che ritorna un `int`, moduli condivisi con prefisso `_`, messaggi utente bilingui via `say "EN" "IT"` in bash.
+- **Comando dei test su questa macchina.** Il piano scrive `conda run -n pmn_reports_py python -m pytest …` perché è così che va nell'ambiente di produzione. Ma **su questa macchina conda non è installato**: pytest 9.1.1 è stato installato direttamente nel Python 3.11.9 di sistema, quindi il comando da eseguire davvero è `python -m pytest tests/… -v`. Il conteggio dei test atteso resta quello scritto nei task.
 
 ---
 

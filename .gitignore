@@ -37,3 +37,8 @@ config.yaml
 # PRIVATO - appunti e documenti personali di Giampiero. MAI nel repo pubblico.
 # PRIVATE - personal notes and documents. NEVER in the public repo.
 _PRIVATO/
+
+# pytest
+.pytest_cache/
+__pycache__/
+*.pyc
