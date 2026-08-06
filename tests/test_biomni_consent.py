@@ -89,6 +89,15 @@ def test_store_credential_writes_0600_on_posix(tmp_path):
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
 
 
+def test_store_credential_warns_only_where_permissions_cannot_be_locked_down(tmp_path):
+    path = tmp_path / "credentials"
+    warning = cs.store_credential(path, "OPENAI_API_KEY", "secret")
+    if os.name == "posix":
+        assert warning == ""
+    else:
+        assert warning != ""
+
+
 def test_provider_errors_are_translated_into_plain_language():
     assert "valida" in cs.translate_provider_error(401)
     assert "credito" in cs.translate_provider_error(429)

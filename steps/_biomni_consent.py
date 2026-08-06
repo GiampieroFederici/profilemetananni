@@ -99,8 +99,14 @@ def read_credentials(path) -> dict:
     return out
 
 
-def store_credential(path, env_var: str, value: str) -> None:
-    """Write/replace one VAR=value line, 0600 on POSIX."""
+def store_credential(path, env_var: str, value: str) -> str:
+    """Write/replace one VAR=value line, 0600 on POSIX.
+
+    Returns a warning to show the user (SPEC 6.4), or "" when none is needed: on Windows
+    there is no POSIX chmod, so the file cannot be locked down to the current account and
+    anyone else who can log into the machine could read it. The caller decides whether/how
+    to display it; this module never prints.
+    """
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = []
@@ -111,6 +117,13 @@ def store_credential(path, env_var: str, value: str) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     if os.name == "posix":
         os.chmod(path, 0o600)
+        return ""
+    return (
+        f"ATTENZIONE: su Windows questo file ({path}) non può essere protetto come su "
+        f"Linux/Mac (permessi 0600) — altri account sullo stesso computer potrebbero "
+        f"leggerlo. Più sicuro: non salvare qui la chiave, ma impostare la variabile "
+        f"d'ambiente {env_var}."
+    )
 
 
 def resolve_api_key(provider: Provider, environ, path):
