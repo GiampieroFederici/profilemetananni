@@ -19,7 +19,9 @@
 - Cambiando **modello o fornitore** il consenso registrato non vale più.
 - Senza terminale interattivo e senza consenso registrato il passo **si ferma**; il flag per l'automazione è `--yes-send-taxa`.
 - `--dry-run` non invia nulla e **non** richiede consenso.
-- Una citazione è ammessa **solo** se il suo PMID compare nei risultati di una ricerca reale **e** supera la verifica su NCBI (titolo e anno). Altrimenti la riga si scarta.
+- **Il modello non sceglie le fonti.** È profilemetananni a interrogare NCBI (`esearch` + `esummary`) e a passargli un **elenco numerato**; il modello cita **per numero**, mai per PMID o DOI. Un numero fuori intervallo non è una prova. *(Regola riscritta dopo lo spike: `query_pubmed` di Biomni non restituisce il PMID.)*
+- **Ambiente:** la Fase C gira in **WSL Ubuntu**, non su Windows nativo — Biomni è documentato e testato solo su Ubuntu e il suo installer non ha un ramo Windows.
+- **Licenze:** Biomni è Apache 2.0 ma include dataset non commerciali; quando `commercial_mode` è attivo vanno esclusi. Da documentare in `README.md`.
 - Etichette ammesse: `noto`, `assente`, `atteso`, `ipotesi`. `noto` e `assente` richiedono almeno una citazione verificata, altrimenti **declassamento automatico a `ipotesi`**.
 - Categorie ammesse: `ruolo`, `batteriocine`, `ammine_biogene`, `cazymes`, `resistoma`, `virulenza`.
 - La chiave API si legge **solo** dall'ambiente o da `~/.pmn/credentials`; mai da `config.yaml`, mai stampata in log, errori o output.
@@ -57,21 +59,30 @@ LABELS = ("noto", "assente", "atteso", "ipotesi")
 CATEGORIES = ("ruolo", "batteriocine", "ammine_biogene", "cazymes", "resistoma", "virulenza")
 
 @dataclass(frozen=True)
-class Claim:      category: str; statement: str; label: str; pmids: tuple
-@dataclass(frozen=True)
-class RawDossier:  taxon: str; detected_by: str; claims: tuple; searched_pmids: frozenset
-@dataclass(frozen=True)
 class Citation:    pmid: str; title: str; year: str
 @dataclass(frozen=True)
-class Dossier:     taxon: str; detected_by: str; claims: tuple; citations: dict; dropped: tuple
+class Claim:       category: str; statement: str; label: str; refs: tuple   # 1-based indices
+@dataclass(frozen=True)
+class RawDossier:  taxon: str; detected_by: str; claims: tuple; references: tuple  # Citation
+@dataclass(frozen=True)
+class Dossier:     taxon: str; detected_by: str; claims: tuple; references: tuple; dropped_refs: int
 
 select_taxa(metaphlan_path: str, kraken_path: str, threshold_pct: float, max_taxa: int) -> list[tuple[str, str]]
-filter_unsearched(raw: RawDossier) -> RawDossier
-verify_pmids(pmids: set, fetch) -> tuple[dict, list]
-apply_labels(claims: tuple, verified: set) -> tuple
-build_dossier(raw: RawDossier, fetch) -> Dossier
+resolve_citations(raw: RawDossier) -> tuple[RawDossier, int]
+verify_pmids(pmids: set, fetch) -> tuple[dict, list]      # used by the client, at retrieval time
+apply_labels(claims: tuple) -> tuple
+build_dossier(raw: RawDossier) -> Dossier
 render_markdown(dossiers: list, meta: dict) -> str
 render_tsv(dossiers: list) -> str
+```
+
+`steps/_biomni_client.py` (Task 8, network boundary)
+
+```python
+pubmed_search(taxon: str, retmax: int = 12) -> list[str]   # PMIDs from esearch
+ncbi_fetch(pmid: str) -> Citation | None                   # esummary
+build_references(taxon: str) -> tuple                      # search + verify -> ordered Citations
+class BiomniClient:  __init__(llm: str, data_path: str = "");  ask(taxon, detected_by) -> RawDossier
 ```
 
 `steps/_biomni_consent.py`
@@ -323,7 +334,14 @@ git commit -m "feat(phase-c): select taxa above threshold from MetaPhlAn and Kra
 
 ---
 
-## Task 2: Tipi e filtro delle citazioni non cercate (regola anti-invenzione 1)
+## Task 2: Tipi e citazioni per numero (regola anti-invenzione 1, riscritta)
+
+> 🔄 **RISCRITTO il 2026-08-06 dopo lo spike (Task 0).** Il disegno originale filtrava i PMID
+> che il modello citava, tenendo solo quelli tornati da una ricerca. **Non è realizzabile con
+> Biomni:** `query_pubmed` restituisce solo `Title / Abstract / Journal`, **mai il PMID**
+> (verificato sul sorgente, due volte). Quindi il modello **non sceglie più le fonti**: gliele
+> forniamo noi, numerate, e lui **cita per numero**. Non vedendo mai un identificativo in forma
+> libera, non ne può inventare uno plausibile; un numero fuori intervallo è banale da scartare.
 
 **Files:**
 - Modify: `steps/_biomni_core.py`
@@ -331,33 +349,58 @@ git commit -m "feat(phase-c): select taxa above threshold from MetaPhlAn and Kra
 
 **Interfaces:**
 - Consumes: niente dal Task 1 se non il modulo.
-- Produces: `Claim`, `RawDossier`, `Citation`, `Dossier`, `filter_unsearched(raw) -> RawDossier`.
+- Produces: `Citation(pmid, title, year)`, `Claim(category, statement, label, refs)` dove
+  `refs` è una tupla di **interi 1-based**, `RawDossier(taxon, detected_by, claims, references)`
+  dove `references` è una tupla ordinata di `Citation`, `Dossier`, e
+  `resolve_citations(raw) -> tuple[RawDossier, int]` che restituisce il dossier ripulito e
+  quanti riferimenti sono stati scartati perché fuori intervallo.
 
 - [ ] **Step 1: Scrivere il test che fallisce**
 
 Aggiungere in fondo a `tests/test_biomni_core.py`:
 
 ```python
+REFS = (
+    core.Citation("111", "Sakacin production in Latilactobacillus sakei", "2019"),
+    core.Citation("222", "Biogenic amines in dry sausage", "2021"),
+)
+
+
 def _raw(**kw):
     base = dict(
         taxon="Latilactobacillus sakei",
         detected_by="metaphlan",
-        claims=(core.Claim("ruolo", "starter wild-type", "noto", ("111", "999")),),
-        searched_pmids=frozenset({"111"}),
+        claims=(core.Claim("ruolo", "starter wild-type", "noto", (1, 7)),),
+        references=REFS,
     )
     base.update(kw)
     return core.RawDossier(**base)
 
 
-def test_pmid_not_returned_by_search_is_removed():
-    out = core.filter_unsearched(_raw())
-    assert out.claims[0].pmids == ("111",)
+def test_reference_number_out_of_range_is_removed():
+    out, dropped = core.resolve_citations(_raw())
+    assert out.claims[0].refs == (1,)
+    assert dropped == 1
 
 
-def test_claim_losing_all_pmids_keeps_an_empty_tuple():
-    raw = _raw(claims=(core.Claim("resistoma", "tet(M)", "noto", ("999",)),))
-    out = core.filter_unsearched(raw)
-    assert out.claims[0].pmids == ()
+def test_claim_losing_all_references_keeps_an_empty_tuple():
+    raw = _raw(claims=(core.Claim("resistoma", "tet(M)", "noto", (9,)),))
+    out, dropped = core.resolve_citations(raw)
+    assert out.claims[0].refs == ()
+    assert dropped == 1
+
+
+def test_zero_is_not_a_valid_reference_number():
+    raw = _raw(claims=(core.Claim("ruolo", "x", "noto", (0,)),))
+    out, _ = core.resolve_citations(raw)
+    assert out.claims[0].refs == ()
+
+
+def test_valid_references_survive_untouched():
+    raw = _raw(claims=(core.Claim("ruolo", "x", "noto", (1, 2)),))
+    out, dropped = core.resolve_citations(raw)
+    assert out.claims[0].refs == (1, 2)
+    assert dropped == 0
 
 
 def test_unknown_category_is_rejected():
@@ -373,14 +416,19 @@ def test_unknown_label_is_rejected():
 - [ ] **Step 2: Eseguire i test e verificare che falliscano**
 
 Run: `conda run -n pmn_reports_py python -m pytest tests/test_biomni_core.py -v`
-Expected: FAIL con `AttributeError: module '_biomni_core' has no attribute 'Claim'`
+Expected: FAIL con `AttributeError: module '_biomni_core' has no attribute 'Citation'`
 
 - [ ] **Step 3: Scrivere l'implementazione minima**
 
-Aggiungere in `steps/_biomni_core.py`, subito dopo le costanti:
+Aggiungere in `steps/_biomni_core.py`, subito dopo le costanti (e aggiungere
+`from dataclasses import dataclass, replace` agli import in cima al file):
 
 ```python
-from dataclasses import dataclass, replace  # noqa: E402  (kept next to the types)
+@dataclass(frozen=True)
+class Citation:
+    pmid: str
+    title: str
+    year: str
 
 
 @dataclass(frozen=True)
@@ -388,7 +436,7 @@ class Claim:
     category: str
     statement: str
     label: str
-    pmids: tuple
+    refs: tuple          # 1-based indices into RawDossier.references
 
     def __post_init__(self):
         if self.category not in CATEGORIES:
@@ -402,14 +450,7 @@ class RawDossier:
     taxon: str
     detected_by: str
     claims: tuple
-    searched_pmids: frozenset
-
-
-@dataclass(frozen=True)
-class Citation:
-    pmid: str
-    title: str
-    year: str
+    references: tuple    # ordered Citation objects WE retrieved from NCBI
 
 
 @dataclass(frozen=True)
@@ -417,29 +458,37 @@ class Dossier:
     taxon: str
     detected_by: str
     claims: tuple
-    citations: dict
-    dropped: tuple
+    references: tuple
+    dropped_refs: int
 
 
-def filter_unsearched(raw: RawDossier) -> RawDossier:
-    """Rule 1: keep only PMIDs that a real search actually returned."""
-    kept = tuple(
-        replace(c, pmids=tuple(p for p in c.pmids if p in raw.searched_pmids))
-        for c in raw.claims
-    )
-    return replace(raw, claims=kept)
+def resolve_citations(raw: RawDossier):
+    """Rule 1: the model cites by NUMBER into a list we supplied.
+
+    It never sees a free-form identifier, so it cannot invent a plausible one. A number
+    outside 1..len(references) is not evidence — it is dropped and counted.
+    Returns (cleaned RawDossier, how many references were dropped).
+    """
+    n = len(raw.references)
+    dropped = 0
+    kept = []
+    for c in raw.claims:
+        good = tuple(i for i in c.refs if isinstance(i, int) and 1 <= i <= n)
+        dropped += len(c.refs) - len(good)
+        kept.append(replace(c, refs=good))
+    return replace(raw, claims=tuple(kept)), dropped
 ```
 
 - [ ] **Step 4: Eseguire i test e verificare che passino**
 
 Run: `conda run -n pmn_reports_py python -m pytest tests/test_biomni_core.py -v`
-Expected: PASS, 9 test
+Expected: PASS, 11 test
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add steps/_biomni_core.py tests/test_biomni_core.py
-git commit -m "feat(phase-c): drop citations the model invented but no search returned"
+git commit -m "feat(phase-c): cite by number into a reference list we control"
 ```
 
 ---
@@ -451,6 +500,12 @@ git commit -m "feat(phase-c): drop citations the model invented but no search re
 - Modify: `tests/test_biomni_core.py`
 
 **Interfaces:**
+> 🔄 **Ruolo cambiato dopo lo spike.** `verify_pmids` non serve più *a valle* per controllare
+> quello che ha detto il modello (ora il modello cita per numero e non vede PMID). Serve **a
+> monte**, quando il client costruisce l'elenco delle fonti: un PMID trovato da `esearch` entra
+> nell'elenco **solo se** `esummary` restituisce titolo e anno. La funzione e i suoi test
+> restano identici; cambia solo chi la chiama (il client del Task 8, non `build_dossier`).
+
 - Consumes: `Citation` dal Task 2.
 - Produces: `verify_pmids(pmids: set, fetch) -> tuple[dict, list]`. `fetch(pmid) -> Citation | None`: viene iniettata, così i test non toccano la rete. Ritorna `({pmid: Citation}, [pmid_scartati])`.
 
@@ -541,8 +596,15 @@ git commit -m "feat(phase-c): verify every PMID against NCBI, drop what cannot b
 - Modify: `tests/test_biomni_core.py`
 
 **Interfaces:**
-- Consumes: `Claim` (Task 2), `verify_pmids` (Task 3).
-- Produces: `apply_labels(claims: tuple, verified: set) -> tuple`, `build_dossier(raw: RawDossier, fetch) -> Dossier`.
+> 🔄 **Aggiornato dopo lo spike.** Le firme cambiano perché la prova non è più «un PMID
+> verificato» ma «almeno un numero di riferimento valido»:
+> `apply_labels(claims: tuple) -> tuple` e `build_dossier(raw: RawDossier) -> Dossier`
+> (niente più `fetch`: le fonti arrivano già verificate dal client). Nei test di questo task,
+> sostituire ovunque `pmids=("111",)` con `refs=(1,)`, `pmids=("999",)` con `refs=(9,)`, e
+> togliere l'argomento `verified=`. La logica di declassamento è invariata.
+
+- Consumes: `Claim` (Task 2), `resolve_citations` (Task 2).
+- Produces: `apply_labels(claims: tuple) -> tuple`, `build_dossier(raw: RawDossier) -> Dossier`.
 
 - [ ] **Step 1: Scrivere il test che fallisce**
 
@@ -600,34 +662,35 @@ Expected: FAIL con `AttributeError: module '_biomni_core' has no attribute 'appl
 Aggiungere in `steps/_biomni_core.py`:
 
 ```python
-def apply_labels(claims, verified):
-    """Rule 3: 'noto' and 'assente' require at least one VERIFIED citation.
+def apply_labels(claims):
+    """Rule 3: 'noto' and 'assente' require at least one SURVIVING reference number.
 
     Without one the claim is rewritten to 'ipotesi', whatever the model answered.
     'atteso' is an explicit inference and needs no citation.
     """
     out = []
     for c in claims:
-        has_proof = any(p in verified for p in c.pmids)
-        if c.label in ("noto", "assente") and not has_proof:
+        if c.label in ("noto", "assente") and not c.refs:
             out.append(replace(c, label="ipotesi"))
         else:
             out.append(c)
     return tuple(out)
 
 
-def build_dossier(raw: RawDossier, fetch) -> Dossier:
-    """Apply the three anti-invention rules in order and return a finished Dossier."""
-    filtered = filter_unsearched(raw)
-    cited = {p for c in filtered.claims for p in c.pmids}
-    confirmed, dropped = verify_pmids(cited, fetch)
-    labelled = apply_labels(filtered.claims, set(confirmed))
+def build_dossier(raw: RawDossier) -> Dossier:
+    """Apply the anti-invention rules in order and return a finished Dossier.
+
+    The references were retrieved and verified by the client BEFORE the model saw them,
+    so there is nothing left to fetch here: resolve the numbers, then demote what has no
+    surviving reference.
+    """
+    resolved, dropped = resolve_citations(raw)
     return Dossier(
-        taxon=filtered.taxon,
-        detected_by=filtered.detected_by,
-        claims=labelled,
-        citations=confirmed,
-        dropped=tuple(dropped),
+        taxon=resolved.taxon,
+        detected_by=resolved.detected_by,
+        claims=apply_labels(resolved.claims),
+        references=resolved.references,
+        dropped_refs=dropped,
     )
 ```
 
@@ -724,16 +787,25 @@ _HEADER = (
 )
 
 
+def _pmids(claim, references):
+    """Map surviving 1-based reference numbers back to the PMIDs we retrieved."""
+    return [references[i - 1].pmid for i in claim.refs]
+
+
 def render_markdown(dossiers, meta) -> str:
-    """Human-readable dossier. Only VERIFIED citations are ever printed as evidence."""
+    """Human-readable dossier. Only references WE retrieved are ever printed as evidence."""
     parts = [_HEADER.format(**meta)]
     for d in dossiers:
         parts.append(f"## {d.taxon}\n")
         parts.append(f"Rilevato da: {d.detected_by}\n\n")
         for c in d.claims:
-            proof = [p for p in c.pmids if p in d.citations]
+            proof = _pmids(c, d.references)
             refs = "  [" + "; ".join(f"PMID {p}" for p in proof) + "]" if proof else ""
             parts.append(f"- {c.category}: {c.statement}  ({c.label}){refs}\n")
+        if d.references:
+            parts.append("\nFonti consultate:\n")
+            for i, cit in enumerate(d.references, 1):
+                parts.append(f"  [{i}] PMID {cit.pmid} — {cit.title} ({cit.year})\n")
         parts.append("\n")
     return "".join(parts)
 
@@ -743,10 +815,16 @@ def render_tsv(dossiers) -> str:
     rows = ["taxon\trilevato_da\tcategoria\taffermazione\tetichetta\tcitazioni_verificate"]
     for d in dossiers:
         for c in d.claims:
-            proof = ";".join(p for p in c.pmids if p in d.citations)
+            proof = ";".join(_pmids(c, d.references))
             rows.append(f"{d.taxon}\t{d.detected_by}\t{c.category}\t{c.statement}\t{c.label}\t{proof}")
     return "\n".join(rows) + "\n"
 ```
+
+> 🔄 **Test di questo task, aggiornati dopo lo spike.** In `_one_dossier()` costruire il
+> `RawDossier` con `references=REFS` e claim con `refs=(1,)` e `refs=(9,)`, e chiamare
+> `core.build_dossier(raw)` senza `_fetch`. Le asserzioni restano le stesse: `PMID 111`
+> presente, `PMID 999` assente, header con modello e conteggi, TSV con `\tipotesi\t`.
+> In più: `assert "Fonti consultate" in md`.
 
 - [ ] **Step 4: Eseguire i test e verificare che passino**
 
@@ -1112,7 +1190,11 @@ k__Bacteria|s__Staphylococcus_xylosus\t5.0
 
 
 class FakeClient:
-    """Stands in for Biomni: fixed answers, zero cost, no network."""
+    """Stands in for Biomni: fixed answers, zero cost, no network.
+
+    One claim cites reference [1] (which exists) and one cites [9] (which does not) — so every
+    run exercises both the surviving path and the automatic demotion to 'ipotesi'.
+    """
     def __init__(self):
         self.asked = []
 
@@ -1120,16 +1202,10 @@ class FakeClient:
         self.asked.append(taxon)
         return core.RawDossier(
             taxon=taxon, detected_by=detected_by,
-            claims=(core.Claim("batteriocine", "sakacina", "noto", ("111",)),
-                    core.Claim("resistoma", "tet(M)", "noto", ("999",))),
-            searched_pmids=frozenset({"111", "999"}),
+            claims=(core.Claim("batteriocine", "sakacina", "noto", (1,)),
+                    core.Claim("resistoma", "tet(M)", "noto", (9,))),
+            references=(core.Citation("111", "Sakacin production", "2019"),),
         )
-
-
-def _fetch(pmid):
-    if pmid == "111":
-        return core.Citation("111", "Sakacin production", "2019")
-    return None
 
 
 def _tables(tmp_path):
@@ -1142,7 +1218,7 @@ def _run(tmp_path, client=None, **kw):
     """Hermetic call: cred_path always points inside tmp_path, never at the real home."""
     opts = dict(metaphlan=_tables(tmp_path), kraken="", out=str(tmp_path / "o"),
                 llm="gpt-4o", work_dir=str(tmp_path), threshold_pct=0.001, max_taxa=5,
-                dry_run=False, assume_yes=False, client=client or FakeClient(), fetch=_fetch,
+                dry_run=False, assume_yes=False, client=client or FakeClient(),
                 environ={"OPENAI_API_KEY": "x"}, interactive=False,
                 cred_path=tmp_path / "creds")
     opts.update(kw)
@@ -1268,9 +1344,9 @@ def _ask_consent(llm, provider, taxa, ask, show):
 
 
 def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
-        dry_run, assume_yes, client, fetch, environ, interactive,
+        dry_run, assume_yes, client, environ, interactive,
         cred_path=None, ask=input, show=print):
-    """Everything is injected (client, fetch, environ, interactive, cred_path, ask, show)
+    """Everything is injected (client, environ, interactive, cred_path, ask, show)
     so tests are hermetic and cost nothing."""
     try:
         provider = consent.provider_for(llm)
@@ -1313,10 +1389,10 @@ def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
 
     dossiers, confirmed, dropped = [], 0, 0
     for name, src in taxa:
-        d = core.build_dossier(client.ask(name, src), fetch)
+        d = core.build_dossier(client.ask(name, src))
         dossiers.append(d)
-        confirmed += len(d.citations)
-        dropped += len(d.dropped)
+        confirmed += len(d.references)
+        dropped += d.dropped_refs
 
     meta = {"model": llm, "provider": provider.label, "date": date.today().isoformat(),
             "n_taxa": len(dossiers), "confirmed": confirmed, "dropped": dropped,
@@ -1349,10 +1425,10 @@ def main() -> int:
     if not a.metaphlan and not a.kraken:
         return _fail("provide at least one of --metaphlan / --kraken")
 
-    from _biomni_client import BiomniClient, ncbi_fetch  # imported late: heavy dependency
+    from _biomni_client import BiomniClient  # imported late: heavy dependency
     return run(a.metaphlan, a.kraken, a.out, a.llm, a.work_dir, a.threshold_pct,
                a.max_taxa, a.dry_run, a.yes_send_taxa,
-               BiomniClient(a.llm), ncbi_fetch, os.environ, sys.stdin.isatty())
+               BiomniClient(a.llm), os.environ, sys.stdin.isatty())
 
 
 if __name__ == "__main__":
@@ -1366,27 +1442,80 @@ Expected: PASS, 8 test
 
 - [ ] **Step 5: Scrivere l'adattatore reale**
 
-Creare `steps/_biomni_client.py`. Le firme di `A1` vanno prese dai findings del Task 0; questo è lo scheletro da riempire con quelle firme:
+Creare `steps/_biomni_client.py`. Le firme esatte di `A1.__init__` e `go()` sono nei findings
+del Task 0 (§Q2): **leggerle da lì e usarle verbatim**, non fidarsi di questo scheletro.
+
+> 🔄 **Riscritto dopo lo spike.** `query_pubmed` di Biomni **non restituisce il PMID**, quindi
+> la ricerca la facciamo noi: `esearch` → `esummary` → elenco numerato → il modello legge e
+> cita per numero. Il modello non vede mai un identificativo in forma libera.
 
 ```python
 # -*- coding: utf-8 -*-
 # steps/_biomni_client.py - the ONLY module that talks to Biomni and to NCBI over the network.
 # Conda env: pmn_biomni. Imported late by 50_biomni_dossier.py so the pure logic stays testable.
+#
+# We do the literature search ourselves. Biomni's query_pubmed searches PubMed for real but
+# returns only Title/Abstract/Journal - the PMID never appears in its return value, which would
+# make every citation untraceable. So: esearch -> esummary -> a NUMBERED reference list handed
+# to the agent, which cites by number and never sees a free-form identifier.
 import json
 import urllib.parse
 import urllib.request
 
 import _biomni_core as core
 
-_PROMPT = """You are given ONE microbial species name: "{taxon}".
-Search PubMed for evidence about its role in FERMENTED MEAT products.
+_EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+_DOMAIN = '("fermented meat"[tiab] OR sausage[tiab] OR salami[tiab] OR "dry-cured"[tiab])'
+
+_PROMPT = """You are given ONE microbial species: "{taxon}", and a NUMBERED list of papers.
+Use ONLY these papers as evidence. Do not use any other source.
+
+{refs}
+
 Return ONLY valid JSON, no prose, with this exact shape:
 {{"claims":[{{"category":"ruolo|batteriocine|ammine_biogene|cazymes|resistoma|virulenza",
-"statement":"one short sentence","label":"noto|assente|atteso","pmids":["12345678"]}}],
-"searched_pmids":["12345678"]}}
-Rules: put in "searched_pmids" ONLY PMIDs that your PubMed search actually returned.
-Never invent an identifier. If you have no evidence, use label "atteso" and an empty pmids list.
+"statement":"one short sentence","label":"noto|assente|atteso","refs":[1,3]}}]}}
+
+Rules:
+- "refs" holds NUMBERS from the list above. Never write a PubMed ID or a DOI.
+- Use label "noto" or "assente" ONLY when a listed paper supports it, and cite its number.
+- With no supporting paper, use label "atteso" (inference from the genus) and "refs": [].
 """
+
+
+def pubmed_search(taxon: str, retmax: int = 12):
+    """esearch restricted to the fermented-meat domain. Returns a list of PMID strings."""
+    term = f'"{taxon}"[tiab] AND {_DOMAIN}'
+    url = (f"{_EUTILS}/esearch.fcgi?db=pubmed&retmode=json&retmax={int(retmax)}"
+           f"&term={urllib.parse.quote(term)}")
+    with urllib.request.urlopen(url, timeout=30) as r:
+        data = json.load(r)
+    return list(data.get("esearchresult", {}).get("idlist", []))
+
+
+def ncbi_fetch(pmid: str):
+    """esummary for one PMID. Returns a Citation, or None when NCBI has no usable record."""
+    url = (f"{_EUTILS}/esummary.fcgi?db=pubmed&retmode=json&id={urllib.parse.quote(pmid)}")
+    with urllib.request.urlopen(url, timeout=30) as r:
+        data = json.load(r)
+    rec = data.get("result", {}).get(pmid)
+    if not rec or not rec.get("title"):
+        return None
+    return core.Citation(pmid, rec["title"], (rec.get("pubdate", "") or "")[:4])
+
+
+def build_references(taxon: str):
+    """Search, then keep only the PMIDs esummary can actually confirm (Task 3's rule 2)."""
+    confirmed, _dropped = core.verify_pmids(set(pubmed_search(taxon)), ncbi_fetch)
+    return tuple(sorted(confirmed.values(), key=lambda c: (c.year, c.pmid), reverse=True))
+
+
+def _extract_json(text: str) -> str:
+    """A1 may wrap the JSON in prose or a fence; take the outermost object."""
+    s, e = text.find("{"), text.rfind("}")
+    if s < 0 or e <= s:
+        raise ValueError("the model did not return JSON")
+    return text[s:e + 1]
 
 
 class BiomniClient:
@@ -1395,39 +1524,20 @@ class BiomniClient:
         self._agent = A1(path=data_path or "./biomni_data", llm=llm)
 
     def ask(self, taxon: str, detected_by: str) -> core.RawDossier:
-        answer = self._agent.go(_PROMPT.format(taxon=taxon))
+        refs = build_references(taxon)
+        listing = "\n".join(
+            f"[{i}] {c.title} ({c.year})" for i, c in enumerate(refs, 1)
+        ) or "(no papers found for this species in this domain)"
+        answer = self._agent.go(_PROMPT.format(taxon=taxon, refs=listing))
         payload = json.loads(_extract_json(answer))
         claims = tuple(
-            core.Claim(c["category"], c["statement"], c["label"], tuple(c.get("pmids", [])))
+            core.Claim(c["category"], c["statement"], c["label"],
+                       tuple(i for i in c.get("refs", []) if isinstance(i, int)))
             for c in payload.get("claims", [])
             if c.get("category") in core.CATEGORIES and c.get("label") in core.LABELS
         )
-        return core.RawDossier(taxon, detected_by, claims,
-                               frozenset(payload.get("searched_pmids", [])))
-
-
-def _extract_json(text: str) -> str:
-    """A1 may wrap the JSON in prose or a fence; take the outermost object."""
-    s = text.find("{")
-    e = text.rfind("}")
-    if s < 0 or e <= s:
-        raise ValueError("the model did not return JSON")
-    return text[s:e + 1]
-
-
-def ncbi_fetch(pmid: str):
-    """Fetch title+year from NCBI E-utilities. Returns None when not found."""
-    url = ("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json"
-           "&id=" + urllib.parse.quote(pmid))
-    with urllib.request.urlopen(url, timeout=20) as r:
-        data = json.load(r)
-    rec = data.get("result", {}).get(pmid)
-    if not rec or "title" not in rec:
-        return None
-    return core.Citation(pmid, rec.get("title", ""), (rec.get("pubdate", "") or "")[:4])
+        return core.RawDossier(taxon, detected_by, claims, refs)
 ```
-
-⚠️ Se il Task 0 ha rilevato firme diverse per `A1(...)` o `agent.go(...)`, **correggere qui** e annotarlo nei findings.
 
 - [ ] **Step 6: Commit**
 
