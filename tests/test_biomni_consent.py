@@ -106,6 +106,13 @@ def test_store_credential_warns_only_where_permissions_cannot_be_locked_down(tmp
         assert warning != ""
 
 
+def test_a_provider_we_cannot_check_says_so_instead_of_claiming_the_key_works():
+    """Azure/Bedrock need endpoint and region configuration we do not have, so there is no
+    single call to make. None means 'unknown' - never a green light. No network here."""
+    assert cs.check_api_key(cs.provider_for("azure/gpt-4o"), "irrelevant") is None
+    assert cs.check_api_key(cs.provider_for("bedrock/claude"), "irrelevant") is None
+
+
 def test_provider_errors_are_translated_into_plain_language():
     assert "valida" in cs.translate_provider_error(401)
     assert "credito" in cs.translate_provider_error(429)
