@@ -68,6 +68,26 @@ def resolve_citations(raw: RawDossier):
     return replace(raw, claims=tuple(kept)), dropped
 
 
+def verify_pmids(pmids, fetch):
+    """Rule 2: re-check every PMID against NCBI. Anything we cannot confirm is DROPPED.
+
+    `fetch(pmid)` returns a Citation or None; it is injected so tests never hit the network.
+    A network error drops the citation: silence is not confirmation.
+    """
+    confirmed = {}
+    dropped = []
+    for pmid in sorted(pmids):
+        try:
+            cit = fetch(pmid)
+        except Exception:
+            cit = None
+        if cit is None or not cit.title:
+            dropped.append(pmid)
+        else:
+            confirmed[pmid] = cit
+    return confirmed, dropped
+
+
 def _display(normalized: str) -> str:
     """Turn a normalized name ('latilactobacillus sakei') into a display name."""
     return normalized[:1].upper() + normalized[1:] if normalized else normalized

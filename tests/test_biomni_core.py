@@ -112,3 +112,34 @@ def test_unknown_category_is_rejected():
 def test_unknown_label_is_rejected():
     with pytest.raises(ValueError):
         core.Claim("ruolo", "x", "certissimo", ())
+
+
+REAL = {
+    "111": core.Citation("111", "Sakacin production in Latilactobacillus sakei", "2019"),
+    "222": core.Citation("222", "Biogenic amines in dry sausage", "2021"),
+}
+
+
+def _fetch(pmid):
+    return REAL.get(pmid)
+
+
+def test_existing_pmids_are_confirmed():
+    ok, dropped = core.verify_pmids({"111", "222"}, _fetch)
+    assert set(ok) == {"111", "222"}
+    assert dropped == []
+
+
+def test_nonexistent_pmid_is_dropped():
+    ok, dropped = core.verify_pmids({"111", "404404"}, _fetch)
+    assert set(ok) == {"111"}
+    assert dropped == ["404404"]
+
+
+def test_network_failure_drops_rather_than_confirms():
+    def boom(pmid):
+        raise OSError("network down")
+
+    ok, dropped = core.verify_pmids({"111"}, boom)
+    assert ok == {}
+    assert dropped == ["111"]
