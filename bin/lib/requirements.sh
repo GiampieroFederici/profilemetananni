@@ -36,7 +36,7 @@ declare -A PMN_ENV_PKGS=(
   [pmn_metaphlan]="metaphlan>=4.1"
   [pmn_kraken]="kraken2>=2.1.3 bracken>=2.9 ncbi-datasets-cli unzip"
   [pmn_stats_r]="r-base r-vegan r-ade4 r-ape r-zcompositions r-rstatix r-ggpubr"
-  [pmn_reports_py]="python pandas numpy scipy matplotlib seaborn openpyxl pyyaml"
+  [pmn_reports_py]="python pandas numpy scipy matplotlib seaborn openpyxl pyyaml pytest"
 )
 
 # A cheap probe per environment: confirms the key tool is actually callable
@@ -56,7 +56,7 @@ declare -A PMN_ENV_PROBE=(
   [pmn_metaphlan]="metaphlan --version"
   [pmn_kraken]="kraken2 --version && command -v bracken && command -v datasets && command -v unzip"
   [pmn_stats_r]="Rscript -e 'suppressMessages(library(vegan))'"
-  [pmn_reports_py]="python -c 'import pandas,numpy,scipy,matplotlib,seaborn,openpyxl,yaml'"
+  [pmn_reports_py]="python -c 'import pandas,numpy,scipy,matplotlib,seaborn,openpyxl,yaml,pytest'"
 )
 
 # Explicit order (associative arrays are unordered) for reporting/installation.
