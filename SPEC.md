@@ -123,7 +123,7 @@ Ask the user the following, one topic at a time, and write the answers into
    after the user picks a model and consents to sending species names.
    - Present **both families of models in the same space**, with the honest trade-off stated
      both ways — neither is "the real one":
-     - **Paid, hosted** (`claude-*`, `gpt-*`, `gemini-*`, `groq/*`, `azure/*`, `bedrock/*`) —
+     - **Paid, hosted** (`claude-*`, `gpt-*`, `gemini-*`, `groq/*`) —
        needs the user's OWN API key and **costs real money**, and the species names leave the
        machine; reasons better on this multi-step task.
      - **Free, local** (`ollama/<model>`) — costs nothing, nothing leaves the machine; makes

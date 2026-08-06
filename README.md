@@ -434,7 +434,7 @@ You choose which model. There is no default hidden inside the tool, and **neithe
 
 | | **Paid, hosted models** | **Free, local model** |
 |---|---|---|
-| Examples | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` · `azure/*` · `bedrock/*` | `ollama/<model>` (via [Ollama](https://ollama.com), runs on your own computer) |
+| Examples | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` | `ollama/<model>` (via [Ollama](https://ollama.com), runs on your own computer) |
 | Cost | **Real money**, charged by the provider to your own account. | **Zero.** |
 | Where the model runs | On the provider's servers | On your computer |
 | What leaves your machine | Only species names (see below) | **Nothing** |
@@ -959,7 +959,7 @@ nascosto nel tool, e **nessuna delle due opzioni è "quella vera"**:
 
 | | **Modelli a pagamento (in cloud)** | **Modello gratuito e locale** |
 |---|---|---|
-| Esempi | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` · `azure/*` · `bedrock/*` | `ollama/<modello>` (via [Ollama](https://ollama.com), gira sul tuo computer) |
+| Esempi | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` | `ollama/<modello>` (via [Ollama](https://ollama.com), gira sul tuo computer) |
 | Costo | **Soldi veri**, addebitati dal fornitore sul tuo account. | **Zero.** |
 | Dove gira il modello | Sui server del fornitore | Sul tuo computer |
 | Cosa esce dal tuo PC | Solo i nomi delle specie (vedi sotto) | **Niente** |

@@ -28,6 +28,12 @@ PMN_CHANNELS=(-c conda-forge -c bioconda)
 #   rendere irrisolvibile l'ambiente conda. I pin esatti ("==") sono
 #   evitati di proposito perche spesso bloccano il solve. Tutti gli altri
 #   pacchetti restano nomi nudi (va bene l'ultima build compatibile).
+#   pytest dentro pmn_reports_py e' una scelta, non una svista: il piano della Fase C
+#   (docs/superpowers/plans/2026-08-06-biomni-fase-c.md) verifica ogni task con
+#   "conda run -n pmn_reports_py python -m pytest ...", quindi in produzione i test
+#   girano dentro questo env e senza pytest non partono affatto. Il prezzo e' che un
+#   ambiente di analisi senza pytest viene segnalato ROTTO da preflight: accettato,
+#   perche' un ambiente in cui i test non si possono lanciare non e' verificabile.
 declare -A PMN_ENV_PKGS=(
   [pmn_download]="sra-tools pigz"
   [pmn_qc]="multiqc"

@@ -107,10 +107,21 @@ def test_store_credential_warns_only_where_permissions_cannot_be_locked_down(tmp
 
 
 def test_a_provider_we_cannot_check_says_so_instead_of_claiming_the_key_works():
-    """Azure/Bedrock need endpoint and region configuration we do not have, so there is no
-    single call to make. None means 'unknown' - never a green light. No network here."""
-    assert cs.check_api_key(cs.provider_for("azure/gpt-4o"), "irrelevant") is None
-    assert cs.check_api_key(cs.provider_for("bedrock/claude"), "irrelevant") is None
+    """None means 'unknown' - never a green light. Built by hand, because no shipped
+    provider lacks an endpoint any more: the rule must survive the next one that does.
+    No network here: the function returns before making any request."""
+    unknown = cs.Provider("sgland", "Custom endpoint", "CUSTOM_API_KEY", "https://x", False)
+    assert cs.check_api_key(unknown, "irrelevant") is None
+
+
+def test_a_model_name_biomni_cannot_resolve_is_refused_here_not_20_minutes_later():
+    """azure/* and bedrock/* were declared by us and rejected by Biomni: biomni/llm.py
+    matches "azure-" and "anthropic.claude-"/"amazon.titan-"/..., so these names raise
+    ValueError inside get_llm. Passing our gate and failing there would name the wrong
+    provider in the consent box - the one line that has to be exact."""
+    for name in ("azure/gpt-4o", "bedrock/claude", "anthropic.claude-3-sonnet", "azure-gpt-4o"):
+        with pytest.raises(ValueError):
+            cs.provider_for(name)
 
 
 def test_provider_errors_are_translated_into_plain_language():

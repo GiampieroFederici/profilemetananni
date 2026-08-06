@@ -93,7 +93,7 @@ by default, capped at `max_taxa`, and never submitted to a cluster.
 
 **Where API keys live:**
 - Read first from the environment (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
-  `GROQ_API_KEY`, Azure/AWS credentials); the environment always wins over the file below.
+  `GROQ_API_KEY`); the environment always wins over the file below.
 - Otherwise from `~/.pmn/credentials` (one `VARIABLE=value` line per provider), which lives
   outside the repository so it can never end up in a commit; `.gitignore` also excludes
   `.pmn/` and `*.credentials` as a safety net.

@@ -27,12 +27,16 @@ _PROVIDERS = (
                             "https://aistudio.google.com/apikey", False)),
     (("groq/",), Provider("groq", "Groq", "GROQ_API_KEY",
                           "https://console.groq.com/keys", False)),
-    (("azure/",), Provider("azure", "Azure OpenAI", "AZURE_OPENAI_API_KEY",
-                           "https://portal.azure.com", False)),
-    (("bedrock/",), Provider("bedrock", "AWS Bedrock", "AWS_SECRET_ACCESS_KEY",
-                             "https://console.aws.amazon.com/iam", False)),
     (("ollama/",), Provider("ollama", "Ollama (locale)", "", "https://ollama.com/download", True)),
 )
+# azure/* and bedrock/* used to be listed here. They were removed because Biomni does not
+# accept them: biomni/llm.py matches Azure on the prefix "azure-" (not "azure/") and reads
+# OPENAI_API_KEY + OPENAI_ENDPOINT (not AZURE_OPENAI_API_KEY), and reaches Bedrock only from
+# model names like "anthropic.claude-*" / "amazon.titan-*", never from a "bedrock/" prefix.
+# Anything else raises ValueError inside get_llm. Declaring them here let a config pass our
+# consent gate and fail later, deeper, with the provider named wrongly in the consent box -
+# the one place that must be exact. Supporting them properly needs an Azure or AWS account to
+# test against; until then, refusing the name up front is the honest behaviour.
 
 
 def provider_for(llm: str) -> Provider:
@@ -42,8 +46,7 @@ def provider_for(llm: str) -> Provider:
         if any(name.startswith(p) for p in prefixes):
             return provider
     raise ValueError(
-        f"unknown model '{llm}': use claude-*, gpt-*, gemini-*, groq/*, azure/*, "
-        "bedrock/* or ollama/*"
+        f"unknown model '{llm}': use claude-*, gpt-*, gemini-*, groq/* or ollama/*"
     )
 
 
@@ -141,10 +144,10 @@ def check_api_key(provider: Provider, key: str):
     after 20 minutes of work.
 
     Returns 0 when the key is accepted, the HTTP status when the provider refuses it, -1
-    when the provider cannot be reached at all, and None when this provider cannot be
-    checked with a single call (Azure/Bedrock need endpoint/region configuration we do not
-    have). Never raises: an exception escaping here could carry the request - and with it
-    the key - into a traceback. The key travels in a header, never in the URL.
+    when the provider cannot be reached at all, and None when no single call can check this
+    provider. None means UNKNOWN and is never treated as a green light. Never raises: an
+    exception escaping here could carry the request - and with it the key - into a
+    traceback. The key travels in a header, never in the URL.
     """
     import urllib.error
     import urllib.request

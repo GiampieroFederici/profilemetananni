@@ -87,7 +87,10 @@ analysis:
                        #    claude-*  (Anthropic, ANTHROPIC_API_KEY)
                        #    gpt-*     (OpenAI,    OPENAI_API_KEY)
                        #    gemini-*  (Google,    GEMINI_API_KEY)
-                       #    groq/* | azure/* | bedrock/*
+                       #    groq/*    (Groq,      GROQ_API_KEY)
+                       #  Azure and Bedrock are NOT supported: Biomni resolves them from
+                       #  other name shapes ("azure-...", "anthropic.claude-...") that we
+                       #  cannot test, so we refuse the name instead of failing later.
                        #  FREE AND LOCAL (no key, no cost, nothing leaves):
                        #    ollama/<model>
     data_path: ""      # where to keep the Biomni data lake (~11GB); empty -> ./biomni_data
