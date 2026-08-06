@@ -74,6 +74,25 @@ analysis:
                              # and group tests on alpha diversity (Kruskal-Wallis + Dunn post-hoc, BH-adjusted)
   group_col: ""              # which metadata column to group by (e.g. product, country); needs 'metadata' set
 
+  # -------------------------------------------------------------------------
+  # PHASE C - taxa dossier via Biomni. OPTIONAL, OFF BY DEFAULT, LOCAL ONLY.
+  # FASE C - dossier dei taxa via Biomni. OPZIONALE, SPENTA, SOLO IN LOCALE.
+  # Only species NAMES ever leave your machine, and only after you consent.
+  # Escono solo i NOMI delle specie, e solo dopo il tuo consenso.
+  # -------------------------------------------------------------------------
+  biomni:
+    enabled: false
+    llm: ""            # REQUIRED when enabled. You choose / lo scegli TU:
+                       #  PAID (needs YOUR api key, COSTS REAL MONEY):
+                       #    claude-*  (Anthropic, ANTHROPIC_API_KEY)
+                       #    gpt-*     (OpenAI,    OPENAI_API_KEY)
+                       #    gemini-*  (Google,    GEMINI_API_KEY)
+                       #    groq/* | azure/* | bedrock/*
+                       #  FREE AND LOCAL (no key, no cost, nothing leaves):
+                       #    ollama/<model>
+    data_path: ""      # where to keep the Biomni data lake (~11GB); empty -> ./biomni_data
+    max_taxa: 5        # HARD CAP. Start at 5 to MEASURE the cost, then raise. Max 500.
+
 # ---------------------------------------------------------------------------
 # EXECUTION / ESECUZIONE
 # ---------------------------------------------------------------------------

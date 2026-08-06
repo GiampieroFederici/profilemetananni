@@ -36,6 +36,9 @@ metadata, configuration or tool output.
    output. Report failures plainly, with the evidence.
 8. **Interpretation is human-guided.** Present results and cite the literature; flag
    uncertainty; never overclaim a biological conclusion.
+9. **Consent before data leaves the machine.** Before sending anything to an external
+   service, show exactly what you are about to send, to whom, and that the operation
+   costs money. Consent is per-project and lapses if the model or the provider changes.
 
 If a request conflicts with these rules, refuse and explain why.
 
@@ -115,6 +118,23 @@ Ask the user the following, one topic at a time, and write the answers into
      - `execution.pbs_select` — OPTIONAL advanced override of the whole `select=...` line for
        users with special needs; leave empty to let the tool build it from threads+mem.
      Present UniTN HPC3 as a worked example, but make clear these values are cluster-specific.
+9. **Phase C — taxa dossier (optional)** — ask whether the user wants the LLM-based per-taxon
+   dossier (`analysis.biomni.enabled`). This step runs only locally, never under PBS, and only
+   after the user picks a model and consents to sending species names.
+   - Present **both families of models in the same space**, with the honest trade-off stated
+     both ways — neither is "the real one":
+     - **Paid, hosted** (`claude-*`, `gpt-*`, `gemini-*`, `groq/*`, `azure/*`, `bedrock/*`) —
+       needs the user's OWN API key and **costs real money**, and the species names leave the
+       machine; reasons better on this multi-step task.
+     - **Free, local** (`ollama/<model>`) — costs nothing, nothing leaves the machine; makes
+       more mistakes on this kind of reasoning task and needs a capable computer.
+   - State plainly that the cost **cannot be predicted in advance**: the agent reasons in
+     several steps before answering. `analysis.biomni.max_taxa` defaults to **5** precisely so
+     the user can measure the real cost before raising it (hard cap: 500). Never invent a
+     figure in euros or dollars — it has not been measured.
+   - If accepted, ask which model (`analysis.biomni.llm`) and, optionally, where to keep the
+     ~11 GB Biomni data lake (`analysis.biomni.data_path`; empty → `./biomni_data`).
+   - If not accepted, leave `analysis.biomni.enabled: false` (the default) and skip Phase C.
 
 ---
 
@@ -128,7 +148,12 @@ Ask the user the following, one topic at a time, and write the answers into
    stays human-guided).
 3. **Phase B** (read-based profiling): run the chosen profiler(s) → cross-tool
    comparison (if `both`) → diversity (alpha/beta) → overview Excel reports.
-4. After each step, verify the real exit code and that the expected outputs exist
+4. **Phase C** (optional): only if `analysis.biomni.enabled` is true, only locally, never
+   under PBS. Launch with `bash bin/run.sh --config config.yaml --phase c` — this can be run
+   standalone, on the user's own machine, after downloading the Phase A/B result tables from
+   a cluster. If a PBS cluster is detected, the step is skipped with a message explaining how
+   to run it locally instead.
+5. After each step, verify the real exit code and that the expected outputs exist
    before moving on. Stop and report on any failure.
 
 > Out of scope (do not run): strain-level analysis, assembly, MAG recovery, functional

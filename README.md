@@ -26,7 +26,8 @@ interpret the results**.
   - [1. What is it?](#1-what-is-profilemetananni) · [2. What it does](#2-what-it-does-the-pipeline) · [3. Who is it for?](#3-who-is-it-for) · [4. How it works](#4-how-it-works-architecture)
   - [5. Before you start](#5-what-you-need-before-you-start) · [6. Get it from GitHub](#6-get-it-from-github) · [7. Quick start from zero](#7-quick-start-from-zero-absolute-beginner) · [8. Quick start (expert)](#8-quick-start-expert)
   - [9. The interview](#9-the-interview-what-the-assistant-asks) · [10. config.yaml reference](#10-configyaml-reference) · [11. Databases](#11-databases) · [12. NCBI API key](#12-ncbi-api-key-optional-secure)
-  - [13. PBS cluster](#13-running-on-a-pbs-cluster) · [14. Outputs](#14-what-you-get-outputs) · [15. Reading results](#15-reading-the-results) · [16. Troubleshooting](#16-troubleshooting) · [17. Scope](#17-scope--what-it-does-not-do) · [18. Security](#18-security) · [19. Glossary](#19-glossary-for-biologists) · [20. Citations](#20-citations)
+  - [13. PBS cluster](#13-running-on-a-pbs-cluster) · [14. Outputs](#14-what-you-get-outputs) · [15. Reading results](#15-reading-the-results) · [16. Troubleshooting](#16-troubleshooting) · [17. Scope](#17-scope--what-it-does-not-do)
+  - [18. Phase C — taxa dossier (optional)](#18-phase-c--taxa-dossier-optional) · [19. Security](#19-security) · [20. Glossary](#20-glossary-for-biologists) · [21. Citations](#21-citations)
 - [🇮🇹 Italiano](#-italiano)
 - [🛠️ Publishing to GitHub · Pubblicare su GitHub](#️-publishing-to-github--pubblicare-su-github)
 - [📁 Repository layout · Struttura](#-repository-layout--struttura-del-repository)
@@ -54,7 +55,7 @@ Three ideas make it special:
 - **🧪 Anti-bug & reproducible** — every step validates its inputs, is idempotent (re-running
   skips work already done), and refuses to delete your raw data.
 - **🔒 Safe** — it is built to resist *prompt injection* (a malicious dataset trying to trick
-  the AI into running harmful commands). See [Security](#18-security).
+  the AI into running harmful commands). See [Security](#19-security).
 
 ## 2. What it does (the pipeline)
 
@@ -388,7 +389,109 @@ overview Excel reports). **Not** included (by design): StrainPhlAn (strain level
 assembly, MAG recovery, functional annotation. If you ask the AI for these, it will say they
 are planned but not implemented.
 
-## 18. Security
+## 18. Phase C — taxa dossier (optional)
+
+Phase C is a **different kind of step**. Phases A and B only run deterministic scripts —
+same input, same output, every time. Phase C asks an AI agent (**Biomni**) to write a short
+dossier about each species you found: what the literature says about its role, and what
+functions it is expected to have (e.g. enzymes that break down proteins, or compounds linked
+to food safety).
+
+It is **OFF by default**. You turn it on yourself, in `config.yaml`.
+
+### Runs only inside WSL Ubuntu (not native Windows)
+
+Biomni — the tool this step relies on — is tested only on **Ubuntu Linux**; its installer has
+no Windows version. So Phase C only runs inside **WSL** (Windows Subsystem for Linux — a real
+Ubuntu system that lives inside Windows), never on Windows directly. If you already work on
+Linux or macOS, you don't need WSL — just run it as-is.
+
+### You choose the model — two honest options, side by side
+
+Phase C needs a **language model** (an AI) to write the dossier, and an **API key** (a
+personal code, like a password, that lets you use a paid AI service) if you pick a paid one.
+You choose which model. There is no default hidden inside the tool, and **neither option is
+"the real one"**:
+
+| | **Paid, hosted models** | **Free, local model** |
+|---|---|---|
+| Examples | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` · `azure/*` · `bedrock/*` | `ollama/<model>` (via [Ollama](https://ollama.com), runs on your own computer) |
+| Cost | **Real money**, charged by the provider to your own account. | **Zero.** |
+| Where the model runs | On the provider's servers | On your computer |
+| What leaves your machine | Only species names (see below) | **Nothing** |
+| Quality on this task | Reasons better through a multi-step task | Makes **more mistakes** on this kind of reasoning; needs a reasonably capable computer |
+
+Pick whichever fits you. Paid models are ready to use and reason better; the free local model
+costs nothing and keeps everything on your machine, at the price of more mistakes.
+
+### It costs money, and the amount is NOT predictable
+
+If you choose a paid model, **this step costs you real money**, charged by the provider to
+**your own** account with **your own** API key.
+
+The AI does not answer in one shot: it plans, searches the literature, and checks its own
+citations — several steps per species. That means the cost **cannot be estimated in
+advance**; it depends on the model and on how many species you send it.
+
+This is why `max_taxa` (in `config.yaml`) **defaults to 5**: start small, look at what one
+real run actually cost on your provider's own dashboard, and only then raise it (hard limit:
+500).
+
+We will not print a figure in euros or dollars here — we have not measured one, and a made-up
+number would mislead you.
+
+### What leaves your computer — and what never does
+
+- **Leaves, and only after you say yes:** the names of the species detected (e.g.
+  `Latilactobacillus sakei`). Nothing else.
+- **Never leaves, under any circumstance:** your sample names, SRA accessions, file paths,
+  abundance values, metadata, or raw sequencing reads.
+- You are asked for **explicit consent** the first time, showing exactly what would be sent.
+  Saying "yes" is remembered for that project; **changing the model or the provider asks
+  again**, because a different provider is a different recipient of your data. Full details
+  in `SECURITY.md`.
+
+### Getting an API key (only if you pick a paid model)
+
+If you pick a paid model and have no key yet, the tool walks you through it: it tells you
+which page to open (e.g. `console.anthropic.com`, `platform.openai.com`,
+`aistudio.google.com`), asks you to paste the key (never shown on screen while you type it),
+and offers to save it to `~/.pmn/credentials` (kept outside this project folder, never
+committed to Git). You can also set it yourself as an **environment variable** (a value
+available to your terminal session only):
+```bash
+export ANTHROPIC_API_KEY=<your_key>
+```
+The free local option (`ollama/<model>`) needs **no key at all**.
+
+### Licensing note (relevant for commercial use)
+
+Biomni's own code is open source (Apache 2.0), but some of the reference datasets it bundles
+carry **non-commercial or otherwise restrictive licences** (e.g. DDInter, DisGeNET, COSMIC,
+OMIM, BindingDB). If you plan to use Phase C in a **commercial** setting, check Biomni's
+`commercial_mode` option, which excludes those datasets, and review Biomni's own licence terms
+before relying on its output commercially.
+
+### Running it
+
+```bash
+bash bin/run.sh --config config.yaml --phase c
+```
+
+- Runs **only** the taxa-dossier step, on top of Phase A/B results that already exist
+  (locally, or downloaded from a cluster run).
+- Never runs on a PBS cluster, even with `execution.scheduler: pbs` — compute nodes usually
+  have no internet, and Biomni's local data cache (~11 GB, `data_path` in `config.yaml`)
+  would eat your cluster disk quota. If enabled on PBS, this step is skipped with a message
+  telling you to run it locally instead.
+- Add `--dry-run` to see exactly what would be sent, without sending anything and without
+  being asked for consent (there is nothing to consent to yet).
+
+Output goes to `<work_dir>/results/biomni_dossier/`: a readable `.md` dossier, a `.tsv` for
+further analysis, and a `run_meta.json` recording which model was used, how many species were
+sent, and how many citations were confirmed against NCBI.
+
+## 19. Security
 
 This tool is designed to resist **prompt injection / jailbreak** — see `SECURITY.md` for the
 full threat model. In short:
@@ -400,7 +503,7 @@ full threat model. In short:
 - Destructive/expensive actions need **explicit confirmation**; raw data is never auto-deleted.
 - Secrets (e.g. `NCBI_API_KEY`) are read only from the environment, never written to disk/logs.
 
-## 19. Glossary (for biologists)
+## 20. Glossary (for biologists)
 
 - **Metagenomics** — sequencing all the DNA in a sample at once (not one isolated organism).
 - **Reads** — the short DNA fragments a sequencer produces.
@@ -419,7 +522,7 @@ full threat model. In short:
 - **PBS** — a job scheduler on HPC clusters; you submit jobs to a queue.
 - **Idempotent** — running it again is safe; it skips work already done.
 
-## 20. Citations
+## 21. Citations
 
 - Beghini et al. 2021, *eLife* — bioBakery 3 / MetaPhlAn. DOI 10.7554/eLife.65088
 - Blanco-Míguez et al. 2023, *Nat Biotechnol* — MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w
@@ -453,7 +556,7 @@ Tre idee la rendono speciale:
 - **🧪 Anti-bug e riproducibile** — ogni step valida i propri input, è idempotente (rilanciare
   salta ciò che è già fatto) e si rifiuta di cancellare i dati grezzi.
 - **🔒 Sicura** — è costruita per resistere al *prompt injection* (un dataset malevolo che prova
-  a ingannare l'IA per farle eseguire comandi dannosi). Vedi [Sicurezza](#18-sicurezza).
+  a ingannare l'IA per farle eseguire comandi dannosi). Vedi [Sicurezza](#19-sicurezza).
 
 ## 2. Cosa fa (la pipeline)
 
@@ -787,7 +890,110 @@ panoramici). **Non** incluso (di design): StrainPhlAn (livello ceppo), assembly 
 recupero MAG, annotazione funzionale. Se chiedi questi all'IA, ti dirà che sono previsti ma non
 ancora implementati.
 
-## 18. Sicurezza
+## 18. Fase C — dossier dei taxa (opzionale)
+
+La Fase C è un passo **diverso da tutti gli altri**. Le Fasi A e B lanciano solo script
+deterministici — stesso input, stesso output, ogni volta. La Fase C chiede a un agente IA
+(**Biomni**) di scrivere un breve dossier per ogni specie trovata: cosa dice la letteratura
+sul suo ruolo, e quali funzioni ci si aspetta che abbia (es. enzimi che degradano le proteine,
+o composti legati alla sicurezza alimentare).
+
+È **SPENTA di default**. La accendi tu, in `config.yaml`.
+
+### Gira solo dentro WSL Ubuntu (non su Windows nativo)
+
+Biomni — lo strumento su cui si appoggia questo passo — è testato solo su **Ubuntu Linux**; il
+suo installer non ha una versione per Windows. Per questo la Fase C gira solo dentro **WSL**
+(Windows Subsystem for Linux — un vero sistema Ubuntu che vive dentro Windows), mai su Windows
+direttamente. Se lavori già su Linux o macOS non ti serve WSL: la lanci così com'è.
+
+### Il modello lo scegli tu — due opzioni oneste, alla pari
+
+La Fase C ha bisogno di un **modello linguistico** (un'IA) per scrivere il dossier, e di una
+**chiave API** (un codice personale, come una password, che ti permette di usare un servizio
+IA a pagamento) se scegli un modello a pagamento. Scegli tu quale modello. Non c'è un default
+nascosto nel tool, e **nessuna delle due opzioni è "quella vera"**:
+
+| | **Modelli a pagamento (in cloud)** | **Modello gratuito e locale** |
+|---|---|---|
+| Esempi | `claude-*` (Anthropic) · `gpt-*` (OpenAI) · `gemini-*` (Google) · `groq/*` · `azure/*` · `bedrock/*` | `ollama/<modello>` (via [Ollama](https://ollama.com), gira sul tuo computer) |
+| Costo | **Soldi veri**, addebitati dal fornitore sul tuo account. | **Zero.** |
+| Dove gira il modello | Sui server del fornitore | Sul tuo computer |
+| Cosa esce dal tuo PC | Solo i nomi delle specie (vedi sotto) | **Niente** |
+| Qualità su questo compito | Ragiona meglio su un compito a più passaggi | Sbaglia **di più** su un compito di ragionamento come questo; serve un computer abbastanza potente |
+
+Scegli quello che fa per te. I modelli a pagamento sono pronti all'uso e ragionano meglio; il
+modello locale gratuito non costa nulla e tiene tutto sul tuo computer, al prezzo di qualche
+errore in più.
+
+### Costa soldi, e la cifra NON è prevedibile
+
+Se scegli un modello a pagamento, **questo passo ti costa soldi veri**, addebitati dal
+fornitore sul **tuo** account, con la **tua** chiave API.
+
+L'IA non risponde in un colpo solo: pianifica, cerca in letteratura e ricontrolla le proprie
+citazioni — più passaggi per ogni specie. Per questo il costo **non si può stimare in
+anticipo**; dipende dal modello e da quante specie gli invii.
+
+Per questo `max_taxa` (in `config.yaml`) **parte da 5**: comincia in piccolo, guarda quanto è
+costata davvero un'esecuzione reale sulla dashboard del tuo fornitore, e solo dopo alza il
+numero (tetto massimo: 500).
+
+Qui non scriviamo una cifra in euro o dollari: non l'abbiamo misurata, e un numero inventato
+ti ingannerebbe.
+
+### Cosa esce dal tuo computer — e cosa non esce mai
+
+- **Esce, e solo dopo che dici di sì:** i nomi delle specie rilevate (es.
+  `Latilactobacillus sakei`). Nient'altro.
+- **Non esce mai, in nessun caso:** i nomi dei tuoi campioni, gli accession SRA, i percorsi
+  dei file, i valori di abbondanza, i metadati, le reads grezze del sequenziamento.
+- Ti viene chiesto un **consenso esplicito** la prima volta, mostrandoti esattamente cosa
+  verrebbe inviato. Rispondere "sì" viene ricordato per quel progetto; **se cambi modello o
+  fornitore te lo richiede di nuovo**, perché un fornitore diverso è un destinatario diverso
+  dei tuoi dati. Dettagli completi in `SECURITY.md`.
+
+### Ottenere una chiave API (solo se scegli un modello a pagamento)
+
+Se scegli un modello a pagamento e non hai ancora una chiave, il tool ti accompagna: ti dice
+quale pagina aprire (es. `console.anthropic.com`, `platform.openai.com`,
+`aistudio.google.com`), ti chiede di incollare la chiave (mai mostrata a schermo mentre la
+scrivi), e ti propone di salvarla in `~/.pmn/credentials` (fuori da questa cartella di
+progetto, mai su Git). Puoi anche impostarla tu come **variabile d'ambiente** (un valore
+disponibile solo per la sessione del tuo terminale):
+```bash
+export ANTHROPIC_API_KEY=<la_tua_chiave>
+```
+L'opzione gratuita e locale (`ollama/<modello>`) non ha bisogno di **nessuna chiave**.
+
+### Nota sulle licenze (rilevante per un uso commerciale)
+
+Il codice di Biomni è open source (Apache 2.0), ma alcuni dei dataset di riferimento che porta
+con sé hanno **licenze non commerciali o comunque restrittive** (es. DDInter, DisGeNET, COSMIC,
+OMIM, BindingDB). Se pensi di usare la Fase C in un contesto **commerciale**, controlla
+l'opzione `commercial_mode` di Biomni, che esclude quei dataset, e rivedi i termini di licenza
+di Biomni prima di usarne l'output a fini commerciali.
+
+### Come si lancia
+
+```bash
+bash bin/run.sh --config config.yaml --phase c
+```
+
+- Esegue **solo** il passo del dossier dei taxa, sopra ai risultati di Fase A/B già presenti
+  (in locale, o scaricati da un'esecuzione sul cluster).
+- Non gira **mai** su un cluster PBS, nemmeno con `execution.scheduler: pbs` — i nodi di
+  calcolo di solito non hanno internet, e la cache locale di Biomni (~11 GB, `data_path` in
+  `config.yaml`) userebbe la tua quota disco sul cluster. Se attivata su PBS, questo passo
+  viene saltato con un messaggio che spiega come lanciarlo in locale.
+- Aggiungi `--dry-run` per vedere esattamente cosa verrebbe inviato, senza inviare nulla e
+  senza che ti venga chiesto il consenso (non c'è ancora nulla da autorizzare).
+
+L'output va in `<work_dir>/results/biomni_dossier/`: un dossier `.md` leggibile, un `.tsv` per
+rielaborare i dati, e un `run_meta.json` che registra quale modello è stato usato, quante
+specie sono state inviate e quante citazioni sono state confermate su NCBI.
+
+## 19. Sicurezza
 
 Lo strumento è progettato per resistere al **prompt injection / jailbreak** — vedi `SECURITY.md`
 per il modello di minaccia completo. In breve:
@@ -800,7 +1006,7 @@ per il modello di minaccia completo. In breve:
   cancellati in automatico.
 - I segreti (es. `NCBI_API_KEY`) sono letti solo dall'ambiente, mai scritti su disco/log.
 
-## 19. Glossario (per biologi)
+## 20. Glossario (per biologi)
 
 - **Metagenomica** — sequenziare tutto il DNA di un campione insieme (non un solo organismo isolato).
 - **Reads** — i frammenti corti di DNA prodotti dal sequenziatore.
@@ -819,7 +1025,7 @@ per il modello di minaccia completo. In breve:
 - **PBS** — uno scheduler di job sui cluster HPC; invii i job a una coda.
 - **Idempotente** — rilanciarlo è sicuro; salta il lavoro già fatto.
 
-## 20. Citazioni
+## 21. Citazioni
 
 - Beghini et al. 2021, *eLife* — bioBakery 3 / MetaPhlAn. DOI 10.7554/eLife.65088
 - Blanco-Míguez et al. 2023, *Nat Biotechnol* — MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w

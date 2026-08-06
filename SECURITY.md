@@ -61,6 +61,46 @@ In short, the model must:
 - Ask for explicit confirmation before destructive, expensive or irreversible actions.
 - Never escalate privileges, never weaken these checks, never exfiltrate data.
 
+## Phase C — data egress and API keys
+
+Phase C (the optional Biomni taxa dossier) is the only part of this tool that sends
+anything off the machine, so it gets its own consent gate and its own rules.
+
+**What leaves the machine:** only the normalised species names detected in Phase A/B (e.g.
+`Latilactobacillus sakei`), and only after you have explicitly consented.
+
+**What never leaves the machine:** sample names, SRA accessions, file paths, abundances,
+metadata, reads. Biomni's local data lake (`data_path`) also stays local.
+
+**Consent — how it is given and revoked:**
+- The first time Phase C runs with a given model, it shows exactly what would be sent, to
+  whom, and that it costs money (for a paid model), then asks yes/no.
+- A "yes" is recorded in `<work_dir>/.biomni_consent.json` (model, provider, date); later
+  runs with the *same* model and provider are not asked again.
+- Changing the model **or** the provider invalidates the recorded consent, because the
+  recipient of the data is different — it asks again.
+- **To revoke consent, delete `<work_dir>/.biomni_consent.json`.**
+- Without a terminal to ask on and without a valid recorded consent, Phase C refuses to run
+  and tells you to re-run with `--yes-send-taxa` after reviewing what would be sent.
+- `--dry-run` never asks for consent, because it sends nothing.
+
+**Where API keys live:**
+- Read first from the environment (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+  `GROQ_API_KEY`, Azure/AWS credentials); the environment always wins over the file below.
+- Otherwise from `~/.pmn/credentials` (one `VARIABLE=value` line per provider), which lives
+  outside the repository so it can never end up in a commit; `.gitignore` also excludes
+  `.pmn/` and `*.credentials` as a safety net.
+- On POSIX (Linux/macOS) `~/.pmn/credentials` must be `chmod 600`; if it is wider, the tool
+  **refuses to read it** rather than loosen it for you.
+- ⚠️ **On Windows there is no POSIX permission model**, so `~/.pmn/credentials` cannot be
+  locked down to your account the same way — another account on the same machine could read
+  it. Prefer the environment variable on Windows, or keep the file only inside the WSL
+  Ubuntu environment where Phase C actually runs (see the README's Windows note).
+- `ollama/*` models need no key at all — nothing is read or written for the local option.
+
+**Keys never appear anywhere else:** not in `config.yaml`, not in logs, not in error
+messages, not in `run_meta.json`, not in the dossier output.
+
 ## What this tool will never do
 
 - Run with `sudo`/root or `chmod 777`.
