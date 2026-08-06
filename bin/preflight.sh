@@ -132,6 +132,13 @@ if [ ${#broken[@]} -gt 0 ]; then
   final_rc=2
   warn "$(say "Broken (present but tool not callable): ${broken[*]}" "Difettosi (presenti ma il tool non parte): ${broken[*]}")"
   warn "$(say "  Fix by reinstalling: conda env remove -n <name>" "  Rimedio: reinstallali con  conda env remove -n <nome>")"
+  # A missing PyPI-only package is the likeliest cause here, and it has a one-line fix.
+  for env in "${broken[@]}"; do
+    if [ -n "${PMN_ENV_PIP_MANUAL[$env]:-}" ]; then
+      warn "$(say "  $env also needs a pip package: ${PMN_ENV_PIP_MANUAL[$env]}" \
+                "  $env ha bisogno anche di un pacchetto pip: ${PMN_ENV_PIP_MANUAL[$env]}")"
+    fi
+  done
 fi
 
 if [ ${#missing[@]} -gt 0 ]; then
@@ -155,10 +162,22 @@ if [ ${#missing[@]} -gt 0 ]; then
     info "$(say "Creating $env ..." "Creo $env ...")"
     # shellcheck disable=SC2086
     if "$PMN_CONDA" create -y -n "$env" "${PMN_CHANNELS[@]}" ${PMN_ENV_PKGS[$env]}; then
-      if conda run -n "$env" bash -c "${PMN_ENV_PROBE[$env]}" >/dev/null 2>&1; then
+      # Some environments need a package conda does not carry (biomni is PyPI-only): install
+      # it now, otherwise the probe below would fail for a reason the user cannot guess.
+      pip_ok=1
+      if [ -n "${PMN_ENV_PIP[$env]:-}" ]; then
+        info "$(say "Installing with pip into $env: ${PMN_ENV_PIP[$env]} ..." "Installo con pip in $env: ${PMN_ENV_PIP[$env]} ...")"
+        # shellcheck disable=SC2086
+        conda run -n "$env" pip install ${PMN_ENV_PIP[$env]} || pip_ok=0
+      fi
+      if [ "$pip_ok" -eq 1 ] && conda run -n "$env" bash -c "${PMN_ENV_PROBE[$env]}" >/dev/null 2>&1; then
         ok "$(say "$env ready." "$env pronto.")"
       else
         err "$(say "$env created but its tool probe failed." "$env creato ma il test del tool è fallito.")"
+        if [ -n "${PMN_ENV_PIP_MANUAL[$env]:-}" ]; then
+          err "$(say "  Finish it by hand, then re-run this check: ${PMN_ENV_PIP_MANUAL[$env]}" \
+                    "  Completalo a mano, poi rilancia questo controllo: ${PMN_ENV_PIP_MANUAL[$env]}")"
+        fi
         install_failed=1
       fi
     else

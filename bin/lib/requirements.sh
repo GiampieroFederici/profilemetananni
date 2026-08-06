@@ -40,6 +40,19 @@ declare -A PMN_ENV_PKGS=(
   [pmn_biomni]="python pandas pip"
 )
 
+# Packages that do NOT exist on conda and must be pip-installed AFTER the env is created.
+# Biomni ships on PyPI only, so `conda create -n pmn_biomni python pandas pip` alone leaves
+# `import biomni` failing and the probe below reporting BROKEN forever. Biomni's own installer
+# targets Ubuntu, so this pip step can legitimately fail elsewhere: preflight then prints the
+# manual command (see PMN_ENV_PIP_MANUAL) instead of sending the user round a loop.
+declare -A PMN_ENV_PIP=(
+  [pmn_biomni]="biomni"
+)
+# The exact command to suggest when the automatic pip step above is not possible or fails.
+declare -A PMN_ENV_PIP_MANUAL=(
+  [pmn_biomni]="conda run -n pmn_biomni pip install biomni"
+)
+
 # A cheap probe per environment: confirms the key tool is actually callable
 # (not just that the env exists). Run as:  conda run -n <env> bash -c "<probe>"
 # Compound probes verify EVERY load-bearing tool/library in a multi-package env (a

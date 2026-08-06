@@ -406,6 +406,25 @@ no Windows version. So Phase C only runs inside **WSL** (Windows Subsystem for L
 Ubuntu system that lives inside Windows), never on Windows directly. If you already work on
 Linux or macOS, you don't need WSL — just run it as-is.
 
+### Installing it (one step the other phases do not need)
+
+Phase C has its own environment, `pmn_biomni`. Biomni is published on **PyPI only** (not on
+conda), so it is installed with `pip` right after the environment is created:
+
+```bash
+bash bin/preflight.sh --biomni --install
+```
+
+If that pip step fails — it is only tested on Ubuntu — finish it by hand and check again:
+
+```bash
+conda run -n pmn_biomni pip install biomni
+bash bin/preflight.sh --biomni
+```
+
+Until `python -c 'import biomni'` works inside `pmn_biomni`, Phase C cannot run: the check
+reports `pmn_biomni BROKEN` and prints exactly the command above.
+
 ### You choose the model — two honest options, side by side
 
 Phase C needs a **language model** (an AI) to write the dossier, and an **API key** (a
@@ -906,6 +925,25 @@ Biomni — lo strumento su cui si appoggia questo passo — è testato solo su *
 suo installer non ha una versione per Windows. Per questo la Fase C gira solo dentro **WSL**
 (Windows Subsystem for Linux — un vero sistema Ubuntu che vive dentro Windows), mai su Windows
 direttamente. Se lavori già su Linux o macOS non ti serve WSL: la lanci così com'è.
+
+### Come si installa (un passo che le altre fasi non hanno)
+
+La Fase C ha un ambiente tutto suo, `pmn_biomni`. Biomni è pubblicato **solo su PyPI** (non su
+conda), quindi viene installato con `pip` subito dopo la creazione dell'ambiente:
+
+```bash
+bash bin/preflight.sh --biomni --install
+```
+
+Se quel passo con pip fallisce — è testato solo su Ubuntu — completalo a mano e ricontrolla:
+
+```bash
+conda run -n pmn_biomni pip install biomni
+bash bin/preflight.sh --biomni
+```
+
+Finché `python -c 'import biomni'` non funziona dentro `pmn_biomni`, la Fase C non può partire:
+il controllo segnala `pmn_biomni BROKEN` e stampa esattamente il comando qui sopra.
 
 ### Il modello lo scegli tu — due opzioni oneste, alla pari
 
