@@ -13,7 +13,29 @@ import urllib.request
 import _biomni_core as core
 
 _EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-_DOMAIN = '("fermented meat"[tiab] OR sausage[tiab] OR salami[tiab] OR "dry-cured"[tiab])'
+
+# The fermented-meat literature is not written only in English: a paper on ciauscolo, chorizo
+# or sucuk may never contain the word "sausage". Every term below was counted on PubMed before
+# being added; the ones left out were left out for a measured reason, not by oversight:
+#   embutido, "lap cheong"    -> 0 records in title/abstract: they would add nothing
+#   coppa                     -> ambiguous; 5 of the first 6 hits are chemistry, oncology,
+#                                entomology and a privacy law, not the salume
+#   "fermented sausage"[MeSH] -> not a MeSH heading at all (esearch: phrase not found)
+#   "Meat Products"[MeSH]     -> adds real records (+9 for L. sakei, +36 for S. xylosus) but
+#                                also fresh-meat spoilage work, which is a different domain
+# The trade is recall for precision. It stays cheap: the taxon is required in the same query,
+# and every citation that survives is still re-checked against NCBI in build_references.
+_DOMAIN_TERMS = (
+    "fermented meat", "sausage", "salami", "dry-cured", "cured meat", "charcuterie",
+    "salame", "ciauscolo", "soppressata", "bresaola",       # it
+    "chorizo", "salchichon", "sobrasada", "fuet",           # es
+    "saucisson",                                            # fr
+    "linguica", "alheira",                                  # pt
+    "sucuk", "sujuk", "pastirma",                           # tr
+    "Rohwurst",                                             # de
+    "Chinese sausage",                                      # zh
+)
+_DOMAIN = "(" + " OR ".join(f'"{t}"[tiab]' for t in _DOMAIN_TERMS) + ")"
 
 _PROMPT = """You are given ONE microbial species: "{taxon}", and a NUMBERED list of papers.
 Use ONLY these papers as evidence. Do not use any other source.
@@ -31,9 +53,16 @@ Rules:
 """
 
 
+def search_term(taxon: str) -> str:
+    """The species is REQUIRED (AND); the domain is one OR group. Widening the domain must
+    never turn into 'this species OR anything about salami' - that would hand the agent the
+    whole fermented-meat literature as if it were about the taxon."""
+    return f'"{taxon}"[tiab] AND {_DOMAIN}'
+
+
 def pubmed_search(taxon: str, retmax: int = 12):
     """esearch restricted to the fermented-meat domain. Returns a list of PMID strings."""
-    term = f'"{taxon}"[tiab] AND {_DOMAIN}'
+    term = search_term(taxon)
     url = (f"{_EUTILS}/esearch.fcgi?db=pubmed&retmode=json&retmax={int(retmax)}"
            f"&term={urllib.parse.quote(term)}")
     with urllib.request.urlopen(url, timeout=30) as r:
