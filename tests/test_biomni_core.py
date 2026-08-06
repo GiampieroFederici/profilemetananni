@@ -203,12 +203,13 @@ def _one_dossier():
     return core.build_dossier(raw)
 
 
-def test_markdown_header_declares_the_llm_and_the_counts():
-    md = core.render_markdown([_one_dossier()], META)
-    head = md.split("## ")[0]
+def test_markdown_header_declares_the_llm_and_the_taxa_count():
+    """n_taxa is given a value no other META field has, so putting the wrong count on
+    that line is caught. The three source counts are pinned by the next test."""
+    head = core.render_markdown([_one_dossier()], dict(META, n_taxa=2)).split("## ")[0]
     assert "LLM" in head
     assert "gpt-4o" in head and "OpenAI" in head
-    assert "1" in head
+    assert "Taxa analizzati: 2" in head
 
 
 def test_the_header_keeps_ncbi_refusals_apart_from_invented_reference_numbers():
@@ -229,11 +230,16 @@ def test_the_header_keeps_ncbi_refusals_apart_from_invented_reference_numbers():
     assert "scartati: 5" in head
 
 
-def test_markdown_never_leaks_a_dropped_pmid_as_evidence():
+def test_the_bibliography_lists_every_retrieved_source_even_uncited_ones():
+    """The old name promised a leak check it could not perform: it asserted a PMID that
+    appears in no fixture and on no code path. The leak rule is pinned, per claim, by the
+    two tests below. What this one really checks is the other half: "Fonti consultate" is
+    the full list of what WE retrieved, so 222 must appear even though no surviving claim
+    cites it."""
     md = core.render_markdown([_one_dossier()], META)
-    assert "PMID 111" in md
-    assert "PMID 999" not in md
-    assert "Fonti consultate" in md
+    biblio = md.split("Fonti consultate:")[1]
+    assert "PMID 111" in biblio
+    assert "PMID 222" in biblio
 
 
 def test_tsv_has_one_row_per_claim_and_the_right_header():
