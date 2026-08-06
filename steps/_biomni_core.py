@@ -144,3 +144,44 @@ def select_taxa(metaphlan_path: str, kraken_path: str, threshold_pct: float, max
         rows.append((_display(name), src, max(mpa.get(name, 0.0), krk.get(name, 0.0))))
     rows.sort(key=lambda r: (-r[2], r[0]))
     return [(name, src) for name, src, _ in rows[:max_taxa]]
+
+
+_HEADER = (
+    "> ATTENZIONE: documento generato da un modello linguistico (LLM), non da un esperto.\n"
+    "> Modello: {model} ({provider}) · Data: {date} · Taxa analizzati: {n_taxa}\n"
+    "> Citazioni ricontrollate su NCBI: {confirmed} confermate, {dropped} scartate.\n"
+    "> Le righe \"atteso\" e \"ipotesi\" NON sono prove. Vanno verificate a mano.\n\n"
+)
+
+
+def _pmids(claim, references):
+    """Map surviving 1-based reference numbers back to the PMIDs we retrieved."""
+    return [references[i - 1].pmid for i in claim.refs]
+
+
+def render_markdown(dossiers, meta) -> str:
+    """Human-readable dossier. Only references WE retrieved are ever printed as evidence."""
+    parts = [_HEADER.format(**meta)]
+    for d in dossiers:
+        parts.append(f"## {d.taxon}\n")
+        parts.append(f"Rilevato da: {d.detected_by}\n\n")
+        for c in d.claims:
+            proof = _pmids(c, d.references)
+            refs = "  [" + "; ".join(f"PMID {p}" for p in proof) + "]" if proof else ""
+            parts.append(f"- {c.category}: {c.statement}  ({c.label}){refs}\n")
+        if d.references:
+            parts.append("\nFonti consultate:\n")
+            for i, cit in enumerate(d.references, 1):
+                parts.append(f"  [{i}] PMID {cit.pmid} — {cit.title} ({cit.year})\n")
+        parts.append("\n")
+    return "".join(parts)
+
+
+def render_tsv(dossiers) -> str:
+    """Machine-readable dossier: one row per claim."""
+    rows = ["taxon\trilevato_da\tcategoria\taffermazione\tetichetta\tcitazioni_verificate"]
+    for d in dossiers:
+        for c in d.claims:
+            proof = ";".join(_pmids(c, d.references))
+            rows.append(f"{d.taxon}\t{d.detected_by}\t{c.category}\t{c.statement}\t{c.label}\t{proof}")
+    return "\n".join(rows) + "\n"

@@ -184,3 +184,50 @@ def test_build_dossier_runs_all_the_rules():
     assert d.claims[1].label == "ipotesi"
     assert d.dropped_refs == 1
     assert d.references == REFS
+
+
+META = {
+    "model": "gpt-4o", "provider": "OpenAI", "date": "2026-08-06",
+    "n_taxa": 1, "confirmed": 1, "dropped": 1,
+}
+
+
+def _one_dossier():
+    raw = core.RawDossier(
+        taxon="Latilactobacillus sakei",
+        detected_by="metaphlan+kraken",
+        claims=(core.Claim("batteriocine", "sakacina", "noto", (1,)),
+                core.Claim("resistoma", "tet(M)", "noto", (9,))),
+        references=REFS,
+    )
+    return core.build_dossier(raw)
+
+
+def test_markdown_header_declares_the_llm_and_the_counts():
+    md = core.render_markdown([_one_dossier()], META)
+    head = md.split("## ")[0]
+    assert "LLM" in head
+    assert "gpt-4o" in head and "OpenAI" in head
+    assert "1" in head
+
+
+def test_markdown_never_leaks_a_dropped_pmid_as_evidence():
+    md = core.render_markdown([_one_dossier()], META)
+    assert "PMID 111" in md
+    assert "PMID 999" not in md
+    assert "Fonti consultate" in md
+
+
+def test_tsv_has_one_row_per_claim_and_the_right_header():
+    tsv = core.render_tsv([_one_dossier()])
+    lines = tsv.strip().split("\n")
+    assert lines[0].split("\t") == [
+        "taxon", "rilevato_da", "categoria", "affermazione",
+        "etichetta", "citazioni_verificate",
+    ]
+    assert len(lines) == 3
+
+
+def test_tsv_marks_the_demoted_claim_as_ipotesi():
+    tsv = core.render_tsv([_one_dossier()])
+    assert "\tipotesi\t" in tsv
