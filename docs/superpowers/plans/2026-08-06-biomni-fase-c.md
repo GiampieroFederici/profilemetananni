@@ -617,25 +617,25 @@ Aggiungere in `tests/test_biomni_core.py`:
 ```python
 def test_noto_without_verified_citation_is_demoted():
     claims = (core.Claim("batteriocine", "sakacina", "noto", ()),)
-    out = core.apply_labels(claims, verified=set())
+    out = core.apply_labels(claims)
     assert out[0].label == "ipotesi"
 
 
 def test_assente_without_verified_citation_is_demoted():
-    claims = (core.Claim("ammine_biogene", "nessuna hdc", "assente", ("999",)),)
-    out = core.apply_labels(claims, verified={"111"})
+    claims = (core.Claim("ammine_biogene", "nessuna hdc", "assente", ()),)
+    out = core.apply_labels(claims)
     assert out[0].label == "ipotesi"
 
 
 def test_noto_with_verified_citation_survives():
-    claims = (core.Claim("batteriocine", "sakacina", "noto", ("111",)),)
-    out = core.apply_labels(claims, verified={"111"})
+    claims = (core.Claim("batteriocine", "sakacina", "noto", (1,)),)
+    out = core.apply_labels(claims)
     assert out[0].label == "noto"
 
 
 def test_atteso_is_left_alone_even_without_citations():
     claims = (core.Claim("cazymes", "inferito dal genere", "atteso", ()),)
-    out = core.apply_labels(claims, verified=set())
+    out = core.apply_labels(claims)
     assert out[0].label == "atteso"
 
 
