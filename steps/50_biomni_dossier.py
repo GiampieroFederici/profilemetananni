@@ -29,6 +29,23 @@ def _fail(msg: str) -> int:
     return 1
 
 
+def _read_consent(rec_path):
+    """Read a stored consent record, or None when there is nothing trustworthy to read.
+
+    A truncated, hand-edited or unreadable .biomni_consent.json used to raise out of run()
+    with a traceback. Unreadable consent means NO consent - we ask again, which is the safe
+    direction: the cost of a needless question is one keystroke, the cost of a wrong
+    assumption is species names leaving the machine.
+    """
+    if not rec_path.exists():
+        return None
+    try:
+        record = json.loads(rec_path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
 def _ask_consent(llm, provider, taxa, ask, show):
     """Show exactly what is about to leave, say that it costs, and require an explicit yes."""
     if provider.local:
@@ -183,7 +200,7 @@ def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
         environ.setdefault(provider.env_var, key)
 
     rec_path = consent.consent_record_path(work_dir)
-    record = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else None
+    record = _read_consent(rec_path)
     if not consent.consent_is_valid(record, llm, provider):
         if assume_yes:
             consent.save_consent(rec_path, llm, provider, len(taxa))

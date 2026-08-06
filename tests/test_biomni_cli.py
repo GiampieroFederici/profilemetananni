@@ -132,6 +132,19 @@ def test_a_yes_at_the_prompt_records_the_consent_once(tmp_path):
     assert (tmp_path / ".biomni_consent.json").exists()
 
 
+def test_an_unreadable_consent_file_asks_again_instead_of_crashing(tmp_path):
+    """A truncated, empty or hand-edited .biomni_consent.json used to raise out of run().
+    Unreadable consent must mean NO consent: ask again, send nothing until an explicit yes.
+    """
+    for broken in ('{"llm": "gpt-4o", "provi', "", "[]", "null", "not json at all"):
+        (tmp_path / ".biomni_consent.json").write_text(broken, encoding="utf-8")
+        client = FakeClient()
+        rc = _run(tmp_path, client=client, interactive=True,
+                  ask=lambda _p: "n", show=lambda _s: None)
+        assert rc == 0, f"crashed or failed on {broken!r}"
+        assert client.asked == [], f"sent taxa without consent on {broken!r}"
+
+
 def test_a_key_from_the_credentials_file_reaches_the_provider(tmp_path):
     """The provider SDK reads the key from the environment: resolving it is not enough."""
     creds = tmp_path / "creds"
