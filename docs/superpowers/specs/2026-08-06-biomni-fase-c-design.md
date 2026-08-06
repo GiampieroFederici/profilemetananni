@@ -186,13 +186,13 @@ presentano **entrambe le famiglie in modo paritario**, con pregi e difetti espli
 *Contro:* su un compito di ragionamento a più passaggi un modello locale sbaglia di più, e
 serve hardware adeguato.
 
-> **Rischio aperto — da verificare al passo 1 dell'implementazione.** La documentazione di
-> Biomni che ho letto elenca esplicitamente Anthropic, OpenAI, Azure, Gemini, Groq e AWS
-> Bedrock. **Il supporto a Ollama NON è stato verificato.** Biomni serve un proprio modello
-> locale (Biomni-R0 via SGLang), quindi una via locale è plausibile, ma finché non è provata
-> non va promessa nella documentazione pubblica. Se risultasse non supportato, la tabella
-> "gratuite e locali" va corretta con la via che funziona davvero (es. SGLang), oppure va
-> dichiarato che al momento il locale non è disponibile.
+> **RISOLTO il 2026-08-06 (spike, Task 0).** Ollama **è supportato nativamente**: compare fra
+> gli 8 provider dichiarati in `biomni/llm.py` (OpenAI, AzureOpenAI, Anthropic, Ollama, Gemini,
+> Bedrock, Groq, Custom), è istanziato via `ChatOllama`, ha auto-riconoscimento sui nomi dei
+> modelli locali, e `langchain-ollama` è già nell'ambiente conda di default. Esiste inoltre il
+> provider `Custom` per qualunque endpoint compatibile OpenAI (es. SGLang).
+> **La promessa dell'opzione gratuita e locale può quindi restare, ed è onesta.**
+> Prova: `docs/superpowers/specs/2026-08-06-biomni-fase-c-FINDINGS.md` §Q1/Q1b.
 
 ### 6.2 Il costo si dichiara, non si nasconde
 
@@ -396,13 +396,29 @@ Un modello linguistico produce con facilità DOI e PMID plausibili e inesistenti
 scientifico questo è il rischio principale. Tre regole, applicate dal codice e non affidate al
 buon senso del modello:
 
-1. **Nessuna citazione dalla memoria del modello.** Sono accettati solo PMID/DOI restituiti da
-   una ricerca reale (Biomni `literature.py` / PubMed). Un identificativo che compare nel testo
-   generato ma non nei risultati di ricerca viene ignorato.
-2. **Verifica a valle su NCBI.** Ogni PMID sopravvissuto viene richiesto alle E-utilities di
-   NCBI e confrontato: se titolo e anno non corrispondono, **la riga viene scartata**, non
-   "segnalata". I conteggi di confermate/scartate finiscono nell'intestazione del dossier e in
-   `run_meta.json`.
+1. **Il modello non sceglie le fonti: gliele diamo noi, numerate.**
+
+   > ⚠️ **Regola riscritta il 2026-08-06 dopo lo spike.** Il disegno originale si appoggiava a
+   > `query_pubmed` di Biomni. Verificato: quella funzione fa una ricerca **reale** su PubMed
+   > ma restituisce solo `Title / Abstract / Journal` — **il PMID non compare mai** nel valore
+   > di ritorno. Costruire la regola su quella funzione avrebbe reso ogni citazione non
+   > tracciabile. Prova: FINDINGS §Q6, e verifica indipendente del sorgente.
+
+   Quindi è **profilemetananni** a fare la ricerca, non il modello:
+   - `esearch` su PubMed per il taxon, ristretto al dominio (carne fermentata, salame, insaccati);
+   - `esummary` per ognuno dei PMID trovati → titolo, anno, rivista;
+   - si costruisce un **elenco numerato** `[1] … [N]` e lo si passa al modello insieme agli abstract;
+   - il modello **cita per numero**, mai per identificativo.
+
+   Il modello non vede mai un PMID in forma libera, quindi non ne può inventare uno
+   plausibile. È la differenza fra chiedere «dammi le fonti» e dire «ecco le fonti, dimmi
+   cosa c'è scritto».
+
+2. **Ogni numero deve esistere.** Un riferimento fuori intervallo (`[7]` quando ne abbiamo
+   forniti 5) o assente **non vale come prova**: l'affermazione non può essere `noto` né
+   `assente`. I PMID sono già verificati per costruzione, perché vengono da NCBI; `esummary`
+   deve comunque aver restituito titolo e anno, altrimenti la fonte si scarta. I conteggi di
+   confermate/scartate finiscono nell'intestazione del dossier e in `run_meta.json`.
 3. **Etichetta obbligatoria su ogni affermazione funzionale:**
    - `noto` — dimostrato in *quella* specie, con almeno una citazione verificata;
    - `assente` — assenza documentata, con citazione verificata;
@@ -520,11 +536,28 @@ i dossier hanno valore scientifico e per misurare la spesa effettiva.
 
 ## 13. Rischi aperti da chiudere nel piano
 
-1. **Supporto a Ollama in Biomni: non verificato.** Va provato prima di scriverlo nel README.
-2. **Biomni su Windows: non verificato.** L'installazione documentata è `bash setup.sh` + conda,
-   di impostazione Linux. Probabile necessità di WSL. Da provare prima di dichiarare i requisiti.
-3. **Spazio disco:** il data lake è ~11 GB. Va verificato lo spazio libero prima di scaricarlo,
-   e `data_path` deve poter puntare a un disco diverso.
-4. **Licenze:** Biomni è Apache 2.0, ma i singoli tool integrati possono avere licenze più
-   restrittive. Va controllato prima di dichiarare qualcosa in `README.md` e `LICENSE`.
-5. **Costo reale:** ignoto finché non lo si misura. Per questo il default di `max_taxa` è 5.
+Esito dello spike del 2026-08-06 (Task 0, fase documentale — nessuna installazione eseguita).
+Dettaglio e citazioni in `2026-08-06-biomni-fase-c-FINDINGS.md`.
+
+1. ✅ **Ollama: RISOLTO — supportato nativamente.** L'opzione gratuita e locale resta, ed è onesta.
+2. ❌ **Windows: SMENTITO.** Biomni è documentato come testato **solo su Ubuntu 22.04**;
+   l'installazione è fatta di script bash e `install_cli_tools.sh` distingue unicamente
+   `Darwin`/`Linux` via `uname`, senza alcun ramo Windows. **Conseguenza operativa: la Fase C
+   gira in WSL Ubuntu, non su Windows nativo.** Va scritto nei requisiti del README.
+   *(Nota: l'assenza di build win-64 per i pacchetti bioconda è un'inferenza forte, non una
+   verifica pacchetto per pacchetto.)*
+3. ✅ **Data lake: ~11 GB**, scaricato da S3 alla prima costruzione di `A1(...)`. Si sposta con
+   `path=` o con le variabili `BIOMNI_PATH` / `BIOMNI_DATA_PATH`. `expected_data_lake_files=[]`
+   salta davvero il download (il controllo nel codice è su `is None`, non sulla verità logica).
+   ⚠️ **Ma l'ambiente completo E1 è un'altra cosa:** `pyproject.toml` è leggero (pydantic,
+   langchain, python-dotenv), mentre l'ambiente vero sta in `biomni_env/` e richiede
+   **>10 ore di setup e ~30 GB**. Per la Fase C serve solo l'agente, non l'E1 completo: da
+   confermare con un'installazione minima.
+4. ⚠️ **Licenze: attenzione.** Biomni è Apache 2.0, ma `license_info.md` elenca dataset
+   **non commerciali o comunque restrittivi** (DDInter, DisGeNET, McPAS-TCR, miRDB, miRTarBase,
+   COSMIC, MSigDB, OMIM, BindingDB, Enamine). Esiste `commercial_mode=True` per escluderli.
+   **Rilevante per te**, dato il salumificio: se la Fase C venisse mai usata in un contesto
+   commerciale, va attivata quella modalità e dichiarato in `README.md`.
+5. ⏳ **Costo reale: ancora ignoto.** Si misura solo eseguendo. Per questo `max_taxa` parte da 5.
+6. 🆕 **La ricerca in letteratura di Biomni non è utilizzabile così com'è** (vedi §7): perde il
+   PMID. Da qui la riscrittura della regola 1.
