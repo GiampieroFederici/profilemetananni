@@ -548,8 +548,12 @@ def test_network_failure_drops_rather_than_confirms():
 
 - [ ] **Step 2: Eseguire i test e verificare che falliscano**
 
-Run: `conda run -n pmn_reports_py python -m pytest tests/test_biomni_core.py -k verify -v`
-Expected: FAIL con `AttributeError: module '_biomni_core' has no attribute 'verify_pmids'`
+Run: `python -m pytest tests/test_biomni_core.py -v`
+Expected: FAIL — i 3 nuovi test danno `AttributeError: module '_biomni_core' has no attribute 'verify_pmids'`, gli 11 preesistenti restano verdi.
+
+> ⚠️ **Non usare `-k verify`**: i nomi dei nuovi test non contengono la parola "verify" (solo il
+> loro corpo chiama `verify_pmids`), quindi quel filtro deseleziona tutto e il "rosso" sembra
+> un successo. Verificato in sessione: `-k verify` → *14 deselected*.
 
 - [ ] **Step 3: Scrivere l'implementazione minima**
 
