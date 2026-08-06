@@ -4,6 +4,8 @@ import os
 import stat
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "steps"))
 import _biomni_consent as cs  # noqa: E402
 
@@ -35,6 +37,12 @@ def test_consent_is_valid_only_for_the_same_model_and_provider(tmp_path):
     rec = json.loads(path.read_text(encoding="utf-8"))
     assert cs.consent_is_valid(rec, "gpt-4o", p) is True
     assert cs.consent_is_valid(rec, "claude-sonnet-5", cs.provider_for("claude-sonnet-5")) is False
+    # Change ONLY the provider: with model and provider changed together, dropping the
+    # provider half of the rule would go unnoticed. A different provider is a different
+    # recipient of the data, so the same model name must not carry the consent over.
+    other = cs.Provider("anthropic", "Anthropic", "ANTHROPIC_API_KEY",
+                        "https://console.anthropic.com/settings/keys", False)
+    assert cs.consent_is_valid(rec, "gpt-4o", other) is False
 
 
 def test_missing_consent_is_not_valid():
@@ -70,7 +78,7 @@ def test_a_local_model_needs_no_key_at_all(tmp_path):
 
 def test_a_world_readable_credentials_file_is_refused(tmp_path):
     if os.name != "posix":
-        return  # POSIX permissions are not enforceable on Windows
+        pytest.skip("POSIX permissions only: this rule is UNVERIFIED on this machine")
     path = tmp_path / "credentials"
     cs.store_credential(path, "OPENAI_API_KEY", "secret")
     os.chmod(path, 0o644)
@@ -83,7 +91,7 @@ def test_a_world_readable_credentials_file_is_refused(tmp_path):
 
 def test_store_credential_writes_0600_on_posix(tmp_path):
     if os.name != "posix":
-        return
+        pytest.skip("POSIX permissions only: this rule is UNVERIFIED on this machine")
     path = tmp_path / "credentials"
     cs.store_credential(path, "OPENAI_API_KEY", "secret")
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
