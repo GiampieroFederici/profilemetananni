@@ -1,0 +1,87 @@
+# -*- coding: utf-8 -*-
+# steps/_biomni_client.py - the ONLY module that talks to Biomni and to NCBI over the network.
+# Conda env: pmn_biomni. Imported late by 50_biomni_dossier.py so the pure logic stays testable.
+#
+# We do the literature search ourselves. Biomni's query_pubmed searches PubMed for real but
+# returns only Title/Abstract/Journal - the PMID never appears in its return value, which would
+# make every citation untraceable. So: esearch -> esummary -> a NUMBERED reference list handed
+# to the agent, which cites by number and never sees a free-form identifier.
+import json
+import urllib.parse
+import urllib.request
+
+import _biomni_core as core
+
+_EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+_DOMAIN = '("fermented meat"[tiab] OR sausage[tiab] OR salami[tiab] OR "dry-cured"[tiab])'
+
+_PROMPT = """You are given ONE microbial species: "{taxon}", and a NUMBERED list of papers.
+Use ONLY these papers as evidence. Do not use any other source.
+
+{refs}
+
+Return ONLY valid JSON, no prose, with this exact shape:
+{{"claims":[{{"category":"ruolo|batteriocine|ammine_biogene|cazymes|resistoma|virulenza",
+"statement":"one short sentence","label":"noto|assente|atteso","refs":[1,3]}}]}}
+
+Rules:
+- "refs" holds NUMBERS from the list above. Never write a PubMed ID or a DOI.
+- Use label "noto" or "assente" ONLY when a listed paper supports it, and cite its number.
+- With no supporting paper, use label "atteso" (inference from the genus) and "refs": [].
+"""
+
+
+def pubmed_search(taxon: str, retmax: int = 12):
+    """esearch restricted to the fermented-meat domain. Returns a list of PMID strings."""
+    term = f'"{taxon}"[tiab] AND {_DOMAIN}'
+    url = (f"{_EUTILS}/esearch.fcgi?db=pubmed&retmode=json&retmax={int(retmax)}"
+           f"&term={urllib.parse.quote(term)}")
+    with urllib.request.urlopen(url, timeout=30) as r:
+        data = json.load(r)
+    return list(data.get("esearchresult", {}).get("idlist", []))
+
+
+def ncbi_fetch(pmid: str):
+    """esummary for one PMID. Returns a Citation, or None when NCBI has no usable record."""
+    url = (f"{_EUTILS}/esummary.fcgi?db=pubmed&retmode=json&id={urllib.parse.quote(pmid)}")
+    with urllib.request.urlopen(url, timeout=30) as r:
+        data = json.load(r)
+    rec = data.get("result", {}).get(pmid)
+    if not rec or not rec.get("title"):
+        return None
+    return core.Citation(pmid, rec["title"], (rec.get("pubdate", "") or "")[:4])
+
+
+def build_references(taxon: str):
+    """Search, then keep only the PMIDs esummary can actually confirm (Task 3's rule 2)."""
+    confirmed, _dropped = core.verify_pmids(set(pubmed_search(taxon)), ncbi_fetch)
+    return tuple(sorted(confirmed.values(), key=lambda c: (c.year, c.pmid), reverse=True))
+
+
+def _extract_json(text: str) -> str:
+    """A1 may wrap the JSON in prose or a fence; take the outermost object."""
+    s, e = text.find("{"), text.rfind("}")
+    if s < 0 or e <= s:
+        raise ValueError("the model did not return JSON")
+    return text[s:e + 1]
+
+
+class BiomniClient:
+    def __init__(self, llm: str, data_path: str = ""):
+        from biomni.agent import A1
+        self._agent = A1(path=data_path or "./biomni_data", llm=llm)
+
+    def ask(self, taxon: str, detected_by: str) -> core.RawDossier:
+        refs = build_references(taxon)
+        listing = "\n".join(
+            f"[{i}] {c.title} ({c.year})" for i, c in enumerate(refs, 1)
+        ) or "(no papers found for this species in this domain)"
+        answer = self._agent.go(_PROMPT.format(taxon=taxon, refs=listing))
+        payload = json.loads(_extract_json(answer))
+        claims = tuple(
+            core.Claim(c["category"], c["statement"], c["label"],
+                       tuple(i for i in c.get("refs", []) if isinstance(i, int)))
+            for c in payload.get("claims", [])
+            if c.get("category") in core.CATEGORIES and c.get("label") in core.LABELS
+        )
+        return core.RawDossier(taxon, detected_by, claims, refs)
