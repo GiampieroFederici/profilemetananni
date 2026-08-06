@@ -231,3 +231,29 @@ def test_tsv_has_one_row_per_claim_and_the_right_header():
 def test_tsv_marks_the_demoted_claim_as_ipotesi():
     tsv = core.render_tsv([_one_dossier()])
     assert "\tipotesi\t" in tsv
+
+
+def test_demoted_claim_shows_no_pmid_on_its_own_line():
+    """A claim with no surviving reference (resistoma, refs=(9,) -> dropped -> ipotesi)
+    must not print any PMID as evidence, on its own markdown line or its own TSV cell.
+    The document as a whole legitimately lists every reference under "Fonti consultate",
+    so the check has to be scoped to the claim's own line/cell, not the whole output."""
+    d = _one_dossier()
+    md = core.render_markdown([d], META)
+    line = next(l for l in md.split("\n") if l.startswith("- resistoma:"))
+    assert "PMID" not in line
+
+    tsv = core.render_tsv([d])
+    row = next(r for r in tsv.split("\n") if "\tresistoma\t" in r)
+    assert row.split("\t")[-1] == ""
+
+
+def test_claim_shows_only_its_own_pmid_not_a_sibling_claims_reference():
+    """The batteriocine claim cites only reference 1 (PMID 111). Reference 2 (PMID 222)
+    exists in the dossier and is cited by nothing, so it must not show up on this claim's
+    line even though it legitimately appears elsewhere in the document (Fonti consultate)."""
+    d = _one_dossier()
+    md = core.render_markdown([d], META)
+    line = next(l for l in md.split("\n") if l.startswith("- batteriocine:"))
+    assert "PMID 111" in line
+    assert "PMID 222" not in line
