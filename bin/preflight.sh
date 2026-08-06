@@ -23,6 +23,7 @@ DO_INSTALL=0
 ASSUME_YES=0
 DB_METAPHLAN=""
 DB_KRAKEN=""
+CHECK_BIOMNI=0
 
 usage() {
   cat <<'EOF'
@@ -36,6 +37,7 @@ Options:
   --yes                Do not ask for confirmation before installing
   --db-metaphlan DIR   Also check the MetaPhlAn database directory
   --db-kraken DIR      Also check the Kraken2 database directory
+  --biomni             Also check the pmn_biomni environment (Phase C; skipped by default)
   -h, --help           Show this help
 
 Exit codes:
@@ -53,6 +55,7 @@ while [ $# -gt 0 ]; do
     --yes)           ASSUME_YES=1; shift ;;
     --db-metaphlan)  DB_METAPHLAN="${2:-}"; shift 2 ;;
     --db-kraken)     DB_KRAKEN="${2:-}"; shift 2 ;;
+    --biomni)        CHECK_BIOMNI=1; shift ;;
     -h|--help)       usage; exit 0 ;;
     *)               die "Unknown option: $1 (use --help)" ;;
   esac
@@ -85,6 +88,9 @@ broken=()
 printf '\n%-18s %-10s %s\n' "ENVIRONMENT" "STATUS" "TOOL / PACKAGES"
 printf '%s\n' "----------------------------------------------------------------------------"
 for env in "${PMN_ENV_ORDER[@]}"; do
+  # pmn_biomni is optional (Phase C, off by default): skip it unless --biomni was asked for,
+  # so a pipeline that never uses Phase C is never blocked by an environment it doesn't need.
+  if [ "$env" = "pmn_biomni" ] && [ "$CHECK_BIOMNI" -ne 1 ]; then continue; fi
   pkgs="${PMN_ENV_PKGS[$env]}"
   probe="${PMN_ENV_PROBE[$env]}"
   if conda_env_exists "$env"; then

@@ -42,3 +42,8 @@ _PRIVATO/
 .pytest_cache/
 __pycache__/
 *.pyc
+
+# Phase C credentials (never commit an API key)
+.pmn/
+*.credentials
+.biomni_consent.json

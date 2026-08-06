@@ -158,3 +158,15 @@ verify_checksum() {
   fi
   [ "$actual" = "$expected" ]
 }
+
+# Model name for Phase C: letters, digits, . _ - / :  (no spaces, no leading dash)
+validate_llm_name() {
+  local n="${1:-}"
+  [ -n "$n" ] || return 1
+  [ ${#n} -le 96 ] || return 1
+  case "$n" in
+    -*)                     return 1 ;;
+    *[!A-Za-z0-9._:/-]*)    return 1 ;;
+    *)                      return 0 ;;
+  esac
+}

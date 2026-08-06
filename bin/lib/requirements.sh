@@ -37,6 +37,7 @@ declare -A PMN_ENV_PKGS=(
   [pmn_kraken]="kraken2>=2.1.3 bracken>=2.9 ncbi-datasets-cli unzip"
   [pmn_stats_r]="r-base r-vegan r-ade4 r-ape r-zcompositions r-rstatix r-ggpubr"
   [pmn_reports_py]="python pandas numpy scipy matplotlib seaborn openpyxl pyyaml pytest"
+  [pmn_biomni]="python pandas pip"
 )
 
 # A cheap probe per environment: confirms the key tool is actually callable
@@ -57,12 +58,13 @@ declare -A PMN_ENV_PROBE=(
   [pmn_kraken]="kraken2 --version && command -v bracken && command -v datasets && command -v unzip"
   [pmn_stats_r]="Rscript -e 'suppressMessages(library(vegan))'"
   [pmn_reports_py]="python -c 'import pandas,numpy,scipy,matplotlib,seaborn,openpyxl,yaml,pytest'"
+  [pmn_biomni]="python -c 'import biomni'"
 )
 
 # Explicit order (associative arrays are unordered) for reporting/installation.
 PMN_ENV_ORDER=(
   pmn_download pmn_qc pmn_trim pmn_hostfilter
-  pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py
+  pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py pmn_biomni
 )
 
 # Consistency guard: every ordered env MUST have a package list and a probe. A typo here

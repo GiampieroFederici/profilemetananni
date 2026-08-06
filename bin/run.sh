@@ -2,10 +2,12 @@
 # bin/run.sh - orchestrate the profilemetananni pipeline from a config file.
 #
 # Reads config.yaml (parsed safely), validates every value, runs preflight, then runs
-# Phase A (preprocessing) and Phase B (read-based profiling) either locally or on a PBS
-# cluster (auto-detected). Every step is idempotent and skips work already done.
+# Phase A (preprocessing), Phase B (read-based profiling) and, if enabled, Phase C (taxa
+# dossier, optional/off by default) either locally or on a PBS cluster (auto-detected).
+# --phase restricts a run to a single phase. Every step is idempotent and skips work
+# already done.
 #
-# Usage: run.sh --config config.yaml [--dry-run] [--skip-preflight]
+# Usage: run.sh --config config.yaml [--dry-run] [--skip-preflight] [--phase a|b|c|all]
 set -euo pipefail
 
 PMN_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,13 +20,15 @@ PMN_ROOT="$(cd "$PMN_BIN_DIR/.." && pwd)"
 . "$PMN_ROOT/bin/lib/scheduler.sh"
 
 CONFIG=""; DRY=0; SKIP_PREFLIGHT=0
+PHASE="all"
 usage() {
   cat <<'EOF'
 profilemetananni - run
 
-Usage: run.sh --config config.yaml [--dry-run] [--skip-preflight]
+Usage: run.sh --config config.yaml [--dry-run] [--skip-preflight] [--phase a|b|c|all]
   --dry-run         print the planned steps without executing them
   --skip-preflight  do not run the environment check first
+  --phase a|b|c|all  run only this phase (default: all)
 EOF
 }
 while [ $# -gt 0 ]; do
@@ -32,12 +36,14 @@ while [ $# -gt 0 ]; do
     --config)         CONFIG="${2:-}"; shift 2 ;;
     --dry-run)        DRY=1; shift ;;
     --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
+    --phase)          PHASE="${2:-}"; shift 2 ;;
     -h|--help)        usage; exit 0 ;;
     *) die "Unknown option: $(sanitize_for_log "$1")" ;;
   esac
 done
 [ -n "$CONFIG" ] || { usage; die "--config is required"; }
 [ -f "$CONFIG" ] || die "config not found: $(sanitize_for_log "$CONFIG")"
+validate_in_set "$PHASE" all a b c || die "invalid --phase (all|a|b|c)"
 
 # --- locate conda; parse config safely (values are shlex-quoted -> safe to source) ---
 detect_conda || die "conda/mamba not found (run bin/preflight.sh first)"
@@ -70,6 +76,7 @@ validate_yesno "$PMN_DO_REPORT"       || die "invalid analysis.report"
 validate_yesno "$PMN_DO_DIVERSITY"    || die "invalid analysis.diversity"
 { [ -z "$PMN_METADATA" ] || validate_path_safe "$PMN_METADATA"; } || die "unsafe analysis.metadata"
 { [ -z "$PMN_GROUP_COL" ] || validate_name "$PMN_GROUP_COL"; }    || die "invalid analysis.group_col"
+validate_yesno "$PMN_BIOMNI_ON"       || die "invalid analysis.biomni.enabled"
 validate_walltime "$PMN_PBS_WALLTIME" || die "invalid execution.pbs_walltime (use HH:MM:SS)"
 validate_mem "$PMN_PBS_MEM"           || die "invalid execution.pbs_mem (e.g. 32GB)"
 validate_pbs_select "$PMN_PBS_SELECT" || die "invalid execution.pbs_select"
@@ -124,6 +131,12 @@ HF_LOG_DIR="$PMN_WORK_DIR/hostfilter_logs"
 export PMN_LOG_DIR
 mkdir -p "$PMN_WORK_DIR" "$PMN_LOG_DIR" "$RES_DIR" || die "cannot create work dir"
 
+# Result matrix paths: computed unconditionally (not just inside Phase B) so Phase C can
+# find them when run standalone via --phase c, after an earlier Phase B run produced them.
+MPA_MERGED=""; KRK_MATRIX=""
+if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then MPA_MERGED="$RES_DIR/metaphlan_merged.tsv"; fi
+if [ "$PMN_TOOL" = "kraken" ]    || [ "$PMN_TOOL" = "both" ]; then KRK_MATRIX="$RES_DIR/kraken_matrix.tsv"; fi
+
 say "=== profilemetananni - run ($PMN_PROJECT) ===" "=== profilemetananni - run ($PMN_PROJECT) ==="
 info "$(say "Scheduler: $PMN_SCHED | tool: $PMN_TOOL | threads: $PMN_THREADS" "Scheduler: $PMN_SCHED | tool: $PMN_TOOL | thread: $PMN_THREADS")"
 
@@ -141,11 +154,13 @@ if [ "$SKIP_PREFLIGHT" -eq 0 ] && [ "$DRY" -eq 0 ]; then
   pf_args=(--lang "$PMN_LANG")
   [ -n "$PMN_MPA_DB" ] && pf_args+=(--db-metaphlan "$PMN_MPA_DB")
   [ -n "$PMN_KRK_DB" ] && pf_args+=(--db-kraken "$PMN_KRK_DB")
+  [ "$PMN_BIOMNI_ON" = "yes" ] && pf_args+=(--biomni)
   bash "$PMN_ROOT/bin/preflight.sh" "${pf_args[@]}" \
     || die "preflight failed: install the missing environments (bin/preflight.sh --install)"
 fi
 
 # ============================ PHASE A — preprocessing ============================
+if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
 
 # A1. NCBI: estimate size (GATE) then download.
 if [ "$PMN_DATA_SOURCE" = "ncbi" ] || [ "$PMN_DATA_SOURCE" = "both" ]; then
@@ -284,7 +299,10 @@ for d in "${READ_DIRS[@]}"; do process_reads_dir "$d"; done
 do_step pmn_qc multiqc -- bash "$PMN_ROOT/steps/22_multiqc.sh" --in "$PMN_WORK_DIR" --out "$QC_DIR" --title "$PMN_PROJECT"
 info "$(say "Phase A done. Review the MultiQC report in $QC_DIR before interpreting." "Fase A finita. Guarda il report MultiQC in $QC_DIR prima di interpretare.")"
 
+fi
+
 # ============================ PHASE B prep — databases ============================
+if [ "$PHASE" = "all" ] || [ "$PHASE" = "b" ]; then
 # If a DB path is empty, either auto-build it (auto_install_db: true = the user's explicit
 # confirmation for the large download) or stop with a clear manual instruction.
 DB_DIR="$PMN_WORK_DIR/db"
@@ -392,6 +410,29 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   fi
   if [ -n "$KRK_MATRIX" ]; then
     do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+  fi
+fi
+
+fi
+
+# ============================ PHASE C — taxa dossier (OPTIONAL) ============================
+# Never submitted to PBS: compute nodes usually have no internet, and the Biomni data lake
+# would eat the user's disk quota. Off by default; only species names ever leave the machine.
+if [ "$PMN_BIOMNI_ON" = "yes" ] && { [ "$PHASE" = "all" ] || [ "$PHASE" = "c" ]; }; then
+  if [ "$PMN_SCHED" = "pbs" ]; then
+    info "$(say "Phase C skipped under PBS. Download the results and run: bash bin/run.sh --config <cfg> --phase c" \
+             "Fase C saltata sotto PBS. Scarica i risultati e lancia: bash bin/run.sh --config <cfg> --phase c")"
+  else
+    validate_llm_name "$PMN_BIOMNI_LLM" || die "analysis.biomni.enabled is true but analysis.biomni.llm is invalid or empty"
+    validate_uint "$PMN_BIOMNI_MAX"     || die "invalid analysis.biomni.max_taxa"
+    awk -v v="$PMN_BIOMNI_MAX" 'BEGIN{exit !(v>=1 && v<=500)}' || die "analysis.biomni.max_taxa must be between 1 and 500"
+    { [ -z "$PMN_BIOMNI_DATA" ] || validate_path_safe "$PMN_BIOMNI_DATA"; } || die "unsafe analysis.biomni.data_path"
+    c=(--out "$RES_DIR/biomni_dossier" --llm "$PMN_BIOMNI_LLM" --work-dir "$PMN_WORK_DIR"
+       --threshold-pct "$PMN_THRESHOLD" --max-taxa "$PMN_BIOMNI_MAX")
+    [ -n "$MPA_MERGED" ] && c+=(--metaphlan "$MPA_MERGED")
+    [ -n "$KRK_MATRIX" ] && c+=(--kraken "$KRK_MATRIX")
+    [ "$DRY" -eq 1 ] && c+=(--dry-run)
+    do_step pmn_biomni dossier -- python "$PMN_ROOT/steps/50_biomni_dossier.py" "${c[@]}"
   fi
 fi
 
