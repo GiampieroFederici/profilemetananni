@@ -459,12 +459,15 @@ real run actually cost on your provider's own dashboard, and only then raise it 
 We will not print a figure in euros or dollars here — we have not measured one, and a made-up
 number would mislead you.
 
-### What leaves your computer — and what never does
+### What profilemetananni sends — and what it never sends
 
 - **Leaves, and only after you say yes:** the names of the species detected (e.g.
   `Latilactobacillus sakei`). Nothing else.
-- **Never leaves, under any circumstance:** your sample names, SRA accessions, file paths,
-  abundance values, metadata, or raw sequencing reads.
+- **profilemetananni never sends** your sample names, SRA accessions, file paths, abundance
+  values, metadata, or raw sequencing reads — it sends species names and nothing more.
+- One honest limit: once started, Biomni's agent runs code on your computer and makes its own
+  network requests with its own tools. That part is Biomni's, not ours, so Phase C inherits
+  Biomni's trust boundary — see `SECURITY.md`.
 - You are asked for **explicit consent** the first time, showing exactly what would be sent.
   Saying "yes" is remembered for that project; **changing the model or the provider asks
   again**, because a different provider is a different recipient of your data. Full details
@@ -982,12 +985,15 @@ numero (tetto massimo: 500).
 Qui non scriviamo una cifra in euro o dollari: non l'abbiamo misurata, e un numero inventato
 ti ingannerebbe.
 
-### Cosa esce dal tuo computer — e cosa non esce mai
+### Cosa invia profilemetananni — e cosa non invia mai
 
 - **Esce, e solo dopo che dici di sì:** i nomi delle specie rilevate (es.
   `Latilactobacillus sakei`). Nient'altro.
-- **Non esce mai, in nessun caso:** i nomi dei tuoi campioni, gli accession SRA, i percorsi
-  dei file, i valori di abbondanza, i metadati, le reads grezze del sequenziamento.
+- **profilemetananni non invia mai** i nomi dei tuoi campioni, gli accession SRA, i percorsi
+  dei file, i valori di abbondanza, i metadati, le reads grezze: invia nomi di specie e basta.
+- Un limite dichiarato: una volta avviato, l'agente di Biomni esegue codice sul tuo computer e
+  fa richieste di rete per conto suo, con i suoi strumenti. Quella parte è di Biomni, non
+  nostra: la Fase C eredita il perimetro di fiducia di Biomni — vedi `SECURITY.md`.
 - Ti viene chiesto un **consenso esplicito** la prima volta, mostrandoti esattamente cosa
   verrebbe inviato. Rispondere "sì" viene ricordato per quel progetto; **se cambi modello o
   fornitore te lo richiede di nuovo**, perché un fornitore diverso è un destinatario diverso

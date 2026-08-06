@@ -69,8 +69,15 @@ anything off the machine, so it gets its own consent gate and its own rules.
 **What leaves the machine:** only the normalised species names detected in Phase A/B (e.g.
 `Latilactobacillus sakei`), and only after you have explicitly consented.
 
-**What never leaves the machine:** sample names, SRA accessions, file paths, abundances,
+**What profilemetananni never sends:** sample names, SRA accessions, file paths, abundances,
 metadata, reads. Biomni's local data lake (`data_path`) also stays local.
+
+**Where our guarantee ends.** The sentence above is about what *this* tool puts on the wire:
+the prompt it builds contains species names and NCBI-sourced titles, and nothing else. Biomni's
+A1 agent, once `go()` is called, plans and executes generated code on your machine and makes
+its own network requests with its own tool set — we do not constrain what it does after that
+point. Phase C therefore inherits Biomni's trust boundary, which is one more reason it is off
+by default, capped at `max_taxa`, and never submitted to a cluster.
 
 **Consent — how it is given and revoked:**
 - The first time Phase C runs with a given model, it shows exactly what would be sent, to
