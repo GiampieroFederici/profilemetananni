@@ -196,6 +196,20 @@ def test_a_key_the_provider_refuses_stops_and_is_never_stored(tmp_path):
     assert any("non è valida" in s for s in seen)
 
 
+def test_a_terminal_that_cannot_be_read_gives_up_instead_of_raising(tmp_path):
+    """isatty() can claim a terminal that yields nothing (Git Bash on Windows does);
+    the wizard must end with the plain-language message, not a traceback."""
+    def _eof(_prompt):
+        raise EOFError
+    client = FakeClient()
+    rc = _run(tmp_path, client=client, environ={}, interactive=True,
+              ask=_eof, show=lambda _s: None, ask_secret=_eof,
+              check_key=lambda _pr, _k: 0)
+    assert rc != 0
+    assert client.asked == []
+    assert not (tmp_path / "creds").exists()
+
+
 def test_choosing_the_local_option_explains_how_and_sends_nothing(tmp_path):
     client = FakeClient()
     rc, seen = _wizard(tmp_path, [], "L", client=client)

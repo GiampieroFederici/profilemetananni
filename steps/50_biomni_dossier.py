@@ -81,7 +81,14 @@ def _setup_api_key(llm, provider, cred_path, ask, show, ask_secret, check_key):
          f"      altrimenti la chiave non funziona.\n"
          f"\n"
          f"  Oppure:  [L] uso un modello LOCALE gratis   ·   [A] annulla\n")
-    key = ask_secret("  Incolla qui la chiave (NON verrà mostrata mentre la scrivi): ").strip()
+    try:
+        key = ask_secret("  Incolla qui la chiave (NON verrà mostrata mentre la scrivi): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        # isatty() said there was a terminal but nothing can be read from it: give up
+        # quietly and let the caller print the "set the variable yourself" message. A
+        # traceback here would be the exact opposite of what SPEC 6.4 is for.
+        show("")
+        return None
     if key.lower() == "l":
         show(_LOCAL_GUIDE)
         return None
@@ -107,7 +114,11 @@ def _setup_api_key(llm, provider, cred_path, ask, show, ask_secret, check_key):
          f"       Le prossime volte non ti chiederò più nulla.\n"
          f"   [2] da nessuna parte\n"
          f"       La uso solo per questa esecuzione. Dovrai reincollarla ogni volta.\n")
-    if ask("  Scelta [1/2]: ").strip() == "1":
+    try:
+        where = ask("  Scelta [1/2]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        where = "2"     # unreadable answer -> do not write a key anywhere
+    if where == "1":
         warning = consent.store_credential(cred_path, provider.env_var, key)
         show(("  " + warning) if warning else f"  Salvata in {cred_path} (permessi 600).")
     return key
@@ -120,14 +131,15 @@ class _LazyClient:
     --dry-run has been honoured and the consent gate and API key have both passed.
     """
 
-    def __init__(self, llm: str):
+    def __init__(self, llm: str, data_path: str = ""):
         self._llm = llm
+        self._data_path = data_path
         self._client = None
 
     def ask(self, taxon: str, detected_by: str):
         if self._client is None:
             from _biomni_client import BiomniClient   # heavy import, deferred
-            self._client = BiomniClient(self._llm)
+            self._client = BiomniClient(self._llm, self._data_path)
         return self._client.ask(taxon, detected_by)
 
 
@@ -217,15 +229,21 @@ def main() -> int:
     ap.add_argument("--work-dir", required=True, help="where the consent record lives")
     ap.add_argument("--threshold-pct", type=float, default=0.001)
     ap.add_argument("--max-taxa", type=int, default=5)
+    ap.add_argument("--data-path", default="",
+                    help="where the Biomni data lake (~11GB) is kept; empty -> ./biomni_data")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--yes-send-taxa", action="store_true")
     a = ap.parse_args()
     if not a.metaphlan and not a.kraken:
         return _fail("provide at least one of --metaphlan / --kraken")
+    for label, path in (("--metaphlan", a.metaphlan), ("--kraken", a.kraken)):
+        if path and not os.path.isfile(path):
+            return _fail(f"{label} table not found: {path}. Run Phase B first, or check "
+                         f"paths.results_dir in config.yaml.")
 
     return run(a.metaphlan, a.kraken, a.out, a.llm, a.work_dir, a.threshold_pct,
                a.max_taxa, a.dry_run, a.yes_send_taxa,
-               _LazyClient(a.llm), os.environ, sys.stdin.isatty())
+               _LazyClient(a.llm, a.data_path), os.environ, sys.stdin.isatty())
 
 
 if __name__ == "__main__":
