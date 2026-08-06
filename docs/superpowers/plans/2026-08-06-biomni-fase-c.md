@@ -599,9 +599,8 @@ git commit -m "feat(phase-c): verify every PMID against NCBI, drop what cannot b
 > 🔄 **Aggiornato dopo lo spike.** Le firme cambiano perché la prova non è più «un PMID
 > verificato» ma «almeno un numero di riferimento valido»:
 > `apply_labels(claims: tuple) -> tuple` e `build_dossier(raw: RawDossier) -> Dossier`
-> (niente più `fetch`: le fonti arrivano già verificate dal client). Nei test di questo task,
-> sostituire ovunque `pmids=("111",)` con `refs=(1,)`, `pmids=("999",)` con `refs=(9,)`, e
-> togliere l'argomento `verified=`. La logica di declassamento è invariata.
+> (niente più `fetch`: le fonti arrivano già verificate dal client). Il codice qui sotto è già
+> nella forma nuova. La logica di declassamento è invariata.
 
 - Consumes: `Claim` (Task 2), `resolve_citations` (Task 2).
 - Produces: `apply_labels(claims: tuple) -> tuple`, `build_dossier(raw: RawDossier) -> Dossier`.
