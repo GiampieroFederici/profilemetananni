@@ -49,6 +49,24 @@ def _ask_consent(llm, provider, taxa, ask, show):
     return ask("  Procedo, e accetto il costo? [s/N] ").strip().lower() in ("s", "si", "sì", "y")
 
 
+class _LazyClient:
+    """Defer building the Biomni agent until a taxon is actually asked.
+
+    A1(...) downloads an ~11GB data lake on construction. Nothing may be fetched before
+    --dry-run has been honoured and the consent gate and API key have both passed.
+    """
+
+    def __init__(self, llm: str):
+        self._llm = llm
+        self._client = None
+
+    def ask(self, taxon: str, detected_by: str):
+        if self._client is None:
+            from _biomni_client import BiomniClient   # heavy import, deferred
+            self._client = BiomniClient(self._llm)
+        return self._client.ask(taxon, detected_by)
+
+
 def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
         dry_run, assume_yes, client, environ, interactive,
         cred_path=None, ask=input, show=print):
@@ -131,10 +149,9 @@ def main() -> int:
     if not a.metaphlan and not a.kraken:
         return _fail("provide at least one of --metaphlan / --kraken")
 
-    from _biomni_client import BiomniClient  # imported late: heavy dependency
     return run(a.metaphlan, a.kraken, a.out, a.llm, a.work_dir, a.threshold_pct,
                a.max_taxa, a.dry_run, a.yes_send_taxa,
-               BiomniClient(a.llm), os.environ, sys.stdin.isatty())
+               _LazyClient(a.llm), os.environ, sys.stdin.isatty())
 
 
 if __name__ == "__main__":

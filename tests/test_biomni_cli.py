@@ -109,3 +109,15 @@ def test_a_yes_at_the_prompt_records_the_consent_once(tmp_path):
     _run(tmp_path, client=client, interactive=True, ask=lambda _p: "s", show=lambda _s: None)
     assert len(client.asked) == 2
     assert (tmp_path / ".biomni_consent.json").exists()
+
+
+def test_dry_run_never_builds_the_real_biomni_agent(tmp_path):
+    lazy = step50._LazyClient("gpt-4o")
+    assert _run(tmp_path, client=lazy, dry_run=True) == 0
+    assert lazy._client is None
+
+
+def test_a_refused_consent_never_builds_the_real_biomni_agent(tmp_path):
+    lazy = step50._LazyClient("gpt-4o")
+    assert _run(tmp_path, client=lazy, dry_run=False, assume_yes=False, interactive=False) != 0
+    assert lazy._client is None
