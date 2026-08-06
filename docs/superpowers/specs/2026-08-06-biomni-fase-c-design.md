@@ -254,7 +254,129 @@ Regole del consenso:
    indica il flag `--yes-send-taxa`. Non parte mai di nascosto.
 4. `--dry-run` non richiede consenso perché non invia nulla.
 
-### 6.4 Cosa esce e cosa no
+### 6.4 La chiave API: procedura guidata, non un messaggio d'errore
+
+profilemetananni è pensato per chi **non** è informatico. Dire "esporta la variabile
+`OPENAI_API_KEY` nella tua shell" e fallire è un modo per perdere l'utente. Il tool deve fare
+il bioinformatico *al posto* suo, quindi accompagna la configurazione passo per passo.
+
+**Regola di progetto: se manca la chiave, il tool non fallisce — insegna.**
+
+#### Passo 1 — riconosce da solo quale chiave serve
+
+Dal nome del modello scritto in `llm:` il tool deduce fornitore e variabile d'ambiente:
+
+| Se `llm:` inizia con | Fornitore | Variabile | Dove si crea la chiave |
+|---|---|---|---|
+| `claude-` | Anthropic | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
+| `gpt-`, `o1-`, `o3-` | OpenAI | `OPENAI_API_KEY` | platform.openai.com/api-keys |
+| `gemini-` | Google | `GEMINI_API_KEY` | aistudio.google.com/apikey |
+| `groq/` | Groq | `GROQ_API_KEY` | console.groq.com/keys |
+| `azure/` | Azure OpenAI | variabili Azure | portale Azure → risorsa OpenAI |
+| `bedrock/` | AWS Bedrock | credenziali AWS | console AWS → IAM |
+| `ollama/` | locale | **nessuna** | — (gratis, niente chiave) |
+
+> Gli indirizzi in questa tabella vanno **riverificati al momento dell'implementazione**: le
+> console dei fornitori cambiano. Un link morto in un tool per non-informatici è un bug.
+
+#### Passo 2 — se la chiave manca, la spiega e la chiede
+
+```
+┌─ Fase C · serve una chiave API ───────────────────────────────────┐
+│  Hai scelto il modello:  gpt-4o   (fornitore: OpenAI)             │
+│  Per usarlo serve una TUA chiave personale. Non l'ho trovata.     │
+│                                                                    │
+│  COME OTTENERLA — circa 3 minuti:                                 │
+│   1. Apri  https://platform.openai.com/api-keys                   │
+│   2. Registrati o accedi                                          │
+│   3. Premi "Create new secret key" e COPIA la chiave              │
+│      (inizia con "sk-", è lunga una cinquantina di caratteri)     │
+│   4. ATTENZIONE: serve un metodo di pagamento attivo sul tuo      │
+│      account, altrimenti la chiave non funziona.                  │
+│                                                                    │
+│  Incolla qui la chiave (NON verrà mostrata mentre la scrivi):     │
+│   >                                                                │
+│                                                                    │
+│  Oppure:                                                          │
+│   [L] uso un modello LOCALE gratis  →  ti mostro come             │
+│   [A] annulla                                                      │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+L'inserimento è mascherato (niente eco a schermo). La chiave **non compare mai** nei log, nei
+messaggi d'errore, in `run_meta.json` né in `config.yaml`.
+
+#### Passo 3 — chiede dove salvarla, e spiega la differenza
+
+```
+  Dove salvo la chiave?
+   [1] ~/.pmn/credentials      consigliato
+       File riservato: permessi 600 (solo il tuo utente può leggerlo),
+       fuori dalla cartella del progetto, mai finisce su GitHub.
+       Le prossime volte non ti chiederò più nulla.
+
+   [2] da nessuna parte
+       La uso solo per questa esecuzione e poi me la dimentico.
+       Dovrai reincollarla ogni volta.
+```
+
+Vincoli sul file `~/.pmn/credentials`:
+
+- creato con permessi `600`; se i permessi risultano più larghi, il tool **rifiuta di usarlo**
+  e lo dice;
+- una riga per fornitore, formato `VARIABILE=valore`;
+- si trova **fuori** dal repository, quindi non può finire in un commit;
+- `.gitignore` del progetto aggiunge comunque `.pmn/` e `*.credentials` come rete di sicurezza;
+- se la stessa variabile è già presente nell'ambiente, **l'ambiente vince** e il file viene
+  ignorato (chi sa già usare `export` non viene scavalcato).
+
+#### Passo 4 — verifica subito che la chiave funzioni
+
+Prima di partire con i taxa, il tool fa **una sola chiamata minima** al fornitore per
+controllare che la chiave sia valida.
+
+```
+  Verifico la chiave...  OK — la chiave funziona.
+```
+
+Se non funziona, spiega **cosa** è andato storto in parole comuni, non con l'errore grezzo:
+
+| Cosa risponde il fornitore | Cosa dice il tool |
+|---|---|
+| 401 / non autorizzato | "La chiave non è valida. Forse è incompleta o è stata revocata: ricreala." |
+| 402 / 429 su credito | "La chiave è valida ma l'account non ha credito o metodo di pagamento attivo." |
+| errore di rete | "Non riesco a raggiungere il fornitore: controlla la connessione o il proxy." |
+
+Questo costa una frazione irrisoria ed evita il caso peggiore: scoprire che la chiave è
+sbagliata **dopo** venti minuti di elaborazione.
+
+#### Passo 5 — se sceglie il modello locale, lo guida lo stesso
+
+Chi preme `[L]` non viene abbandonato con "installa Ollama":
+
+```
+  MODELLO LOCALE — gratis, nessun dato esce dal tuo computer.
+   1. Scarica Ollama da  https://ollama.com/download
+   2. Apri il terminale e scarica un modello:   ollama pull <modello>
+   3. Scrivi in config.yaml:   llm: "ollama/<modello>"
+   4. Rilancia:  bash bin/run.sh --config config.yaml --phase c
+
+  Nota onesta: un modello locale su un compito di ragionamento come questo
+  sbaglia più di un modello grande a pagamento. Guadagni privacy e costo zero,
+  perdi in qualità.
+```
+
+Il nome preciso del modello da suggerire e i comandi vanno **verificati** in fase di
+implementazione, insieme al supporto Ollama in Biomni (§13, rischio 1).
+
+#### Passo 6 — mai imbrogliare sul rapporto costo/beneficio
+
+Nel README e nell'intervista le due famiglie di modelli compaiono **sempre insieme**, con lo
+stesso spazio e la stessa chiarezza: a pagamento (pronte, migliori, costano) e locali (gratis,
+private, meno precise). Non c'è un default nascosto e non c'è una famiglia presentata come
+"quella vera".
+
+### 6.5 Cosa esce e cosa no
 
 **Esce:** soltanto i nomi normalizzati delle specie (es. `Latilactobacillus sakei`).
 
@@ -345,9 +467,12 @@ Validazione (in `bin/lib/validate.sh`, come per ogni altro valore):
 | `bin/lib/requirements.sh` | definizione dell'env `pmn_biomni` |
 | `bin/preflight.sh` | controllo dell'env `pmn_biomni` (solo se `enabled: true`) |
 | `config.example.yaml` | blocco commentato |
+| `.gitignore` | `.pmn/` e `*.credentials` (rete di sicurezza per le chiavi) |
 | `SPEC.md` | Fase C nell'ordine di esecuzione + regola di consenso e costo |
 | `SECURITY.md` | sezione sull'uscita dei dati e sulle chiavi API |
 | `README.md` | sezione nuova, in inglese e in italiano |
+| `RESEARCH_PROPOSAL/pmn_workflow.*` | figura del flusso aggiornata con la Fase C — **già fatta** (html sorgente + png/jpg/pdf) |
+| `RESEARCH_PROPOSAL/PMN_SPIEGATO.md` | documento divulgativo su PMN — **già fatto** |
 
 ---
 
@@ -369,6 +494,14 @@ risposte fisse, iniettata al posto dell'agente vero) permette di testare tutto i
 8. `max_taxa` viene rispettato: con 100 taxa e `max_taxa: 5` ne partono 5.
 9. Con `scheduler: pbs`, la Fase C viene saltata con il messaggio corretto.
 10. L'intestazione di provenienza è presente nel `.md` e i conteggi coincidono con `run_meta.json`.
+11. Con `llm: "gpt-…"` e nessuna chiave nell'ambiente, parte la **procedura guidata** (§6.4) e
+    non un errore grezzo.
+12. La chiave incollata **non compare** in nessun log, messaggio d'errore o file di output.
+13. Se `~/.pmn/credentials` ha permessi più larghi di `600`, il tool **rifiuta di leggerlo**.
+14. Se la variabile è già nell'ambiente, **l'ambiente vince** sul file delle credenziali.
+15. Con una chiave non valida, il messaggio mostrato è quello tradotto della tabella in §6.4,
+    non l'errore grezzo del fornitore.
+16. Con `llm: "ollama/…"` non viene chiesta nessuna chiave e non parte nessuna verifica.
 
 Solo alla fine, **una** esecuzione reale con `max_taxa: 5` sui dati della tesi, per giudicare se
 i dossier hanno valore scientifico e per misurare la spesa effettiva.

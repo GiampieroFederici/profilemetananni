@@ -1,0 +1,165 @@
+<meta charset="utf-8">
+<title>ProfileMetaNanni — the actual workflow</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  #page {
+    width: 1560px; padding: 30px 34px 26px;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1f2b44; background: #ffffff;
+  }
+
+  h1 { font-size: 40px; margin: 0 0 5px; text-align: center; letter-spacing: -.4px; }
+  .sub { text-align: center; font-size: 20px; color: #55637d; font-style: italic; margin-bottom: 20px; }
+  .hi { font-weight: 700; }
+
+  .arrow { text-align:center; font-size: 28px; color:#2c3e60; line-height: 1; margin: 9px 0; }
+
+  .band { border-radius: 12px; padding: 12px 18px; text-align: center; }
+  .band .t { font-size: 21px; font-weight: 800; }
+  .band .d { font-size: 17px; margin-top: 3px; }
+  .band .n { font-size: 15px; color: #55637d; margin-top: 3px; }
+  .in  { background:#fdf1e0; border:3px solid #d98518; width: 1040px; margin: 0 auto; }
+  .out { background:#eaf3ea; border:3px solid #2e7d4f; width: 1280px; margin: 0 auto; }
+
+  /* the machine */
+  .machine { border: 5px dashed #22314f; border-radius: 20px; background: #f4f7fc; padding: 18px 22px 22px; }
+  .mt { text-align:center; font-size: 25px; font-weight:800; color:#22314f; }
+  .ms { text-align:center; font-size: 17px; color:#3c4d70; margin: 3px 0 14px; }
+
+  .lab { font-size: 21px; font-weight: 800; margin: 16px 0 9px; }
+  .lab-a { color:#1d4e89; }
+  .lab-a:first-of-type { margin-top: 0; }
+  .lab-c { color:#5b2d91; text-align:center; margin-top:0; }
+
+  .tag { display:inline-block; font-size:14px; font-weight:700; padding:2px 10px; border-radius: 20px; vertical-align: 3px; margin-left: 8px; }
+  .done { background:#d7f0dd; color:#1d6b3a; border:2px solid #2e7d4f; }
+  .new  { background:#efe2fb; color:#5b2d91; border:2px solid #7a44c4; }
+
+  .row { display:flex; gap: 13px; align-items: stretch; }
+  .step {
+    flex: 1; background:#dfe9f7; border:2.5px solid #2c5f9e; border-radius: 11px;
+    padding: 11px 10px; text-align:center; font-size: 16px; line-height: 1.33; color:#3f4d68;
+  }
+  .step .h { display:block; font-size: 18px; font-weight:700; color:#1f2b44; margin-bottom: 4px; }
+
+  .results { margin-top: 14px; background:#eaf3ea; border:2.5px solid #2e7d4f; border-radius:11px;
+             padding: 11px; text-align:center; font-size:18px; }
+  .results .h { font-weight:800; }
+  .results .n { font-size:15px; color:#55637d; margin-top:2px; }
+
+  /* phase C */
+  .phasec { border: 4px solid #7a44c4; border-radius: 18px; background:#faf6ff; padding: 15px 20px 18px; }
+  .opt { text-align:center; font-size:17px; color:#5b2d91; font-weight:700; margin: 4px 0 12px; }
+  .stepc { background:#f0e5fc; border-color:#7a44c4; color:#4b3a63; }
+  .stepc .h { color:#4a1f80; }
+
+  .fork { display:flex; gap:13px; margin-top: 13px; }
+  .fork > div { flex:1; border-radius:11px; padding:11px 14px; font-size:16px; line-height:1.4; }
+  .fork .h { display:block; font-size:18px; font-weight:700; margin-bottom:4px; }
+  .paid { background:#fff3e6; border:2.5px solid #d98518; }
+  .free { background:#e8f5ec; border:2.5px solid #2e7d4f; }
+
+  /* honesty */
+  .honest { margin-top: 16px; border:4px solid #22314f; border-radius:14px; background:#fffdf2; padding: 13px 20px 15px; font-size: 17px; line-height:1.5; }
+  .honest .h { font-weight:800; font-size:20px; color:#22314f; margin-bottom:5px; text-align:center; }
+  .honest ul { margin: 4px 0 0; padding-left: 24px; }
+  .honest li { margin: 2px 0; }
+
+  .foot { text-align:center; font-size:17px; color:#55637d; font-style:italic; margin-top: 15px; line-height:1.5; }
+</style>
+
+<div id="page">
+
+  <h1>ProfileMetaNanni — the actual workflow</h1>
+  <div class="sub">Phases A and B: implemented and tested · Phase C: designed, optional, off by default</div>
+
+  <div class="band in">
+    <div class="t">INPUT</div>
+    <div class="d">samples fetched from NCBI (SRR accessions) and/or your own FASTQ files</div>
+    <div class="n">sensitive data: human contaminating reads, company recipes and batch identifiers</div>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="machine">
+    <div class="mt">ON YOUR LAPTOP · ON YOUR SERVER · OR ON THE HPC CLUSTER</div>
+    <div class="ms">Throughout this part the data <span class="hi">never leaves the machine</span>. No cloud, no API.</div>
+
+    <div class="lab lab-a">PHASE A · preprocessing <span class="tag done">IMPLEMENTED</span></div>
+    <div class="row">
+      <div class="step"><span class="h">Fetch the samples</span>SRA-toolkit<br>only if they come from NCBI</div>
+      <div class="step"><span class="h">Clean the reads</span>fastp + FastQC</div>
+      <div class="step"><span class="h">Remove the host</span>Bowtie2 · human T2T-CHM13 always<br>+ pig / cattle / chicken as chosen</div>
+      <div class="step"><span class="h">Quality report</span>MultiQC</div>
+    </div>
+
+    <div class="lab lab-a">PHASE B · read-based profiling — who is in there <span class="tag done">IMPLEMENTED</span></div>
+    <div class="row">
+      <div class="step"><span class="h">Who is there</span>MetaPhlAn 4 and/or<br>Kraken2 + Bracken</div>
+      <div class="step"><span class="h">Taxa × samples matrices</span>one row per species<br>one column per sample</div>
+      <div class="step"><span class="h">Cross-tool comparison</span>only when tool = "both"<br>shared / one-only / Jaccard</div>
+      <div class="step"><span class="h">Diversity</span>CLR + Aitchison + PCA<br>Kruskal-Wallis + Dunn</div>
+    </div>
+
+    <div class="results">
+      <span class="h">RESULTS</span> — abundance tables · Excel report · PCA and diversity plots
+      <div class="n">these are small files: a few hundred kilobytes. They are all Phase C needs.</div>
+    </div>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="phasec">
+    <div class="lab lab-c">PHASE C · taxa dossier with Biomni <span class="tag new">DESIGNED</span></div>
+    <div class="opt">OPTIONAL · off by default · runs locally only, never submitted to the cluster</div>
+
+    <div class="row">
+      <div class="step stepc"><span class="h">Take the NAMES only</span>species above threshold<br>no sample names, no SRR<br>no abundances, no FASTQ</div>
+      <div class="step stepc"><span class="h">Ask your permission</span>tells you who receives them<br>and that <span class="hi">it costs you money</span><br>you can always say no</div>
+      <div class="step stepc"><span class="h">Biomni really searches</span>A1 agent + PubMed<br>role in fermented meat<br>+ expected functions</div>
+      <div class="step stepc"><span class="h">Re-check against NCBI</span>every citation is verified<br>if it does not match, <span class="hi">it is dropped</span></div>
+    </div>
+
+    <div class="fork">
+      <div class="paid">
+        <span class="h">Paid model — needs YOUR own API key</span>
+        Claude (Anthropic) · GPT (OpenAI) · Gemini · Groq · Azure · Bedrock<br>
+        reasons better · <span class="hi">costs real money</span> · species names leave the machine<br>
+        if you have no key, the tool walks you through creating one
+      </div>
+      <div class="free">
+        <span class="h">Local model — free</span>
+        Ollama, running on your own computer<br>
+        zero cost · <span class="hi">nothing leaves the machine</span> · no key to create<br>
+        but it makes more mistakes here, and needs a powerful computer
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">▼</div>
+
+  <div class="band out">
+    <div class="t">TAXA DOSSIER</div>
+    <div class="d">for each species: its role in fermented meat, the functions to expect, with verified citations</div>
+    <div class="n">every line is labelled <span class="hi">known</span> (demonstrated) · <span class="hi">expected</span> (inferred) · <span class="hi">hypothesis</span> (no evidence)<br>
+    it exists to decide whether, and on which genomes, real functional annotation is worth the compute</div>
+  </div>
+
+  <div class="honest">
+    <div class="h">⚠️ Honesty — what actually leaves your machine</div>
+    <ul>
+      <li><span class="hi">Phase A and Phase B:</span> nothing leaves. Ever. No cloud.</li>
+      <li><span class="hi">Phase C with a local model:</span> nothing leaves there either.</li>
+      <li><span class="hi">Phase C with a paid model:</span> <span class="hi">species names only</span>, and only after you said yes.</li>
+      <li><span class="hi">The cost cannot be predicted up front:</span> it starts at 5 species so you can measure it, then you decide.</li>
+      <li><span class="hi">The dossier is written by an LLM, not by an expert:</span> that is stated at the top of it, and citations are re-checked against NCBI.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    The LLM is the guide: it interviews the user, runs the scripts and interprets the results.<br>
+    <span class="hi">It never improvises commands</span>: it only executes the tested scripts shipped in the repository (<code>bin/</code> and <code>steps/</code>).
+  </div>
+
+</div>
