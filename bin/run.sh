@@ -19,16 +19,19 @@ PMN_ROOT="$(cd "$PMN_BIN_DIR/.." && pwd)"
 # shellcheck source=lib/scheduler.sh
 . "$PMN_ROOT/bin/lib/scheduler.sh"
 
-CONFIG=""; DRY=0; SKIP_PREFLIGHT=0
+CONFIG=""; DRY=0; SKIP_PREFLIGHT=0; YES_TAXA=0
 PHASE="all"
 usage() {
   cat <<'EOF'
 profilemetananni - run
 
 Usage: run.sh --config config.yaml [--dry-run] [--skip-preflight] [--phase a|b|c|all]
+              [--yes-send-taxa]
   --dry-run         print the planned steps without executing them
   --skip-preflight  do not run the environment check first
   --phase a|b|c|all  run only this phase (default: all)
+  --yes-send-taxa   Phase C only: consent to sending the species names without being
+                    asked (for runs with no terminal: nohup, a pipe, a CI job)
 EOF
 }
 while [ $# -gt 0 ]; do
@@ -37,6 +40,7 @@ while [ $# -gt 0 ]; do
     --dry-run)        DRY=1; shift ;;
     --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
     --phase)          PHASE="${2:-}"; shift 2 ;;
+    --yes-send-taxa)  YES_TAXA=1; shift ;;
     -h|--help)        usage; exit 0 ;;
     *) die "Unknown option: $(sanitize_for_log "$1")" ;;
   esac
@@ -429,10 +433,28 @@ if [ "$PMN_BIOMNI_ON" = "yes" ] && { [ "$PHASE" = "all" ] || [ "$PHASE" = "c" ];
     { [ -z "$PMN_BIOMNI_DATA" ] || validate_path_safe "$PMN_BIOMNI_DATA"; } || die "unsafe analysis.biomni.data_path"
     c=(--out "$RES_DIR/biomni_dossier" --llm "$PMN_BIOMNI_LLM" --work-dir "$PMN_WORK_DIR"
        --threshold-pct "$PMN_THRESHOLD" --max-taxa "$PMN_BIOMNI_MAX")
-    [ -n "$MPA_MERGED" ] && c+=(--metaphlan "$MPA_MERGED")
-    [ -n "$KRK_MATRIX" ] && c+=(--kraken "$KRK_MATRIX")
+    [ -n "$PMN_BIOMNI_DATA" ] && c+=(--data-path "$PMN_BIOMNI_DATA")
+    # Only pass a table that actually EXISTS: running --phase c before Phase B has produced
+    # them would otherwise surface as a FileNotFoundError traceback.
+    have_table=0
+    if [ -n "$MPA_MERGED" ] && [ -f "$MPA_MERGED" ]; then c+=(--metaphlan "$MPA_MERGED"); have_table=1; fi
+    if [ -n "$KRK_MATRIX" ] && [ -f "$KRK_MATRIX" ]; then c+=(--kraken "$KRK_MATRIX"); have_table=1; fi
     [ "$DRY" -eq 1 ] && c+=(--dry-run)
-    do_step pmn_biomni dossier -- python "$PMN_ROOT/steps/50_biomni_dossier.py" "${c[@]}"
+    [ "$YES_TAXA" -eq 1 ] && c+=(--yes-send-taxa)
+    if [ "$have_table" -eq 0 ] && [ "$DRY" -eq 0 ]; then
+      warn "$(say "Phase C skipped: no profiling table found in $RES_DIR. Run Phase B first, or check paths.results_dir." \
+               "Fase C saltata: nessuna tabella di profiling in $RES_DIR. Lancia prima la Fase B, o controlla paths.results_dir.")"
+    else
+      # NOT via do_step, for two reasons: do_step short-circuits on --dry-run, which would
+      # keep the step (and its "what would be sent" listing) from ever running; and do_step
+      # aborts the pipeline on failure, while Phase C is the optional, network- and
+      # LLM-dependent stage - its failure must not turn a finished Phase A/B run into a
+      # failed one. It returns non-zero for ordinary situations too ("no taxa above the
+      # threshold"), so warn and carry on.
+      pmn_run pmn_biomni dossier -- python "$PMN_ROOT/steps/50_biomni_dossier.py" "${c[@]}" \
+        || warn "$(say "Phase C did not complete (reason above). Phase A/B results are unaffected." \
+                    "Fase C non completata (motivo qui sopra). I risultati di Fase A/B non sono toccati.")"
+    fi
   fi
 fi
 
