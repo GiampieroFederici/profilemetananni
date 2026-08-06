@@ -80,7 +80,7 @@ PHASE A — preprocessing                       PHASE B — read-based profiling
   2. **Download** SRA runs (only if your data source is `ncbi`).
   3. **Trimming** with `fastp`; **FastQC** is run on raw and trimmed reads for the QC report.
   4. **Host filtering** with `Bowtie2` — removes host/substrate reads (e.g. pig, cow) and
-     **human** reads (privacy + quality).
+     **human** reads (default human reference: **T2T-CHM13v2.0**; GRCh38 still available) (privacy + quality).
   5. **MultiQC** — one consolidated quality report.
 - **Phase B — Read-based profiling.**
   1. **MetaPhlAn 4** (marker-gene) and/or **Kraken2 + Bracken** (k-mer) — you choose.
@@ -245,7 +245,8 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
 | `project_name` | label used in folder names (A–Z a–z 0–9 . _ -) | `my_study` |
 | `hosts` | extra host genomes to remove (from `refs/hosts.tsv`) | `[sus_scrofa]` |
-| `filter_human` | remove human reads automatically | `true` |
+| `filter_human` | remove human reads automatically (T2T-CHM13v2.0) | `true` |
+| `host_sensitivity` | Bowtie2 host-filter preset: `very-sensitive` or `very-sensitive-local` | `very-sensitive` |
 | `cleanup.keep_trimmed` | keep trimmed reads after host filtering | `false` |
 | `cleanup.keep_host_reads` | save host-mapped reads to a folder | `false` |
 | `cleanup.host_reads_dir` | where to save them (empty → `<work_dir>/host_reads`) | `""` |
@@ -478,7 +479,7 @@ FASE A — preprocessing                        FASE B — profiling read-based
   2. **Download** delle run SRA (solo se la sorgente dati è `ncbi`).
   3. **Trimming** con `fastp`; **FastQC** su reads grezze e trimmate per il report di qualità.
   4. **Filtro host** con `Bowtie2` — rimuove le reads dell'ospite/substrato (es. maiale, bovino)
-     e le reads **umane** (privacy + qualità).
+     e le reads **umane** (riferimento umano di default: **T2T-CHM13v2.0**; GRCh38 ancora disponibile) (privacy + qualità).
   5. **MultiQC** — un unico report di qualità consolidato.
 - **Fase B — Profiling read-based.**
   1. **MetaPhlAn 4** (marker-gene) e/o **Kraken2 + Bracken** (k-mer) — scegli tu.
@@ -643,7 +644,8 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
 | `project_name` | etichetta usata nei nomi cartella (A–Z a–z 0–9 . _ -) | `my_study` |
 | `hosts` | genomi host extra da rimuovere (da `refs/hosts.tsv`) | `[sus_scrofa]` |
-| `filter_human` | rimuovi le reads umane in automatico | `true` |
+| `filter_human` | rimuovi le reads umane in automatico (T2T-CHM13v2.0) | `true` |
+| `host_sensitivity` | preset filtro host di Bowtie2: `very-sensitive` o `very-sensitive-local` | `very-sensitive` |
 | `cleanup.keep_trimmed` | tieni le reads trimmate dopo il filtro host | `false` |
 | `cleanup.keep_host_reads` | salva le reads dell'host in una cartella | `false` |
 | `cleanup.host_reads_dir` | dove salvarle (vuoto → `<work_dir>/host_reads`) | `""` |

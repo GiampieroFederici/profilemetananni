@@ -59,6 +59,7 @@ validate_decimal "$PMN_KRK_CONF"     || die "invalid kraken_confidence"
 validate_decimal "$PMN_THRESHOLD"    || die "invalid abundance_threshold_pct"
 validate_uint "$PMN_THREADS"         || die "invalid threads"
 validate_yesno "$PMN_FILTER_HUMAN"   || die "invalid filter_human"
+validate_in_set "$PMN_HOST_PRESET" very-sensitive very-sensitive-local || die "invalid host_sensitivity (very-sensitive|very-sensitive-local)"
 validate_yesno "$PMN_KEEP_TRIMMED"   || die "invalid cleanup.keep_trimmed"
 validate_yesno "$PMN_KEEP_HOST_READS" || die "invalid cleanup.keep_host_reads"
 validate_in_set "$PMN_LAYOUT" managed custom || die "invalid paths.layout (managed|custom)"
@@ -118,6 +119,8 @@ if [ -n "$PMN_HOST_READS_DIR" ]; then
 else
   HOST_READS_DIR="$PMN_WORK_DIR/host_reads"
 fi
+# Per-pass Bowtie2 host-removal logs (parsed by MultiQC). Under work_dir so step 22 always scans it.
+HF_LOG_DIR="$PMN_WORK_DIR/hostfilter_logs"
 export PMN_LOG_DIR
 mkdir -p "$PMN_WORK_DIR" "$PMN_LOG_DIR" "$RES_DIR" || die "cannot create work dir"
 
@@ -183,11 +186,16 @@ esac
 # hosts first, human last.
 host_accession() { awk -F'\t' -v h="$1" '!/^#/ && $1==h {print $2; exit}' "$PMN_ROOT/refs/hosts.tsv" | tr -d '\r'; }
 
+# Human reference for the automatic human-read removal (filter_human). T2T-CHM13v2.0 removes
+# centromeric/satellite reads that survive GRCh38 and get misclassified as microbial, and drops
+# sex-determining signal (privacy). Fully reversible: set PMN_HUMAN_HOST back to "grch38".
+PMN_HUMAN_HOST="chm13"
+
 INDEX_LIST=()
 read -ra _PMN_HOST_ARR <<< "$PMN_HOSTS"   # split safely (no glob expansion)
 for h in "${_PMN_HOST_ARR[@]}"; do
   [ -n "$h" ] || continue           # skip empty tokens (e.g. trailing spaces)
-  [ "$h" = "grch38" ] && continue   # human is handled separately via filter_human
+  case "$h" in grch38|chm13) continue ;; esac   # human handled separately via filter_human
   validate_name "$h" || die "invalid host name: $(sanitize_for_log "$h")"
   acc="$(host_accession "$h")"; [ -n "$acc" ] || die "no accession for host '$h' in refs/hosts.tsv"
   do_step pmn_hostfilter "idx_${h}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
@@ -195,10 +203,10 @@ for h in "${_PMN_HOST_ARR[@]}"; do
   INDEX_LIST+=("$REF_DIR/$h")
 done
 if [ "$PMN_FILTER_HUMAN" = "yes" ]; then
-  acc="$(host_accession grch38)"; [ -n "$acc" ] || die "no grch38 accession in refs/hosts.tsv"
-  do_step pmn_hostfilter "idx_grch38" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
-    --host grch38 --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
-  INDEX_LIST+=("$REF_DIR/grch38")
+  acc="$(host_accession "$PMN_HUMAN_HOST")"; [ -n "$acc" ] || die "no $PMN_HUMAN_HOST accession in refs/hosts.tsv"
+  do_step pmn_hostfilter "idx_${PMN_HUMAN_HOST}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
+    --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
+  INDEX_LIST+=("$REF_DIR/$PMN_HUMAN_HOST")
 fi
 [ "${#INDEX_LIST[@]}" -ge 1 ] || die "no host to filter against (set 'hosts' and/or filter_human: true)"
 
@@ -209,7 +217,7 @@ hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">
   [ -n "$t2" ] && a+=(--in2 "$t2")
   for idx in "${INDEX_LIST[@]}"; do a+=(--index "$idx"); done
   [ "$PMN_KEEP_HOST_READS" = "yes" ] && a+=(--host-out "$HOST_READS_DIR")
-  a+=(--out "$NONHOST_DIR" --threads "$PMN_THREADS")
+  a+=(--out "$NONHOST_DIR" --threads "$PMN_THREADS" --log-dir "$HF_LOG_DIR" --preset "$PMN_HOST_PRESET")
   # do_step aborts the pipeline if host filtering fails, so the cleanup below only ever
   # runs after a SUCCESSFUL host-filter (the trimmed reads are then safe to remove).
   do_step pmn_hostfilter "hf_${s}" -- bash "$PMN_ROOT/steps/21_hostfilter.sh" "${a[@]}"

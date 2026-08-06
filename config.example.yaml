@@ -13,13 +13,20 @@ project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names /
 
 # ---------------------------------------------------------------------------
 # HOST REMOVAL / RIMOZIONE OSPITE
-# Human (grch38) is removed AUTOMATICALLY. Human (uomo) viene rimosso in automatico.
+# Human (T2T-CHM13v2.0) is removed AUTOMATICALLY (removes centromeric/satellite reads that
+# survive GRCh38 and get misclassified as microbial). Human (uomo) rimosso in automatico.
 # List the ADDITIONAL host(s) to remove / elenca gli ospiti AGGIUNTIVI da rimuovere
 # (choose from refs/hosts.tsv). Empty list = human-only.
+# For Illumina data add `phix` (PhiX174 spike-in); add `bos_taurus` for beef, `gallus_gallus`
+# for poultry -- reference relatedness to the true substrate dominates accuracy.
 # ---------------------------------------------------------------------------
 hosts:
   - sus_scrofa
 filter_human: true
+# host_sensitivity: very-sensitive | very-sensitive-local
+#   very-sensitive-local soft-clips partial host reads (slightly higher host sensitivity,
+#   ~negligible microbial loss). Default keeps today's behaviour.
+host_sensitivity: very-sensitive
 
 # ---------------------------------------------------------------------------
 # CLEANUP / PULIZIA DISCO  (asked during preprocessing / chiesto in preprocessing)
@@ -75,6 +82,7 @@ execution:
   threads: 8
   pbs_queue: ""              # REQUIRED when scheduler=pbs (your cluster queue, e.g. commonCPUQ)
   pbs_walltime: "24:00:00"   # PBS walltime per job
-  pbs_mem: "32GB"            # PBS memory per job. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
+  pbs_mem: "32GB"            # PBS memory per job. A UNIT IS REQUIRED (e.g. 32GB, 512MB); a bare number
+                             # is rejected. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
                              # the Kraken STANDARD DB is loaded fully into RAM -> needs >= ~80GB
   pbs_select: ""             # optional raw '-l select=...' for non-standard clusters; empty -> select=1:ncpus=<threads>:mem=<pbs_mem>

@@ -64,10 +64,14 @@ Ask the user the following, one topic at a time, and write the answers into
        jobs by name (`qsub -v NCBI_API_KEY`), so the value never lands in the `.pbs` file.
        (No MCP server is used — the deterministic, model-agnostic NCBI scripts cover this.)
    - If it includes `local`: ask for the directory of the FASTQ reads.
-2. **Host(s) to remove** — human (grch38) is removed AUTOMATICALLY by default. Ask which
+2. **Host(s) to remove** — human (T2T-CHM13v2.0, the `chm13` row) is removed AUTOMATICALLY by
+   default; GRCh38 stays available as the `grch38` row for reproducibility. Ask which
    ADDITIONAL animal/substrate host(s) to remove (choose from `refs/hosts.tsv`, e.g.
-   `sus_scrofa`); each chosen genome is downloaded and indexed automatically. The list may
-   be empty (human-only removal).
+   `sus_scrofa`; for Illumina add `phix`, the PhiX174 spike-in; `bos_taurus`/`gallus_gallus`
+   for beef/poultry matrices); each chosen genome is downloaded and indexed automatically. The
+   list may be empty (human-only removal). Optionally offer `host_sensitivity`:
+   `very-sensitive` (default) | `very-sensitive-local` (soft-clips partial host reads; slightly
+   higher host sensitivity at ~negligible microbial loss).
 3. **Profiler** — `metaphlan`, `kraken`, or `both`. The user decides. Present the
    trade-offs in §4 and cite the literature so the choice is informed.
 4. **Thresholds** — present the project defaults (§4) and explain *why*, citing the

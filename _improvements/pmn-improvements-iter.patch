@@ -1,0 +1,392 @@
+diff --git a/README.md b/README.md
+index 23b902c..e84f574 100644
+--- a/README.md
++++ b/README.md
+@@ -80,7 +80,7 @@ PHASE A — preprocessing                       PHASE B — read-based profiling
+   2. **Download** SRA runs (only if your data source is `ncbi`).
+   3. **Trimming** with `fastp`; **FastQC** is run on raw and trimmed reads for the QC report.
+   4. **Host filtering** with `Bowtie2` — removes host/substrate reads (e.g. pig, cow) and
+-     **human** reads (privacy + quality).
++     **human** reads (default human reference: **T2T-CHM13v2.0**; GRCh38 still available) (privacy + quality).
+   5. **MultiQC** — one consolidated quality report.
+ - **Phase B — Read-based profiling.**
+   1. **MetaPhlAn 4** (marker-gene) and/or **Kraken2 + Bracken** (k-mer) — you choose.
+@@ -245,7 +245,8 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated
+ | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
+ | `project_name` | label used in folder names (A–Z a–z 0–9 . _ -) | `my_study` |
+ | `hosts` | extra host genomes to remove (from `refs/hosts.tsv`) | `[sus_scrofa]` |
+-| `filter_human` | remove human reads automatically | `true` |
++| `filter_human` | remove human reads automatically (T2T-CHM13v2.0) | `true` |
++| `host_sensitivity` | Bowtie2 host-filter preset: `very-sensitive` or `very-sensitive-local` | `very-sensitive` |
+ | `cleanup.keep_trimmed` | keep trimmed reads after host filtering | `false` |
+ | `cleanup.keep_host_reads` | save host-mapped reads to a folder | `false` |
+ | `cleanup.host_reads_dir` | where to save them (empty → `<work_dir>/host_reads`) | `""` |
+@@ -478,7 +479,7 @@ FASE A — preprocessing                        FASE B — profiling read-based
+   2. **Download** delle run SRA (solo se la sorgente dati è `ncbi`).
+   3. **Trimming** con `fastp`; **FastQC** su reads grezze e trimmate per il report di qualità.
+   4. **Filtro host** con `Bowtie2` — rimuove le reads dell'ospite/substrato (es. maiale, bovino)
+-     e le reads **umane** (privacy + qualità).
++     e le reads **umane** (riferimento umano di default: **T2T-CHM13v2.0**; GRCh38 ancora disponibile) (privacy + qualità).
+   5. **MultiQC** — un unico report di qualità consolidato.
+ - **Fase B — Profiling read-based.**
+   1. **MetaPhlAn 4** (marker-gene) e/o **Kraken2 + Bracken** (k-mer) — scegli tu.
+@@ -643,7 +644,8 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
+ | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
+ | `project_name` | etichetta usata nei nomi cartella (A–Z a–z 0–9 . _ -) | `my_study` |
+ | `hosts` | genomi host extra da rimuovere (da `refs/hosts.tsv`) | `[sus_scrofa]` |
+-| `filter_human` | rimuovi le reads umane in automatico | `true` |
++| `filter_human` | rimuovi le reads umane in automatico (T2T-CHM13v2.0) | `true` |
++| `host_sensitivity` | preset filtro host di Bowtie2: `very-sensitive` o `very-sensitive-local` | `very-sensitive` |
+ | `cleanup.keep_trimmed` | tieni le reads trimmate dopo il filtro host | `false` |
+ | `cleanup.keep_host_reads` | salva le reads dell'host in una cartella | `false` |
+ | `cleanup.host_reads_dir` | dove salvarle (vuoto → `<work_dir>/host_reads`) | `""` |
+diff --git a/SPEC.md b/SPEC.md
+index 83cbbf3..529a281 100644
+--- a/SPEC.md
++++ b/SPEC.md
+@@ -64,10 +64,14 @@ Ask the user the following, one topic at a time, and write the answers into
+        jobs by name (`qsub -v NCBI_API_KEY`), so the value never lands in the `.pbs` file.
+        (No MCP server is used — the deterministic, model-agnostic NCBI scripts cover this.)
+    - If it includes `local`: ask for the directory of the FASTQ reads.
+-2. **Host(s) to remove** — human (grch38) is removed AUTOMATICALLY by default. Ask which
++2. **Host(s) to remove** — human (T2T-CHM13v2.0, the `chm13` row) is removed AUTOMATICALLY by
++   default; GRCh38 stays available as the `grch38` row for reproducibility. Ask which
+    ADDITIONAL animal/substrate host(s) to remove (choose from `refs/hosts.tsv`, e.g.
+-   `sus_scrofa`); each chosen genome is downloaded and indexed automatically. The list may
+-   be empty (human-only removal).
++   `sus_scrofa`; for Illumina add `phix`, the PhiX174 spike-in; `bos_taurus`/`gallus_gallus`
++   for beef/poultry matrices); each chosen genome is downloaded and indexed automatically. The
++   list may be empty (human-only removal). Optionally offer `host_sensitivity`:
++   `very-sensitive` (default) | `very-sensitive-local` (soft-clips partial host reads; slightly
++   higher host sensitivity at ~negligible microbial loss).
+ 3. **Profiler** — `metaphlan`, `kraken`, or `both`. The user decides. Present the
+    trade-offs in §4 and cite the literature so the choice is informed.
+ 4. **Thresholds** — present the project defaults (§4) and explain *why*, citing the
+diff --git a/bin/lib/parse_config.py b/bin/lib/parse_config.py
+index 808d8ba..7b8fdb6 100644
+--- a/bin/lib/parse_config.py
++++ b/bin/lib/parse_config.py
+@@ -54,6 +54,7 @@ def main():
+     emit("PMN_LOGS_DIR", get(cfg, "paths", "logs_dir", default=""))
+     emit("PMN_HOSTS", get(cfg, "hosts", default=[]))
+     emit("PMN_FILTER_HUMAN", get(cfg, "filter_human", default=True))
++    emit("PMN_HOST_PRESET", get(cfg, "host_sensitivity", default="very-sensitive"))
+     # cleanup / disk hygiene
+     emit("PMN_KEEP_TRIMMED", get(cfg, "cleanup", "keep_trimmed", default=False))
+     emit("PMN_KEEP_HOST_READS", get(cfg, "cleanup", "keep_host_reads", default=False))
+diff --git a/bin/lib/requirements.sh b/bin/lib/requirements.sh
+index 16dc353..25199ad 100644
+--- a/bin/lib/requirements.sh
++++ b/bin/lib/requirements.sh
+@@ -41,14 +41,21 @@ declare -A PMN_ENV_PKGS=(
+ 
+ # A cheap probe per environment: confirms the key tool is actually callable
+ # (not just that the env exists). Run as:  conda run -n <env> bash -c "<probe>"
++# Compound probes verify EVERY load-bearing tool/library in a multi-package env (a
++# one-tool probe lets a partially-installed env report OK, then fail deep in a step).
++# --version for the primary tool; `command -v` for secondary CLIs so a missing --version
++# flag cannot cause a false BROKEN. pmn_stats_r probes ONLY vegan -- the one library
++# 41_diversity.R loads unconditionally (line 15); zCompositions/rstatix are optional there
++# (the script has requireNamespace() fallbacks) and ade4/ape/ggpubr are unused, so probing
++# them would false-BROKEN an env whose diversity stage would in fact run.
+ declare -A PMN_ENV_PROBE=(
+-  [pmn_download]="prefetch --version"
++  [pmn_download]="prefetch --version && command -v pigz"
+   [pmn_qc]="multiqc --version"
+-  [pmn_trim]="fastp --version"
+-  [pmn_hostfilter]="bowtie2 --version"
++  [pmn_trim]="fastp --version && command -v fastqc"
++  [pmn_hostfilter]="bowtie2 --version && command -v samtools && command -v datasets && command -v unzip"
+   [pmn_metaphlan]="metaphlan --version"
+-  [pmn_kraken]="kraken2 --version"
+-  [pmn_stats_r]="Rscript -e 'cat(R.version.string)'"
++  [pmn_kraken]="kraken2 --version && command -v bracken && command -v datasets && command -v unzip"
++  [pmn_stats_r]="Rscript -e 'suppressMessages(library(vegan))'"
+   [pmn_reports_py]="python -c 'import pandas,numpy,scipy,matplotlib,seaborn,openpyxl,yaml'"
+ )
+ 
+@@ -58,6 +65,16 @@ PMN_ENV_ORDER=(
+   pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py
+ )
+ 
++# Consistency guard: every ordered env MUST have a package list and a probe. A typo here
++# would otherwise surface as a cryptic `set -u` unbound-variable error deep in preflight.
++for _pmn_e in "${PMN_ENV_ORDER[@]}"; do
++  if [ -z "${PMN_ENV_PKGS[$_pmn_e]+x}" ] || [ -z "${PMN_ENV_PROBE[$_pmn_e]+x}" ]; then
++    printf 'requirements.sh: %s missing from PMN_ENV_PKGS/PMN_ENV_PROBE\n' "$_pmn_e" >&2
++    exit 1
++  fi
++done
++unset _pmn_e
++
+ # Reference databases (large; NEVER auto-downloaded — must be confirmed explicitly).
+ # Format:  "approx size|how to obtain"
+ declare -A PMN_DB_INFO=(
+diff --git a/bin/lib/validate.sh b/bin/lib/validate.sh
+index c29bc0d..4c366c9 100644
+--- a/bin/lib/validate.sh
++++ b/bin/lib/validate.sh
+@@ -27,19 +27,21 @@ validate_yesno()       { validate_in_set "${1:-}" yes no; }
+ validate_scheduler()   { validate_in_set "${1:-}" auto pbs local; }
+ validate_db_mode()     { validate_in_set "${1:-}" standard custom; }
+ 
+-# PBS walltime HH:MM:SS (hours may have >2 digits, e.g. 168:00:00)
++# PBS walltime HH:MM:SS (hours may have >2 digits, e.g. 168:00:00; MM and SS bounded 00-59)
+ validate_walltime() {
+   case "${1:-}" in
+     *[!0-9:]*)                       return 1 ;;
+-    [0-9]*:[0-9][0-9]:[0-9][0-9])    return 0 ;;
++    [0-9]*:[0-5][0-9]:[0-5][0-9])    return 0 ;;
+     *)                               return 1 ;;
+   esac
+ }
+ 
+-# PBS memory: digits then an optional unit (b/kb/mb/gb/tb), e.g. 32GB / 512mb / 1tb / 4000
++# PBS memory: digits then a REQUIRED unit (b/kb/mb/gb/tb), e.g. 32GB / 512mb / 1tb / 4000b.
++# A bare number (e.g. 4000) is rejected: some PBS/Torque configs read it as BYTES, silently
++# under-requesting RAM. Requiring an explicit unit fails closed with a clear error.
+ validate_mem() {
+   local m="${1:-}"
+-  [[ "$m" =~ ^[0-9]+([KkMmGgTt][Bb]?|[Bb])?$ ]]
++  [[ "$m" =~ ^[0-9]+([KkMmGgTt][Bb]?|[Bb])$ ]]
+ }
+ 
+ # Optional raw '-l select=...' override: allowlist (alnum + : = , . _ + space -) only
+diff --git a/bin/preflight.sh b/bin/preflight.sh
+index beb796b..bb7058a 100644
+--- a/bin/preflight.sh
++++ b/bin/preflight.sh
+@@ -15,6 +15,8 @@ PMN_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ . "$PMN_BIN_DIR/lib/common.sh"
+ # shellcheck source=lib/requirements.sh
+ . "$PMN_BIN_DIR/lib/requirements.sh"
++# shellcheck source=lib/validate.sh
++. "$PMN_BIN_DIR/lib/validate.sh"
+ 
+ # --- defaults ---
+ DO_INSTALL=0
+@@ -38,7 +40,7 @@ Options:
+ 
+ Exit codes:
+   0  all required environments present (and DBs, if checked)
+-  2  one or more environments missing (and --install not used / install failed)
++  2  one or more environments missing OR broken (and --install not used / install failed)
+   3  conda/mamba not found
+ EOF
+ }
+@@ -56,6 +58,7 @@ while [ $# -gt 0 ]; do
+   esac
+ done
+ export PMN_LANG
++validate_lang "$PMN_LANG" || die "invalid --lang (use en|it)"
+ 
+ say "=== profilemetananni - preflight ===" "=== profilemetananni - controllo ambiente ==="
+ 
+@@ -113,12 +116,14 @@ check_db metaphlan_db "$DB_METAPHLAN"
+ check_db kraken2_db   "$DB_KRAKEN"
+ 
+ # --- summary ---
++final_rc=0
+ if [ ${#missing[@]} -eq 0 ] && [ ${#broken[@]} -eq 0 ]; then
+   ok "$(say "All required environments are present. You can proceed." "Tutti gli ambienti richiesti sono presenti. Puoi proseguire.")"
+   exit 0
+ fi
+ 
+ if [ ${#broken[@]} -gt 0 ]; then
++  final_rc=2
+   warn "$(say "Broken (present but tool not callable): ${broken[*]}" "Difettosi (presenti ma il tool non parte): ${broken[*]}")"
+   warn "$(say "  Fix by reinstalling: conda env remove -n <name>" "  Rimedio: reinstallali con  conda env remove -n <nome>")"
+ fi
+@@ -158,3 +163,5 @@ if [ ${#missing[@]} -gt 0 ]; then
+   [ "$install_failed" -eq 0 ] || exit 2
+   ok "$(say "All missing environments were created. You can proceed." "Tutti gli ambienti mancanti sono stati creati. Puoi proseguire.")"
+ fi
++
++exit "$final_rc"
+diff --git a/bin/run.sh b/bin/run.sh
+index e8ae4f8..8f782ed 100644
+--- a/bin/run.sh
++++ b/bin/run.sh
+@@ -59,6 +59,7 @@ validate_decimal "$PMN_KRK_CONF"     || die "invalid kraken_confidence"
+ validate_decimal "$PMN_THRESHOLD"    || die "invalid abundance_threshold_pct"
+ validate_uint "$PMN_THREADS"         || die "invalid threads"
+ validate_yesno "$PMN_FILTER_HUMAN"   || die "invalid filter_human"
++validate_in_set "$PMN_HOST_PRESET" very-sensitive very-sensitive-local || die "invalid host_sensitivity (very-sensitive|very-sensitive-local)"
+ validate_yesno "$PMN_KEEP_TRIMMED"   || die "invalid cleanup.keep_trimmed"
+ validate_yesno "$PMN_KEEP_HOST_READS" || die "invalid cleanup.keep_host_reads"
+ validate_in_set "$PMN_LAYOUT" managed custom || die "invalid paths.layout (managed|custom)"
+@@ -118,6 +119,8 @@ if [ -n "$PMN_HOST_READS_DIR" ]; then
+ else
+   HOST_READS_DIR="$PMN_WORK_DIR/host_reads"
+ fi
++# Per-pass Bowtie2 host-removal logs (parsed by MultiQC). Under work_dir so step 22 always scans it.
++HF_LOG_DIR="$PMN_WORK_DIR/hostfilter_logs"
+ export PMN_LOG_DIR
+ mkdir -p "$PMN_WORK_DIR" "$PMN_LOG_DIR" "$RES_DIR" || die "cannot create work dir"
+ 
+@@ -183,11 +186,16 @@ esac
+ # hosts first, human last.
+ host_accession() { awk -F'\t' -v h="$1" '!/^#/ && $1==h {print $2; exit}' "$PMN_ROOT/refs/hosts.tsv" | tr -d '\r'; }
+ 
++# Human reference for the automatic human-read removal (filter_human). T2T-CHM13v2.0 removes
++# centromeric/satellite reads that survive GRCh38 and get misclassified as microbial, and drops
++# sex-determining signal (privacy). Fully reversible: set PMN_HUMAN_HOST back to "grch38".
++PMN_HUMAN_HOST="chm13"
++
+ INDEX_LIST=()
+ read -ra _PMN_HOST_ARR <<< "$PMN_HOSTS"   # split safely (no glob expansion)
+ for h in "${_PMN_HOST_ARR[@]}"; do
+   [ -n "$h" ] || continue           # skip empty tokens (e.g. trailing spaces)
+-  [ "$h" = "grch38" ] && continue   # human is handled separately via filter_human
++  case "$h" in grch38|chm13) continue ;; esac   # human handled separately via filter_human
+   validate_name "$h" || die "invalid host name: $(sanitize_for_log "$h")"
+   acc="$(host_accession "$h")"; [ -n "$acc" ] || die "no accession for host '$h' in refs/hosts.tsv"
+   do_step pmn_hostfilter "idx_${h}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
+@@ -195,10 +203,10 @@ for h in "${_PMN_HOST_ARR[@]}"; do
+   INDEX_LIST+=("$REF_DIR/$h")
+ done
+ if [ "$PMN_FILTER_HUMAN" = "yes" ]; then
+-  acc="$(host_accession grch38)"; [ -n "$acc" ] || die "no grch38 accession in refs/hosts.tsv"
+-  do_step pmn_hostfilter "idx_grch38" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
+-    --host grch38 --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
+-  INDEX_LIST+=("$REF_DIR/grch38")
++  acc="$(host_accession "$PMN_HUMAN_HOST")"; [ -n "$acc" ] || die "no $PMN_HUMAN_HOST accession in refs/hosts.tsv"
++  do_step pmn_hostfilter "idx_${PMN_HUMAN_HOST}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
++    --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
++  INDEX_LIST+=("$REF_DIR/$PMN_HUMAN_HOST")
+ fi
+ [ "${#INDEX_LIST[@]}" -ge 1 ] || die "no host to filter against (set 'hosts' and/or filter_human: true)"
+ 
+@@ -209,7 +217,7 @@ hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">
+   [ -n "$t2" ] && a+=(--in2 "$t2")
+   for idx in "${INDEX_LIST[@]}"; do a+=(--index "$idx"); done
+   [ "$PMN_KEEP_HOST_READS" = "yes" ] && a+=(--host-out "$HOST_READS_DIR")
+-  a+=(--out "$NONHOST_DIR" --threads "$PMN_THREADS")
++  a+=(--out "$NONHOST_DIR" --threads "$PMN_THREADS" --log-dir "$HF_LOG_DIR" --preset "$PMN_HOST_PRESET")
+   # do_step aborts the pipeline if host filtering fails, so the cleanup below only ever
+   # runs after a SUCCESSFUL host-filter (the trimmed reads are then safe to remove).
+   do_step pmn_hostfilter "hf_${s}" -- bash "$PMN_ROOT/steps/21_hostfilter.sh" "${a[@]}"
+diff --git a/config.example.yaml b/config.example.yaml
+index e4bd95b..a427321 100644
+--- a/config.example.yaml
++++ b/config.example.yaml
+@@ -13,13 +13,20 @@ project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names /
+ 
+ # ---------------------------------------------------------------------------
+ # HOST REMOVAL / RIMOZIONE OSPITE
+-# Human (grch38) is removed AUTOMATICALLY. Human (uomo) viene rimosso in automatico.
++# Human (T2T-CHM13v2.0) is removed AUTOMATICALLY (removes centromeric/satellite reads that
++# survive GRCh38 and get misclassified as microbial). Human (uomo) rimosso in automatico.
+ # List the ADDITIONAL host(s) to remove / elenca gli ospiti AGGIUNTIVI da rimuovere
+ # (choose from refs/hosts.tsv). Empty list = human-only.
++# For Illumina data add `phix` (PhiX174 spike-in); add `bos_taurus` for beef, `gallus_gallus`
++# for poultry -- reference relatedness to the true substrate dominates accuracy.
+ # ---------------------------------------------------------------------------
+ hosts:
+   - sus_scrofa
+ filter_human: true
++# host_sensitivity: very-sensitive | very-sensitive-local
++#   very-sensitive-local soft-clips partial host reads (slightly higher host sensitivity,
++#   ~negligible microbial loss). Default keeps today's behaviour.
++host_sensitivity: very-sensitive
+ 
+ # ---------------------------------------------------------------------------
+ # CLEANUP / PULIZIA DISCO  (asked during preprocessing / chiesto in preprocessing)
+@@ -75,6 +82,7 @@ execution:
+   threads: 8
+   pbs_queue: ""              # REQUIRED when scheduler=pbs (your cluster queue, e.g. commonCPUQ)
+   pbs_walltime: "24:00:00"   # PBS walltime per job
+-  pbs_mem: "32GB"            # PBS memory per job. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
++  pbs_mem: "32GB"            # PBS memory per job. A UNIT IS REQUIRED (e.g. 32GB, 512MB); a bare number
++                             # is rejected. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
+                              # the Kraken STANDARD DB is loaded fully into RAM -> needs >= ~80GB
+   pbs_select: ""             # optional raw '-l select=...' for non-standard clusters; empty -> select=1:ncpus=<threads>:mem=<pbs_mem>
+diff --git a/refs/hosts.tsv b/refs/hosts.tsv
+index 6c8e4e7..0c4e72e 100644
+--- a/refs/hosts.tsv
++++ b/refs/hosts.tsv
+@@ -5,4 +5,6 @@ sus_scrofa	GCF_000003025.6	pig (Sscrofa11.1)
+ bos_taurus	GCF_002263795.4	cattle (ARS-UCD2.0)
+ gallus_gallus	GCF_016699485.2	chicken (bGalGal1.mat.broiler)
+ ovis_aries	GCF_016772045.2	sheep (ARS-UI_Ramb_v2.0)
+-grch38	GCF_000001405.40	human (GRCh38.p14)
++chm13	GCF_009914755.1	human (T2T-CHM13v2.0, default for filter_human)
++grch38	GCF_000001405.40	human (GRCh38.p14, legacy alternate)
++phix	GCF_000819615.1	PhiX174 Illumina spike-in (Barcenilla 2024)
+diff --git a/steps/21_hostfilter.sh b/steps/21_hostfilter.sh
+index 1e8d4cd..cedd47c 100644
+--- a/steps/21_hostfilter.sh
++++ b/steps/21_hostfilter.sh
+@@ -6,7 +6,8 @@
+ # Idempotent: skips if the non-host output already exists.
+ #
+ # Usage: 21_hostfilter.sh --sample NAME --in1 R1 [--in2 R2] \
+-#          --index PREFIX [--index PREFIX2 ...] [--host-out DIR] --out DIR [--threads N]
++#          --index PREFIX [--index PREFIX2 ...] [--host-out DIR] --out DIR [--threads N] \
++#          [--log-dir DIR] [--preset very-sensitive|very-sensitive-local]
+ set -euo pipefail
+ 
+ PMN_STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+@@ -16,7 +17,7 @@ PMN_ROOT="$(cd "$PMN_STEP_DIR/.." && pwd)"
+ # shellcheck source=../bin/lib/validate.sh
+ . "$PMN_ROOT/bin/lib/validate.sh"
+ 
+-SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4
++SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4; LOGDIR=""; PRESET="very-sensitive"
+ INDEXES=()
+ while [ $# -gt 0 ]; do
+   case "$1" in
+@@ -27,10 +28,20 @@ while [ $# -gt 0 ]; do
+     --host-out) HOST_OUT="${2:-}"; shift 2 ;;
+     --out)      OUT="${2:-}"; shift 2 ;;
+     --threads)  THREADS="${2:-4}"; shift 2 ;;
++    --log-dir)  LOGDIR="${2:-}"; shift 2 ;;
++    --preset)   PRESET="${2:-}"; shift 2 ;;
+     *) die "Unknown option: $(sanitize_for_log "$1")" ;;
+   esac
+ done
+ 
++# Bowtie2 sensitivity preset: map an allowlisted keyword to ONE flag token (no untrusted
++# string ever reaches the bowtie2 command line).
++case "$PRESET" in
++  very-sensitive)       BT2_PRESET="--very-sensitive" ;;
++  very-sensitive-local) BT2_PRESET="--very-sensitive-local" ;;
++  *) die "invalid --preset (very-sensitive|very-sensitive-local): $(sanitize_for_log "$PRESET")" ;;
++esac
++
+ validate_name "$SAMPLE"     || die "Invalid sample name: $(sanitize_for_log "$SAMPLE")"
+ validate_path_safe "$IN1"   || die "Unsafe input path (in1)"
+ validate_path_safe "$OUT"   || die "Unsafe output path"
+@@ -43,6 +54,14 @@ for idx in "${INDEXES[@]}"; do
+ done
+ mkdir -p "$OUT" || die "cannot create $OUT"
+ 
++# Where Bowtie2's per-pass alignment summary is written (MultiQC's bowtie2 module parses it).
++# Defaults next to the outputs; run.sh points it under work_dir so MultiQC always finds it.
++if [ -n "$LOGDIR" ]; then
++  validate_path_safe "$LOGDIR" || die "Unsafe log-dir path"
++fi
++LOGDIR="${LOGDIR:-$OUT}"
++mkdir -p "$LOGDIR" || die "cannot create log dir"
++
+ paired=0
+ if [ -n "$IN2" ]; then
+   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
+@@ -85,11 +104,13 @@ run_pass() {
+   fi
+   # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
+   if [ -n "$r2" ]; then
+-    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" --very-sensitive \
+-      --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null || return 1
++    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" \
++      --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
++      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
+   else
+-    bowtie2 -x "$index" -U "$r1" -p "$THREADS" --very-sensitive \
+-      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null || return 1
++    bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" \
++      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
++      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
+   fi
+ }
+ 

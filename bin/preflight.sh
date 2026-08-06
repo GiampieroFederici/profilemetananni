@@ -15,6 +15,8 @@ PMN_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$PMN_BIN_DIR/lib/common.sh"
 # shellcheck source=lib/requirements.sh
 . "$PMN_BIN_DIR/lib/requirements.sh"
+# shellcheck source=lib/validate.sh
+. "$PMN_BIN_DIR/lib/validate.sh"
 
 # --- defaults ---
 DO_INSTALL=0
@@ -38,7 +40,7 @@ Options:
 
 Exit codes:
   0  all required environments present (and DBs, if checked)
-  2  one or more environments missing (and --install not used / install failed)
+  2  one or more environments missing OR broken (and --install not used / install failed)
   3  conda/mamba not found
 EOF
 }
@@ -56,6 +58,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 export PMN_LANG
+validate_lang "$PMN_LANG" || die "invalid --lang (use en|it)"
 
 say "=== profilemetananni - preflight ===" "=== profilemetananni - controllo ambiente ==="
 
@@ -113,12 +116,14 @@ check_db metaphlan_db "$DB_METAPHLAN"
 check_db kraken2_db   "$DB_KRAKEN"
 
 # --- summary ---
+final_rc=0
 if [ ${#missing[@]} -eq 0 ] && [ ${#broken[@]} -eq 0 ]; then
   ok "$(say "All required environments are present. You can proceed." "Tutti gli ambienti richiesti sono presenti. Puoi proseguire.")"
   exit 0
 fi
 
 if [ ${#broken[@]} -gt 0 ]; then
+  final_rc=2
   warn "$(say "Broken (present but tool not callable): ${broken[*]}" "Difettosi (presenti ma il tool non parte): ${broken[*]}")"
   warn "$(say "  Fix by reinstalling: conda env remove -n <name>" "  Rimedio: reinstallali con  conda env remove -n <nome>")"
 fi
@@ -158,3 +163,5 @@ if [ ${#missing[@]} -gt 0 ]; then
   [ "$install_failed" -eq 0 ] || exit 2
   ok "$(say "All missing environments were created. You can proceed." "Tutti gli ambienti mancanti sono stati creati. Puoi proseguire.")"
 fi
+
+exit "$final_rc"

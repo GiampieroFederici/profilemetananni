@@ -27,19 +27,21 @@ validate_yesno()       { validate_in_set "${1:-}" yes no; }
 validate_scheduler()   { validate_in_set "${1:-}" auto pbs local; }
 validate_db_mode()     { validate_in_set "${1:-}" standard custom; }
 
-# PBS walltime HH:MM:SS (hours may have >2 digits, e.g. 168:00:00)
+# PBS walltime HH:MM:SS (hours may have >2 digits, e.g. 168:00:00; MM and SS bounded 00-59)
 validate_walltime() {
   case "${1:-}" in
     *[!0-9:]*)                       return 1 ;;
-    [0-9]*:[0-9][0-9]:[0-9][0-9])    return 0 ;;
+    [0-9]*:[0-5][0-9]:[0-5][0-9])    return 0 ;;
     *)                               return 1 ;;
   esac
 }
 
-# PBS memory: digits then an optional unit (b/kb/mb/gb/tb), e.g. 32GB / 512mb / 1tb / 4000
+# PBS memory: digits then a REQUIRED unit (b/kb/mb/gb/tb), e.g. 32GB / 512mb / 1tb / 4000b.
+# A bare number (e.g. 4000) is rejected: some PBS/Torque configs read it as BYTES, silently
+# under-requesting RAM. Requiring an explicit unit fails closed with a clear error.
 validate_mem() {
   local m="${1:-}"
-  [[ "$m" =~ ^[0-9]+([KkMmGgTt][Bb]?|[Bb])?$ ]]
+  [[ "$m" =~ ^[0-9]+([KkMmGgTt][Bb]?|[Bb])$ ]]
 }
 
 # Optional raw '-l select=...' override: allowlist (alnum + : = , . _ + space -) only

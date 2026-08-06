@@ -41,14 +41,21 @@ declare -A PMN_ENV_PKGS=(
 
 # A cheap probe per environment: confirms the key tool is actually callable
 # (not just that the env exists). Run as:  conda run -n <env> bash -c "<probe>"
+# Compound probes verify EVERY load-bearing tool/library in a multi-package env (a
+# one-tool probe lets a partially-installed env report OK, then fail deep in a step).
+# --version for the primary tool; `command -v` for secondary CLIs so a missing --version
+# flag cannot cause a false BROKEN. pmn_stats_r probes ONLY vegan -- the one library
+# 41_diversity.R loads unconditionally (line 15); zCompositions/rstatix are optional there
+# (the script has requireNamespace() fallbacks) and ade4/ape/ggpubr are unused, so probing
+# them would false-BROKEN an env whose diversity stage would in fact run.
 declare -A PMN_ENV_PROBE=(
-  [pmn_download]="prefetch --version"
+  [pmn_download]="prefetch --version && command -v pigz"
   [pmn_qc]="multiqc --version"
-  [pmn_trim]="fastp --version"
-  [pmn_hostfilter]="bowtie2 --version"
+  [pmn_trim]="fastp --version && command -v fastqc"
+  [pmn_hostfilter]="bowtie2 --version && command -v samtools && command -v datasets && command -v unzip"
   [pmn_metaphlan]="metaphlan --version"
-  [pmn_kraken]="kraken2 --version"
-  [pmn_stats_r]="Rscript -e 'cat(R.version.string)'"
+  [pmn_kraken]="kraken2 --version && command -v bracken && command -v datasets && command -v unzip"
+  [pmn_stats_r]="Rscript -e 'suppressMessages(library(vegan))'"
   [pmn_reports_py]="python -c 'import pandas,numpy,scipy,matplotlib,seaborn,openpyxl,yaml'"
 )
 
@@ -57,6 +64,16 @@ PMN_ENV_ORDER=(
   pmn_download pmn_qc pmn_trim pmn_hostfilter
   pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py
 )
+
+# Consistency guard: every ordered env MUST have a package list and a probe. A typo here
+# would otherwise surface as a cryptic `set -u` unbound-variable error deep in preflight.
+for _pmn_e in "${PMN_ENV_ORDER[@]}"; do
+  if [ -z "${PMN_ENV_PKGS[$_pmn_e]+x}" ] || [ -z "${PMN_ENV_PROBE[$_pmn_e]+x}" ]; then
+    printf 'requirements.sh: %s missing from PMN_ENV_PKGS/PMN_ENV_PROBE\n' "$_pmn_e" >&2
+    exit 1
+  fi
+done
+unset _pmn_e
 
 # Reference databases (large; NEVER auto-downloaded — must be confirmed explicitly).
 # Format:  "approx size|how to obtain"

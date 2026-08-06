@@ -6,7 +6,8 @@
 # Idempotent: skips if the non-host output already exists.
 #
 # Usage: 21_hostfilter.sh --sample NAME --in1 R1 [--in2 R2] \
-#          --index PREFIX [--index PREFIX2 ...] [--host-out DIR] --out DIR [--threads N]
+#          --index PREFIX [--index PREFIX2 ...] [--host-out DIR] --out DIR [--threads N] \
+#          [--log-dir DIR] [--preset very-sensitive|very-sensitive-local]
 set -euo pipefail
 
 PMN_STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +17,7 @@ PMN_ROOT="$(cd "$PMN_STEP_DIR/.." && pwd)"
 # shellcheck source=../bin/lib/validate.sh
 . "$PMN_ROOT/bin/lib/validate.sh"
 
-SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4
+SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4; LOGDIR=""; PRESET="very-sensitive"
 INDEXES=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -27,9 +28,19 @@ while [ $# -gt 0 ]; do
     --host-out) HOST_OUT="${2:-}"; shift 2 ;;
     --out)      OUT="${2:-}"; shift 2 ;;
     --threads)  THREADS="${2:-4}"; shift 2 ;;
+    --log-dir)  LOGDIR="${2:-}"; shift 2 ;;
+    --preset)   PRESET="${2:-}"; shift 2 ;;
     *) die "Unknown option: $(sanitize_for_log "$1")" ;;
   esac
 done
+
+# Bowtie2 sensitivity preset: map an allowlisted keyword to ONE flag token (no untrusted
+# string ever reaches the bowtie2 command line).
+case "$PRESET" in
+  very-sensitive)       BT2_PRESET="--very-sensitive" ;;
+  very-sensitive-local) BT2_PRESET="--very-sensitive-local" ;;
+  *) die "invalid --preset (very-sensitive|very-sensitive-local): $(sanitize_for_log "$PRESET")" ;;
+esac
 
 validate_name "$SAMPLE"     || die "Invalid sample name: $(sanitize_for_log "$SAMPLE")"
 validate_path_safe "$IN1"   || die "Unsafe input path (in1)"
@@ -42,6 +53,14 @@ for idx in "${INDEXES[@]}"; do
   [ -s "${idx}.1.bt2" ] || [ -s "${idx}.1.bt2l" ] || die "Bowtie2 index not found: $(sanitize_for_log "$idx")"
 done
 mkdir -p "$OUT" || die "cannot create $OUT"
+
+# Where Bowtie2's per-pass alignment summary is written (MultiQC's bowtie2 module parses it).
+# Defaults next to the outputs; run.sh points it under work_dir so MultiQC always finds it.
+if [ -n "$LOGDIR" ]; then
+  validate_path_safe "$LOGDIR" || die "Unsafe log-dir path"
+fi
+LOGDIR="${LOGDIR:-$OUT}"
+mkdir -p "$LOGDIR" || die "cannot create log dir"
 
 paired=0
 if [ -n "$IN2" ]; then
@@ -85,11 +104,13 @@ run_pass() {
   fi
   # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
   if [ -n "$r2" ]; then
-    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" --very-sensitive \
-      --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null || return 1
+    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" \
+      --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
+      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
   else
-    bowtie2 -x "$index" -U "$r1" -p "$THREADS" --very-sensitive \
-      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null || return 1
+    bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" \
+      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
+      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
   fi
 }
 
