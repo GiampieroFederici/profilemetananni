@@ -120,6 +120,9 @@ def test_the_prompt_states_the_cost_and_a_no_sends_nothing(tmp_path):
     assert rc == 0
     assert client.asked == []
     assert any("COSTA SOLDI" in s for s in seen)
+    # consent has to be informed: the box lists the species themselves, not just a count
+    assert any("Latilactobacillus sakei" in s for s in seen)
+    assert any("Staphylococcus xylosus" in s for s in seen)
 
 
 def test_a_yes_at_the_prompt_records_the_consent_once(tmp_path):

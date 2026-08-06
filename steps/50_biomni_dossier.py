@@ -43,7 +43,8 @@ def _ask_consent(llm, provider, taxa, ask, show):
              f"  Chi paga             : TU, con la tua {provider.env_var}\n"
              f"  Quanto costa         : NON è prevedibile in anticipo.\n"
              f"                         L'agente ragiona a più passaggi.\n"
-             f"  Esce dal tuo PC      : {len(taxa)} nomi di specie\n"
+             f"  Esce dal tuo PC      : {len(taxa)} nomi di specie, questi e solo questi:\n"
+             + "".join(f"                         - {name}\n" for name, _src in taxa) +
              f"  NON esce             : campioni, SRR, path, abbondanze, FASTQ\n"
              f"  Alternativa gratuita : un modello locale (ollama/...), costo zero,\n"
              f"                         nessun dato fuori, ma sbaglia di più.\n")
