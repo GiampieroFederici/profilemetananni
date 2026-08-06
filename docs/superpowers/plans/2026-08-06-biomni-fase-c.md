@@ -635,21 +635,21 @@ def test_atteso_is_left_alone_even_without_citations():
     assert out[0].label == "atteso"
 
 
-def test_build_dossier_runs_all_three_rules():
+def test_build_dossier_runs_all_the_rules():
     raw = core.RawDossier(
         taxon="Latilactobacillus sakei",
         detected_by="metaphlan+kraken",
         claims=(
-            core.Claim("batteriocine", "sakacina", "noto", ("111",)),
-            core.Claim("resistoma", "tet(M)", "noto", ("999",)),
+            core.Claim("batteriocine", "sakacina", "noto", (1,)),
+            core.Claim("resistoma", "tet(M)", "noto", (9,)),
         ),
-        searched_pmids=frozenset({"111", "999"}),
+        references=REFS,
     )
-    d = core.build_dossier(raw, _fetch)
+    d = core.build_dossier(raw)
     assert d.claims[0].label == "noto"
     assert d.claims[1].label == "ipotesi"
-    assert d.dropped == ("999",)
-    assert set(d.citations) == {"111"}
+    assert d.dropped_refs == 1
+    assert d.references == REFS
 ```
 
 - [ ] **Step 2: Eseguire i test e verificare che falliscano**
@@ -733,11 +733,11 @@ def _one_dossier():
     raw = core.RawDossier(
         taxon="Latilactobacillus sakei",
         detected_by="metaphlan+kraken",
-        claims=(core.Claim("batteriocine", "sakacina", "noto", ("111",)),
-                core.Claim("resistoma", "tet(M)", "noto", ("999",))),
-        searched_pmids=frozenset({"111", "999"}),
+        claims=(core.Claim("batteriocine", "sakacina", "noto", (1,)),
+                core.Claim("resistoma", "tet(M)", "noto", (9,))),
+        references=(core.Citation("111", "Sakacin production", "2019"),),
     )
-    return core.build_dossier(raw, _fetch)
+    return core.build_dossier(raw)
 
 
 def test_markdown_header_declares_the_llm_and_the_counts():
