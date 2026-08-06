@@ -10,7 +10,8 @@ _spec = importlib.util.spec_from_file_location("step50", os.path.join(STEPS, "50
 step50 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(step50)
 
-import _biomni_core as core  # noqa: E402
+import _biomni_core as core        # noqa: E402
+import _biomni_consent as consent  # noqa: E402
 
 MPA = """clade_name\tS1
 k__Bacteria|s__Latilactobacillus_sakei\t40.0
@@ -35,6 +36,19 @@ class FakeClient:
                     core.Claim("resistoma", "tet(M)", "noto", (9,))),
             references=(core.Citation("111", "Sakacin production", "2019"),),
         )
+
+
+class EnvWatchingClient(FakeClient):
+    """Records what the provider variable held at the moment the model was asked."""
+
+    def __init__(self, environ):
+        super().__init__()
+        self._environ = environ
+        self.seen = []
+
+    def ask(self, taxon, detected_by):
+        self.seen.append(self._environ.get("OPENAI_API_KEY"))
+        return super().ask(taxon, detected_by)
 
 
 def _tables(tmp_path):
@@ -109,6 +123,85 @@ def test_a_yes_at_the_prompt_records_the_consent_once(tmp_path):
     _run(tmp_path, client=client, interactive=True, ask=lambda _p: "s", show=lambda _s: None)
     assert len(client.asked) == 2
     assert (tmp_path / ".biomni_consent.json").exists()
+
+
+def test_a_key_from_the_credentials_file_reaches_the_provider(tmp_path):
+    """The provider SDK reads the key from the environment: resolving it is not enough."""
+    creds = tmp_path / "creds"
+    consent.store_credential(creds, "OPENAI_API_KEY", "from-file")
+    env = {}
+    client = EnvWatchingClient(env)
+    assert _run(tmp_path, client=client, assume_yes=True, environ=env, cred_path=creds) == 0
+    assert client.seen == ["from-file", "from-file"]
+
+
+def test_a_key_already_in_the_environment_is_never_overwritten(tmp_path):
+    creds = tmp_path / "creds"
+    consent.store_credential(creds, "OPENAI_API_KEY", "from-file")
+    env = {"OPENAI_API_KEY": "from-env"}
+    client = EnvWatchingClient(env)
+    assert _run(tmp_path, client=client, assume_yes=True, environ=env, cred_path=creds) == 0
+    assert client.seen == ["from-env", "from-env"]
+
+
+def _wizard(tmp_path, answers, secret, status=0, **kw):
+    """No key anywhere and a terminal to ask on: the guided setup takes over.
+
+    `secret` is what the user pastes at the masked prompt, `answers` the visible replies
+    (storage choice, then the consent prompt). check_key is stubbed: no network, no cost.
+    """
+    replies, seen = list(answers), []
+    opts = dict(environ={}, interactive=True,
+                ask=lambda _p: replies.pop(0), show=seen.append,
+                ask_secret=lambda _p: secret, check_key=lambda _pr, _k: status)
+    opts.update(kw)
+    return _run(tmp_path, **opts), seen
+
+
+def test_the_wizard_stores_the_pasted_key_and_the_run_uses_it(tmp_path):
+    env = {}
+    client = EnvWatchingClient(env)
+    rc, _seen = _wizard(tmp_path, ["1", "s"], "sk-supersegretissima", client=client, environ=env)
+    assert rc == 0
+    assert (tmp_path / "creds").read_text(encoding="utf-8").strip() == \
+        "OPENAI_API_KEY=sk-supersegretissima"
+    assert client.seen == ["sk-supersegretissima", "sk-supersegretissima"]
+
+
+def test_the_wizard_never_echoes_or_writes_the_key_anywhere_but_the_credentials_file(
+        tmp_path, capsys):
+    secret = "sk-supersegretissima"
+    rc, seen = _wizard(tmp_path, ["1", "s"], secret)
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert secret not in captured.out and secret not in captured.err
+    assert not any(secret in s for s in seen)
+    assert secret not in (tmp_path / ".biomni_consent.json").read_text(encoding="utf-8")
+    for name in ("dossier_taxa.md", "dossier_taxa.tsv", "run_meta.json"):
+        assert secret not in (tmp_path / "o" / name).read_text(encoding="utf-8")
+
+
+def test_the_wizard_can_use_the_key_for_this_run_without_storing_it(tmp_path):
+    rc, _seen = _wizard(tmp_path, ["2", "s"], "sk-effimera")
+    assert rc == 0
+    assert not (tmp_path / "creds").exists()
+
+
+def test_a_key_the_provider_refuses_stops_and_is_never_stored(tmp_path):
+    client = FakeClient()
+    rc, seen = _wizard(tmp_path, [], "sk-sbagliata", status=401, client=client)
+    assert rc != 0
+    assert client.asked == []
+    assert not (tmp_path / "creds").exists()
+    assert any("non è valida" in s for s in seen)
+
+
+def test_choosing_the_local_option_explains_how_and_sends_nothing(tmp_path):
+    client = FakeClient()
+    rc, seen = _wizard(tmp_path, [], "L", client=client)
+    assert rc != 0
+    assert client.asked == []
+    assert any("ollama" in s.lower() for s in seen)
 
 
 def test_dry_run_never_builds_the_real_biomni_agent(tmp_path):

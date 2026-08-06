@@ -472,12 +472,14 @@ number would mislead you.
 
 ### Getting an API key (only if you pick a paid model)
 
-If you pick a paid model and have no key yet, the tool walks you through it: it tells you
-which page to open (e.g. `console.anthropic.com`, `platform.openai.com`,
-`aistudio.google.com`), asks you to paste the key (never shown on screen while you type it),
-and offers to save it to `~/.pmn/credentials` (kept outside this project folder, never
-committed to Git). You can also set it yourself as an **environment variable** (a value
-available to your terminal session only):
+If you pick a paid model and have no key yet, the tool walks you through it — whenever it has
+a terminal to ask on: it tells you which page to open (e.g. `console.anthropic.com`,
+`platform.openai.com`, `aistudio.google.com`), asks you to paste the key (never shown on
+screen while you type it), checks it with **one small call** to the provider so a wrong key is
+caught in seconds instead of after twenty minutes of work, and then offers to save it to
+`~/.pmn/credentials` (kept outside this project folder, never committed to Git). It also
+offers to switch to the free local model instead. You can also set the key yourself as an
+**environment variable** (a value available to your terminal session only):
 ```bash
 export ANTHROPIC_API_KEY=<your_key>
 ```
@@ -993,12 +995,14 @@ ti ingannerebbe.
 
 ### Ottenere una chiave API (solo se scegli un modello a pagamento)
 
-Se scegli un modello a pagamento e non hai ancora una chiave, il tool ti accompagna: ti dice
-quale pagina aprire (es. `console.anthropic.com`, `platform.openai.com`,
-`aistudio.google.com`), ti chiede di incollare la chiave (mai mostrata a schermo mentre la
-scrivi), e ti propone di salvarla in `~/.pmn/credentials` (fuori da questa cartella di
-progetto, mai su Git). Puoi anche impostarla tu come **variabile d'ambiente** (un valore
-disponibile solo per la sessione del tuo terminale):
+Se scegli un modello a pagamento e non hai ancora una chiave, il tool ti accompagna — quando ha
+un terminale su cui chiedere: ti dice quale pagina aprire (es. `console.anthropic.com`,
+`platform.openai.com`, `aistudio.google.com`), ti chiede di incollare la chiave (mai mostrata a
+schermo mentre la scrivi), la prova con **una sola piccola chiamata** al fornitore — così una
+chiave sbagliata si scopre in pochi secondi e non dopo venti minuti di lavoro — e poi ti propone
+di salvarla in `~/.pmn/credentials` (fuori da questa cartella di progetto, mai su Git). In
+alternativa ti spiega come passare al modello locale gratuito. Puoi anche impostare la chiave tu
+come **variabile d'ambiente** (un valore disponibile solo per la sessione del tuo terminale):
 ```bash
 export ANTHROPIC_API_KEY=<la_tua_chiave>
 ```

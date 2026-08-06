@@ -136,6 +136,45 @@ def resolve_api_key(provider: Provider, environ, path):
     return read_credentials(path).get(provider.env_var) or None
 
 
+def check_api_key(provider: Provider, key: str):
+    """SPEC 6.4 Passo 4: one minimal call to the provider, to fail in 2 seconds and not
+    after 20 minutes of work.
+
+    Returns 0 when the key is accepted, the HTTP status when the provider refuses it, -1
+    when the provider cannot be reached at all, and None when this provider cannot be
+    checked with a single call (Azure/Bedrock need endpoint/region configuration we do not
+    have). Never raises: an exception escaping here could carry the request - and with it
+    the key - into a traceback. The key travels in a header, never in the URL.
+    """
+    import urllib.error
+    import urllib.request
+
+    endpoints = {
+        "openai": ("https://api.openai.com/v1/models",
+                   {"Authorization": f"Bearer {key}"}),
+        "groq": ("https://api.groq.com/openai/v1/models",
+                 {"Authorization": f"Bearer {key}"}),
+        "anthropic": ("https://api.anthropic.com/v1/models",
+                      {"x-api-key": key, "anthropic-version": "2023-06-01"}),
+        "google": ("https://generativelanguage.googleapis.com/v1beta/models",
+                   {"x-goog-api-key": key}),
+    }
+    endpoint = endpoints.get(provider.key)
+    if endpoint is None:
+        return None
+    url, headers = endpoint
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(url, headers=headers, method="GET"), timeout=20
+        ) as r:
+            code = r.getcode()
+        return 0 if 200 <= code < 300 else code
+    except urllib.error.HTTPError as e:
+        return int(e.code)
+    except Exception:
+        return -1
+
+
 def translate_provider_error(status) -> str:
     """Turn a provider HTTP status into something a non-programmer can act on."""
     if status in (401, 403):

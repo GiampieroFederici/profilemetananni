@@ -90,6 +90,11 @@ metadata, reads. Biomni's local data lake (`data_path`) also stays local.
 - Otherwise from `~/.pmn/credentials` (one `VARIABLE=value` line per provider), which lives
   outside the repository so it can never end up in a commit; `.gitignore` also excludes
   `.pmn/` and `*.credentials` as a safety net.
+- When neither has it and there is a terminal, the guided setup asks for the key with the
+  echo turned off (`getpass`), verifies it with one minimal call to the provider, and writes
+  it **only** to `~/.pmn/credentials`, and only if you pick that option explicitly. The
+  resolved key is placed in the process environment for the provider's own SDK to read; it
+  is never passed on a command line, where it would be visible to `ps`.
 - On POSIX (Linux/macOS) `~/.pmn/credentials` must be `chmod 600`; if it is wider, the tool
   **refuses to read it** rather than loosen it for you.
 - ⚠️ **On Windows there is no POSIX permission model**, so `~/.pmn/credentials` cannot be

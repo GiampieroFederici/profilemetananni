@@ -13,6 +13,7 @@
 #                        --llm MODEL --work-dir DIR [--threshold-pct 0.001]
 #                        [--max-taxa 5] [--dry-run] [--yes-send-taxa]
 import argparse
+import getpass
 import json
 import os
 import sys
@@ -49,6 +50,69 @@ def _ask_consent(llm, provider, taxa, ask, show):
     return ask("  Procedo, e accetto il costo? [s/N] ").strip().lower() in ("s", "si", "sì", "y")
 
 
+_LOCAL_GUIDE = (
+    "\n  MODELLO LOCALE — gratis, nessun dato esce dal tuo computer.\n"
+    "   1. Scarica Ollama da  https://ollama.com/download\n"
+    "   2. Apri il terminale e scarica un modello:   ollama pull <modello>\n"
+    "   3. Scrivi in config.yaml:   llm: \"ollama/<modello>\"\n"
+    "   4. Rilancia:  bash bin/run.sh --config config.yaml --phase c\n"
+    "\n  Nota onesta: su un compito di ragionamento come questo un modello locale\n"
+    "  sbaglia più di un modello grande a pagamento. Guadagni privacy e costo zero,\n"
+    "  perdi in qualità.\n"
+)
+
+
+def _setup_api_key(llm, provider, cred_path, ask, show, ask_secret, check_key):
+    """SPEC 6.4: when the key is missing the tool does not fail — it teaches.
+
+    Returns the key, or None if the user gave up or the key does not work. The key is only
+    ever handed to store_credential and returned: it is never shown, printed or logged, and
+    the paste itself is masked (ask_secret), so it never appears on screen either.
+    """
+    show(f"\n  Fase C · serve una chiave API\n"
+         f"  Hai scelto il modello : {llm}  (fornitore: {provider.label})\n"
+         f"  Per usarlo serve una TUA chiave personale. Non l'ho trovata.\n"
+         f"\n"
+         f"  COME OTTENERLA — circa 3 minuti:\n"
+         f"   1. Apri  {provider.console_url}\n"
+         f"   2. Registrati o accedi\n"
+         f"   3. Crea una nuova chiave e COPIALA\n"
+         f"   4. ATTENZIONE: serve un metodo di pagamento attivo sul tuo account,\n"
+         f"      altrimenti la chiave non funziona.\n"
+         f"\n"
+         f"  Oppure:  [L] uso un modello LOCALE gratis   ·   [A] annulla\n")
+    key = ask_secret("  Incolla qui la chiave (NON verrà mostrata mentre la scrivi): ").strip()
+    if key.lower() == "l":
+        show(_LOCAL_GUIDE)
+        return None
+    if not key or key.lower() == "a":
+        show("  Annullato: non è stato inviato niente.")
+        return None
+
+    # Verify BEFORE offering to store it, so an invalid key is never left behind in the
+    # credentials file to be picked up silently by the next run.
+    show("\n  Verifico la chiave...")
+    status = check_key(provider, key)
+    if status is None:
+        show("  Questo fornitore non si può verificare con una sola chiamata: proseguo.")
+    elif status:
+        show("  " + consent.translate_provider_error(status))
+        return None
+    else:
+        show("  OK — la chiave funziona.")
+
+    show(f"\n  Dove salvo la chiave?\n"
+         f"   [1] {cred_path}   (consigliato)\n"
+         f"       File riservato, fuori dalla cartella del progetto, mai su Git.\n"
+         f"       Le prossime volte non ti chiederò più nulla.\n"
+         f"   [2] da nessuna parte\n"
+         f"       La uso solo per questa esecuzione. Dovrai reincollarla ogni volta.\n")
+    if ask("  Scelta [1/2]: ").strip() == "1":
+        warning = consent.store_credential(cred_path, provider.env_var, key)
+        show(("  " + warning) if warning else f"  Salvata in {cred_path} (permessi 600).")
+    return key
+
+
 class _LazyClient:
     """Defer building the Biomni agent until a taxon is actually asked.
 
@@ -69,9 +133,10 @@ class _LazyClient:
 
 def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
         dry_run, assume_yes, client, environ, interactive,
-        cred_path=None, ask=input, show=print):
-    """Everything is injected (client, environ, interactive, cred_path, ask, show)
-    so tests are hermetic and cost nothing."""
+        cred_path=None, ask=input, show=print,
+        ask_secret=getpass.getpass, check_key=consent.check_api_key):
+    """Everything is injected (client, environ, interactive, cred_path, ask, show,
+    ask_secret, check_key) so tests are hermetic and cost nothing."""
     try:
         provider = consent.provider_for(llm)
     except ValueError as e:
@@ -88,12 +153,21 @@ def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
             print(f"  - {name}")
         return 0
 
-    key = consent.resolve_api_key(provider, environ, cred_path or consent.credentials_path())
+    cred = cred_path or consent.credentials_path()
+    key = consent.resolve_api_key(provider, environ, cred)
+    if key is None and interactive:
+        key = _setup_api_key(llm, provider, cred, ask, show, ask_secret, check_key)
     if key is None:
         return _fail(
             f"no API key for {provider.label}. Set {provider.env_var} in your environment, "
             f"or create one at {provider.console_url}"
         )
+    # The provider SDK reads its key from the process environment, so a key that came from
+    # ~/.pmn/credentials or from the wizard above has to be put there before the client is
+    # built - otherwise it is resolved, checked, and then thrown away. setdefault, so a key
+    # the user already exported always wins.
+    if key and not provider.local:
+        environ.setdefault(provider.env_var, key)
 
     rec_path = consent.consent_record_path(work_dir)
     record = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.exists() else None
