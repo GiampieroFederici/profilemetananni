@@ -59,3 +59,56 @@ def test_max_taxa_is_a_hard_cap(tables):
 
 def test_no_tables_returns_empty():
     assert core.select_taxa("", "", threshold_pct=0.001, max_taxa=5) == []
+
+
+REFS = (
+    core.Citation("111", "Sakacin production in Latilactobacillus sakei", "2019"),
+    core.Citation("222", "Biogenic amines in dry sausage", "2021"),
+)
+
+
+def _raw(**kw):
+    base = dict(
+        taxon="Latilactobacillus sakei",
+        detected_by="metaphlan",
+        claims=(core.Claim("ruolo", "starter wild-type", "noto", (1, 7)),),
+        references=REFS,
+    )
+    base.update(kw)
+    return core.RawDossier(**base)
+
+
+def test_reference_number_out_of_range_is_removed():
+    out, dropped = core.resolve_citations(_raw())
+    assert out.claims[0].refs == (1,)
+    assert dropped == 1
+
+
+def test_claim_losing_all_references_keeps_an_empty_tuple():
+    raw = _raw(claims=(core.Claim("resistoma", "tet(M)", "noto", (9,)),))
+    out, dropped = core.resolve_citations(raw)
+    assert out.claims[0].refs == ()
+    assert dropped == 1
+
+
+def test_zero_is_not_a_valid_reference_number():
+    raw = _raw(claims=(core.Claim("ruolo", "x", "noto", (0,)),))
+    out, _ = core.resolve_citations(raw)
+    assert out.claims[0].refs == ()
+
+
+def test_valid_references_survive_untouched():
+    raw = _raw(claims=(core.Claim("ruolo", "x", "noto", (1, 2)),))
+    out, dropped = core.resolve_citations(raw)
+    assert out.claims[0].refs == (1, 2)
+    assert dropped == 0
+
+
+def test_unknown_category_is_rejected():
+    with pytest.raises(ValueError):
+        core.Claim("astrologia", "x", "noto", ())
+
+
+def test_unknown_label_is_rejected():
+    with pytest.raises(ValueError):
+        core.Claim("ruolo", "x", "certissimo", ())
