@@ -188,7 +188,7 @@ def test_build_dossier_runs_all_the_rules():
 
 META = {
     "model": "gpt-4o", "provider": "OpenAI", "date": "2026-08-06",
-    "n_taxa": 1, "confirmed": 1, "dropped": 1,
+    "n_taxa": 1, "confirmed": 1, "ncbi_dropped": 0, "invented_refs": 1,
 }
 
 
@@ -209,6 +209,24 @@ def test_markdown_header_declares_the_llm_and_the_counts():
     assert "LLM" in head
     assert "gpt-4o" in head and "OpenAI" in head
     assert "1" in head
+
+
+def test_the_header_keeps_ncbi_refusals_apart_from_invented_reference_numbers():
+    """Two different failures, two different lines: a PMID NCBI would not confirm is not
+    the same thing as a reference number the model made up."""
+    raw = core.RawDossier(
+        taxon="Latilactobacillus sakei", detected_by="metaphlan",
+        claims=(core.Claim("batteriocine", "sakacina", "noto", (1,)),),
+        references=REFS, ncbi_dropped=7,
+    )
+    d = core.build_dossier(raw)
+    assert d.ncbi_dropped == 7
+    head = core.render_markdown(
+        [d], dict(META, confirmed=3, ncbi_dropped=7, invented_refs=5)
+    ).split("## ")[0]
+    assert "3 confermate" in head
+    assert "7 rifiutate" in head
+    assert "scartati: 5" in head
 
 
 def test_markdown_never_leaks_a_dropped_pmid_as_evidence():

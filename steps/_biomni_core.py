@@ -39,7 +39,8 @@ class RawDossier:
     taxon: str
     detected_by: str
     claims: tuple
-    references: tuple    # ordered Citation objects WE retrieved from NCBI
+    references: tuple      # ordered Citation objects WE retrieved from NCBI
+    ncbi_dropped: int = 0  # PMIDs esearch returned but esummary would not confirm
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,8 @@ class Dossier:
     detected_by: str
     claims: tuple
     references: tuple
-    dropped_refs: int
+    dropped_refs: int      # reference NUMBERS the model invented (outside 1..N)
+    ncbi_dropped: int = 0  # carried through from RawDossier; a different thing entirely
 
 
 def resolve_citations(raw: RawDossier):
@@ -117,6 +119,7 @@ def build_dossier(raw: RawDossier) -> Dossier:
         claims=apply_labels(resolved.claims),
         references=resolved.references,
         dropped_refs=dropped,
+        ncbi_dropped=resolved.ncbi_dropped,
     )
 
 
@@ -146,10 +149,15 @@ def select_taxa(metaphlan_path: str, kraken_path: str, threshold_pct: float, max
     return [(name, src) for name, src, _ in rows[:max_taxa]]
 
 
+# The two counts below measure DIFFERENT things and used to share one line, which said
+# "scartate" of a number that never had anything to do with NCBI. Keep them apart:
+#   confirmed / ncbi_dropped -> fonti che NOI abbiamo cercato e ricontrollato su NCBI
+#   invented_refs            -> numeri di riferimento che il MODELLO si e' inventato
 _HEADER = (
     "> ATTENZIONE: documento generato da un modello linguistico (LLM), non da un esperto.\n"
     "> Modello: {model} ({provider}) · Data: {date} · Taxa analizzati: {n_taxa}\n"
-    "> Citazioni ricontrollate su NCBI: {confirmed} confermate, {dropped} scartate.\n"
+    "> Fonti ricontrollate su NCBI: {confirmed} confermate, {ncbi_dropped} rifiutate da NCBI.\n"
+    "> Numeri di riferimento inventati dal modello e scartati: {invented_refs}.\n"
     "> Le righe \"atteso\" e \"ipotesi\" NON sono prove. Vanno verificate a mano.\n\n"
 )
 

@@ -87,7 +87,11 @@ def test_with_yes_flag_it_runs_and_writes_all_three_files(tmp_path):
     assert (out / "dossier_taxa.md").exists()
     assert (out / "dossier_taxa.tsv").exists()
     meta = json.loads((out / "run_meta.json").read_text(encoding="utf-8"))
-    assert meta["confirmed"] == 2 and meta["dropped"] == 2
+    # 2 taxa x 1 NCBI-confirmed source, 2 taxa x 1 invented reference number ([9]).
+    # The two counts are separate: FakeClient reports no NCBI refusals.
+    assert meta["confirmed"] == 2
+    assert meta["invented_refs"] == 2
+    assert meta["ncbi_dropped"] == 0
 
 
 def test_max_taxa_is_respected(tmp_path):

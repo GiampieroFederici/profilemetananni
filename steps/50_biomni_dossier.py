@@ -197,15 +197,19 @@ def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
             show("  Nessun problema: non è stato inviato niente.")
             return 0
 
-    dossiers, confirmed, dropped = [], 0, 0
+    # Two counts, two different things: what NCBI confirmed/refused of the papers WE looked
+    # up, and how many reference numbers the model invented. Never merge them.
+    dossiers, confirmed, ncbi_dropped, invented = [], 0, 0, 0
     for name, src in taxa:
         d = core.build_dossier(client.ask(name, src))
         dossiers.append(d)
         confirmed += len(d.references)
-        dropped += d.dropped_refs
+        ncbi_dropped += d.ncbi_dropped
+        invented += d.dropped_refs
 
     meta = {"model": llm, "provider": provider.label, "date": date.today().isoformat(),
-            "n_taxa": len(dossiers), "confirmed": confirmed, "dropped": dropped,
+            "n_taxa": len(dossiers), "confirmed": confirmed, "ncbi_dropped": ncbi_dropped,
+            "invented_refs": invented,
             "max_taxa": max_taxa, "threshold_pct": threshold_pct}
 
     os.makedirs(out, exist_ok=True)
@@ -216,7 +220,8 @@ def run(metaphlan, kraken, out, llm, work_dir, threshold_pct, max_taxa,
     with open(os.path.join(out, "run_meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
     print(f"[OK] {len(dossiers)} dossiers written to {out} "
-          f"({confirmed} citations confirmed, {dropped} dropped)")
+          f"({confirmed} sources confirmed by NCBI, {ncbi_dropped} refused by NCBI, "
+          f"{invented} invented reference numbers discarded)")
     return 0
 
 

@@ -53,9 +53,14 @@ def ncbi_fetch(pmid: str):
 
 
 def build_references(taxon: str):
-    """Search, then keep only the PMIDs esummary can actually confirm (Task 3's rule 2)."""
-    confirmed, _dropped = core.verify_pmids(set(pubmed_search(taxon)), ncbi_fetch)
-    return tuple(sorted(confirmed.values(), key=lambda c: (c.year, c.pmid), reverse=True))
+    """Search, then keep only the PMIDs esummary can actually confirm (Task 3's rule 2).
+
+    Returns (references, how many PMIDs NCBI refused to confirm). The second number is
+    reported separately: it is not the same thing as a reference number the model invented.
+    """
+    confirmed, dropped = core.verify_pmids(set(pubmed_search(taxon)), ncbi_fetch)
+    refs = tuple(sorted(confirmed.values(), key=lambda c: (c.year, c.pmid), reverse=True))
+    return refs, len(dropped)
 
 
 def _extract_json(text: str) -> str:
@@ -72,7 +77,7 @@ class BiomniClient:
         self._agent = A1(path=data_path or "./biomni_data", llm=llm)
 
     def ask(self, taxon: str, detected_by: str) -> core.RawDossier:
-        refs = build_references(taxon)
+        refs, ncbi_dropped = build_references(taxon)
         listing = "\n".join(
             f"[{i}] {c.title} ({c.year})" for i, c in enumerate(refs, 1)
         ) or "(no papers found for this species in this domain)"
@@ -84,4 +89,4 @@ class BiomniClient:
             for c in payload.get("claims", [])
             if c.get("category") in core.CATEGORIES and c.get("label") in core.LABELS
         )
-        return core.RawDossier(taxon, detected_by, claims, refs)
+        return core.RawDossier(taxon, detected_by, claims, refs, ncbi_dropped)
