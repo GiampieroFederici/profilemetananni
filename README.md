@@ -79,10 +79,16 @@ PHASE A — preprocessing                       PHASE B — read-based profiling
   1. **Size check (gate)** — estimates the download size from ENA and compares it to free disk
      **before** downloading, so you never run out of space mid-download.
   2. **Download** SRA runs (only if your data source is `ncbi`).
-  3. **Trimming** with `fastp`; **FastQC** is run on raw and trimmed reads for the QC report.
-  4. **Host filtering** with `Bowtie2` — removes host/substrate reads (e.g. pig, cow) and
+  3. **Triage (optional, off by default)**: before trimming, looks at the first `triage.reads`
+     fragments of every sample: host share (Bowtie2 on the same host chain), raw quality (fastp
+     Q30) and yield (estimated non-host fragments). Writes `results/triage.tsv` with a score and
+     a **suggested** decision `pass` / `review` / `exclude` and the reason. With
+     `triage.action: skip` the `exclude` samples are not trimmed, filtered or profiled;
+     with `report` (default) nothing is skipped.
+  4. **Trimming** with `fastp`; **FastQC** is run on raw and trimmed reads for the QC report.
+  5. **Host filtering** with `Bowtie2` — removes host/substrate reads (e.g. pig, cow) and
      **human** reads (default human reference: **T2T-CHM13v2.0**; GRCh38 still available) (privacy + quality).
-  5. **MultiQC** — one consolidated quality report.
+  6. **MultiQC** — one consolidated quality report.
 - **Phase B — Read-based profiling.**
   1. **MetaPhlAn 4** (marker-gene) and/or **Kraken2 + Bracken** (k-mer) — you choose.
   2. **Matrices** — species × sample tables for each tool.
@@ -91,9 +97,12 @@ PHASE A — preprocessing                       PHASE B — read-based profiling
   4. **Diversity** — compositional **CLR + Aitchison distance + PCA** (beta) and **alpha**
      diversity (richness, Shannon, Simpson).
   5. **Overview Excel reports.**
+  6. **StrainPhlAn (optional, off by default)**: strain-level comparison of the species you
+     list in `analysis.strainphlan.species` (e.g. *Latilactobacillus sakei*): one phylogenetic
+     tree per species across samples, plus `results/strainphlan/strainphlan_summary.tsv`.
+     A species carried by too few samples is reported and skipped.
 
-**Out of scope (on purpose):** strain-level analysis (StrainPhlAn), genome assembly, MAG
-recovery, functional annotation. See [Scope](#17-scope--what-it-does-not-do).
+**Out of scope (on purpose):** genome assembly, MAG recovery, functional annotation. See [Scope](#17-scope--what-it-does-not-do).
 
 ## 3. Who is it for?
 
@@ -251,6 +260,12 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `cleanup.keep_trimmed` | keep trimmed reads after host filtering | `false` |
 | `cleanup.keep_host_reads` | save host-mapped reads to a folder | `false` |
 | `cleanup.host_reads_dir` | where to save them (empty → `<work_dir>/host_reads`) | `""` |
+| `triage.enabled` | run the pre-trimming triage (host, quality, yield) | `false` |
+| `triage.reads` | fragments looked at per sample | `100000` |
+| `triage.max_host_pct` | host share above this → `review`/`exclude` | `95` |
+| `triage.min_nonhost_reads` | estimated non-host fragments below this → `review`/`exclude` | `1000000` |
+| `triage.min_q30_pct` | raw Q30 below this → `review`/`exclude` | `70` |
+| `triage.action` | `report` (table only) or `skip` (do not process `exclude` samples) | `report` |
 | `paths.layout` | `managed` or `custom` | `managed` |
 | `paths.work_dir` | base output directory | `./pmn_work` |
 | `paths.local_reads_dir` | FASTQ folder (for `local`/`both`) | `""` |
@@ -258,6 +273,7 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `paths.{raw,trim,nonhost,results,logs}_dir` | custom layout only | `""` |
 | `profiling.tool` | `metaphlan` / `kraken` / `both` | `both` |
 | `profiling.metaphlan_db` | MetaPhlAn DB dir (empty + auto = install) | `""` |
+| `profiling.metaphlan_index` | pinned MetaPhlAn DB version (never `latest`) | `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | `profiling.kraken_db` | Kraken2 DB dir (empty + auto = build) | `""` |
 | `profiling.auto_install_db` | auto-download/build missing DBs (LARGE) | `false` |
 | `profiling.kraken_db_mode` | `standard` or `custom` | `standard` |
@@ -269,6 +285,8 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `analysis.diversity` | compute alpha/beta diversity | `true` |
 | `analysis.metadata` | optional TSV (`sample` + group column) → coloured PCA + group tests | `""` |
 | `analysis.group_col` | metadata column to group by (e.g. `product`); needs `metadata` | `""` |
+| `analysis.strainphlan.enabled` | run StrainPhlAn on the species list (needs MetaPhlAn + `metaphlan_db`) | `false` |
+| `analysis.strainphlan.species` | species as `Genus_species` | `[Latilactobacillus_sakei, Lactococcus_lactis, Staphylococcus_xylosus]` |
 | `execution.scheduler` | `auto` / `pbs` / `local` | `auto` |
 | `execution.threads` | CPU threads per step | `8` |
 | `execution.pbs_queue` | **required on PBS** (e.g. `commonCPUQ`) | `""` |
@@ -282,8 +300,11 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 
 Profiling needs reference databases. They are **large** — install them once.
 
-- **MetaPhlAn (ChocoPhlAn)** — ~25 GB. If `profiling.metaphlan_db` is empty and
+- **MetaPhlAn (ChocoPhlAn)** — ~30 GB. If `profiling.metaphlan_db` is empty and
   `auto_install_db: true`, the tool installs it (`steps/13_metaphlan_db.sh`).
+  The version is **pinned**: MetaPhlAn **4.2.4** + DB `profiling.metaphlan_index`
+  (default `mpa_vJan25_CHOCOPhlAnSGB_202503`). With a named index MetaPhlAn never fetches
+  the "latest" DB, so profiles stay comparable across runs.
 - **Kraken2** — ~50–90 GB for the standard DB.
   - `kraken_db_mode: standard` → RefSeq standard DB (`steps/12_kraken_db.sh --mode standard`).
   - `kraken_db_mode: custom` → built from your own NCBI assembly accessions listed in
@@ -385,8 +406,8 @@ pmn_work/
 ## 17. Scope & what it does NOT do
 
 In scope: **Step 0 + Phase A + Phase B** (preprocessing and read-based profiling, up to the
-overview Excel reports). **Not** included (by design): StrainPhlAn (strain level), genome
-assembly, MAG recovery, functional annotation. If you ask the AI for these, it will say they
+overview Excel reports), plus optional StrainPhlAn on a species list. **Not** included (by
+design): genome assembly, MAG recovery, functional annotation. If you ask the AI for these, it will say they
 are planned but not implemented.
 
 ## 18. Phase C — taxa dossier (optional)
@@ -604,10 +625,16 @@ FASE A — preprocessing                        FASE B — profiling read-based
   1. **Controllo dimensione (gate)** — stima i GB da scaricare da ENA e li confronta con lo
      spazio libero **prima** di scaricare, così non resti mai senza spazio a metà.
   2. **Download** delle run SRA (solo se la sorgente dati è `ncbi`).
-  3. **Trimming** con `fastp`; **FastQC** su reads grezze e trimmate per il report di qualità.
-  4. **Filtro host** con `Bowtie2` — rimuove le reads dell'ospite/substrato (es. maiale, bovino)
+  3. **Triage (opzionale, spento di default)**: prima del trimming guarda i primi
+     `triage.reads` frammenti di ogni campione: quota di host (Bowtie2 sulla stessa catena di
+     ospiti), qualità grezza (Q30 di fastp) e resa (frammenti non-host stimati). Scrive
+     `results/triage.tsv` con un punteggio, una decisione **suggerita** `pass` / `review` /
+     `exclude` e il motivo. Con `triage.action: skip` i campioni `exclude` non vengono trimmati,
+     filtrati né profilati; con `report` (default) non si salta nulla.
+  4. **Trimming** con `fastp`; **FastQC** su reads grezze e trimmate per il report di qualità.
+  5. **Filtro host** con `Bowtie2` — rimuove le reads dell'ospite/substrato (es. maiale, bovino)
      e le reads **umane** (riferimento umano di default: **T2T-CHM13v2.0**; GRCh38 ancora disponibile) (privacy + qualità).
-  5. **MultiQC** — un unico report di qualità consolidato.
+  6. **MultiQC** — un unico report di qualità consolidato.
 - **Fase B — Profiling read-based.**
   1. **MetaPhlAn 4** (marker-gene) e/o **Kraken2 + Bracken** (k-mer) — scegli tu.
   2. **Matrici** — tabelle specie × campione per ciascun tool.
@@ -616,9 +643,12 @@ FASE A — preprocessing                        FASE B — profiling read-based
   4. **Diversità** — composizionale **CLR + distanza di Aitchison + PCA** (beta) e **alpha**
      (richness, Shannon, Simpson).
   5. **Report Excel panoramici.**
+  6. **StrainPhlAn (opzionale, spento di default)**: confronto a livello di ceppo delle specie
+     che elenchi in `analysis.strainphlan.species` (es. *Latilactobacillus sakei*): un albero
+     filogenetico per specie fra i campioni, più `results/strainphlan/strainphlan_summary.tsv`.
+     Una specie presente in troppo pochi campioni viene segnalata e saltata.
 
-**Fuori scope (di proposito):** analisi a livello di ceppo (StrainPhlAn), assembly del genoma,
-recupero MAG, annotazione funzionale. Vedi [Scope](#17-scope-cosa-non-fa).
+**Fuori scope (di proposito):** assembly del genoma, recupero MAG, annotazione funzionale. Vedi [Scope](#17-scope-cosa-non-fa).
 
 ## 3. Per chi è?
 
@@ -776,6 +806,12 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `cleanup.keep_trimmed` | tieni le reads trimmate dopo il filtro host | `false` |
 | `cleanup.keep_host_reads` | salva le reads dell'host in una cartella | `false` |
 | `cleanup.host_reads_dir` | dove salvarle (vuoto → `<work_dir>/host_reads`) | `""` |
+| `triage.enabled` | esegue il triage prima del trimming (host, qualità, resa) | `false` |
+| `triage.reads` | frammenti esaminati per campione | `100000` |
+| `triage.max_host_pct` | quota di host sopra questo valore → `review`/`exclude` | `95` |
+| `triage.min_nonhost_reads` | frammenti non-host stimati sotto questo valore → `review`/`exclude` | `1000000` |
+| `triage.min_q30_pct` | Q30 grezzo sotto questo valore → `review`/`exclude` | `70` |
+| `triage.action` | `report` (solo tabella) o `skip` (non elabora i campioni `exclude`) | `report` |
 | `paths.layout` | `managed` o `custom` | `managed` |
 | `paths.work_dir` | cartella base di output | `./pmn_work` |
 | `paths.local_reads_dir` | cartella FASTQ (per `local`/`both`) | `""` |
@@ -783,6 +819,7 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `paths.{raw,trim,nonhost,results,logs}_dir` | solo layout custom | `""` |
 | `profiling.tool` | `metaphlan` / `kraken` / `both` | `both` |
 | `profiling.metaphlan_db` | cartella DB MetaPhlAn (vuoto + auto = installa) | `""` |
+| `profiling.metaphlan_index` | versione del DB MetaPhlAn fissata (mai `latest`) | `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | `profiling.kraken_db` | cartella DB Kraken2 (vuoto + auto = costruisce) | `""` |
 | `profiling.auto_install_db` | scarica/costruisce i DB mancanti (GRANDE) | `false` |
 | `profiling.kraken_db_mode` | `standard` o `custom` | `standard` |
@@ -794,6 +831,8 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `analysis.diversity` | calcola la diversità alpha/beta | `true` |
 | `analysis.metadata` | TSV facoltativo (`sample` + colonna gruppo) → PCA colorata + test gruppi | `""` |
 | `analysis.group_col` | colonna metadati per cui raggruppare (es. `product`); richiede `metadata` | `""` |
+| `analysis.strainphlan.enabled` | esegue StrainPhlAn sulla lista di specie (serve MetaPhlAn + `metaphlan_db`) | `false` |
+| `analysis.strainphlan.species` | specie nel formato `Genere_specie` | `[Latilactobacillus_sakei, Lactococcus_lactis, Staphylococcus_xylosus]` |
 | `execution.scheduler` | `auto` / `pbs` / `local` | `auto` |
 | `execution.threads` | thread CPU per step | `8` |
 | `execution.pbs_queue` | **obbligatoria su PBS** (es. `commonCPUQ`) | `""` |
@@ -807,8 +846,11 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 
 Il profiling ha bisogno di database di riferimento. Sono **grandi** — installali una volta sola.
 
-- **MetaPhlAn (ChocoPhlAn)** — ~25 GB. Se `profiling.metaphlan_db` è vuoto e
+- **MetaPhlAn (ChocoPhlAn)** — ~30 GB. Se `profiling.metaphlan_db` è vuoto e
   `auto_install_db: true`, il tool lo installa (`steps/13_metaphlan_db.sh`).
+  La versione è **fissata**: MetaPhlAn **4.2.4** + DB `profiling.metaphlan_index`
+  (default `mpa_vJan25_CHOCOPhlAnSGB_202503`). Con un indice indicato per nome MetaPhlAn
+  non scarica mai "l'ultimo" DB, così i profili restano confrontabili fra run diverse.
 - **Kraken2** — ~50–90 GB per il DB standard.
   - `kraken_db_mode: standard` → DB standard RefSeq (`steps/12_kraken_db.sh --mode standard`).
   - `kraken_db_mode: custom` → costruito dai tuoi accession NCBI elencati in
@@ -910,8 +952,8 @@ pmn_work/
 ## 17. Scope (cosa NON fa)
 
 In scope: **Step 0 + Fase A + Fase B** (preprocessing e profiling read-based, fino ai report Excel
-panoramici). **Non** incluso (di design): StrainPhlAn (livello ceppo), assembly del genoma,
-recupero MAG, annotazione funzionale. Se chiedi questi all'IA, ti dirà che sono previsti ma non
+panoramici), più StrainPhlAn opzionale su una lista di specie. **Non** incluso (di design):
+assembly del genoma, recupero MAG, annotazione funzionale. Se chiedi questi all'IA, ti dirà che sono previsti ma non
 ancora implementati.
 
 ## 18. Fase C — dossier dei taxa (opzionale)

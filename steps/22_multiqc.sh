@@ -34,6 +34,8 @@ if ls "$OUT"/*multiqc_report.html >/dev/null 2>&1; then
 fi
 
 info "$(say "Running MultiQC on $IN ..." "Eseguo MultiQC su $IN ...")"
-multiqc --force --title "$TITLE" --outdir "$OUT" "$IN" || die "multiqc failed"
+# Ignore the triage files (15/16_triage_*): MultiQC finds fastp reports by CONTENT, so the
+# subsample report would otherwise show up as an extra sample, or clash with the real one.
+multiqc --force --title "$TITLE" --outdir "$OUT" --ignore "*.triage_*" "$IN" || die "multiqc failed"
 
 ok "$(say "MultiQC report written to $OUT" "Report MultiQC scritto in $OUT")"

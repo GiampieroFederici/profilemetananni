@@ -156,7 +156,8 @@ Ask the user the following, one topic at a time, and write the answers into
 5. After each step, verify the real exit code and that the expected outputs exist
    before moving on. Stop and report on any failure.
 
-> Out of scope (do not run): strain-level analysis, assembly, MAG recovery, functional
+> Strain level: only via the optional StrainPhlAn step (`analysis.strainphlan`, a species list
+> the user chooses). Out of scope (do not run): assembly, MAG recovery, functional
 > annotation. If the user asks for these, say they are planned but not yet implemented.
 
 ---

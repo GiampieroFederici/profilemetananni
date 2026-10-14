@@ -80,16 +80,38 @@ validate_yesno "$PMN_DO_REPORT"       || die "invalid analysis.report"
 validate_yesno "$PMN_DO_DIVERSITY"    || die "invalid analysis.diversity"
 { [ -z "$PMN_METADATA" ] || validate_path_safe "$PMN_METADATA"; } || die "unsafe analysis.metadata"
 { [ -z "$PMN_GROUP_COL" ] || validate_name "$PMN_GROUP_COL"; }    || die "invalid analysis.group_col"
+validate_yesno "$PMN_STRAIN_ON"       || die "invalid analysis.strainphlan.enabled"
+if [ "$PMN_STRAIN_ON" = "yes" ]; then
+  { [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; } \
+    || die "analysis.strainphlan needs profiling.tool metaphlan or both"
+  [ -n "$PMN_STRAIN_SPECIES" ] || die "analysis.strainphlan.enabled is true but analysis.strainphlan.species is empty"
+  read -ra PMN_STRAIN_ARR <<< "$PMN_STRAIN_SPECIES"
+  for _sp in "${PMN_STRAIN_ARR[@]}"; do
+    [[ "$_sp" =~ ^[A-Z][a-z]+_[a-z0-9_]+$ ]] || die "invalid strainphlan species (use Genus_species): $(sanitize_for_log "$_sp")"
+  done
+fi
 validate_yesno "$PMN_BIOMNI_ON"       || die "invalid analysis.biomni.enabled"
 validate_walltime "$PMN_PBS_WALLTIME" || die "invalid execution.pbs_walltime (use HH:MM:SS)"
 validate_mem "$PMN_PBS_MEM"           || die "invalid execution.pbs_mem (e.g. 32GB)"
 validate_pbs_select "$PMN_PBS_SELECT" || die "invalid execution.pbs_select"
 { [ -z "$PMN_PBS_QUEUE" ] || validate_name "$PMN_PBS_QUEUE"; } || die "invalid execution.pbs_queue"
 { [ -z "$PMN_MPA_DB" ] || validate_path_safe "$PMN_MPA_DB"; } || die "unsafe profiling.metaphlan_db"
+validate_name "$PMN_MPA_INDEX" && [ "$PMN_MPA_INDEX" != "latest" ] \
+  || die "profiling.metaphlan_index must name a DB version (e.g. mpa_vJan25_CHOCOPhlAnSGB_202503), not 'latest'"
 { [ -z "$PMN_KRK_DB" ] || validate_path_safe "$PMN_KRK_DB"; } || die "unsafe profiling.kraken_db"
 # numeric bounds (validate_decimal only checks the format; clamp the meaningful range)
 awk -v v="$PMN_KRK_CONF"  'BEGIN{exit !(v>=0 && v<=1)}'   || die "kraken_confidence must be between 0 and 1"
 awk -v v="$PMN_THRESHOLD" 'BEGIN{exit !(v>=0 && v<=100)}' || die "abundance_threshold_pct must be between 0 and 100"
+validate_yesno "$PMN_TRIAGE_ON"       || die "invalid triage.enabled"
+if [ "$PMN_TRIAGE_ON" = "yes" ]; then
+  validate_uint "$PMN_TRIAGE_READS" && [ "$PMN_TRIAGE_READS" -gt 0 ] || die "triage.reads must be a positive integer"
+  validate_decimal "$PMN_TRIAGE_MAX_HOST" && awk -v v="$PMN_TRIAGE_MAX_HOST" 'BEGIN{exit !(v>=0 && v<100)}' \
+    || die "triage.max_host_pct must be >= 0 and < 100"
+  validate_uint "$PMN_TRIAGE_MIN_READS" || die "triage.min_nonhost_reads must be a non-negative integer"
+  validate_decimal "$PMN_TRIAGE_MIN_Q30" && awk -v v="$PMN_TRIAGE_MIN_Q30" 'BEGIN{exit !(v>=0 && v<=100)}' \
+    || die "triage.min_q30_pct must be between 0 and 100"
+  validate_in_set "$PMN_TRIAGE_ACTION" report skip || die "invalid triage.action (report|skip)"
+fi
 
 case "$PMN_SCHED_CHOICE" in
   auto)      PMN_SCHED="$(detect_scheduler)" ;;
@@ -248,8 +270,53 @@ hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">
   return 0
 }
 
-process_reads_dir() {  # process_reads_dir <dir>
-  local d="$1" f s mate pair r1suf r2suf
+# A3a. Triage (optional): look at the first N fragments of a sample before trimming.
+TRIAGE_DIR="$PMN_WORK_DIR/triage"
+TRIAGE_TSV="$RES_DIR/triage.tsv"
+triage_sample() {  # triage_sample <sample> <r1> <r2|"">
+  local s="$1" r1="$2" r2="$3" idx
+  # already host-filtered = already past the point where triage could save work
+  if [ -n "$r2" ]; then [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && return 0
+  else [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ] && return 0; fi
+  local q=(--sample "$s" --in1 "$r1") h=(--sample "$s" --in1 "$r1")
+  [ -n "$r2" ] && { q+=(--in2 "$r2"); h+=(--in2 "$r2"); }
+  for idx in "${INDEX_LIST[@]}"; do h+=(--index "$idx"); done
+  q+=(--out "$TRIAGE_DIR" --reads "$PMN_TRIAGE_READS" --threads "$PMN_THREADS")
+  h+=(--out "$TRIAGE_DIR" --reads "$PMN_TRIAGE_READS" --threads "$PMN_THREADS")
+  do_step pmn_trim "tq_${s}" -- bash "$PMN_ROOT/steps/15_triage_qc.sh" "${q[@]}"
+  do_step pmn_hostfilter "th_${s}" -- bash "$PMN_ROOT/steps/16_triage_host.sh" "${h[@]}"
+}
+triage_excluded() {  # true if triage.action=skip and the sample's suggested decision is "exclude"
+  [ "$PMN_TRIAGE_ON" = "yes" ] && [ "$PMN_TRIAGE_ACTION" = "skip" ] && [ -f "$TRIAGE_TSV" ] || return 1
+  awk -F'\t' -v s="$1" 'NR == 1 { for (i = 1; i <= NF; i++) if ($i == "decision") c = i; next }
+                        c && $1 == s && $c == "exclude" { found = 1 } END { exit !found }' "$TRIAGE_TSV"
+}
+
+# A3b. Trimming + host filtering of one sample.
+trim_and_filter_sample() {  # trim_and_filter_sample <sample> <r1> <r2|"">
+  local s="$1" r1="$2" r2="$3"
+  # already fully host-filtered? skip trim+filter (avoids re-trimming when trimmed reads were cleaned up)
+  if [ -n "$r2" ]; then [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && return 0
+  else [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ] && return 0; fi
+  if triage_excluded "$s"; then
+    warn "$(say "$s skipped: triage suggested 'exclude' (see $TRIAGE_TSV; set triage.action: report to keep it)" \
+               "$s saltato: il triage suggerisce 'exclude' (vedi $TRIAGE_TSV; metti triage.action: report per tenerlo)")"
+    return 0
+  fi
+  if [ -n "$r2" ]; then
+    do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
+      --sample "$s" --in1 "$r1" --in2 "$r2" --out "$TRIM_DIR" --threads "$PMN_THREADS"
+    hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" "$TRIM_DIR/${s}_trim_2.fastq.gz"
+  else
+    do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
+      --sample "$s" --in1 "$r1" --out "$TRIM_DIR" --threads "$PMN_THREADS"
+    hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" ""
+  fi
+}
+
+# Call <callback> <sample> <r1> <r2|""> for every sample found in <dir>.
+for_each_sample() {  # for_each_sample <dir> <callback>
+  local d="$1" cb="$2" f s mate pair r1suf r2suf
   [ -d "$d" ] || { warn "reads dir not found (yet): $d"; return 0; }
   shopt -s nullglob
   # --- Paired-end (EN): recognise the common R1/R2 naming conventions, not just _1/_2.
@@ -273,11 +340,7 @@ process_reads_dir() {  # process_reads_dir <dir>
       s="$(basename "${f%"$r1suf"}")"; mate="${f%"$r1suf"}$r2suf"
       validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
       [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
-      # already fully host-filtered? skip trim+filter (avoids re-trimming when trimmed reads were cleaned up)
-      [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && continue
-      do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
-        --sample "$s" --in1 "$f" --in2 "$mate" --out "$TRIM_DIR" --threads "$PMN_THREADS"
-      hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" "$TRIM_DIR/${s}_trim_2.fastq.gz"
+      "$cb" "$s" "$f" "$mate"
     done
   done
   # --- Single-end (EN): any *.fastq.gz / *.fq.gz that is NOT one of the paired mates above.
@@ -289,15 +352,25 @@ process_reads_dir() {  # process_reads_dir <dir>
     esac
     s="$(basename "$f")"; s="${s%.fastq.gz}"; s="${s%.fq.gz}"
     validate_name "$s" || continue
-    [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ] && continue
-    do_step pmn_trim "trim_${s}" -- bash "$PMN_ROOT/steps/20_trim.sh" \
-      --sample "$s" --in1 "$f" --out "$TRIM_DIR" --threads "$PMN_THREADS"
-    hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" ""
+    "$cb" "$s" "$f" ""
   done
   shopt -u nullglob
 }
 
-for d in "${READ_DIRS[@]}"; do process_reads_dir "$d"; done
+if [ "$PMN_TRIAGE_ON" = "yes" ]; then
+  info "$(say "Triage: first $PMN_TRIAGE_READS fragments of each sample (host, quality, yield) ..." \
+             "Triage: primi $PMN_TRIAGE_READS frammenti di ogni campione (host, qualità, resa) ...")"
+  for d in "${READ_DIRS[@]}"; do for_each_sample "$d" triage_sample; done
+  if [ "$DRY" -eq 1 ] || compgen -G "$TRIAGE_DIR/*.triage_*" > /dev/null; then
+    do_step pmn_reports_py triage -- python "$PMN_ROOT/steps/17_triage_report.py" \
+      --in "$TRIAGE_DIR" --out "$TRIAGE_TSV" --max-host-pct "$PMN_TRIAGE_MAX_HOST" \
+      --min-nonhost-reads "$PMN_TRIAGE_MIN_READS" --min-q30-pct "$PMN_TRIAGE_MIN_Q30" --lang "$PMN_LANG"
+    [ "$PMN_TRIAGE_ACTION" = "report" ] && info "$(say "Triage table: $TRIAGE_TSV (action: report, no sample is skipped)." \
+                                                     "Tabella di triage: $TRIAGE_TSV (action: report, nessun campione saltato).")"
+  fi
+fi
+
+for d in "${READ_DIRS[@]}"; do for_each_sample "$d" trim_and_filter_sample; done
 
 # A4. MultiQC.
 do_step pmn_qc multiqc -- bash "$PMN_ROOT/steps/22_multiqc.sh" --in "$PMN_WORK_DIR" --out "$QC_DIR" --title "$PMN_PROJECT"
@@ -314,11 +387,11 @@ if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
   if [ -z "$PMN_MPA_DB" ]; then
     if [ "$PMN_AUTO_INSTALL_DB" = "yes" ]; then
       PMN_MPA_DB="$DB_DIR/metaphlan"
-      do_step pmn_metaphlan db_metaphlan -- bash "$PMN_ROOT/steps/13_metaphlan_db.sh" --out "$PMN_MPA_DB"
+      do_step pmn_metaphlan db_metaphlan -- bash "$PMN_ROOT/steps/13_metaphlan_db.sh" --out "$PMN_MPA_DB" --index "$PMN_MPA_INDEX"
     elif [ "$DRY" -eq 1 ]; then
       warn "$(say "DRY-RUN: MetaPhlAn DB not set; a real run would stop here (set profiling.metaphlan_db or auto_install_db: true)." "DRY-RUN: DB MetaPhlAn non impostato; una run reale si fermerebbe qui (imposta profiling.metaphlan_db o auto_install_db: true).")"
     else
-      die "MetaPhlAn DB not set (profiling.metaphlan_db) and auto_install_db=false. Set the path, or set auto_install_db: true. Manual: conda run -n pmn_metaphlan metaphlan --install --bowtie2db <DIR>"
+      die "MetaPhlAn DB not set (profiling.metaphlan_db) and auto_install_db=false. Set the path, or set auto_install_db: true. Manual: conda run -n pmn_metaphlan metaphlan --install --db_dir <DIR> --index $PMN_MPA_INDEX"
     fi
   fi
 fi
@@ -348,6 +421,8 @@ run_profilers() {  # run_profilers <sample> <r1> <r2|"">
   if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
     a=(--sample "$s" --in1 "$r1"); [ -n "$r2" ] && a+=(--in2 "$r2")
     [ -n "$PMN_MPA_DB" ] && a+=(--db "$PMN_MPA_DB")
+    a+=(--index "$PMN_MPA_INDEX")
+    [ "$PMN_STRAIN_ON" = "yes" ] && a+=(--samout)
     a+=(--out "$MPA_DIR" --threads "$PMN_THREADS")
     do_step pmn_metaphlan "mpa_${s}" -- bash "$PMN_ROOT/steps/30_metaphlan.sh" "${a[@]}"
   fi
@@ -380,6 +455,15 @@ MPA_MERGED=""; KRK_MATRIX=""
 if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
   MPA_MERGED="$RES_DIR/metaphlan_merged.tsv"
   do_step pmn_metaphlan merge -- bash "$PMN_ROOT/steps/31_merge_metaphlan.sh" --in "$MPA_DIR" --out "$MPA_MERGED"
+fi
+# B2b. StrainPhlAn on the user's species list (optional).
+if [ "$PMN_STRAIN_ON" = "yes" ]; then
+  if [ -z "$PMN_MPA_DB" ] && [ "$DRY" -eq 0 ]; then
+    die "analysis.strainphlan needs profiling.metaphlan_db (the folder with $PMN_MPA_INDEX.pkl)"
+  fi
+  strain_args=(--sam-dir "$MPA_DIR" --db "$PMN_MPA_DB" --index "$PMN_MPA_INDEX" --out "$RES_DIR/strainphlan" --threads "$PMN_THREADS")
+  for _sp in "${PMN_STRAIN_ARR[@]}"; do strain_args+=(--species "$_sp"); done
+  do_step pmn_metaphlan strainphlan -- bash "$PMN_ROOT/steps/35_strainphlan.sh" "${strain_args[@]}"
 fi
 if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
   KRK_MATRIX="$RES_DIR/kraken_matrix.tsv"

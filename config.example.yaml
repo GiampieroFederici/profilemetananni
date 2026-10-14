@@ -37,6 +37,24 @@ cleanup:
   host_reads_dir: ""         # empty -> <work_dir>/host_reads
 
 # ---------------------------------------------------------------------------
+# TRIAGE (OPTIONAL, OFF BY DEFAULT) / TRIAGE INIZIALE (OPZIONALE, SPENTO)
+# Before trimming, look at the first `reads` fragments of each sample: host share
+# (Bowtie2 on the same host chain), quality (fastp Q30) and yield (estimated non-host
+# fragments). Writes results/triage.tsv with a score and a SUGGESTED decision
+# pass / review / exclude per sample. Prima del trimming guarda i primi `reads`
+# frammenti di ogni campione e scrive results/triage.tsv con punteggio e decisione suggerita.
+# action: report = only write the table (nothing is skipped) / scrive solo la tabella
+#         skip   = do not trim/filter/profile samples marked "exclude" / salta i campioni "exclude"
+# ---------------------------------------------------------------------------
+triage:
+  enabled: false
+  reads: 100000              # fragments (reads, or read pairs) looked at per sample
+  max_host_pct: 95           # more host than this -> review/exclude
+  min_nonhost_reads: 1000000 # fewer estimated non-host fragments than this -> review/exclude
+  min_q30_pct: 70            # lower raw Q30 than this -> review/exclude
+  action: report             # report | skip
+
+# ---------------------------------------------------------------------------
 # PATHS / CARTELLE   layout: managed (tool owns folders) | custom (you provide them)
 # ---------------------------------------------------------------------------
 paths:
@@ -56,6 +74,8 @@ paths:
 profiling:
   tool: both                 # metaphlan | kraken | both
   metaphlan_db: ""           # directory; empty + auto_install_db:true -> installed automatically
+  metaphlan_index: mpa_vJan25_CHOCOPhlAnSGB_202503   # PINNED DB version (MetaPhlAn 4.2.4). Never "latest":
+                             # a different DB gives profiles you cannot compare / versione del DB FISSATA
   kraken_db: ""              # directory; empty + auto_install_db:true -> built automatically
   auto_install_db: false     # true = download/build missing DBs automatically (LARGE: MetaPhlAn ~25GB, Kraken ~50-90GB)
   kraken_db_mode: standard   # standard | custom
@@ -73,6 +93,20 @@ analysis:
   metadata: ""               # OPTIONAL .tsv: column 'sample' + grouping column(s). Enables a COLOURED PCA
                              # and group tests on alpha diversity (Kruskal-Wallis + Dunn post-hoc, BH-adjusted)
   group_col: ""              # which metadata column to group by (e.g. product, country); needs 'metadata' set
+
+  # -------------------------------------------------------------------------
+  # STRAINPHLAN - strain-level comparison of the species YOU list (needs profiling.tool
+  # metaphlan or both, and profiling.metaphlan_db). OFF BY DEFAULT.
+  # STRAINPHLAN - confronto a livello di ceppo delle specie che elenchi TU. SPENTO.
+  # Species as MetaPhlAn writes them: Genus_species / specie nel formato Genere_specie.
+  # MetaPhlAn then also keeps <sample>.sam.bz2 (needed here; uses extra disk).
+  # -------------------------------------------------------------------------
+  strainphlan:
+    enabled: false
+    species:
+      - Latilactobacillus_sakei
+      - Lactococcus_lactis
+      - Staphylococcus_xylosus
 
   # -------------------------------------------------------------------------
   # PHASE C - taxa dossier via Biomni. OPTIONAL, OFF BY DEFAULT, LOCAL ONLY.

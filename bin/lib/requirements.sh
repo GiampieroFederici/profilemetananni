@@ -11,7 +11,7 @@ PMN_CHANNELS=(-c conda-forge -c bioconda)
 #
 # REPRODUCIBILITY NOTE (EN):
 #   Tested-with versions (known-good combo on which this pipeline was validated):
-#     MetaPhlAn 4.1.x  ·  Kraken2 2.1.3  ·  Bracken 2.9
+#     MetaPhlAn 4.2.4 (DB vJan25, exact pin)  ·  Kraken2 2.1.3  ·  Bracken 2.9
 #     fastp 0.23.x     ·  Bowtie2 2.5.x  ·  R 4.x
 #   Only the three scientifically load-bearing tools carry a conservative
 #   MINIMUM-version pin (">=") to guard against ancient/incompatible releases
@@ -21,7 +21,7 @@ PMN_CHANNELS=(-c conda-forge -c bioconda)
 #
 # NOTA RIPRODUCIBILITA (IT):
 #   Versioni di riferimento (combinazione testata e funzionante):
-#     MetaPhlAn 4.1.x  ·  Kraken2 2.1.3  ·  Bracken 2.9
+#     MetaPhlAn 4.2.4 (DB vJan25, exact pin)  ·  Kraken2 2.1.3  ·  Bracken 2.9
 #     fastp 0.23.x     ·  Bowtie2 2.5.x  ·  R 4.x
 #   Solo i tre strumenti scientificamente cruciali hanno un vincolo di
 #   versione MINIMA (">="), per evitare versioni troppo vecchie senza
@@ -39,7 +39,10 @@ declare -A PMN_ENV_PKGS=(
   [pmn_qc]="multiqc"
   [pmn_trim]="fastp fastqc"
   [pmn_hostfilter]="bowtie2 samtools ncbi-datasets-cli unzip"
-  [pmn_metaphlan]="metaphlan>=4.1"
+  # EXACT pin on purpose (exception to the ">=" rule above): metaphlan=4.2.4 + DB vJan25 is the
+  # combination behind the published Ciauscolo profiles; another version/DB gives profiles that
+  # cannot be compared with them. python=3.11: the version this combination was tested with here.
+  [pmn_metaphlan]="metaphlan=4.2.4 python=3.11"
   [pmn_kraken]="kraken2>=2.1.3 bracken>=2.9 ncbi-datasets-cli unzip"
   [pmn_stats_r]="r-base r-vegan r-ade4 r-ape r-zcompositions r-rstatix r-ggpubr"
   [pmn_reports_py]="python pandas numpy scipy matplotlib seaborn openpyxl pyyaml pytest"
@@ -99,6 +102,6 @@ unset _pmn_e
 # Reference databases (large; NEVER auto-downloaded — must be confirmed explicitly).
 # Format:  "approx size|how to obtain"
 declare -A PMN_DB_INFO=(
-  [metaphlan_db]="~20-25 GB|metaphlan --install --bowtie2db <DIR>"
+  [metaphlan_db]="~30 GB|metaphlan --install --db_dir <DIR> --index mpa_vJan25_CHOCOPhlAnSGB_202503"
   [kraken2_db]="~50-90 GB|kraken2-build --standard --db <DIR>  (or fetch a prebuilt index)"
 )

@@ -41,8 +41,9 @@ fi
 
 info "$(say "Installing the MetaPhlAn database into $OUT (large download, be patient) ..." \
             "Installo il database MetaPhlAn in $OUT (download grande, abbi pazienza) ...")"
-# --install downloads and prepares the marker db; --bowtie2db sets the destination directory.
-args=(--install --bowtie2db "$OUT")
+# --install downloads and prepares the marker db; --db_dir (MetaPhlAn 4.2 name of the old
+# --bowtie2db) sets the destination directory.
+args=(--install --db_dir "$OUT")
 if [ "$INDEX" != "latest" ]; then
   args+=(--index "$INDEX")
 fi

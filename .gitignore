@@ -47,3 +47,7 @@ __pycache__/
 .pmn/
 *.credentials
 .biomni_consent.json
+
+# Lavoro di progetto privato (piano app, diario, prove). MAI nel repo pubblico.
+# Private project work (app plan, log, validation runs). NEVER in the public repo.
+implementazione/
