@@ -133,6 +133,18 @@ if [ "$PMN_STRAIN_ON" = "yes" ]; then
     [[ "$_sp" =~ ^[A-Z][a-z]+_[a-z0-9_]+$ ]] || die "invalid strainphlan species (use Genus_species): $(sanitize_for_log "$_sp")"
   done
 fi
+# Kraken with the full PlusPF database memory-maps 118 GB and reads scattered pieces: with a large disk read-ahead
+# every piece costs megabytes (S2.2, K2: ~108 h estimated at 8192 KB, 41 min at 16 KB, identical output). The engine's
+# WSL sets 16 KB at every start (installer/windows/prepara_pmn.sh); elsewhere it needs root, so only a warning here.
+if [ "$PMN_KRK_PROFILO" = completo ] && [ -n "$PMN_KRK_DB" ] && { [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; }; then
+  ra_dev="$(basename "$(findmnt -no SOURCE --target "$PMN_KRK_DB" 2> /dev/null)")"
+  [ -e "/sys/class/block/$ra_dev/queue" ] || ra_dev="$(lsblk -no PKNAME "/dev/$ra_dev" 2> /dev/null | head -n1)"
+  ra_file="/sys/class/block/$ra_dev/queue/read_ahead_kb"
+  if [ -n "$ra_dev" ] && [ -r "$ra_file" ] && [ "$(cat "$ra_file")" -gt 16 ]; then
+    warn "$(say "Disk read-ahead is $(cat "$ra_file") KB: Kraken with the full PlusPF was measured fast only at 16 KB (41 min for 1.5 M pairs; at 8192 KB it would take days). Set it with: echo 16 | sudo tee $ra_file, or use motore.kraken_db: rapido." \
+               "La lettura anticipata del disco e' $(cat "$ra_file") KB: Kraken con PlusPF completo e' stato misurato veloce solo a 16 KB (41 min per 1,5 M di coppie; a 8.192 KB servirebbero giorni). Impostala con: echo 16 | sudo tee $ra_file, oppure usa motore.kraken_db: rapido.")"
+  fi
+fi
 # MetaPhlAn mode (D016; contract section 5.1). "fette" = the 6 slices of the index (peak ~8.5 GB),
 # only with the desktop engine. "standard" = MetaPhlAn on the full index (~33 GB of RAM).
 # auto: standard if the PC has >= 40 GB and the full index is there, else fette when installed.
