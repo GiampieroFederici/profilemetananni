@@ -592,6 +592,16 @@ full threat model. In short:
 - Data and software without a paper: MetaPhlAn database `mpa_vJan25_CHOCOPhlAnSGB_202503` (the 6 "shards" are a derivative of its Bowtie2 index, built by us); Kraken2/Bracken PlusPF and PlusPF-8 indexes of 26/06/2026 by Ben Langmead (`genome-idx.s3.amazonaws.com/kraken`); micromamba 2.9.0 (mamba-org).
 - StrainPhlAn is described in the MetaPhlAn 4 paper (Blanco-Míguez et al. 2023, above).
 
+**Food safety module, `motore/fssp` (added 15/10/2026, checked on PubMed with a blind double check):**
+- Predictions use the models of the Food Spoilage and Safety Predictor (FSSP) 4.0, DTU Food, rewritten in Python and shown to give the same numbers as FSSP (382/382 test cases). Dalgaard, Buch & Silberg 2002, *Int J Food Microbiol* 73(2-3):343-349: Seafood Spoilage Predictor, the software that became FSSP. DOI 10.1016/S0168-1605(01)00670-5
+- Mejlholm & Dalgaard 2009, *J Food Prot* 72(10):2132-2143: *Listeria monocytogenes* growth and growth boundary model. DOI 10.4315/0362-028X-72.10.2132
+- Mejlholm & Dalgaard 2013, *Int J Food Microbiol* 167(2):244-260: psychrotolerant *Lactobacillus* spp. model (built on *L. sakei*). DOI 10.1016/j.ijfoodmicro.2013.09.013
+- Mejlholm & Dalgaard 2007, *J Food Prot* 70(11):2485-2497: lactic acid bacteria and their inhibiting effect on *L. monocytogenes*; relative lag time 4.5. DOI 10.4315/0362-028X-70.11.2485
+- Mejlholm & Dalgaard 2015, *Food Microbiol* 46:1-14: simultaneous growth of *L. monocytogenes* and lactic acid bacteria. DOI 10.1016/j.fm.2014.07.005
+- Le Marc et al. 2002, *Int J Food Microbiol* 73(2-3):219-237: interactions between factors (the psi growth boundary). DOI 10.1016/S0168-1605(01)00640-7
+- Zheng et al. 2020, *Int J Syst Evol Microbiol* 70(4):2782-2858: reclassification of *Lactobacillus* (e.g. *Latilactobacillus sakei*), used to match profile names to the models. DOI 10.1099/ijsem.0.004107
+- Commission Regulation (EC) No 2073/2005 and amendments, Annex I, category 1.3: ready-to-eat foods that do not support the growth of *L. monocytogenes* (official text on EUR-Lex, CELEX 32005R2073).
+
 ---
 
 # 🇮🇹 Italiano
@@ -1153,6 +1163,16 @@ per il modello di minaccia completo. In breve:
 - Genomi dell'ospite: Warr et al. 2020, *GigaScience* 9(6):giaa051 (maiale Sscrofa11.1, DOI 10.1093/gigascience/giaa051); Rosen et al. 2020, *GigaScience* 9(3):giaa021 (bovino ARS-UCD1.2, DOI 10.1093/gigascience/giaa021); Davenport et al. 2022, *GigaScience* 11:giab096 (pecora ARS-UI_Ramb_v2.0, DOI 10.1093/gigascience/giab096); Schneider et al. 2017, *Genome Res* 27(5):849-864 (uomo GRCh38, DOI 10.1101/gr.213611.116).
 - Dati e programmi senza articolo: database di MetaPhlAn `mpa_vJan25_CHOCOPhlAnSGB_202503` (le 6 "fette" sono un derivato del suo indice Bowtie2, costruito da noi); indici Kraken2/Bracken PlusPF e PlusPF-8 del 26/06/2026 di Ben Langmead (`genome-idx.s3.amazonaws.com/kraken`); micromamba 2.9.0 (mamba-org).
 - StrainPhlAn è descritto nell'articolo di MetaPhlAn 4 (Blanco-Míguez et al. 2023, sopra).
+
+**Modulo sicurezza alimentare, `motore/fssp` (aggiunte il 15/10/2026, controllate su PubMed con doppia verifica cieca):**
+- Le previsioni usano i modelli del Food Spoilage and Safety Predictor (FSSP) 4.0, DTU Food, riscritti in Python e provati uguali a FSSP (382 casi su 382). Dalgaard, Buch & Silberg 2002, *Int J Food Microbiol* 73(2-3):343-349: Seafood Spoilage Predictor, il programma da cui nasce FSSP. DOI 10.1016/S0168-1605(01)00670-5
+- Mejlholm & Dalgaard 2009, *J Food Prot* 72(10):2132-2143: modello di crescita e confine di crescita di *Listeria monocytogenes*. DOI 10.4315/0362-028X-72.10.2132
+- Mejlholm & Dalgaard 2013, *Int J Food Microbiol* 167(2):244-260: modello dei *Lactobacillus* spp. psicrotolleranti (costruito su *L. sakei*). DOI 10.1016/j.ijfoodmicro.2013.09.013
+- Mejlholm & Dalgaard 2007, *J Food Prot* 70(11):2485-2497: batteri lattici e loro effetto frenante su *L. monocytogenes*; tempo di ritardo relativo 4,5. DOI 10.4315/0362-028X-70.11.2485
+- Mejlholm & Dalgaard 2015, *Food Microbiol* 46:1-14: crescita contemporanea di *L. monocytogenes* e batteri lattici. DOI 10.1016/j.fm.2014.07.005
+- Le Marc et al. 2002, *Int J Food Microbiol* 73(2-3):219-237: interazioni fra i fattori (il confine di crescita psi). DOI 10.1016/S0168-1605(01)00640-7
+- Zheng et al. 2020, *Int J Syst Evol Microbiol* 70(4):2782-2858: riclassificazione dei *Lactobacillus* (es. *Latilactobacillus sakei*), usata per collegare i nomi del profilo ai modelli. DOI 10.1099/ijsem.0.004107
+- Regolamento (CE) n. 2073/2005 e successive modifiche, allegato I, categoria 1.3: alimenti pronti che non costituiscono terreno favorevole alla crescita di *L. monocytogenes* (testo ufficiale su EUR-Lex, CELEX 32005R2073).
 
 ---
 
