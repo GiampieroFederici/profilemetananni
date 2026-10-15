@@ -3,8 +3,9 @@
 # Un solo comando; se si interrompe (rete, spegnimento) basta rilanciarlo: riprende da dove era rimasto (D027, D034).
 # Programmi: micromamba + ambienti dal file di blocco (installer/lock/). Database: installer/catalogo.tsv, con MD5.
 #
-# Uso: bash installer/installa_motore.sh [--si] [--json] [--catalogo FILE] [--specchio URL]
+# Uso: bash installer/installa_motore.sh [--si] [--stima] [--json] [--catalogo FILE] [--specchio URL]
 #   --si        non chiede conferma (la chiede l'interfaccia, D034)
+#   --stima     dice peso, spazio e tempo stimato e si ferma senza scaricare (per la domanda dell'interfaccia)
 #   --json      messaggi come eventi JSON, uno per riga (docs/contratto_motore.md)
 #   --catalogo  altro catalogo (prova)
 #   --specchio  tutte le sorgenti da un solo indirizzo, es. http://127.0.0.1:8765 (prova con lo specchio locale, D038)
@@ -14,7 +15,7 @@ set -euo pipefail
 PMN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PMN_HOME=${PMN_HOME:-$HOME/.pmn}
 CATALOGO=$PMN_ROOT/installer/catalogo.tsv
-SPECCHIO=""; SI=0; JSON=0
+SPECCHIO=""; SI=0; STIMA=0; JSON=0
 MICROMAMBA_VER=2.9.0-0
 MICROMAMBA_SHA256=366cd9cd8be14df1ab8ed50352a82111082a36686b2d389fdb79a92c3fafb3e3
 URL_KRAKEN=https://genome-idx.s3.amazonaws.com/kraken
@@ -25,6 +26,7 @@ GB_PROGRAMMI=16   # ambienti installati + cache dei pacchetti durante l'installa
 while [ $# -gt 0 ]; do
   case "$1" in
     --si) SI=1; shift ;;
+    --stima) STIMA=1; shift ;;
     --json) JSON=1; shift ;;
     --catalogo) CATALOGO=$2; shift 2 ;;
     --specchio) SPECCHIO=${2%/}; shift 2 ;;
@@ -103,12 +105,13 @@ if [ "$DA_SCARICARE" -gt 0 ]; then
   v=${v%.*}
   if [ "${v:-0}" -gt 0 ]; then
     min=$(awk -v b="$DA_SCARICARE" -v v="$v" 'BEGIN {printf "%d", b/v/60 + 1}')
-    if [ "$min" -lt 60 ]; then t="$min minuti"; else t="$(awk -v m="$min" 'BEGIN {printf "%.1f", m/60}') ore"; fi
+    if [ "$min" -eq 1 ]; then t="1 minuto"; elif [ "$min" -lt 60 ]; then t="$min minuti"; else t="$(awk -v m="$min" 'BEGIN {printf "%.1f", m/60}') ore"; fi
     evento avanzamento 2 "Velocita' misurata: $(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}') MB/s. Tempo stimato per scaricare tutto: circa $t."
   else
     evento avviso 2 "Non riesco a misurare la velocita' della rete: proseguo senza stima del tempo."
   fi
 fi
+if [ "$STIMA" = 1 ]; then PASSO=fine; evento fine null "Stima pronta: non ho scaricato nulla."; exit 0; fi
 if [ "$SI" != 1 ]; then
   read -r -p "[PMN] Procedo con l'installazione? (s/n) " r || r=n
   [ "$r" = s ] || [ "$r" = S ] || { evento fine null "Installazione annullata: non ho scaricato nulla."; exit 3; }

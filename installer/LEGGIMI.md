@@ -26,6 +26,7 @@ bash installer/installa_motore.sh
 ```
 
 - Chiede conferma dopo aver detto peso, spazio e tempo stimato. `--si` salta la domanda (la fa l'interfaccia).
+- `--stima`: dice peso, spazio e tempo stimato e si ferma senza scaricare (serve all'interfaccia per fare la domanda, D034).
 - `--json`: messaggi come eventi JSON per l'interfaccia (`docs/contratto_motore.md`).
 - **Se si interrompe** (rete che cade, PC spento): si rilancia lo stesso comando. Riprende i download a metà e salta ciò che è già scaricato e controllato con MD5.
 - Alla fine fa da solo la **prova finale** (`verifica_motore.sh`): versioni dei programmi + mini-campione con MD5 identico al riferimento. Esito **VERDE** o **ROSSO**.
@@ -40,7 +41,9 @@ bash installer/installa_motore.sh
 | `md5/kraken_*.md5` | MD5 ufficiali dei file dentro gli archivi Kraken |
 | `lock/pmn_*.txt` | file di blocco: pacchetti esatti con URL e MD5 |
 | `riferimenti.tsv` | versioni attese e MD5 del mini-campione |
-| `windows/installa_pmn.ps1` | prototipo della parte Windows (S3-W, non ancora provato) |
+| `windows/installa_pmn.cmd` | doppio clic per installare su Windows (avvia `installa_pmn.ps1` senza finestre nere) |
+| `windows/installa_pmn.ps1` | parte Windows: attiva WSL, riavvio e ripresa da sola, controllo dello spazio vero sul disco interno con più spazio, WSL `pmn`, motore con barra di avanzamento (S3-W: fase 2 provata sul PC; fase 1 e riavvio da provare nella VM Hyper-V) |
+| `windows/prepara_pmn.sh` | dentro la WSL `pmn`: crea l'utente Linux e copia `installer/` e `motore/` |
 
 ## Fonti dei dati e dei programmi
 
