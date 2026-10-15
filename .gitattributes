@@ -18,6 +18,8 @@
 *.yml   text eol=lf
 *.tsv   text eol=lf
 *.md    text eol=lf
+*.md5   text eol=lf
+installer/lock/*.txt  text eol=lf
 
 # Binary assets: git must never touch (no EOL or diff conversion)
 *.png   binary

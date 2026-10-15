@@ -578,6 +578,20 @@ full threat model. In short:
 - Kruskal & Wallis 1952, *JASA* 47:583-621 — Kruskal-Wallis test (alpha-diversity group comparison).
 - Dunn 1964, *Technometrics* 6:241-252 — Dunn post-hoc test (BH-adjusted).
 
+**Engine and installer (added 15/10/2026, each checked on PubMed):**
+- Langmead & Salzberg 2012, *Nat Methods* 9(4):357-359: Bowtie 2 (host removal, MetaPhlAn shards). DOI 10.1038/nmeth.1923
+- Chen et al. 2018, *Bioinformatics* 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560
+- Chen 2023, *iMeta* 2(2):e107: fastp, one-pass preprocessing. DOI 10.1002/imt2.107
+- Danecek et al. 2021, *GigaScience* 10(2):giab008: SAMtools. DOI 10.1093/gigascience/giab008
+- Ewels et al. 2016, *Bioinformatics* 32(19):3047-3048: MultiQC. DOI 10.1093/bioinformatics/btw354
+- Andrews 2010: FastQC (software, Babraham Bioinformatics).
+- Grüning et al. 2018, *Nat Methods* 15(7):475-476: Bioconda (all tools are installed from Bioconda/conda-forge with micromamba). DOI 10.1038/s41592-018-0046-7
+- Leinonen, Sugawara, Shumway; International Nucleotide Sequence Database Collaboration 2011, *Nucleic Acids Res* 39(Database issue):D19-D21: Sequence Read Archive (SRA Toolkit). DOI 10.1093/nar/gkq1019
+- Wright, Comeau & Langille 2023, *Microb Genom* 9(3):000949: Kraken2 confidence and database choice. DOI 10.1099/mgen.0.000949
+- Host genomes: Warr et al. 2020, *GigaScience* 9(6):giaa051 (pig Sscrofa11.1, DOI 10.1093/gigascience/giaa051); Rosen et al. 2020, *GigaScience* 9(3):giaa021 (cattle ARS-UCD1.2, DOI 10.1093/gigascience/giaa021); Davenport et al. 2022, *GigaScience* 11:giab096 (sheep ARS-UI_Ramb_v2.0, DOI 10.1093/gigascience/giab096); Schneider et al. 2017, *Genome Res* 27(5):849-864 (human GRCh38, DOI 10.1101/gr.213611.116).
+- Data and software without a paper: MetaPhlAn database `mpa_vJan25_CHOCOPhlAnSGB_202503` (the 6 "shards" are a derivative of its Bowtie2 index, built by us); Kraken2/Bracken PlusPF and PlusPF-8 indexes of 26/06/2026 by Ben Langmead (`genome-idx.s3.amazonaws.com/kraken`); micromamba 2.9.0 (mamba-org).
+- StrainPhlAn is described in the MetaPhlAn 4 paper (Blanco-Míguez et al. 2023, above).
+
 ---
 
 # 🇮🇹 Italiano
@@ -1125,6 +1139,20 @@ per il modello di minaccia completo. In breve:
 - Edwin et al. 2024, *Environmental Microbiome* — benchmarking classificatori/DB. DOI 10.1186/s40793-024-00561-w
 - Kruskal & Wallis 1952, *JASA* 47:583-621 — test di Kruskal-Wallis (confronto alpha tra gruppi).
 - Dunn 1964, *Technometrics* 6:241-252 — test post-hoc di Dunn (corretto BH).
+
+**Motore e installatore (aggiunte il 15/10/2026, ognuna controllata su PubMed):**
+- Langmead & Salzberg 2012, *Nat Methods* 9(4):357-359: Bowtie 2 (rimozione dell'ospite, fette di MetaPhlAn). DOI 10.1038/nmeth.1923
+- Chen et al. 2018, *Bioinformatics* 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560
+- Chen 2023, *iMeta* 2(2):e107: fastp, pulizia in un solo passaggio. DOI 10.1002/imt2.107
+- Danecek et al. 2021, *GigaScience* 10(2):giab008: SAMtools. DOI 10.1093/gigascience/giab008
+- Ewels et al. 2016, *Bioinformatics* 32(19):3047-3048: MultiQC. DOI 10.1093/bioinformatics/btw354
+- Andrews 2010: FastQC (programma, Babraham Bioinformatics).
+- Grüning et al. 2018, *Nat Methods* 15(7):475-476: Bioconda (tutti i programmi si installano da Bioconda/conda-forge con micromamba). DOI 10.1038/s41592-018-0046-7
+- Leinonen, Sugawara, Shumway; International Nucleotide Sequence Database Collaboration 2011, *Nucleic Acids Res* 39(Database issue):D19-D21: Sequence Read Archive (SRA Toolkit). DOI 10.1093/nar/gkq1019
+- Wright, Comeau & Langille 2023, *Microb Genom* 9(3):000949: soglia di confidenza e scelta del database in Kraken2. DOI 10.1099/mgen.0.000949
+- Genomi dell'ospite: Warr et al. 2020, *GigaScience* 9(6):giaa051 (maiale Sscrofa11.1, DOI 10.1093/gigascience/giaa051); Rosen et al. 2020, *GigaScience* 9(3):giaa021 (bovino ARS-UCD1.2, DOI 10.1093/gigascience/giaa021); Davenport et al. 2022, *GigaScience* 11:giab096 (pecora ARS-UI_Ramb_v2.0, DOI 10.1093/gigascience/giab096); Schneider et al. 2017, *Genome Res* 27(5):849-864 (uomo GRCh38, DOI 10.1101/gr.213611.116).
+- Dati e programmi senza articolo: database di MetaPhlAn `mpa_vJan25_CHOCOPhlAnSGB_202503` (le 6 "fette" sono un derivato del suo indice Bowtie2, costruito da noi); indici Kraken2/Bracken PlusPF e PlusPF-8 del 26/06/2026 di Ben Langmead (`genome-idx.s3.amazonaws.com/kraken`); micromamba 2.9.0 (mamba-org).
+- StrainPhlAn è descritto nell'articolo di MetaPhlAn 4 (Blanco-Míguez et al. 2023, sopra).
 
 ---
 
