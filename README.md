@@ -87,7 +87,7 @@ PHASE A — preprocessing                       PHASE B — read-based profiling
      with `report` (default) nothing is skipped.
   4. **Trimming** with `fastp`; **FastQC** is run on raw and trimmed reads for the QC report.
   5. **Host filtering** with `Bowtie2` — removes host/substrate reads (e.g. pig, cow) and
-     **human** reads (default human reference: **T2T-CHM13v2.0**; GRCh38 still available) (privacy + quality).
+     **human** reads (default human reference: **GRCh38**, as the published profiles; T2T-CHM13v2.0 available) (privacy + quality).
   6. **MultiQC** — one consolidated quality report.
 - **Phase B — Read-based profiling.**
   1. **MetaPhlAn 4** (marker-gene) and/or **Kraken2 + Bracken** (k-mer) — you choose.
@@ -255,7 +255,7 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
 | `project_name` | label used in folder names (A–Z a–z 0–9 . _ -) | `my_study` |
 | `hosts` | extra host genomes to remove (from `refs/hosts.tsv`) | `[sus_scrofa]` |
-| `filter_human` | remove human reads automatically (T2T-CHM13v2.0) | `true` |
+| `filter_human` | remove human reads automatically (GRCh38) | `true` |
 | `host_sensitivity` | Bowtie2 host-filter preset: `very-sensitive` or `very-sensitive-local` | `very-sensitive` |
 | `cleanup.keep_trimmed` | keep trimmed reads after host filtering | `false` |
 | `cleanup.keep_host_reads` | save host-mapped reads to a folder | `false` |
@@ -278,9 +278,9 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `profiling.auto_install_db` | auto-download/build missing DBs (LARGE) | `false` |
 | `profiling.kraken_db_mode` | `standard` or `custom` | `standard` |
 | `profiling.kraken_custom_genomes` | NCBI accession list for a custom DB | `""` |
-| `profiling.kraken_confidence` | Kraken2 `--confidence` (0–1) | `0.4` |
+| `profiling.kraken_confidence` | Kraken2 `--confidence` (0–1); empty = recommended for the database (`refs/kraken_profili.tsv`) | `""` |
 | `profiling.bracken_readlen` | Bracken read length (must match the DB) | `150` |
-| `profiling.abundance_threshold_pct` | abundance threshold (%) for reports | `0.001` |
+| `profiling.abundance_threshold_pct` | abundance threshold (%) for reports; empty = 0.005 with Kraken, 0.001 MetaPhlAn alone | `""` |
 | `analysis.report` | write the overview Excel report | `true` |
 | `analysis.diversity` | compute alpha/beta diversity | `true` |
 | `analysis.metadata` | optional TSV (`sample` + group column) → coloured PCA + group tests | `""` |
@@ -647,7 +647,7 @@ FASE A — preprocessing                        FASE B — profiling read-based
      filtrati né profilati; con `report` (default) non si salta nulla.
   4. **Trimming** con `fastp`; **FastQC** su reads grezze e trimmate per il report di qualità.
   5. **Filtro host** con `Bowtie2` — rimuove le reads dell'ospite/substrato (es. maiale, bovino)
-     e le reads **umane** (riferimento umano di default: **T2T-CHM13v2.0**; GRCh38 ancora disponibile) (privacy + qualità).
+     e le reads **umane** (riferimento umano di default: **GRCh38**, come i profili pubblicati; T2T-CHM13v2.0 disponibile) (privacy + qualità).
   6. **MultiQC** — un unico report di qualità consolidato.
 - **Fase B — Profiling read-based.**
   1. **MetaPhlAn 4** (marker-gene) e/o **Kraken2 + Bracken** (k-mer) — scegli tu.
@@ -815,7 +815,7 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `data_source` | `ncbi` / `local` / `both` | `ncbi` |
 | `project_name` | etichetta usata nei nomi cartella (A–Z a–z 0–9 . _ -) | `my_study` |
 | `hosts` | genomi host extra da rimuovere (da `refs/hosts.tsv`) | `[sus_scrofa]` |
-| `filter_human` | rimuovi le reads umane in automatico (T2T-CHM13v2.0) | `true` |
+| `filter_human` | rimuovi le reads umane in automatico (GRCh38) | `true` |
 | `host_sensitivity` | preset filtro host di Bowtie2: `very-sensitive` o `very-sensitive-local` | `very-sensitive` |
 | `cleanup.keep_trimmed` | tieni le reads trimmate dopo il filtro host | `false` |
 | `cleanup.keep_host_reads` | salva le reads dell'host in una cartella | `false` |
@@ -838,9 +838,9 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `profiling.auto_install_db` | scarica/costruisce i DB mancanti (GRANDE) | `false` |
 | `profiling.kraken_db_mode` | `standard` o `custom` | `standard` |
 | `profiling.kraken_custom_genomes` | lista accession NCBI per un DB custom | `""` |
-| `profiling.kraken_confidence` | `--confidence` di Kraken2 (0–1) | `0.4` |
+| `profiling.kraken_confidence` | `--confidence` di Kraken2 (0–1); vuoto = consigliato per il database (`refs/kraken_profili.tsv`) | `""` |
 | `profiling.bracken_readlen` | read length di Bracken (deve combaciare col DB) | `150` |
-| `profiling.abundance_threshold_pct` | soglia di abbondanza (%) per i report | `0.001` |
+| `profiling.abundance_threshold_pct` | soglia di abbondanza (%) per i report; vuoto = 0,005 con Kraken, 0,001 solo MetaPhlAn | `""` |
 | `analysis.report` | scrivi il report Excel panoramico | `true` |
 | `analysis.diversity` | calcola la diversità alpha/beta | `true` |
 | `analysis.metadata` | TSV facoltativo (`sample` + colonna gruppo) → PCA colorata + test gruppi | `""` |

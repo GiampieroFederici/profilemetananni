@@ -49,14 +49,56 @@ done
 [ -f "$CONFIG" ] || die "config not found: $(sanitize_for_log "$CONFIG")"
 validate_in_set "$PHASE" all a b c || die "invalid --phase (all|a|b|c)"
 
+# --- desktop engine: paths written by installer/installa_motore.sh (docs/contratto_motore.md).
+# Read key by key, never sourced: the file also sets PMN_ROOT, which must stay this checkout.
+# Without the file: conda environments and the paths in config.yaml, as before.
+PMN_ENV_FILE="${PMN_HOME:-$HOME/.pmn}/installazione.env"
+env_get() { awk -F= -v k="$1" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$PMN_ENV_FILE"; }
+PMN_ENVS=""; PMN_FETTE=""; PMN_OSPITE=""
+if [ -f "$PMN_ENV_FILE" ]; then
+  PMN_ENVS="$(env_get PMN_ENVS)"; PMN_TMP="$(env_get PMN_TMP)"
+  validate_path_safe "$PMN_ENVS" && [ -d "$PMN_ENVS" ] || die "PMN_ENVS missing or unsafe in $PMN_ENV_FILE"
+  validate_path_safe "$PMN_TMP" && mkdir -p "$PMN_TMP" || die "PMN_TMP missing or unsafe in $PMN_ENV_FILE"
+  export TMPDIR="$PMN_TMP"   # /tmp of WSL lives in RAM: downloads and host files go to disk
+fi
+
 # --- locate conda; parse config safely (values are shlex-quoted -> safe to source) ---
-detect_conda || die "conda/mamba not found (run bin/preflight.sh first)"
+if [ -n "$PMN_ENVS" ]; then
+  parse_py=("$PMN_ENVS/pmn_reports_py/bin/python")
+else
+  detect_conda || die "conda/mamba not found (run bin/preflight.sh first)"
+  parse_py=(conda run --no-capture-output -n pmn_reports_py python)
+fi
 cfgfile="$(mktemp "${TMPDIR:-/tmp}/pmn_cfg.XXXXXX")" || die "mktemp failed"
 trap 'rm -f "$cfgfile"' EXIT INT TERM
-conda run --no-capture-output -n pmn_reports_py python "$PMN_ROOT/bin/lib/parse_config.py" "$CONFIG" > "$cfgfile" \
+"${parse_py[@]}" "$PMN_ROOT/bin/lib/parse_config.py" "$CONFIG" > "$cfgfile" \
   || die "failed to parse config (is env pmn_reports_py installed?)"
 # shellcheck disable=SC1090
 . "$cfgfile"
+
+# --- desktop engine: installed databases where the config leaves the path empty ---
+validate_in_set "$PMN_KRK_PROFILO" completo rapido || die "invalid motore.kraken_db (completo|rapido)"
+validate_in_set "$PMN_MPA_MODO" auto fette standard || die "invalid motore.metaphlan_modo (auto|fette|standard)"
+if [ -n "$PMN_ENVS" ]; then
+  [ -n "$PMN_MPA_DB" ] || PMN_MPA_DB="$(env_get PMN_MPA_DB)"
+  if [ -z "$PMN_KRK_DB" ]; then
+    if [ "$PMN_KRK_PROFILO" = completo ]; then PMN_KRK_DB="$(env_get PMN_KRAKEN_COMPLETO)"
+    else PMN_KRK_DB="$(env_get PMN_KRAKEN_RAPIDO)"; fi
+  fi
+  PMN_FETTE="$(env_get PMN_FETTE)"; PMN_OSPITE="$(env_get PMN_OSPITE)"
+  { [ -z "$PMN_FETTE" ] || validate_path_safe "$PMN_FETTE"; } && { [ -z "$PMN_OSPITE" ] || validate_path_safe "$PMN_OSPITE"; } \
+    || die "unsafe PMN_FETTE or PMN_OSPITE in $PMN_ENV_FILE"
+fi
+
+# --- Kraken parameters: the profile of the chosen database (refs/kraken_profili.tsv, D022, D023).
+# A value written in config.yaml wins. The abundance threshold comes from the profile only when
+# Kraken runs; for MetaPhlAn alone it stays 0.001 %, as before.
+krk_profile() { awk -F'\t' -v p="$PMN_KRK_PROFILO" -v c="$1" '!/^#/ && $1 == p { print $c; exit }' "$PMN_ROOT/refs/kraken_profili.tsv"; }
+[ -n "$PMN_KRK_CONF" ] || PMN_KRK_CONF="$(krk_profile 2)"
+PMN_KRK_MINREADS="$(krk_profile 3)"
+if [ -z "$PMN_THRESHOLD" ]; then
+  case "$PMN_TOOL" in kraken|both) PMN_THRESHOLD="$(krk_profile 4)" ;; *) PMN_THRESHOLD=0.001 ;; esac
+fi
 
 # --- validate every value ---
 validate_lang "$PMN_LANG"            || die "invalid language: $(sanitize_for_log "$PMN_LANG")"
@@ -66,6 +108,7 @@ validate_name "$PMN_PROJECT"         || die "invalid project_name"
 validate_path_safe "$PMN_WORK_DIR"   || die "unsafe work_dir"
 validate_tool_choice "$PMN_TOOL"     || die "invalid profiling.tool"
 validate_decimal "$PMN_KRK_CONF"     || die "invalid kraken_confidence"
+validate_uint "$PMN_KRK_MINREADS"    || die "invalid bracken_min_reads in refs/kraken_profili.tsv"
 validate_decimal "$PMN_THRESHOLD"    || die "invalid abundance_threshold_pct"
 validate_uint "$PMN_THREADS"         || die "invalid threads"
 validate_yesno "$PMN_FILTER_HUMAN"   || die "invalid filter_human"
@@ -89,6 +132,23 @@ if [ "$PMN_STRAIN_ON" = "yes" ]; then
   for _sp in "${PMN_STRAIN_ARR[@]}"; do
     [[ "$_sp" =~ ^[A-Z][a-z]+_[a-z0-9_]+$ ]] || die "invalid strainphlan species (use Genus_species): $(sanitize_for_log "$_sp")"
   done
+fi
+# MetaPhlAn mode (D016; contract section 5.1). "fette" = the 6 slices of the index (peak ~8.5 GB),
+# only with the desktop engine. "standard" = MetaPhlAn on the full index (~33 GB of RAM).
+# auto: standard if the PC has >= 40 GB and the full index is there, else fette when installed.
+if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
+  if [ "$PMN_MPA_MODO" = auto ]; then
+    ram_gb="$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)"
+    if [ "$ram_gb" -ge 40 ] && compgen -G "${PMN_MPA_DB:-/nonexistent}/${PMN_MPA_INDEX}*.1.bt2l" > /dev/null; then PMN_MPA_MODO=standard
+    elif [ -n "$PMN_FETTE" ]; then PMN_MPA_MODO=fette
+    else PMN_MPA_MODO=standard; fi
+  fi
+  if [ "$PMN_MPA_MODO" = fette ]; then
+    [ -n "$PMN_FETTE" ] || die "motore.metaphlan_modo: fette needs the installed engine (PMN_FETTE in installazione.env)"
+    [ "$PMN_STRAIN_ON" = "no" ] || die "analysis.strainphlan needs motore.metaphlan_modo: standard (the slices keep no alignment file)"
+  fi
+else
+  PMN_MPA_MODO=none
 fi
 validate_yesno "$PMN_BIOMNI_ON"       || die "invalid analysis.biomni.enabled"
 validate_walltime "$PMN_PBS_WALLTIME" || die "invalid execution.pbs_walltime (use HH:MM:SS)"
@@ -156,6 +216,21 @@ fi
 HF_LOG_DIR="$PMN_WORK_DIR/hostfilter_logs"
 export PMN_LOG_DIR
 mkdir -p "$PMN_WORK_DIR" "$PMN_LOG_DIR" "$RES_DIR" || die "cannot create work dir"
+# Temporary files on disk (WSL keeps /tmp in RAM): the engine's PMN_TMP, else an existing TMPDIR
+# (cluster scratch), else under work_dir.
+if [ -z "$PMN_ENVS" ] && [ -z "${TMPDIR:-}" ]; then
+  mkdir -p "$PMN_WORK_DIR/tmp" || die "cannot create $PMN_WORK_DIR/tmp"
+  TMPDIR="$(cd "$PMN_WORK_DIR/tmp" && pwd)"; export TMPDIR
+fi
+
+# The parameters actually used, next to the results (D022: the report says what produced the numbers).
+{
+  printf 'parameter\tvalue\n'
+  printf 'metaphlan_mode\t%s\nmetaphlan_index\t%s\n' "$PMN_MPA_MODO" "$PMN_MPA_INDEX"
+  printf 'kraken_db\t%s\nkraken_profile\t%s\nkraken_confidence\t%s\n' "$PMN_KRK_DB" "$PMN_KRK_PROFILO" "$PMN_KRK_CONF"
+  printf 'bracken_min_reads\t%s\nbracken_readlen\t%s\nabundance_threshold_pct\t%s\n' "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN" "$PMN_THRESHOLD"
+  printf 'hosts\t%s\nfilter_human\t%s\n' "$PMN_HOSTS" "$PMN_FILTER_HUMAN"
+} > "$RES_DIR/parameters.tsv"
 
 # Result matrix paths: computed unconditionally (not just inside Phase B) so Phase C can
 # find them when run standalone via --phase c, after an earlier Phase B run produced them.
@@ -176,7 +251,8 @@ do_step() {
 }
 
 # --- preflight ---
-if [ "$SKIP_PREFLIGHT" -eq 0 ] && [ "$DRY" -eq 0 ]; then
+# (the desktop engine is checked by installer/verifica_motore.sh instead: no conda to look at)
+if [ "$SKIP_PREFLIGHT" -eq 0 ] && [ "$DRY" -eq 0 ] && [ -z "$PMN_ENVS" ]; then
   pf_args=(--lang "$PMN_LANG")
   [ -n "$PMN_MPA_DB" ] && pf_args+=(--db-metaphlan "$PMN_MPA_DB")
   [ -n "$PMN_KRK_DB" ] && pf_args+=(--db-kraken "$PMN_KRK_DB")
@@ -227,10 +303,20 @@ esac
 # hosts first, human last.
 host_accession() { awk -F'\t' -v h="$1" '!/^#/ && $1==h {print $2; exit}' "$PMN_ROOT/refs/hosts.tsv" | tr -d '\r'; }
 
-# Human reference for the automatic human-read removal (filter_human). T2T-CHM13v2.0 removes
-# centromeric/satellite reads that survive GRCh38 and get misclassified as microbial, and drops
-# sex-determining signal (privacy). Fully reversible: set PMN_HUMAN_HOST back to "grch38".
-PMN_HUMAN_HOST="chm13"
+# Human reference for the automatic human-read removal (filter_human): GRCh38, as the published
+# profiles (D021). T2T-CHM13v2.0 ("chm13" in refs/hosts.tsv) is the alternate: it removes more
+# centromeric/satellite reads, but the profiles would no longer compare with the published ones.
+PMN_HUMAN_HOST="grch38"
+
+# Desktop engine: the hosts of D021 are installed already built in PMN_OSPITE (no download,
+# no build on the user's PC). Prints the index prefix if installed.
+host_installed() {
+  local d="$1"
+  [ -n "$PMN_OSPITE" ] || return 1
+  [ "$d" = grch38 ] && d=homo_sapiens   # installed name of the GRCh38 index
+  [ -s "$PMN_OSPITE/$d/$d.1.bt2" ] || return 1
+  printf '%s' "$PMN_OSPITE/$d/$d"
+}
 
 INDEX_LIST=()
 read -ra _PMN_HOST_ARR <<< "$PMN_HOSTS"   # split safely (no glob expansion)
@@ -238,16 +324,20 @@ for h in "${_PMN_HOST_ARR[@]}"; do
   [ -n "$h" ] || continue           # skip empty tokens (e.g. trailing spaces)
   case "$h" in grch38|chm13) continue ;; esac   # human handled separately via filter_human
   validate_name "$h" || die "invalid host name: $(sanitize_for_log "$h")"
+  if ready="$(host_installed "$h")"; then INDEX_LIST+=("$ready"); continue; fi
   acc="$(host_accession "$h")"; [ -n "$acc" ] || die "no accession for host '$h' in refs/hosts.tsv"
   do_step pmn_hostfilter "idx_${h}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
     --host "$h" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
   INDEX_LIST+=("$REF_DIR/$h")
 done
 if [ "$PMN_FILTER_HUMAN" = "yes" ]; then
-  acc="$(host_accession "$PMN_HUMAN_HOST")"; [ -n "$acc" ] || die "no $PMN_HUMAN_HOST accession in refs/hosts.tsv"
-  do_step pmn_hostfilter "idx_${PMN_HUMAN_HOST}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
-    --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
-  INDEX_LIST+=("$REF_DIR/$PMN_HUMAN_HOST")
+  if ready="$(host_installed "$PMN_HUMAN_HOST")"; then INDEX_LIST+=("$ready")
+  else
+    acc="$(host_accession "$PMN_HUMAN_HOST")"; [ -n "$acc" ] || die "no $PMN_HUMAN_HOST accession in refs/hosts.tsv"
+    do_step pmn_hostfilter "idx_${PMN_HUMAN_HOST}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
+      --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
+    INDEX_LIST+=("$REF_DIR/$PMN_HUMAN_HOST")
+  fi
 fi
 [ "${#INDEX_LIST[@]}" -ge 1 ] || die "no host to filter against (set 'hosts' and/or filter_human: true)"
 
@@ -418,7 +508,15 @@ fi
 
 run_profilers() {  # run_profilers <sample> <r1> <r2|"">
   local s="$1" r1="$2" r2="$3" a
-  if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
+  if [ "$PMN_MPA_MODO" = fette ]; then
+    # MetaPhlAn on the 6 slices (motore/, D012, D028): profile and mapout land in $MPA_DIR
+    if [ -s "$MPA_DIR/${s}_profile.txt" ]; then
+      ok "$(say "$s already profiled (MetaPhlAn) -> skip" "$s già profilato (MetaPhlAn) -> salto")"
+    else
+      mkdir -p "$MPA_DIR" || die "cannot create $MPA_DIR"
+      do_step pmn_metaphlan "mpa_${s}" -- bash "$PMN_ROOT/motore/metaphlan_fette.sh" "$s" "$r1" "$r2" "$MPA_DIR" "$PMN_THREADS"
+    fi
+  elif [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
     a=(--sample "$s" --in1 "$r1"); [ -n "$r2" ] && a+=(--in2 "$r2")
     [ -n "$PMN_MPA_DB" ] && a+=(--db "$PMN_MPA_DB")
     a+=(--index "$PMN_MPA_INDEX")
@@ -431,7 +529,7 @@ run_profilers() {  # run_profilers <sample> <r1> <r2|"">
       die "profiling.tool includes kraken but profiling.kraken_db is empty"
     fi
     a=(--sample "$s" --in1 "$r1"); [ -n "$r2" ] && a+=(--in2 "$r2")
-    a+=(--db "$PMN_KRK_DB" --out "$KRK_DIR" --threads "$PMN_THREADS" --confidence "$PMN_KRK_CONF" --readlen "$PMN_BRACKEN_READLEN")
+    a+=(--db "$PMN_KRK_DB" --out "$KRK_DIR" --threads "$PMN_THREADS" --confidence "$PMN_KRK_CONF" --readlen "$PMN_BRACKEN_READLEN" --min-reads "$PMN_KRK_MINREADS")
     do_step pmn_kraken "krk_${s}" -- bash "$PMN_ROOT/steps/32_kraken_bracken.sh" "${a[@]}"
   fi
   return 0

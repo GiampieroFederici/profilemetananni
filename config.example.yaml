@@ -13,8 +13,8 @@ project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names /
 
 # ---------------------------------------------------------------------------
 # HOST REMOVAL / RIMOZIONE OSPITE
-# Human (T2T-CHM13v2.0) is removed AUTOMATICALLY (removes centromeric/satellite reads that
-# survive GRCh38 and get misclassified as microbial). Human (uomo) rimosso in automatico.
+# Human (GRCh38, as the published profiles, D021) is removed AUTOMATICALLY.
+# Human (uomo, GRCh38) rimosso in automatico.
 # List the ADDITIONAL host(s) to remove / elenca gli ospiti AGGIUNTIVI da rimuovere
 # (choose from refs/hosts.tsv). Empty list = human-only.
 # For Illumina data add `phix` (PhiX174 spike-in); add `bos_taurus` for beef, `gallus_gallus`
@@ -80,9 +80,19 @@ profiling:
   auto_install_db: false     # true = download/build missing DBs automatically (LARGE: MetaPhlAn ~25GB, Kraken ~50-90GB)
   kraken_db_mode: standard   # standard | custom
   kraken_custom_genomes: ""  # custom mode only: file with NCBI accessions (one per line) for the custom DB
-  kraken_confidence: 0.4     # lower values inflate richness with false positives
+  kraken_confidence: ""      # empty = recommended value for the database (refs/kraken_profili.tsv)
+                             # vuoto = valore consigliato per il database
   bracken_readlen: 150       # MUST match the Bracken DB build length (often 100 or 150)
-  abundance_threshold_pct: 0.001   # 0.001 or 0.005 for complex communities (Edwin 2024)
+  abundance_threshold_pct: ""      # empty = 0.005 with Kraken (Edwin 2024, refs/kraken_profili.tsv), 0.001 MetaPhlAn alone
+
+# ---------------------------------------------------------------------------
+# DESKTOP ENGINE / MOTORE DELL'APP (docs/contratto_motore.md). Used when the engine is installed
+# (~/.pmn/installazione.env from installer/installa_motore.sh): programs, databases and host
+# indexes are taken from there unless a path above is filled in.
+# ---------------------------------------------------------------------------
+motore:
+  metaphlan_modo: auto       # auto | fette | standard   (auto: fette below ~40 GB of RAM, D016)
+  kraken_db: completo        # completo (PlusPF, D023) | rapido (PlusPF-8, quick screening)
 
 # ---------------------------------------------------------------------------
 # ANALYSIS / ANALISI

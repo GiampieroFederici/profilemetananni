@@ -1,0 +1,46 @@
+{
+ "motore": "0.1.0",
+ "corsa": "2026-10-15T18-11-10",
+ "campioni": [
+  {
+   "nome": "SRR4875279",
+   "esito": "ok",
+   "coppie_dopo_ospite": 1507887,
+   "file": {
+    "metaphlan": "metaphlan/SRR4875279_profile.txt",
+    "kraken": "kraken/SRR4875279.bracken"
+   }
+  }
+ ],
+ "parametri": {
+  "metaphlan_modo": "fette",
+  "kraken_db": "rapido",
+  "kraken_confidence": 0.1,
+  "bracken_min_reads": 10,
+  "bracken_readlen": 150,
+  "abundance_threshold_pct": 0.005,
+  "ospiti": [
+   "sus_scrofa",
+   "grch38"
+  ]
+ },
+ "versioni": {
+  "metaphlan": "4.2.4",
+  "database_metaphlan": "mpa_vJan25_CHOCOPhlAnSGB_202503",
+  "kraken2": "2.17.2",
+  "bracken": "3.1",
+  "database_kraken": "k2_pluspf_08gb_20260626",
+  "bowtie2": "2.5.5",
+  "fastp": "1.4.0"
+ },
+ "citazioni": [
+  "Blanco-Míguez et al. 2023, Nat Biotechnol: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
+  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice Bowtie2, costruito da profilemetananni)",
+  "Wood et al. 2019, Genome Biology: Kraken2. DOI 10.1186/s13059-019-1891-0",
+  "Lu et al. 2017, PeerJ CS: Bracken. DOI 10.7717/peerj-cs.104",
+  "Indici Kraken2/Bracken PlusPF-8 del 26/06/2026 di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)",
+  "Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923",
+  "Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560",
+  "Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di Kraken2. DOI 10.1099/mgen.0.000949"
+ ]
+}

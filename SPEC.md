@@ -67,8 +67,8 @@ Ask the user the following, one topic at a time, and write the answers into
        jobs by name (`qsub -v NCBI_API_KEY`), so the value never lands in the `.pbs` file.
        (No MCP server is used — the deterministic, model-agnostic NCBI scripts cover this.)
    - If it includes `local`: ask for the directory of the FASTQ reads.
-2. **Host(s) to remove** — human (T2T-CHM13v2.0, the `chm13` row) is removed AUTOMATICALLY by
-   default; GRCh38 stays available as the `grch38` row for reproducibility. Ask which
+2. **Host(s) to remove** — human (GRCh38, the `grch38` row, as the published profiles) is removed
+   AUTOMATICALLY by default; T2T-CHM13v2.0 stays available as the `chm13` row. Ask which
    ADDITIONAL animal/substrate host(s) to remove (choose from `refs/hosts.tsv`, e.g.
    `sus_scrofa`; for Illumina add `phix`, the PhiX174 spike-in; `bos_taurus`/`gallus_gallus`
    for beef/poultry matrices); each chosen genome is downloaded and indexed automatically. The
@@ -182,9 +182,10 @@ Ask the user the following, one topic at a time, and write the answers into
   honest, robust option.
 
 ### Thresholds (project defaults)
-- **Kraken2 `--confidence` = 0.4** (lower values inflate richness with false positives).
-- **Relative-abundance threshold = 0.001%** (use 0.001% or 0.005% for complex
-  communities; Edwin et al., 2024).
+- **Kraken2 `--confidence` and abundance threshold: a profile per database** (`refs/kraken_profili.tsv`):
+  PlusPF full 0 + 0.005% (Edwin et al., 2024); PlusPF-8 0.1 (Wright et al., 2023) + 0.005%;
+  Bracken `-t 10`. Provisional until tested on communities of known composition.
+- **Relative-abundance threshold for MetaPhlAn alone = 0.001%**.
 - **MetaPhlAn**: this tool keeps MetaPhlAn's own internal defaults (e.g. `--stat_q 0.2`,
   `--very-sensitive`, SGB presence ≥20% of markers) and does NOT override them
   (Blanco-Míguez 2023; Beghini et al., 2021, *eLife*, DOI 10.7554/eLife.65088).
