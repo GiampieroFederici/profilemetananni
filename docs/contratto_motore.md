@@ -129,8 +129,13 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 
 ## 6. Finto motore
 
-- `installer/finto_motore.py` (da scrivere): stessi comandi, stessi eventi, tempi accorciati, risultati presi da
-  una corsa vera di SF3RAt7. Serve solo per costruire l'interfaccia; non si installa per gli utenti.
+- `installer/finto_motore.py`: stessi comandi, stessi eventi, tempi accorciati, risultati presi da
+  una corsa vera di SF3RAt7 (`installer/finto/`). Serve solo per costruire l'interfaccia; non si installa per gli utenti.
+- `python installer/finto_motore.py <comando> [--progetto config.yaml] [--corsa ID] [--velocita N] [--scenario S]`:
+  `--velocita` = quante volte più veloce del vero (predefinito 60, `0` = senza attese);
+  `--scenario` = `ok`, `DB_MANCANTE`, `GIA_IN_CORSO`, `annullata`, `READ_NON_TROVATE`, `TEMPO_LUNGO`.
+- Come il vero: un solo `esegui` alla volta (`GIA_IN_CORSO`) e `annulla --corsa <id>` ferma davvero la corsa.
+- `tests/test_finto_motore.py` controlla ogni comando e scenario contro il §4.
 
 ## 7. Cosa NON fa l'interfaccia
 

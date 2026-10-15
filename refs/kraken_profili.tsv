@@ -1,0 +1,6 @@
+# Kraken2/Bracken parameters recommended for each database (D022, D023). Chosen with
+# profiling/motore keys in config.yaml; a value written in the config always wins.
+# Provisional until K4 (communities of known composition).
+# Columns: profile<TAB>kraken2_confidence<TAB>bracken_min_reads (-t)<TAB>abundance_threshold_pct<TAB>source
+completo	0	10	0.005	PlusPF (full): threshold 0.005 % from Edwin et al. 2024; confidence 0 = Kraken2 default (not stated by Edwin); Bracken -t 10
+rapido	0.1	10	0.005	PlusPF-8 (quick screening): confidence 0.1 within 0.05-0.30 for reduced databases (Wright, Comeau & Langille 2023); threshold as completo; Bracken -t 10

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # steps/32_kraken_bracken.sh - k-mer profiling of ONE sample with Kraken2 + Bracken.
 # Conda env: pmn_kraken (kraken2, bracken). Idempotent: skips if the Bracken output exists.
+# --confidence has no default: it belongs to the database (refs/kraken_profili.tsv, D022, D023).
+# The database is always memory-mapped: identical output to the byte (K1), and a 16 GB PC
+# cannot hold PlusPF in RAM.
 #
-# Usage: 32_kraken_bracken.sh --sample NAME --in1 R1 [--in2 R2] --db DIR --out DIR
-#          [--threads N] [--confidence C] [--readlen L] [--level S] [--min-reads N]
+# Usage: 32_kraken_bracken.sh --sample NAME --in1 R1 [--in2 R2] --db DIR --out DIR --confidence C
+#          [--threads N] [--readlen L] [--level S] [--min-reads N]
 set -uo pipefail
 
 PMN_STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +17,7 @@ PMN_ROOT="$(cd "$PMN_STEP_DIR/.." && pwd)"
 . "$PMN_ROOT/bin/lib/validate.sh"
 
 SAMPLE=""; IN1=""; IN2=""; DB=""; OUT=""; THREADS=4
-CONFIDENCE="0.4"; READLEN="150"; LEVEL="S"; MINREADS="10"
+CONFIDENCE=""; READLEN="150"; LEVEL="S"; MINREADS="10"
 while [ $# -gt 0 ]; do
   case "$1" in
     --sample)     SAMPLE="${2:-}"; shift 2 ;;
@@ -23,7 +26,7 @@ while [ $# -gt 0 ]; do
     --db)         DB="${2:-}"; shift 2 ;;
     --out)        OUT="${2:-}"; shift 2 ;;
     --threads)    THREADS="${2:-4}"; shift 2 ;;
-    --confidence) CONFIDENCE="${2:-0.4}"; shift 2 ;;
+    --confidence) CONFIDENCE="${2:-}"; shift 2 ;;
     --readlen)    READLEN="${2:-150}"; shift 2 ;;
     --level)      LEVEL="${2:-S}"; shift 2 ;;
     --min-reads)  MINREADS="${2:-10}"; shift 2 ;;
@@ -36,7 +39,8 @@ validate_path_safe "$IN1"    || die "Unsafe input path (in1)"
 validate_path_safe "$DB"     || die "Unsafe db path"
 validate_path_safe "$OUT"    || die "Unsafe output path"
 validate_uint "$THREADS"     || die "threads must be a non-negative integer"
-validate_decimal "$CONFIDENCE" || die "confidence must be a decimal (e.g. 0.4)"
+[ -n "$CONFIDENCE" ]         || die "--confidence is required (see refs/kraken_profili.tsv)"
+validate_decimal "$CONFIDENCE" || die "confidence must be a decimal (e.g. 0.1)"
 validate_uint "$READLEN"     || die "readlen must be an integer"
 validate_uint "$MINREADS"    || die "min-reads must be an integer"
 case "$LEVEL" in D|P|C|O|F|G|S) ;; *) die "level must be one of D P C O F G S" ;; esac
@@ -55,7 +59,7 @@ if [ -s "$brk" ]; then
   exit 0
 fi
 
-k2args=(--db "$DB" --threads "$THREADS" --confidence "$CONFIDENCE"
+k2args=(--db "$DB" --memory-mapping --threads "$THREADS" --confidence "$CONFIDENCE"
         --report "$k2report" --output "$k2out" --gzip-compression)
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"

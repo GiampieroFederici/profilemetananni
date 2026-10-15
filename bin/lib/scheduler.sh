@@ -16,7 +16,13 @@ pmn_run() {
   case "${PMN_SCHED:-local}" in
     pbs)   _pmn_run_pbs "$env" "$label" "$@" ;;
     local) info "$(say "[local] $label" "[locale] $label")"
-           conda run --no-capture-output -n "$env" "$@" ;;
+           # Desktop engine (run.sh sets PMN_ENVS from installazione.env): the environments
+           # installed by installer/installa_motore.sh, used directly; no conda on that PC.
+           if [ -n "${PMN_ENVS:-}" ]; then
+             PATH="$PMN_ENVS/$env/bin:$PATH" "$@"
+           else
+             conda run --no-capture-output -n "$env" "$@"
+           fi ;;
     *) die "unknown scheduler: ${PMN_SCHED:-}" ;;
   esac
 }
