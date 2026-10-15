@@ -34,15 +34,23 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# --- messaggi: righe in italiano, oppure eventi JSON (contratto motore-interfaccia) ---
-PASSO=controllo
+# --- messaggi: righe in italiano, oppure eventi JSON (docs/contratto_motore.md, paragrafo 4) ---
+# avanzamento usa FATTO e TOTALE (pezzi del passo) ed ETA (secondi, o null); fine usa ESITO e RISULTATO (oggetto JSON).
+PASSO=controllo; FATTO=0; TOTALE=1; ETA=null; ESITO=ok; RISULTATO='{}'
+CORSA=$(date +%Y-%m-%dT%H-%M-%S)
+js() { local t=${1//\\/\\\\}; printf '%s' "${t//\"/\\\"}"; }   # testo dentro una stringa JSON
 evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
   if [ "$JSON" = 1 ]; then
-    local m=${3//\\/\\\\}; m=${m//\"/\\\"}
     local extra=""
-    [ -n "${4:-}" ] && extra=",\"codice\":\"$4\",\"cosa_fare\":\"${5//\"/\\\"}\""
+    case "$1" in
+      inizio) extra=",\"corsa\":\"$CORSA\",\"log\":\"$(js "$LOG")\"" ;;
+      avanzamento) extra=",\"campione\":null,\"fatto\":$FATTO,\"totale\":$TOTALE,\"eta_s\":$ETA" ;;
+      avviso) extra=",\"codice\":\"$4\"" ;;
+      errore) extra=",\"codice\":\"$4\",\"cosa_fare\":\"$(js "$5")\"" ;;
+      fine) extra=",\"esito\":\"$ESITO\",\"risultato\":$RISULTATO" ;;
+    esac
     printf '{"tipo":"%s","ora":"%s","comando":"installa","passo":"%s","percentuale":%s,"messaggio":"%s"%s}\n' \
-      "$1" "$(date -Iseconds)" "$PASSO" "${2:-null}" "$m" "$extra"
+      "$1" "$(date -Iseconds)" "$PASSO" "${2:-null}" "$(js "$3")" "$extra"
   else
     case "$1" in
       errore) printf '\n[PMN] ERRORE: %s\n[PMN] Cosa fare: %s\n' "$3" "${5:-}" ;;
@@ -53,10 +61,11 @@ evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
 }
 fallisci() {  # codice messaggio cosa_fare
   evento errore null "$2" "$1" "$3"
-  PASSO=fine; evento fine null "Installazione non completata. Rilanciala quando hai risolto: riprende da qui."
+  PASSO=fine; ESITO=errore; RISULTATO="{\"codice\":\"$1\"}"
+  evento fine null "Installazione non completata. Rilanciala quando hai risolto: riprende da qui."
   exit 2
 }
-trap 'evento avviso null "Installazione interrotta. Rilancia lo stesso comando: riprende da dove era rimasta."; exit 3' INT TERM
+trap 'PASSO=fine; ESITO=annullata; evento fine null "Installazione interrotta. Rilancia lo stesso comando: riprende da dove era rimasta."; exit 3' INT TERM
 
 mkdir -p "$PMN_HOME"/{bin,db,stato,tmp,log}
 export TMPDIR=$PMN_HOME/tmp   # /tmp di WSL sta in RAM: download ed estrazioni su disco
@@ -98,6 +107,7 @@ evento avanzamento 1 "Da scaricare: circa $(GB "$DA_SCARICARE") GB. Spazio neces
   || fallisci SPAZIO_INSUFFICIENTE "Lo spazio libero non basta: servono $(GB "$SERVONO") GB, ce ne sono $(GB "$LIBERI")." "Libera spazio sul disco e rilancia."
 
 # velocita' della rete: 16 MB del primo file ancora da scaricare (D034: tempo stimato prima di partire)
+v=0
 if [ "$DA_SCARICARE" -gt 0 ]; then
   primo=$(tail -n +2 "$CATALOGO" | while IFS=$'\t' read -r g t s p b bf m d; do
     if ! fatto "$d" "$m"; then echo "$s $p"; break; fi; done) || true
@@ -106,19 +116,27 @@ if [ "$DA_SCARICARE" -gt 0 ]; then
   if [ "${v:-0}" -gt 0 ]; then
     min=$(awk -v b="$DA_SCARICARE" -v v="$v" 'BEGIN {printf "%d", b/v/60 + 1}')
     if [ "$min" -eq 1 ]; then t="1 minuto"; elif [ "$min" -lt 60 ]; then t="$min minuti"; else t="$(awk -v m="$min" 'BEGIN {printf "%.1f", m/60}') ore"; fi
-    evento avanzamento 2 "Velocita' misurata: $(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}') MB/s. Tempo stimato per scaricare tutto: circa $t."
+    ETA=$((DA_SCARICARE / v)); evento avanzamento 2 "Velocita' misurata: $(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}') MB/s. Tempo stimato per scaricare tutto: circa $t."
   else
-    evento avviso 2 "Non riesco a misurare la velocita' della rete: proseguo senza stima del tempo."
+    v=0; evento avviso 2 "Non riesco a misurare la velocita' della rete: proseguo senza stima del tempo." RETE_NON_MISURATA
   fi
 fi
-if [ "$STIMA" = 1 ]; then PASSO=fine; evento fine null "Stima pronta: non ho scaricato nulla."; exit 0; fi
+if [ "$STIMA" = 1 ]; then
+  GB1() { awk -v b="$1" 'BEGIN {printf "%.1f", b/1e9}'; }
+  if [ "$v" -gt 0 ]; then vel=$(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}'); tempo=$((DA_SCARICARE / v))
+  elif [ "$DA_SCARICARE" = 0 ]; then vel=null; tempo=0
+  else vel=null; tempo=null; fi
+  RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s}' \
+    "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo")
+  PASSO=fine; evento fine null "Stima pronta: non ho scaricato nulla."; exit 0
+fi
 if [ "$SI" != 1 ]; then
   read -r -p "[PMN] Procedo con l'installazione? (s/n) " r || r=n
-  [ "$r" = s ] || [ "$r" = S ] || { evento fine null "Installazione annullata: non ho scaricato nulla."; exit 3; }
+  [ "$r" = s ] || [ "$r" = S ] || { PASSO=fine; ESITO=annullata; evento fine null "Installazione annullata: non ho scaricato nulla."; exit 3; }
 fi
 
 # ===================== 2. programmi =====================
-PASSO=programmi
+PASSO=programmi; FATTO=0; TOTALE=${#ENVS[@]}; ETA=null
 MM=$PMN_HOME/bin/micromamba
 if ! { [ -x "$MM" ] && echo "$MICROMAMBA_SHA256  $MM" | sha256sum -c --status; }; then
   evento avanzamento 5 "Scarico il gestore dei programmi (micromamba $MICROMAMBA_VER)..."
@@ -140,20 +158,23 @@ i=0
 for e in "${ENVS[@]}"; do
   i=$((i + 1))
   if uguale_al_blocco "$e"; then continue; fi
-  evento avanzamento $((5 + i * 2)) "Installo i programmi: ambiente $i di ${#ENVS[@]} ($e)..."
+  FATTO=$((i - 1)); evento avanzamento $((5 + i * 2)) "Installo i programmi: ambiente $i di ${#ENVS[@]} ($e)..."
   rm -rf "${MAMBA_ROOT_PREFIX:?}/envs/$e"
   "$MM" create -y -q -n "$e" -f "$PMN_ROOT/installer/lock/$e.txt" >> "$LOG" 2>&1 \
     || fallisci DOWNLOAD_FALLITO "Non riesco a installare l'ambiente $e." "Controlla la connessione e rilancia."
   uguale_al_blocco "$e" || fallisci DB_ROVINATO "L'ambiente $e non corrisponde alle versioni previste." "Rilancia l'installazione."
 done
 "$MM" clean -a -y >> "$LOG" 2>&1 || true   # la cache dei pacchetti non serve piu'
-evento avanzamento 22 "Programmi installati (${#ENVS[@]} ambienti, MetaPhlAn $(ls "$MAMBA_ROOT_PREFIX/envs/pmn_metaphlan/conda-meta" | sed -n 's/^metaphlan-\([0-9.]*\)-.*/\1/p'))."
+FATTO=${#ENVS[@]}; evento avanzamento 22 "Programmi installati (${#ENVS[@]} ambienti, MetaPhlAn $(ls "$MAMBA_ROOT_PREFIX/envs/pmn_metaphlan/conda-meta" | sed -n 's/^metaphlan-\([0-9.]*\)-.*/\1/p'))."
 
 # ===================== 3. database =====================
-PASSO=database
+PASSO=database; FATTO=0; TOTALE=$(tail -n +2 "$CATALOGO" | wc -l)
 TOT=$(tail -n +2 "$CATALOGO" | awk -F'\t' '{s+=$5} END {print s}')
 FATTI=0
 pct() { awk -v f="$FATTI" -v t="$TOT" 'BEGIN {printf "%d", 22 + 70 * f / t}'; }
+eta() {  # secondi per scaricare cio' che manca (meno $1 byte gia' scaricati), con la velocita' misurata all'inizio
+  if [ "$v" -gt 0 ]; then echo $(( (TOT - FATTI - ${1:-0}) / v )); else echo null; fi
+}
 scarica() {  # url file byte: riprende i pezzi gia' scaricati; ritenta se la rete cade
   local n=0 have
   while :; do
@@ -163,13 +184,13 @@ scarica() {  # url file byte: riprende i pezzi gia' scaricati; ritenta se la ret
     have=$(stat -c %s "$2" 2>/dev/null || echo 0)
     [ "$have" -ge "$3" ] && return 0
     n=$((n + 1)); [ "$n" -lt 30 ] || return 1
-    evento avviso "$(pct)" "La connessione si e' interrotta: riprovo fra 20 secondi (tentativo $n di 30)."
+    evento avviso "$(pct)" "La connessione si e' interrotta: riprovo fra 20 secondi (tentativo $n di 30)." RETE_INTERROTTA
     sleep 20
   done
 }
 while IFS=$'\t' read -r g t s p b bf m d; do
-  if fatto "$d" "$m"; then FATTI=$((FATTI + b)); continue; fi
-  url=$(url_di "$s" "$p")
+  if fatto "$d" "$m"; then FATTI=$((FATTI + b)); FATTO=$((FATTO + 1)); continue; fi
+  url=$(url_di "$s" "$p"); ETA=$(eta)
   if [ "$t" = file ]; then
     f=$PMN_HOME/db/$d; mkdir -p "$(dirname "$f")"
     evento avanzamento "$(pct)" "Scarico $g: $(basename "$d") ($(awk -v b="$b" 'BEGIN {printf "%.2f", b/1e9}') GB)..."
@@ -185,14 +206,14 @@ while IFS=$'\t' read -r g t s p b bf m d; do
     if [ "$(md5sum < "$a" | cut -d' ' -f1)" != "$m" ]; then
       rm -f "$a"; fallisci DB_ROVINATO "L'archivio $(basename "$p") scaricato e' rovinato (MD5 diverso)." "Rilancia: lo riscarico da capo."
     fi
-    evento avanzamento "$(pct)" "Estraggo e controllo $g..."
+    ETA=$(eta "$b"); evento avanzamento "$(pct)" "Estraggo e controllo $g..."
     rm -rf "$dir"; mkdir -p "$dir"
     tar -xzf "$a" -C "$dir" >> "$LOG" 2>&1 || fallisci DB_ROVINATO "Non riesco a estrarre $(basename "$p")." "Controlla lo spazio libero e rilancia."
     (cd "$dir" && md5sum -c --quiet "$PMN_ROOT/installer/md5/$g.md5") >> "$LOG" 2>&1 \
       || fallisci DB_ROVINATO "I file di $g non hanno l'MD5 atteso." "Rilancia l'installazione."
     rm -f "$a"
   fi
-  echo "$m" > "$(segnalino "$d")"; FATTI=$((FATTI + b))
+  echo "$m" > "$(segnalino "$d")"; FATTI=$((FATTI + b)); FATTO=$((FATTO + 1))
 done < <(tail -n +2 "$CATALOGO")
 
 # ===================== 4. impostazioni =====================
@@ -210,9 +231,11 @@ PMN_TMP=$PMN_HOME/tmp
 EOF
 
 # ===================== 5. prova finale =====================
-PASSO=verifica
+PASSO=verifica; FATTO=0; TOTALE=1; ETA=null
 evento avanzamento 93 "Prova finale su un piccolo campione (alcuni minuti)..."
 if PMN_HOME=$PMN_HOME bash "$PMN_ROOT/installer/verifica_motore.sh" >> "$LOG" 2>&1; then
+  gruppi=$(tail -n +2 "$CATALOGO" | cut -f1 | awk '!visto[$0]++ {printf "%s\"%s\"", (n++ ? "," : ""), $0}')
+  RISULTATO="{\"programmi\":${#ENVS[@]},\"database\":[$gruppi],\"verifica\":\"verde\"}"
   PASSO=fine; evento fine 100 "VERDE: il motore e' installato e funziona."
 else
   fallisci VERIFICA_ROSSA "ROSSO: la prova finale non ha dato il risultato atteso." "Manda a noi il file $LOG."

@@ -21,7 +21,7 @@
 | Comando | Cosa fa | Ingresso | Uscita (evento `fine`, campo `risultato`) |
 |---|---|---|---|
 | `info` | descrive PC e installazione, senza calcoli lunghi | nessuno | §5.1 |
-| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | elenco dei pezzi installati |
+| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | `{"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}`; con `--stima`: `{"da_scaricare_gb", "spazio_necessario_gb", "spazio_libero_gb", "velocita_mb_s", "tempo_stimato_s"}` |
 | `verifica` | MD5 dei database + mini-campione di regressione (D032) | nessuno | `{"esito": "verde" \| "rosso", "controlli": [...]}` |
 | `stima` | tempo e spazio previsti, prima di partire (D023, D034) | `--progetto <config.yaml>` | §5.2 |
 | `esegui` | analisi completa del progetto | `--progetto <config.yaml>` | §5.3 |
@@ -79,6 +79,9 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 
 `CONFIG_NON_VALIDA`, `DB_MANCANTE`, `DB_ROVINATO` (MD5 diverso), `SPAZIO_INSUFFICIENTE`, `RAM_INSUFFICIENTE`,
 `READ_NON_TROVATE`, `DOWNLOAD_FALLITO`, `GIA_IN_CORSO`, `TEMPO_LUNGO` (avviso: stima oltre 4 h, propone screening rapido o cloud, D023).
+
+Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_MANCANTE` (programma di sistema),
+`VERIFICA_ROSSA` (prova finale fallita); avvisi `RETE_NON_MISURATA`, `RETE_INTERROTTA` (riprova da sola).
 
 ## 5. Uscite
 
