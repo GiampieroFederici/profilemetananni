@@ -42,7 +42,7 @@ bash installer/installa_motore.sh
 | `lock/pmn_*.txt` | file di blocco: pacchetti esatti con URL e MD5 |
 | `riferimenti.tsv` | versioni attese e MD5 del mini-campione |
 | `windows/installa_pmn.cmd` | doppio clic per installare su Windows (avvia `installa_pmn.ps1` senza finestre nere) |
-| `windows/installa_pmn.ps1` | parte Windows: attiva WSL, riavvio e ripresa da sola, controllo dello spazio vero sul disco interno con più spazio, WSL `pmn`, motore con barra di avanzamento (S3-W: fase 2 provata sul PC; fase 1 e riavvio da provare nella VM Hyper-V) |
+| `windows/installa_pmn.ps1` | parte Windows: attiva WSL, riavvio e ripresa da sola, controllo dello spazio vero sul disco interno con più spazio, WSL `pmn`, motore con barra di avanzamento (S3-W, 15/10/2026: provato da Windows 11 pulito in una VM Hyper-V, un doppio clic → 1 riavvio → ripresa da sola → VERDE in 17 min; anche con risposta "No" al riavvio e riavvio a mano) |
 | `windows/prepara_pmn.sh` | dentro la WSL `pmn`: crea l'utente Linux e copia `installer/` e `motore/` |
 
 ## Fonti dei dati e dei programmi

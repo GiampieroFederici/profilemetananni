@@ -26,7 +26,8 @@ function Finestra($t, $pulsanti = 'OK') {   # messaggio sempre in primo piano (i
 function Avviso($t) { [void](Finestra $t) }
 function Domanda($t) { (Finestra $t 'YesNo') -eq 'Yes' }
 function Riprendi {   # al prossimo accesso di questo utente riparte da solo dalla fase 2
-    $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Fase 2"
+    # conhost --headless: nessuna finestra (Windows Terminal ignora -WindowStyle Hidden e lascia una finestra vuota, S3-W)
+    $cmd = "conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Fase 2"
     New-ItemProperty -Path $RunOnce -Name 'profilemetananni' -Value $cmd -PropertyType String -Force | Out-Null
 }
 function NonRiprendere { Remove-ItemProperty -Path $RunOnce -Name 'profilemetananni' -ErrorAction SilentlyContinue }
@@ -37,7 +38,7 @@ function Ferma($t) {   # errore: lo dice in italiano e si ferma; l'utente riapre
 }
 function MostraBarra($testo, $pct) {   # finestra di avanzamento senza pulsante di chiusura; $pct vuoto = barra animata
     if (-not $script:Barra) {
-        $fo = New-Object Windows.Forms.Form -Property @{ Text = 'profilemetananni'; Width = 580; Height = 170; ControlBox = $false; FormBorderStyle = 'FixedDialog'; StartPosition = 'CenterScreen' }
+        $fo = New-Object Windows.Forms.Form -Property @{ Text = 'profilemetananni'; Width = 580; Height = 170; ControlBox = $false; FormBorderStyle = 'FixedDialog'; StartPosition = 'CenterScreen'; TopMost = $true }
         $l = New-Object Windows.Forms.Label -Property @{ Left = 20; Top = 20; Width = 530; Height = 50 }
         $b = New-Object Windows.Forms.ProgressBar -Property @{ Left = 20; Top = 80; Width = 530; Height = 25 }
         $fo.Controls.AddRange(@($l, $b)); $fo.Show()
@@ -70,7 +71,17 @@ function Attendi($p, [scriptblock]$ogniRiga = {}) {   # legge l'uscita riga per 
     Scrivi "  codice $($p.ExitCode)"
     $p.ExitCode
 }
-function WslPronta { (Attendi (Avvia '--status')) -eq 0 }
+function RiavvioInSospeso { Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' }
+function WslPronta {   # wsl --status da' 0 anche quando WSL2 parte solo dopo il riavvio (S3-W, VM): conta anche il riavvio in sospeso
+    $c = Attendi (Avvia '--status'); $r = RiavvioInSospeso; Scrivi "  riavvio in sospeso: $r"
+    ($c -eq 0) -and -not $r
+}
+function ChiediRiavvio {   # chiede il riavvio; al prossimo accesso riparte da solo dalla fase 2
+    Riprendi; ChiudiBarra
+    if (Domanda "Serve un riavvio del computer. Dopo il riavvio l'installazione riprende da sola.`n`nRiavvio adesso?") { Restart-Computer -Force }
+    else { Avviso "Va bene. Quando riavvii il computer, l'installazione riprende da sola." }
+    exit 0
+}
 function Evento($r) { if ($r -like '{*') { try { $r | ConvertFrom-Json } catch { $null } } }   # evento JSON del motore (docs/contratto_motore.md)
 
 function SpazioNecessario($catalogo) {   # stessa regola di installa_motore.sh: byte finali + archivio piu' grande + programmi
@@ -120,17 +131,12 @@ if ($Fase -eq 1 -and -not (WslPronta)) {
     catch { Scrivi "$_"; Ferma "Senza il permesso di Windows non posso attivare WSL.`nRiapri l'installazione quando vuoi e rispondi Si." }
     Scrivi "wsl --install --no-distribution: codice $($p.ExitCode)"
     if ($p.ExitCode -ne 0) { Ferma "Non e' stato possibile attivare WSL (codice $($p.ExitCode)). Riprova; se si ripete, mandaci il file indicato qui sotto." }
-    if (-not (WslPronta)) {
-        Riprendi
-        if (Domanda "Serve un riavvio del computer. Dopo il riavvio l'installazione riprende da sola.`n`nRiavvio adesso?") { Restart-Computer -Force }
-        else { Avviso "Va bene. Quando riavvii il computer, l'installazione riprende da sola." }
-        exit 0
-    }
+    if (-not (WslPronta)) { ChiediRiavvio }
 }
 
 # ===================== fase 2: WSL "pmn" e motore =====================
 Riprendi   # se si interrompe da qui in poi (PC spento durante i download), riparte al prossimo accesso
-if (-not (WslPronta)) { Avviso "WSL non risulta ancora pronto. Riavvia il computer: l'installazione riprende da sola."; exit 2 }
+if (-not (WslPronta)) { ChiediRiavvio }
 $s = ControllaSpazio (Join-Path $Radice $CatalogoRel)
 if (-not $s) { Ferma "Non trovo un disco interno adatto (NTFS) per installare profilemetananni." }
 Scrivi "spazio: servono $($s.Serve) byte, liberi $($s.Liberi) su $($s.Disco), cartella della WSL $($s.Dove)"
@@ -143,6 +149,8 @@ if (($script:Uscita | ForEach-Object { $_.Trim() }) -notcontains 'pmn') {
     New-Item -ItemType Directory -Force $s.Dove | Out-Null
     $c = Attendi (Avvia "--install Ubuntu-24.04 --name pmn --location `"$($s.Dove)`" --no-launch")
     if ($c -ne 0) { Ferma "Non riesco a preparare l'ambiente Linux (codice $c).`nControlla la connessione a internet e riapri l'installazione." }
+    [void](Attendi (Avvia '-l -q'))   # anche qui il codice 0 non basta: se "pmn" non c'e' ancora, Windows aspetta il riavvio (S3-W)
+    if (($script:Uscita | ForEach-Object { $_.Trim() }) -notcontains 'pmn') { ChiediRiavvio }
 }
 MostraBarra "Preparo l'utente e i file di profilemetananni..." $null
 if ((Attendi (Avvia "-d pmn -u root --cd `"$PSScriptRoot`" -- bash prepara_pmn.sh")) -ne 0) { Ferma "Non riesco a preparare i file di profilemetananni nell'ambiente Linux." }
