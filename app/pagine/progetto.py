@@ -1,13 +1,355 @@
-"""Pagina "Campioni e prodotto": segnaposto dello scheletro S5a, la scrive S5b (docs/interfaccia_S4.md §3)."""
-from app.pagine.base import Pagina, etichetta
+"""Pagina "Campioni e prodotto" (S5b, docs/interfaccia_S4.md §3.1): da dove vengono le read e che prodotto è.
+
+Il prodotto decide l'ospite da togliere (System One v0, regola fissa: in motore/system_one.py non c'è ancora,
+proposta nel diario S5b). Salva in config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il
+motore (percorso_per_motore), perché il motore li legge così come sono.
+
+Qui ci sono anche i pezzi grafici comuni alle pagine di S5b (schede di scelta, pannelli, stile dei campi):
+stile.qss si cambia solo in S5a, quindi lo stile in più sta qui (richiesta allo scheletro nel diario S5b).
+"""
+from pathlib import Path
+
+from PySide6.QtCore import QSettings, QStandardPaths, Qt, Signal
+from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QPlainTextEdit,
+                               QPushButton, QRadioButton, QVBoxLayout)
+
+from app import progetto
+from app.motore import percorso_per_motore
+from app.pagine.base import Pagina, etichetta, riquadro
+
+STILE = """
+QFrame#scelta { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#scelta[scelto="true"] { background: #E3F1E9; border: 2px solid #1E7A4C; }
+QFrame#scelta[spento="true"] { background: #F6F8F7; }
+QFrame#scelta QLabel, QFrame#scelta QRadioButton, QFrame#scelta QCheckBox { background: transparent; }
+QFrame#pannello { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#pannello QLabel { background: transparent; }
+#consigliato { color: #1E7A4C; font-weight: bold; font-size: 16px; }
+#etichetta_campo { font-weight: bold; }
+QLineEdit, QPlainTextEdit, QComboBox { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px;
+  padding: 8px 10px; }
+QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus { border: 2px solid #2F5D7C; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 30px; border: 0; }
+QComboBox::down-arrow { image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png); width: 16px;
+  height: 16px; }
+QRadioButton::indicator { width: 16px; height: 16px; border-radius: 10px; border: 2px solid #52625D;
+  background: #FFFFFF; }
+QRadioButton::indicator:checked { border: 2px solid #1E7A4C; background: qradialgradient(cx:0.5, cy:0.5,
+  radius:0.5, fx:0.5, fy:0.5, stop:0 #1E7A4C, stop:0.55 #1E7A4C, stop:0.65 #FFFFFF, stop:1 #FFFFFF); }
+QRadioButton::indicator:disabled { border-color: #CBD5D1; }
+QComboBox QAbstractItemView { background: #FFFFFF; selection-background-color: #E3F1E9;
+  selection-color: #1C2B27; }
+QPushButton#apri { background: transparent; border: 0; color: #2F5D7C; text-align: left; padding: 4px 0;
+  font-weight: bold; }
+QPushButton#apri:hover, QPushButton#apri:focus { text-decoration: underline; }
+QProgressBar { background: #E2E8E5; border: 0; border-radius: 6px; height: 12px; }
+QProgressBar::chunk { background: #1E7A4C; border-radius: 6px; }
+"""
+
+# prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello)
+# D074: maiale, bovino, pecora, altro (il pollo no: il suo indice non è nel motore installato, D021).
+PRODOTTI = {
+    "maiale": ("Salume di maiale (salame, salsiccia, prosciutto...)", ["sus_scrofa"],
+               "Toglierò il DNA del maiale e quello umano.",
+               "Sono la gran parte delle read di un salume e non dicono nulla dei microbi. "
+               "Il DNA umano si toglie sempre.", "info"),
+    "bovino": ("Prodotto di bovino (bresaola, carne secca...)", ["bos_taurus"],
+               "Toglierò il DNA del bovino e quello umano.",
+               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+               "Il DNA umano si toglie sempre.", "info"),
+    "pecora": ("Prodotto di pecora o agnello", ["ovis_aries"],
+               "Toglierò il DNA della pecora e quello umano.",
+               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+               "Il DNA umano si toglie sempre.", "info"),
+    "altro": ("Altro o misto", [],
+              "Toglierò solo il DNA umano.",
+              "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read "
+              "della carne finiscono assegnate per errore a qualche microbo.", "avviso"),
+}
+
+
+def prodotto_da_ospiti(ospiti):
+    """Il prodotto che corrisponde agli ospiti già scritti nel progetto (per riaprirlo)."""
+    for chiave, (_, o, *_resto) in PRODOTTI.items():
+        if list(ospiti or []) == o:
+            return chiave
+    return "altro"
+
+
+class Scelta(QFrame):
+    """Scheda grande con un pulsante tondo, il titolo e una frase che dice cosa fa (R5); si sceglie con un clic."""
+    scelta = Signal()
+
+    def __init__(self, titolo, spiega, gruppo, consigliato=False):
+        super().__init__(objectName="scelta")
+        s = QVBoxLayout(self)
+        s.setContentsMargins(18, 14, 18, 14)
+        riga = QHBoxLayout()
+        self.pulsante = QRadioButton(titolo)
+        self.pulsante.setStyleSheet("font-weight: bold;")
+        gruppo.addButton(self.pulsante)
+        riga.addWidget(self.pulsante)
+        if consigliato:
+            riga.addWidget(QLabel("consigliato", objectName="consigliato"))
+        riga.addStretch(1)
+        s.addLayout(riga)
+        self.spiega = etichetta(spiega)
+        self.spiega.setContentsMargins(30, 0, 0, 0)
+        s.addWidget(self.spiega)
+        self.pulsante.toggled.connect(self._ridisegna)
+        self._ridisegna()
+
+    def mousePressEvent(self, evento):
+        if self.pulsante.isEnabled():
+            self.pulsante.setChecked(True)
+        super().mousePressEvent(evento)
+
+    def _ridisegna(self, *_):
+        self.setProperty("scelto", self.pulsante.isChecked())
+        self.setProperty("spento", not self.pulsante.isEnabled())
+        self.style().unpolish(self)
+        self.style().polish(self)
+        if self.pulsante.isChecked():
+            self.scelta.emit()
+
+    def setEnabled(self, si):
+        self.pulsante.setEnabled(si)
+        self._ridisegna()
+
+
+def riga_di_scelte(*schede):
+    r = QHBoxLayout()
+    r.setSpacing(16)
+    for s in schede:
+        r.addWidget(s, 1)
+    return r
+
+
+def pannello():
+    p = QFrame(objectName="pannello")
+    s = QVBoxLayout(p)
+    s.setContentsMargins(22, 16, 22, 16)
+    s.setSpacing(8)
+    return p, s
+
+
+def svuota(disposizione):
+    """Toglie i widget di un layout (per ridisegnare una zona della pagina)."""
+    while disposizione.count():
+        w = disposizione.takeAt(0).widget()
+        if w:
+            w.hide()
+            w.deleteLater()
 
 
 class PaginaCampioni(Pagina):
     titolo = "Campioni e prodotto"
     testo_principale = "Avanti: scelte dell'analisi"
-    destinazione = "scelte"
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.corpo.addWidget(etichetta("Da dove vengono le read e che prodotto è (per scegliere l'ospite da togliere)."))
-        self.corpo.addWidget(etichetta("Pagina ancora vuota: arriva con la sessione S5b.", "nota"))
+        self.setStyleSheet(STILE)
+        self.cartella = None
+        self.corpo.addWidget(etichetta("Dimmi da dove arrivano le read e che prodotto stai analizzando. "
+                                       "Al resto penso io."))
+        self.senza_progetto = riquadro("Nessun progetto aperto.",
+                                       "Apri un progetto o creane uno nuovo nella pagina I miei progetti.", "avviso")
+        self.corpo.addWidget(self.senza_progetto)
+
+        self.corpo.addSpacing(8)
+        self.corpo.addWidget(etichetta("Dove sono le read?", "sottotitolo"))
+        self.gruppo_fonte = QButtonGroup(self)
+        self.scelta_pc = Scelta("Sul mio computer", "File che ti ha mandato il laboratorio di sequenziamento "
+                                "(finiscono in .fastq.gz).", self.gruppo_fonte)
+        self.scelta_ncbi = Scelta("In un archivio pubblico", "Le scarico io da NCBI o ENA con il loro codice "
+                                  "(per esempio SRR4875279).", self.gruppo_fonte)
+        self.corpo.addLayout(riga_di_scelte(self.scelta_pc, self.scelta_ncbi))
+
+        # sul mio computer: una cartella; le coppie R1/R2 le trovo da solo
+        self.zona_pc = QFrame()
+        s = QVBoxLayout(self.zona_pc)
+        s.setContentsMargins(0, 4, 0, 0)
+        s.addWidget(etichetta("Cartella delle read", "etichetta_campo"))
+        riga = QHBoxLayout()
+        b = QPushButton("Scegli la cartella...", objectName="secondario")
+        b.clicked.connect(self.scegli_cartella)
+        riga.addWidget(b)
+        self.nome_cartella = etichetta("")
+        riga.addWidget(self.nome_cartella, 1)
+        s.addLayout(riga)
+        self.esito_cartella = QVBoxLayout()
+        s.addLayout(self.esito_cartella)
+        s.addWidget(etichetta("Si apre nella cartella Documenti, o nell'ultima che hai usato. Trovo da solo le "
+                              "coppie di file (R1 e R2) di ogni campione.", "nota"))
+        self.corpo.addWidget(self.zona_pc)
+
+        # archivio pubblico: codici, uno per riga, con il conteggio dei validi
+        self.zona_ncbi = QFrame()
+        s = QVBoxLayout(self.zona_ncbi)
+        s.setContentsMargins(0, 4, 0, 0)
+        s.addWidget(etichetta("Codici dei campioni, uno per riga", "etichetta_campo"))
+        self.testo_codici = QPlainTextEdit()
+        self.testo_codici.setFixedHeight(110)
+        self.testo_codici.setMaximumWidth(560)
+        self.testo_codici.setTabChangesFocus(True)
+        self.testo_codici.setAccessibleName("Codici dei campioni, uno per riga")
+        self.testo_codici.textChanged.connect(self._conta_codici)
+        s.addWidget(self.testo_codici)
+        self.conteggio = etichetta("", "nota")
+        s.addWidget(self.conteggio)
+        self.corpo.addWidget(self.zona_ncbi)
+
+        self.errore = QVBoxLayout()           # errore vicino ai campi (R8, R9)
+        self.corpo.addLayout(self.errore)
+
+        self.corpo.addSpacing(8)
+        self.corpo.addWidget(etichetta("Che prodotto è?", "sottotitolo"))
+        self.prodotto = QComboBox()
+        self.prodotto.setMaximumWidth(560)
+        self.prodotto.setAccessibleName("Prodotto")
+        for chiave, (testo, *_resto) in PRODOTTI.items():
+            self.prodotto.addItem(testo, chiave)
+        self.prodotto.currentIndexChanged.connect(self._ospite)
+        self.corpo.addWidget(self.prodotto)
+        self.zona_ospite = QVBoxLayout()
+        self.corpo.addLayout(self.zona_ospite)
+
+        self.scelta_pc.scelta.connect(self._fonte)
+        self.scelta_ncbi.scelta.connect(self._fonte)
+        self.scelta_ncbi.pulsante.setChecked(True)
+        self._ospite()
+
+    # ---------------- stato della pagina ----------------
+    def mostrata(self):
+        p = self.contesto.progetto
+        self.senza_progetto.setVisible(p is None)
+        self.testo_principale = "Avanti: scelte dell'analisi" if p else "Vai ai miei progetti"
+        self.azioni_cambiate.emit()
+        svuota(self.errore)
+        if p is None:
+            return
+        cfg = p.leggi()
+        app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
+        self.prodotto.setCurrentIndex(max(0, self.prodotto.findData(app.get("prodotto")
+                                                                    or prodotto_da_ospiti(cfg.get("hosts", [])))))
+        codici = p.codici_campioni.read_text(encoding="utf-8") if p.codici_campioni.is_file() else ""
+        self.testo_codici.setPlainText(codici.strip())
+        self.cartella = None
+        self.nome_cartella.setText("")
+        svuota(self.esito_cartella)
+        if app.get("cartella_read") and Path(app["cartella_read"]).is_dir():
+            self.usa_cartella(app["cartella_read"])
+        (self.scelta_pc if cfg.get("data_source") == "local" else self.scelta_ncbi).pulsante.setChecked(True)
+
+    def _fonte(self):
+        pc = self.scelta_pc.pulsante.isChecked()
+        self.zona_pc.setVisible(pc)
+        self.zona_ncbi.setVisible(not pc)
+        svuota(self.errore)
+
+    def _ospite(self):
+        _, _, titolo, perche, livello = PRODOTTI[self.prodotto.currentData()]
+        svuota(self.zona_ospite)
+        self.zona_ospite.addWidget(riquadro(titolo, perche, livello))
+
+    def _conta_codici(self):
+        validi, scartati = progetto.codici(self.testo_codici.toPlainText())
+        n = len(validi)
+        testo = {0: "Non ho ancora riconosciuto nessun codice.", 1: "Ho riconosciuto 1 codice valido."}.get(
+            n, f"Ho riconosciuto {n} codici validi.")
+        if scartati:
+            testo += (f" Non riconosco: {', '.join(scartati[:5])}{'...' if len(scartati) > 5 else ''}"
+                      " (un codice è fatto come SRR4875279, ERR... o DRR...).")
+        self.conteggio.setText(testo)
+
+    # ---------------- cartella delle read ----------------
+    def scegli_cartella(self):
+        impostazioni = QSettings("ProfileMetaNanni", "app")
+        documenti = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        partenza = impostazioni.value("ultima_cartella_read", documenti)       # R10
+        if not Path(str(partenza)).is_dir():
+            partenza = documenti
+        scelta = QFileDialog.getExistingDirectory(self, "Scegli la cartella delle read", str(partenza))
+        if scelta:
+            impostazioni.setValue("ultima_cartella_read", scelta)
+            self.usa_cartella(scelta)
+
+    def usa_cartella(self, cartella):
+        """Controlla la cartella scelta e dice che cosa ci ha trovato (i file li conta come il motore)."""
+        svuota(self.esito_cartella)
+        svuota(self.errore)
+        self.cartella = None
+        cartella = Path(cartella)
+        self.nome_cartella.setText(str(cartella))
+        if not progetto.percorso_sicuro(cartella):
+            self.esito_cartella.addWidget(riquadro(
+                "Il nome di questa cartella ha un carattere che il motore non accetta.",
+                "Togli dal nome della cartella (e da quelle che la contengono) i simboli come ; & ! $ e riprova.",
+                "errore"))
+            return
+        try:
+            percorso_per_motore(cartella)
+            trovati = progetto.campioni_locali(cartella)
+        except (ValueError, OSError):
+            self.esito_cartella.addWidget(riquadro(
+                "Non riesco a leggere questa cartella.",
+                "Scegli una cartella che sta su questo computer (non su un disco di rete).", "errore"))
+            return
+        if not trovati:
+            self.esito_cartella.addWidget(riquadro(
+                "In questa cartella non ci sono read.",
+                "Le read sono i file che finiscono in .fastq.gz. Scegli la cartella che ti ha mandato il laboratorio.",
+                "errore"))
+            return
+        self.cartella = cartella
+        nomi = [n for n, _, _ in trovati]
+        soli = [n for n, _, r2 in trovati if r2 is None]
+        n = len(trovati)
+        testo = (f"Ho trovato 1 campione: {nomi[0]}." if n == 1 else
+                 f"Ho trovato {n} campioni: {', '.join(nomi[:6])}{'...' if n > 6 else ''}.")
+        if soli:
+            testo += (f" Per {', '.join(soli[:4])}{'...' if len(soli) > 4 else ''} c'è un solo file invece della "
+                      "coppia R1 e R2: lo analizzo da solo.")
+        self.esito_cartella.addWidget(etichetta(testo))
+
+    # ---------------- salvataggio ----------------
+    def azione_principale(self):
+        p = self.contesto.progetto
+        if p is None:
+            self.vai.emit("home")
+            return
+        svuota(self.errore)
+        locale = self.scelta_pc.pulsante.isChecked()
+        validi, _ = progetto.codici(self.testo_codici.toPlainText())
+        if locale and self.cartella is None:
+            self.errore.addWidget(riquadro("Manca la cartella delle read.",
+                                           "Premi Scegli la cartella... e scegli quella con i file .fastq.gz.",
+                                           "errore"))
+            return
+        if not locale and not validi:
+            self.errore.addWidget(riquadro("Manca il codice di almeno un campione.",
+                                           "Scrivi i codici dei campioni, uno per riga (per esempio SRR4875279).",
+                                           "errore"))
+            return
+        cfg = progetto.base(p.nome)
+        vecchio = p.leggi()
+        for chiave, valore in vecchio.items():           # le scelte già fatte restano
+            if isinstance(valore, dict) and isinstance(cfg.get(chiave), dict):
+                cfg[chiave] = {**cfg[chiave], **valore}
+            else:
+                cfg[chiave] = valore
+        chiave = self.prodotto.currentData()
+        cfg["project_name"] = p.nome
+        cfg["hosts"] = list(PRODOTTI[chiave][1])
+        cfg["filter_human"] = True
+        cfg["data_source"] = "local" if locale else "ncbi"
+        if locale:
+            cfg["paths"]["local_reads_dir"] = percorso_per_motore(self.cartella)
+            cfg["paths"]["srr_list"] = ""
+        else:
+            p.scrivi_codici(validi)
+            cfg["paths"]["srr_list"] = percorso_per_motore(p.codici_campioni)
+            cfg["paths"]["local_reads_dir"] = ""
+        cfg["app"] = {"prodotto": chiave, "cartella_read": str(self.cartella) if locale else ""}
+        p.scrivi(cfg)
+        self.vai.emit("scelte")
