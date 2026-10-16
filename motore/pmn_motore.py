@@ -1,12 +1,12 @@
 """pmn-motore: il motore vero dietro l'interfaccia (docs/contratto_motore.md, D053).
 
 Stessi comandi ed eventi JSON del finto motore (installer/finto_motore.py), ma il lavoro lo fanno i pezzi
-gia' provati: installer/installa_motore.sh (installa), installer/verifica_motore.sh (verifica),
+già provati: installer/installa_motore.sh (installa), installer/verifica_motore.sh (verifica),
 bin/run.sh (esegui). Su stdout solo eventi JSON, uno per riga; i dettagli tecnici vanno nel log.
 
 Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla|sicurezza|referto> [--progetto FILE] [--corsa ID]
                  [--ingresso FILE]
-Solo libreria standard: gira anche col python3 di sistema quando il motore non e' installato
+Solo libreria standard: gira anche col python3 di sistema quando il motore non è installato
 (e allora lo dice con DB_MANCANTE). Il file del progetto si legge con PyYAML dell'ambiente pmn_reports_py.
 """
 import argparse
@@ -40,8 +40,8 @@ OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2)
 MPA_S_PER_M, MPA_FISSI_S = 86.2, 150
 KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}
 # passi di run.sh (etichette di do_step) -> passo del contratto, peso nella barra e cosa sta facendo
-PASSI = [("download", 5, "scarico le read da NCBI"), ("controllo_qualita", 3, "controllo la qualita' delle read"),
-         ("pulizia", 4, "tolgo le parti di bassa qualita'"), ("ospite", 20, "tolgo le read dell'ospite e dell'uomo"),
+PASSI = [("download", 5, "scarico le read da NCBI"), ("controllo_qualita", 3, "controllo la qualità delle read"),
+         ("pulizia", 4, "tolgo le parti di bassa qualità"), ("ospite", 20, "tolgo le read dell'ospite e dell'uomo"),
          ("metaphlan", 20, "calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)"),
          ("kraken", 43, "classifico le read con Kraken e Bracken"), ("riepilogo", 5, "preparo le tabelle e il riepilogo")]
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
@@ -55,9 +55,9 @@ ERRORI = [
     (r"Not enough space", "SPAZIO_INSUFFICIENTE", "Lo spazio libero non basta per scaricare le read.",
      "Libera spazio sul disco e riprova."),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
-     "Non trovo le read di uno o piu' campioni.", "Controlla i codici SRR o la cartella delle read nel progetto."),
+     "Non trovo le read di uno o più campioni.", "Controlla i codici SRR o la cartella delle read nel progetto."),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
-     "Manca un database o un programma del motore.", "Apri Impostazioni e premi Installa."),
+     "Manca un database o un programma del motore.", "Apri la pagina Motore e premi Installa."),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      "Il progetto contiene un valore non valido.", "Controlla le impostazioni del progetto."),
 ]
@@ -81,18 +81,28 @@ CITAZIONI = {
 }
 
 
+def tempi(camp, cfg):
+    """Secondi previsti per passo (regole misurate sopra), usati da stima e per eta_s di esegui."""
+    coppie = sum(c for _, c, _ in camp)
+    strumento = sezione(cfg, "profiling").get("tool", "both")
+    kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
+    return {"ospite": round(coppie / 1e6 * OSPITE_S_PER_M),
+            "metaphlan": round(coppie / 1e6 * MPA_S_PER_M + MPA_FISSI_S * len(camp)) if strumento in ("metaphlan", "both") else 0,
+            "kraken": round(coppie / KRAKEN_COPPIE_MIN.get(kraken_db, 37000) * 60) if strumento in ("kraken", "both") else 0}
+
+
 class Annullata(Exception):
     pass
 
 
 class Errore(Exception):
-    def __init__(self, codice, messaggio, cosa_fare):
+    def __init__(self, codice, messaggio, cosa_fare, passo=None):
         super().__init__(messaggio)
-        self.codice, self.messaggio, self.cosa_fare = codice, messaggio, cosa_fare
+        self.codice, self.messaggio, self.cosa_fare, self.passo = codice, messaggio, cosa_fare, passo
 
 
 def installazione():
-    """Le chiavi di ~/.pmn/installazione.env (lette una per una, mai eseguite), o {} se il motore non c'e'."""
+    """Le chiavi di ~/.pmn/installazione.env (lette una per una, mai eseguite), o {} se il motore non c'è."""
     f = PMN_HOME / "installazione.env"
     if not f.is_file():
         return {}
@@ -102,7 +112,7 @@ def installazione():
 def serve_installazione():
     env = installazione()
     if not env:
-        raise Errore("DB_MANCANTE", "Il motore non e' ancora installato.", "Apri Impostazioni e premi Installa.")
+        raise Errore("DB_MANCANTE", "Il motore non è ancora installato.", "Apri la pagina Motore e premi Installa.")
     return env
 
 
@@ -151,10 +161,13 @@ class Motore:
         self.corsa = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         cartella = PMN_HOME / "log" if (PMN_HOME / "log").is_dir() else Path(tempfile.gettempdir())
         self.log = cartella / f"pmn_{self.corsa}_{a.comando}.log"
+        self.passo = None   # ultimo passo annunciato: va nell'evento errore (v0.2)
 
     def evento(self, tipo, messaggio, **campi):
         riga = {"tipo": tipo, "ora": datetime.now().astimezone().isoformat(timespec="seconds"),
                 "messaggio": messaggio, **campi}
+        if tipo == "avanzamento":
+            self.passo = campi.get("passo")
         print(json.dumps(riga, ensure_ascii=False), flush=True)
         self.scrivi(f"{tipo}: {messaggio}")
 
@@ -169,9 +182,9 @@ class Motore:
                 self.evento("avviso", c["messaggio"], codice=c["codice"])
         return elenco
 
-    def avanza(self, passo, messaggio, pct, campione=None, fatto=0, totale=1):
+    def avanza(self, passo, messaggio, pct, campione=None, fatto=0, totale=1, eta_s=None):
         self.evento("avanzamento", messaggio, passo=passo, campione=campione, fatto=fatto, totale=totale,
-                    percentuale=round(max(0, min(100, pct)), 1), eta_s=None)
+                    percentuale=round(max(0, min(100, pct)), 1), eta_s=eta_s)
 
     # ---------------- info ----------------
     def info(self):
@@ -192,7 +205,7 @@ class Motore:
         return "ok", {"motore": VERSIONE, "ram_gb": round(ram, 1), "processori": os.cpu_count(),
                       "spazio_libero_gb": round(shutil.disk_usage(base).free / 1e9),
                       "modo_consigliato": modo, "consigli": self.consigli(consigli),
-                      "programmi": programmi, "database": database}, "Ecco com'e' fatto questo PC e cosa e' installato."
+                      "programmi": programmi, "database": database}, "Ecco com'è fatto questo PC e cosa è installato."
 
     # ---------------- verifica ----------------
     def verifica(self):
@@ -233,7 +246,7 @@ class Motore:
                              "Controlla la connessione e riprova fra qualche minuto.")
             for e in esiti:
                 if e["status"] != "OK":
-                    raise Errore("READ_NON_TROVATE", f"Non trovo il campione {e['accession']} su ENA ne' su NCBI.",
+                    raise Errore("READ_NON_TROVATE", f"Non trovo il campione {e['accession']} su ENA né su NCBI.",
                                  "Controlla il codice SRR nel progetto.")
                 out.append((e["accession"], e["read_count"], e["fastq_bytes"]))
         if fonte in ("local", "both"):
@@ -256,9 +269,7 @@ class Motore:
         coppie = sum(c for _, c, _ in camp)
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
-        tempo = {"ospite": round(coppie / 1e6 * OSPITE_S_PER_M),
-                 "metaphlan": round(coppie / 1e6 * MPA_S_PER_M + MPA_FISSI_S * len(camp)) if strumento in ("metaphlan", "both") else 0,
-                 "kraken": round(coppie / KRAKEN_COPPIE_MIN.get(kraken_db, 37000) * 60) if strumento in ("kraken", "both") else 0}
+        tempo = tempi(camp, cfg)
         scaricare = sum(b for _, _, b in camp)
         spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
@@ -284,14 +295,18 @@ class Motore:
             try:
                 vecchio = json.loads(blocco.read_text(encoding="utf-8"))
                 os.kill(vecchio["pid"], 0)
-                raise Errore("GIA_IN_CORSO", "C'e' gia' un'analisi in corso.", "Aspetta che finisca, oppure annullala.")
+                raise Errore("GIA_IN_CORSO", "C'è già un'analisi in corso.", "Aspetta che finisca, oppure annullala.")
             except (ProcessLookupError, ValueError, KeyError):
                 blocco.unlink(missing_ok=True)   # rimasto da una corsa interrotta
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": None}), encoding="utf-8")
+        try:   # tempo stimato (D027) con le regole di stima; senza dimensioni (rete giu', read non trovate) resta null
+            previsti = tempi(self.campioni(cfg), cfg)
+        except (Errore, OSError, ValueError):
+            previsti = None
         try:
             for tentativo in range(1, TENTATIVI_RETE + 1):
                 try:
-                    self._run_sh(progetto, cfg, blocco)
+                    self._run_sh(progetto, cfg, blocco, previsti)
                     break
                 except Errore as e:
                     if e.codice != "DOWNLOAD_FALLITO" or tentativo == TENTATIVI_RETE:
@@ -308,8 +323,16 @@ class Motore:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
 
-    def _run_sh(self, progetto, cfg, blocco):
+    def _run_sh(self, progetto, cfg, blocco, previsti=None):
         n = max(1, len(self._nomi(cfg)))
+        ordine = [p for p, _, _ in PASSI]
+
+        def eta(passo, fatto, campione):
+            """Secondi che restano: la parte non fatta di questo passo + i passi dopo (download non stimato)."""
+            if not previsti:
+                return None
+            quota = previsti.get(passo, 0) * ((n - min(fatto, n) + 1) / n if campione else 1)
+            return round(quota + sum(previsti.get(p, 0) for p in ordine[ordine.index(passo) + 1:]))
         pesi = dict((p, w) for p, w, _ in PASSI)
         if sezione(cfg, "motore").get("kraken_db") == "rapido":
             pesi["kraken"] = 5
@@ -345,7 +368,8 @@ class Motore:
                     pct = ultimo = max(ultimo, 100 * (inizio[passo] + pesi[passo] * min(fatto, n) / n) / somma)
                     testo = dict((x, t) for x, _, t in PASSI)[passo]
                     chi = f"Campione {min(fatto, n)} di {n}: " if campione else ""
-                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n)
+                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n,
+                                eta_s=eta(passo, fatto, campione))
                     break
         codice = p.wait()
         if (STATO / f"{self.corsa}.annulla").exists():
@@ -355,7 +379,7 @@ class Motore:
             for regola, cod, msg, cosa in ERRORI:
                 if re.search(regola, testo):
                     raise Errore(cod, msg, cosa)
-            raise Errore("ERRORE_INTERNO", "L'analisi si e' fermata per un errore imprevisto.",
+            raise Errore("ERRORE_INTERNO", "L'analisi si è fermata per un errore imprevisto.",
                          f"Manda a noi il file {self.log}.")
 
     @staticmethod
@@ -406,6 +430,13 @@ class Motore:
                 coppie = sum(int(c.split("\t")[1]) for c in rep.read_text(encoding="utf-8").splitlines()
                              if c.split("\t")[-1].strip() in ("unclassified", "root"))
             elenco.append({"nome": nome, "esito": "ok", "coppie_dopo_ospite": coppie, "file": file})
+        import referto   # stessa cartella; qui serve solo la libreria standard
+        try:
+            soglia = float(parametri.get("abundance_threshold_pct") or 0)
+        except ValueError:
+            soglia = 0.0
+        for c in elenco:   # sintesi pronta per l'interfaccia (v0.2): mostra, non calcola (D006)
+            c["sintesi"] = referto.sintesi(referto.leggi_campione(r, c["file"]), soglia)
         versioni = {"metaphlan": versione(e, "pmn_metaphlan", "metaphlan"), "database_metaphlan": parametri.get("metaphlan_index"),
                     "kraken2": versione(e, "pmn_kraken", "kraken2"), "bracken": versione(e, "pmn_kraken", "bracken"),
                     "database_kraken": kraken_db or None, "bowtie2": versione(e, "pmn_metaphlan", "bowtie2"),
@@ -431,13 +462,13 @@ class Motore:
         except (ValueError, IndexError):
             esito = {"problemi": ["referto.py non ha risposto"]}
         if esito.get("problemi") or not esito.get("html"):
-            self.evento("avviso", "Il referto non e' completo: " + "; ".join(esito.get("problemi") or ["manca la pagina"])[:300],
+            self.evento("avviso", "Il referto non è completo: " + "; ".join(esito.get("problemi") or ["manca la pagina"])[:300],
                         codice="REFERTO_PARZIALE")
         return {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
 
     # ---------------- referto (v0.2) ----------------
     def referto(self):
-        """Rifa' il referto di un progetto gia' analizzato (per esempio dopo un calcolo di sicurezza)."""
+        """Rifà il referto di un progetto già analizzato (per esempio dopo un calcolo di sicurezza)."""
         progetto = Path(self.a.progetto).resolve() if self.a.progetto else None
         leggi_progetto(progetto)
         r = progetto.parent / "risultati"
@@ -505,15 +536,16 @@ def main():
         esito, risultato, messaggio = getattr(m, a.comando)()
         codice = 0
     except Errore as e:
-        m.evento("errore", e.messaggio, codice=e.codice, cosa_fare=e.cosa_fare)
-        esito, risultato, messaggio, codice = "errore", {"codice": e.codice}, "L'operazione non e' andata a buon fine.", \
+        m.evento("errore", e.messaggio, codice=e.codice, cosa_fare=e.cosa_fare, passo=e.passo or m.passo)
+        esito, risultato, messaggio, codice = "errore", {"codice": e.codice}, "L'operazione non è andata a buon fine.", \
             CODICE_USCITA.get(e.codice, 4)
     except Annullata:
-        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: i passi finiti restano, quelli a meta' si rifanno.", 3
+        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: i passi finiti restano, quelli a metà si rifanno.", 3
     except Exception as e:   # errore nostro: lo si dice, e il dettaglio va nel log
         m.scrivi(f"ERRORE INTERNO: {e!r}")
-        m.evento("errore", "Errore imprevisto del motore.", codice="ERRORE_INTERNO", cosa_fare=f"Manda a noi il file {m.log}.")
-        esito, risultato, messaggio, codice = "errore", {"codice": "ERRORE_INTERNO"}, "L'operazione non e' andata a buon fine.", 4
+        m.evento("errore", "Errore imprevisto del motore.", codice="ERRORE_INTERNO", cosa_fare=f"Manda a noi il file {m.log}.",
+                 passo=m.passo)
+        esito, risultato, messaggio, codice = "errore", {"codice": "ERRORE_INTERNO"}, "L'operazione non è andata a buon fine.", 4
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 

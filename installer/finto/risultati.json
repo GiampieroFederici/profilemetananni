@@ -9,6 +9,65 @@
    "file": {
     "metaphlan": "metaphlan/SRR4875279_profile.txt",
     "kraken": "kraken/SRR4875279.bracken"
+   },
+   "sintesi": {
+    "metaphlan": {
+     "specie": 27,
+     "dominanti": [
+      {
+       "nome": "Latilactobacillus sakei",
+       "pct": 21.617793
+      },
+      {
+       "nome": "Latilactobacillus curvatus",
+       "pct": 11.403097
+      },
+      {
+       "nome": "Leuconostoc gasicomitatum",
+       "pct": 4.417127
+      }
+     ],
+     "non_assegnata_pct": 53.651104,
+     "frase": "MetaPhlAn: 27 specie sopra la soglia; dominano Latilactobacillus sakei (21,6 % delle read), Latilactobacillus curvatus (11,4 % delle read) e Leuconostoc gasicomitatum (4,4 % delle read). Il 53,7 % delle read non è assegnato a specie note."
+    },
+    "kraken": {
+     "microbi": 48,
+     "dominanti": [
+      {
+       "nome": "Latilactobacillus sakei",
+       "pct_microbi": 37.15676747843683
+      },
+      {
+       "nome": "Latilactobacillus curvatus",
+       "pct_microbi": 31.4456588161045
+      },
+      {
+       "nome": "Leuconostoc carnosum",
+       "pct_microbi": 5.665027097963395
+      }
+     ],
+     "non_microbi": [
+      {
+       "nome": "Leishmania mexicana",
+       "gruppo": "altri eucarioti",
+       "pct": 0.082,
+       "letture": 112
+      },
+      {
+       "nome": "Homo sapiens",
+       "gruppo": "altri eucarioti",
+       "pct": 0.054,
+       "letture": 74
+      },
+      {
+       "nome": "Bottigliavirus pozzuoliense",
+       "gruppo": "virus",
+       "pct": 0.019,
+       "letture": 26
+      }
+     ],
+     "frase": "Kraken: 48 microbi sopra la soglia; dominano Latilactobacillus sakei (37,2 % fra i microbi), Latilactobacillus curvatus (31,4 % fra i microbi) e Leuconostoc carnosum (5,7 % fra i microbi). Segnalati a parte (non microbi o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, Bottigliavirus pozzuoliense 0,019 %."
+    }
    }
   }
  ],

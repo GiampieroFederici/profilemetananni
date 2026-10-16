@@ -36,6 +36,8 @@ def controlla(stdout, codice_uscita, comando):
             assert e["eta_s"] is None or e["eta_s"] >= 0
         if e["tipo"] in ("avviso", "errore"):
             assert e["codice"] in CODICI
+        if e["tipo"] == "errore" and "passo" in e:      # v0.2: dove si e' fermato (null = prima di iniziare)
+            assert e["passo"] is None or e["passo"] in PASSI
     assert ev[0]["tipo"] == "inizio" and ev[0]["comando"] == comando
     fini = [e for e in ev if e["tipo"] == "fine"]
     assert len(fini) == 1 and ev[-1]["tipo"] == "fine"

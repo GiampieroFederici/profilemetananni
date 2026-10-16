@@ -66,7 +66,7 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 | `inizio` | `comando`, `corsa` (id), `log` (percorso del log tecnico) | "Analisi avviata: 3 campioni" |
 | `avanzamento` | `passo`, `campione`, `fatto`, `totale`, `percentuale` (0-100), `eta_s` (secondi stimati, o null) | "Campione 1 di 3: allineo sulla parte 3 di 6 del database" |
 | `avviso` | `codice`, `messaggio` | "Restano 40 GB liberi: bastano per questo progetto" |
-| `errore` | `codice`, `messaggio`, `cosa_fare` | "Manca il database di Kraken." / "Apri Impostazioni e premi Installa." |
+| `errore` | `codice`, `messaggio`, `cosa_fare`; **[v0.2]** `passo` (dove si è fermato, o `null` se prima di iniziare) | "Manca il database di Kraken." / "Apri la pagina Motore e premi Installa." |
 | `fine` | `esito` (`ok`, `errore`, `annullata`), `risultato` (oggetto) | "Analisi finita in 1 h 12 min" |
 
 - `passo` per `esegui`: `download`, `controllo_qualita`, `pulizia`, `ospite`, `metaphlan`, `kraken`, `riepilogo`.
@@ -74,6 +74,13 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
   (già così in `installer/installa_motore.sh --json`).
 - **[v0.2]** `passo` `sicurezza` (un avanzamento per scenario) e `referto` (ultimo passo di `esegui`, e del comando `referto`).
 - L'interfaccia mostra `messaggio` così com'è; per la barra usa `percentuale` ed `eta_s`.
+- **[v0.2]** Testi per l'utente con le vere lettere accentate (è, à, ù, perché), mai l'apostrofo al posto dell'accento.
+  `cosa_fare` per motore mancante: "Apri la pagina Motore e premi Installa." (la pagina dell'app si chiama "Motore").
+- **[v0.2]** In `esegui` `eta_s` è calcolato con le stesse regole di `stima` (§5.2) e scende a ogni evento: secondi
+  per finire il passo in corso più i passi dopo. Il download non è stimato (dipende dalla rete); se le dimensioni
+  dei campioni non si possono chiedere (rete giù) `eta_s` resta `null`.
+- **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
+  `kraken` per `DB_MANCANTE` di Kraken). L'installatore non lo manda ancora: lì vale l'ultimo `avanzamento`.
 - Ogni corsa finisce **sempre** con un solo evento `fine`, anche dopo un errore.
 
 ### Codici di uscita
@@ -100,7 +107,7 @@ Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_
 | Codice | Tipo | Quando |
 |---|---|---|
 | `INGRESSO_NON_VALIDO` | errore (uscita 1) | `sicurezza`: dati del prodotto mancanti o fuori dai limiti; il messaggio dice quale campo |
-| `FUORI_CAMPO` | avviso | `sicurezza`: un fattore è fuori dal campo di validità del modello (M8); uno per fattore e modello, testo già pronto ("Modello Listeria: pH = 5.4: fuori dal campo...") |
+| `FUORI_CAMPO` | avviso | `sicurezza`: un fattore è fuori dal campo di validità del modello (M8); uno per fattore e modello, con i campi `modello` (`listeria`, `listeria_lab`, `lab`) e `fattore`, testo già pronto ("Per il modello della Listeria: pH = 5.4: fuori dal campo...") |
 | `CAMPIONE_DA_CONTROLLARE`, `CAMPIONE_DA_RIFARE` | avviso | `esegui`: esito del triage (System One v0, §5.5) |
 | `REFERTO_PARZIALE` | avviso | `esegui`/`referto`: manca il PDF o l'Excel (la pagina HTML c'è sempre) |
 
@@ -164,6 +171,20 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   **[v0.2]** con DOI, verificate su PubMed; `parametri` = le righe di `tabelle/parameters.tsv` (`metaphlan_mode`,
   `kraken_profile`, `kraken_confidence`, `bracken_min_reads`, `abundance_threshold_pct`, `hosts`, ...);
   `versioni` anche di Bracken, Bowtie 2, fastp e il database di Kraken.
+- **[v0.2]** Per ogni campione `sintesi` (l'interfaccia mostra, non calcola, D006), MetaPhlAn e Kraken separati:
+
+```json
+"sintesi": {
+ "metaphlan": {"specie": 27, "dominanti": [{"nome": "Latilactobacillus sakei", "pct": 21.617793}],
+               "non_assegnata_pct": 53.651104,
+               "frase": "MetaPhlAn: 27 specie sopra la soglia; dominano Latilactobacillus sakei (21,6 % delle read), ... Il 53,7 % delle read non è assegnato a specie note."},
+ "kraken": {"microbi": 48, "dominanti": [{"nome": "Latilactobacillus sakei", "pct_microbi": 37.16}],
+            "non_microbi": [{"nome": "Homo sapiens", "gruppo": "altri eucarioti", "pct": 0.054, "letture": 74}],
+            "frase": "Kraken: 48 microbi sopra la soglia; dominano ... Segnalati a parte (non microbi o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, ..."}}
+```
+
+  `dominanti`: le prime 3 sopra la soglia di abbondanza (MetaPhlAn in % sul totale delle read, Kraken in % fra i
+  soli microbi); `non_microbi`: tutto ciò che Kraken assegna fuori da batteri, archei e funghi (D023).
 - **[v0.2]** Campi nuovi: `triage` (`[{"campione", "esito": "buono" | "da controllare" | "da rifare", "motivi", "punteggio"}]`,
   vuoto se il triage non è attivo), `consigli` (§5.5), `referto` (`{"html", "pdf", "xlsx"}`: percorsi dentro
   `risultati/`, `null` se quel file manca).

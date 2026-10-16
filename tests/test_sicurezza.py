@@ -73,7 +73,8 @@ def test_f2_fuori_campo_un_avviso_per_fattore(motore, tmp_path):
     avvisi = [e for e in ev if e["tipo"] == "avviso"]
     assert rc == 0 and {e["codice"] for e in avvisi} == {"FUORI_CAMPO"}
     assert len(avvisi) == len(ev[-1]["risultato"]["avvisi"]) == 2          # pH e nitrito
-    assert all(e["messaggio"].startswith("Modello Listeria") for e in avvisi)
+    assert all(e["messaggio"].startswith("Per il modello della Listeria") for e in avvisi)
+    assert {(e["modello"], e["fattore"]) for e in avvisi} == {("listeria", "ph"), ("listeria", "nitrito")}
 
 
 @pytest.mark.parametrize("motore", ENGINES)

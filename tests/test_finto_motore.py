@@ -41,6 +41,14 @@ def test_every_command_and_scenario_follows_the_contract(comando, scenario, usci
     controlla(out, rc, comando)
 
 
+def test_error_says_which_step_stopped(progetto):     # v0.2, request 1 of S4
+    out, rc = lancia("esegui", "--progetto", str(progetto), "--scenario", "DB_MANCANTE")
+    ev = controlla(out, rc, "esegui")
+    assert ev[-2]["passo"] == "kraken" and "pagina Motore" in ev[-2]["cosa_fare"]
+    out, rc = lancia("esegui", "--progetto", str(progetto), "--scenario", "READ_NON_TROVATE")
+    assert controlla(out, rc, "esegui")[-2]["passo"] == "download"
+
+
 def test_missing_project_is_config_non_valida():
     out, rc = lancia("esegui", "--progetto", "non_esiste.yaml")
     ev = controlla(out, rc, "esegui")

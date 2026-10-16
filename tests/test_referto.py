@@ -150,6 +150,14 @@ def test_r7_finto_esegui_e_referto(tmp_path):
                                              "xlsx": "referto/referto.xlsx"}
     for f in ev[-1]["risultato"]["referto"].values():
         assert (tmp_path / "risultati" / f).is_file()
+    # v0.2 (richieste 6-7 di S4): sintesi pronta, MetaPhlAn e Kraken separati, non microbi a parte
+    s = ev[-1]["risultato"]["campioni"][0]["sintesi"]
+    assert s["metaphlan"]["specie"] == 27 and s["metaphlan"]["non_assegnata_pct"] == pytest.approx(53.651104)
+    assert s["metaphlan"]["dominanti"][0]["nome"] == "Latilactobacillus sakei"
+    assert s["kraken"]["microbi"] == 48 and s["kraken"]["dominanti"][0]["nome"] == "Latilactobacillus sakei"
+    parte = {x["nome"]: x for x in s["kraken"]["non_microbi"]}
+    assert parte["Homo sapiens"]["pct"] == pytest.approx(0.054) and parte["Leishmania mexicana"]["gruppo"] == "altri eucarioti"
+    assert "53,7 %" in s["metaphlan"]["frase"] and "Homo sapiens 0,054 %" in s["kraken"]["frase"]
     r = subprocess.run([sys.executable, FINTO, "referto", "--progetto", str(cfg), "--velocita", "0"],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     ev = controlla(r.stdout, r.returncode, "referto")

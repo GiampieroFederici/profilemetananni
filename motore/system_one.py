@@ -1,8 +1,8 @@
-"""System One v0 (D031): regole gia' misurate che CONSIGLIANO e non calcolano, ne' cambiano le scelte dell'utente.
+"""System One v0 (D031): regole già misurate che CONSIGLIANO e non calcolano, né cambiano le scelte dell'utente.
 
-Ogni consiglio e' {"codice", "livello", "messaggio", "fonte"}: livello "avviso" diventa un evento `avviso`
+Ogni consiglio è {"codice", "livello", "messaggio", "fonte"}: livello "avviso" diventa un evento `avviso`
 del contratto, "info" resta solo in risultato.consigli. Ogni soglia ha accanto la sua fonte.
-La v1 (S12) sara' un albero addestrato sui casi con risposta nota di L3-L5.
+La v1 (S12) sarà un albero addestrato sui casi con risposta nota di L3-L5.
 Solo libreria standard.
 """
 import csv
@@ -16,7 +16,7 @@ FONTE_RAM_STANDARD = ("MetaPhlAn standard: picco 25,5 GB con il catalogo in swap
                       "non entra nei 31,4 GB del PC di prova (13/10). Soglia 40 GB come run.sh 'auto' (D051)")
 RAM_MINIMA_GB = 7.5
 FONTE_RAM_MINIMA = ("MetaPhlAn a fette provato con WSL a 8 GB (circa 7,7 GB visibili): SF3RAt7 e C03_1, RAM 7,9 GB "
-                    "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificato'). Sotto non e' provato")
+                    "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificatò). Sotto non è provato")
 TEMPO_LUNGO_S = 4 * 3600
 FONTE_TEMPO = "D023: oltre 4 ore si propone lo screening rapido (PlusPF-8) o il cloud"
 MARGINE_SPAZIO = 1.15
@@ -37,10 +37,10 @@ def consiglio(codice, messaggio, fonte, livello="avviso"):
 
 
 def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
-    """Modalita' consigliata dalla RAM e dai database installati: ({"metaphlan", "kraken"}, [consigli])."""
+    """Modalità consigliata dalla RAM e dai database installati: ({"metaphlan", "kraken"}, [consigli])."""
     c = []
     mpa = "standard" if ram_gb >= RAM_STANDARD_GB and indice_intero else "fette"
-    c.append(consiglio("MODO_METAPHLAN", f"MetaPhlAn: modalita' consigliata '{mpa}' "
+    c.append(consiglio("MODO_METAPHLAN", f"MetaPhlAn: modalità consigliata '{mpa}' "
                        f"({ram_gb:.1f} GB di memoria per il motore).", FONTE_RAM_STANDARD, "info"))
     if 0 < ram_gb < RAM_MINIMA_GB:
         c.append(consiglio("RAM_INSUFFICIENTE", f"Il motore vede solo {ram_gb:.1f} GB di memoria: l'analisi potrebbe "
@@ -49,7 +49,7 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
     if not kraken_completo and not kraken_rapido:
         c.append(consiglio("DB_MANCANTE", "Manca il database di Kraken.", FONTE_DB))
     elif not kraken_completo:
-        c.append(consiglio("DB_MANCANTE", "Manca il database completo di Kraken: si puo' usare solo lo screening "
+        c.append(consiglio("DB_MANCANTE", "Manca il database completo di Kraken: si può usare solo lo screening "
                            "rapido (PlusPF-8), che perde alcune specie fra 0,1 e 1 %.", FONTE_DB))
     return {"metaphlan": mpa, "kraken": kraken}, c
 
@@ -58,7 +58,7 @@ def tempo(tempo_s):
     totale = sum(v for v in tempo_s.values() if v)
     if totale <= TEMPO_LUNGO_S:
         return []
-    return [consiglio("TEMPO_LUNGO", f"L'analisi richiedera' circa {round(totale / 3600)} ore. Puoi usare lo "
+    return [consiglio("TEMPO_LUNGO", f"L'analisi richiederà circa {round(totale / 3600)} ore. Puoi usare lo "
                       "screening rapido (PlusPF-8) o il cloud.", FONTE_TEMPO)]
 
 
@@ -74,7 +74,7 @@ def database(kraken_db, installati):
     """kraken_db scelto nel progetto ('completo' | 'rapido'); installati: {nome: bool} come in info."""
     nome = {"completo": "kraken_pluspf_20260626", "rapido": "kraken_pluspf_08gb_20260626"}.get(kraken_db)
     if nome and not installati.get(nome, False):
-        return [consiglio("DB_MANCANTE", f"Il database di Kraken scelto ('{kraken_db}') non e' installato.", FONTE_DB)]
+        return [consiglio("DB_MANCANTE", f"Il database di Kraken scelto ('{kraken_db}') non è installato.", FONTE_DB)]
     return []
 
 
@@ -112,7 +112,7 @@ def triage(tsv, soglie=None):
                     motivi.append(f"poche read dei microbi (circa {reads:,.0f}, minimo {s['min_nonhost_reads']:,.0f})"
                                   .replace(",", "."))
                 if _triage.ramp(q30, s["min_q30_pct"]) < 0.75:
-                    motivi.append(f"qualita' delle read bassa ({q30:.0f} % di basi buone, minimo {s['min_q30_pct']:g} %)")
+                    motivi.append(f"qualità delle read bassa ({q30:.0f} % di basi buone, minimo {s['min_q30_pct']:g} %)")
             esiti.append({"campione": r.get("sample", ""), "esito": esito, "motivi": motivi,
                           "punteggio": float(r["score"]) if r.get("score") else None})
             if esito != "buono":

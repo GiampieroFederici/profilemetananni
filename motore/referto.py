@@ -32,19 +32,19 @@ MICROBI = ("batteri", "archei", "funghi")
 VERSIONI = {"metaphlan": "MetaPhlAn", "database_metaphlan": "Database di MetaPhlAn", "kraken2": "Kraken 2",
             "bracken": "Bracken", "database_kraken": "Database di Kraken", "bowtie2": "Bowtie 2 (ospite, fette)",
             "fastp": "fastp (pulizia delle read)", "samtools": "SAMtools"}
-MODELLI = {"listeria": "modello Listeria", "listeria_lab": "modello Listeria + batteri lattici",
-           "lab": "modello batteri lattici"}
+MODELLI = {"listeria": "modello della Listeria", "listeria_lab": "modello della Listeria con i batteri lattici",
+           "lab": "modello dei batteri lattici"}
 NOMI_PRODOTTO = {"temperatura": "temperatura {} °C", "sale_fase_acquosa": "sale nella fase acquosa {} %", "aw": "aw {}",
                  "ph": "pH {}", "fenoli": "fenoli del fumo {} ppm", "co2": "CO2 {} %", "nitrito": "nitrito {} ppm"}
 POSTILLA_VIRUS = ("Virus: opzione sperimentale, non validata con il database diviso in 6 parti. Nei pareggi fra copie "
-                  "virali quasi identiche la scelta puo' cambiare rispetto al MetaPhlAn standard (D017, D033).")
+                  "virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).")
 GLOSSARIO = [
-    ("Read (lettura)", "un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento e' letto dai due lati."),
+    ("Read (lettura)", "un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento è letto dai due lati."),
     ("Ospite", "l'animale da cui viene il prodotto (es. maiale) e l'uomo: il loro DNA si toglie prima di cercare i microbi."),
-    ("Abbondanza relativa", "la percentuale di DNA di una specie rispetto al totale: non e' il numero di cellule vive per grammo."),
+    ("Abbondanza relativa", "la percentuale di DNA di una specie rispetto al totale: non è il numero di cellule vive per grammo."),
     ("MetaPhlAn", "riconosce le specie da geni caratteristici di ognuna (marcatori): preciso sulle specie note."),
-    ("Kraken + Bracken", "confronta ogni read con interi genomi di riferimento, poi stima le abbondanze: vede piu' specie, "
-                         "anche funghi, ma con piu' rumore. Per questo i due risultati stanno in tabelle separate."),
+    ("Kraken + Bracken", "confronta ogni read con interi genomi di riferimento, poi stima le abbondanze: vede più specie, "
+                         "anche funghi, ma con più rumore. Per questo i due risultati stanno in tabelle separate."),
     ("Soglia di abbondanza", "sotto questa percentuale una specie non si mostra nelle tabelle del referto (resta nell'Excel)."),
 ]
 
@@ -133,20 +133,60 @@ def numero(v):
         return None
 
 
+def leggi_campione(risultati, file):
+    """{"metaphlan", "non_classificato", "kraken"} dai file di un campione (None se il file manca)."""
+    d = {"metaphlan": None, "non_classificato": None, "kraken": None}
+    if file.get("metaphlan") and (risultati / file["metaphlan"]).is_file():
+        d["metaphlan"], d["non_classificato"] = leggi_metaphlan(risultati / file["metaphlan"])
+    if file.get("kraken") and (risultati / file["kraken"]).is_file():
+        b = risultati / file["kraken"]
+        d["kraken"] = leggi_kraken(b, b.with_suffix(".k2report"))
+    return d
+
+
+def elenca(nomi_pct, base):
+    nomi_pct = list(nomi_pct)
+    testo = [f"{n} ({pct(v, 1)} %{base})" for n, v in nomi_pct]
+    return " e ".join(testo) if len(testo) <= 2 else ", ".join(testo[:-1]) + " e " + testo[-1]
+
+
+def sintesi(d, soglia):
+    """Sintesi di un campione per risultati.json e per "In breve" (l'interfaccia mostra, non calcola: D006).
+    MetaPhlAn e Kraken restano separati; le specie contano solo sopra la soglia di abbondanza."""
+    out = {}
+    if d.get("metaphlan") is not None:
+        sopra = [(n, v) for n, v in d["metaphlan"] if v >= soglia]
+        nc = d.get("non_classificato") or 0.0
+        frase = (f"MetaPhlAn: {len(sopra)} specie sopra la soglia" +
+                 (f"; dominano {elenca(sopra[:3], ' delle read')}." if sopra else ".") +
+                 f" Il {pct(nc, 1)} % delle read non è assegnato a specie note.")
+        out["metaphlan"] = {"specie": len(sopra), "dominanti": [{"nome": n, "pct": v} for n, v in sopra[:3]],
+                            "non_assegnata_pct": nc, "frase": frase}
+    if d.get("kraken") is not None:
+        micro = [r for r in d["kraken"] if r["categoria"] in MICROBI and r["pct"] >= soglia]
+        altri = [r for r in d["kraken"] if r["categoria"] not in MICROBI]
+        frase = (f"Kraken: {len(micro)} microbi sopra la soglia" +
+                 (f"; dominano {elenca([(r['nome'], r['pct_microbi']) for r in micro[:3]], ' fra i microbi')}." if micro else ".") +
+                 (" Segnalati a parte (non microbi o virus): " +
+                  ", ".join(f"{r['nome']} {pct(r['pct'], 3)} %" for r in altri) + "." if altri else ""))
+        out["kraken"] = {"microbi": len(micro),
+                         "dominanti": [{"nome": r["nome"], "pct_microbi": r["pct_microbi"]} for r in micro[:3]],
+                         "non_microbi": [{"nome": r["nome"], "gruppo": r["categoria"], "pct": r["pct"],
+                                          "letture": r["letture"]} for r in altri],
+                         "frase": frase}
+    return out
+
+
 def raccogli(risultati, cfg):
-    """Tutto quello che va nel referto, gia' letto dai file (una sola fonte per HTML, Excel e PDF)."""
+    """Tutto quello che va nel referto, già letto dai file (una sola fonte per HTML, Excel e PDF)."""
     indice = json.loads((risultati / "risultati.json").read_text(encoding="utf-8"))
     par = tsv_dict(risultati / "tabelle" / "parameters.tsv") or {k: str(v) for k, v in indice.get("parametri", {}).items()}
     soglia = numero(par.get("abundance_threshold_pct")) or 0.0
     campioni = []
     for c in indice.get("campioni", []):
         file = c.get("file", {})
-        d = {"nome": c["nome"], "coppie": c.get("coppie_dopo_ospite"), "metaphlan": None, "kraken": None}
-        if file.get("metaphlan") and (risultati / file["metaphlan"]).is_file():
-            d["metaphlan"], d["non_classificato"] = leggi_metaphlan(risultati / file["metaphlan"])
-        if file.get("kraken") and (risultati / file["kraken"]).is_file():
-            b = risultati / file["kraken"]
-            d["kraken"] = leggi_kraken(b, b.with_suffix(".k2report"))
+        d = {"nome": c["nome"], "coppie": c.get("coppie_dopo_ospite"), **leggi_campione(risultati, file)}
+        d["sintesi"] = sintesi(d, soglia)
         campioni.append(d)
     triage, _ = system_one.triage(risultati / "tabelle" / "triage.tsv", system_one.soglie_triage(cfg))
     sicurezza = [json.loads(f.read_text(encoding="utf-8")) for f in sorted((risultati / "sicurezza").glob("*.json"))]
@@ -255,7 +295,7 @@ def html_referto(d):
          f"<h1>Referto dell'analisi: {e(d['progetto'])}</h1>",
          f"<p>Corsa <b>{e(d['corsa'])}</b> &middot; motore profilemetananni {e(d['motore'])} &middot; "
          f"{len(d['campioni'])} campion{'e' if len(d['campioni']) == 1 else 'i'}</p>",
-         riquadro("<b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni microbo c'e' nel "
+         riquadro("<b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni microbo c'è nel "
                   "campione, non quante cellule vive per grammo. MetaPhlAn e Kraken sono due metodi diversi: i loro "
                   "risultati stanno in tabelle separate e non vanno sommati. In fondo trovi i parametri usati, gli "
                   "strumenti con le versioni e come citarli.", "#e8f1fb")]
@@ -270,13 +310,9 @@ def html_referto(d):
             t = esiti[c["nome"]]
             h.append(f"<li>Controllo iniziale (triage): <b>{e(t['esito'])}</b>"
                      + (f" ({e('; '.join(t['motivi']))})" if t["motivi"] else "") + "</li>")
-        if c["metaphlan"]:
-            top = ", ".join(f"<i>{e(n)}</i> {pct(v, 1)} %" for n, v in c["metaphlan"][:5])
-            h.append(f"<li>MetaPhlAn, specie principali: {top}</li>")
-        if c["kraken"]:
-            micro = [r for r in c["kraken"] if r["categoria"] in MICROBI][:5]
-            top = ", ".join(f"<i>{e(r['nome'])}</i> {pct(r['pct_microbi'], 1)} %" for r in micro)
-            h.append(f"<li>Kraken, microbi principali (percentuale fra i soli microbi): {top}</li>")
+        for metodo in ("metaphlan", "kraken"):   # stessa frase del risultati.json (sintesi)
+            if metodo in c["sintesi"]:
+                h.append(f"<li>{e(c['sintesi'][metodo]['frase'])}</li>")
         h.append("</ul>")
     # MetaPhlAn
     h.append("<h2>2. Specie trovate con MetaPhlAn</h2>")
@@ -293,7 +329,7 @@ def html_referto(d):
     # Kraken
     h.append("<h2>3. Microbi trovati con Kraken + Bracken</h2>")
     h.append('<p class="piccolo">Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, che il '
-             "database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perche' non contiene il genoma del maiale, "
+             "database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non contiene il genoma del maiale, "
              "e i virus sono nella tabella successiva, a parte (D023).</p>")
     for c in d["campioni"]:
         if not c["kraken"]:
@@ -320,18 +356,18 @@ def html_referto(d):
     if d["sicurezza"]:
         h.append(f"<h2>{n}. Sicurezza alimentare (previsioni di crescita)</h2>")
         h.append(riquadro("Previsioni da modelli di microbiologia previsionale (FSSP, DTU Food). Il profilo dice chi "
-                          "c'e', non quanti per grammo: per la <i>Listeria</i> si calcolano scenari \"e se\" (1 e 100 "
+                          "c'è, non quanti per grammo: per la <i>Listeria</i> si calcolano scenari \"e se\" (1 e 100 "
                           "ufc/g). Una previsione non sostituisce le analisi di laboratorio."))
         for r in d["sicurezza"]:
             h.append(f"<h3>{e('Campione ' + r['campione'] if r.get('campione') else 'Prodotto')} "
-                     f"(modalita' {e(r.get('modalita', ''))})</h3>")
+                     f"(modalità {e(r.get('modalita', ''))})</h3>")
             if r.get("richiesta"):
                 h.append(f'<p class="piccolo">Dati del prodotto: {e(dati_prodotto(r["richiesta"]))}</p>')
             if r.get("profilo_usato"):
                 h.append(f'<p class="piccolo">Profilo usato: {e(r["profilo_usato"])}</p>')
-            h.append(tabella(["Scenario", "La Listeria puo' crescere?", "Giorni per aumentare di 100 volte",
-                              "psi (1 o piu' = non cresce)"],
-                             [[e(p["scenario"]), "si'" if p["listeria_puo_crescere"] else "no",
+            h.append(tabella(["Scenario", "La Listeria può crescere?", "Giorni per aumentare di 100 volte",
+                              "psi (1 o più = non cresce)"],
+                             [[e(p["scenario"]), "sì" if p["listeria_puo_crescere"] else "no",
                                pct(p.get("cento_volte_listeria_giorni"), 1) or "non raggiunto",
                                pct(p.get("psi_listeria"), 2) if p.get("psi_listeria") is not None else "oltre un limite"]
                               for p in r["previsioni"]], (2, 3), [34, 18, 24, 24]))
@@ -404,7 +440,7 @@ def excel(d, percorso):
         foglio("Triage", ["Campione", "Esito", "Motivi", "Punteggio"],
                [[t["campione"], t["esito"], "; ".join(t["motivi"]), t["punteggio"]] for t in d["triage"]])
     if d["sicurezza"]:
-        foglio("Sicurezza", ["Campione", "Modalita'", "Scenario", "Modello", "Listeria puo' crescere", "psi Listeria",
+        foglio("Sicurezza", ["Campione", "Modalità", "Scenario", "Modello", "Listeria può crescere", "psi Listeria",
                              "Giorni per 100 volte (Listeria)", "Giorni per 100 volte (LAB)"],
                [[r.get("campione") or "prodotto", r.get("modalita"), p["scenario"], p["modello"],
                  "si" if p["listeria_puo_crescere"] else "no", p.get("psi_listeria"), p.get("cento_volte_listeria_giorni"),

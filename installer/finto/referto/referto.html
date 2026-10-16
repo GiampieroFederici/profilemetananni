@@ -4,12 +4,12 @@
 <style>body{font-family:'DejaVu Sans',Arial,sans-serif;font-size:10pt;color:#222;max-width:60em;margin:auto}h1{color:#1f4e79}h2{color:#1f4e79;border-bottom:1px solid #1f4e79;margin-top:1.4em}h3{color:#333}table{border-collapse:collapse;margin:0.4em 0}td,th{border-color:#999}.piccolo{font-size:8.5pt;color:#555}</style></head><body>
 <h1>Referto dell'analisi: SF3RAt7 (salame Felino)</h1>
 <p>Corsa <b>2026-10-15T18-11-10</b> &middot; motore profilemetananni 0.1.0 &middot; 1 campione</p>
-<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="#e8f1fb"><b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni microbo c'e' nel campione, non quante cellule vive per grammo. MetaPhlAn e Kraken sono due metodi diversi: i loro risultati stanno in tabelle separate e non vanno sommati. In fondo trovi i parametri usati, gli strumenti con le versioni e come citarli.</td></tr></table>
+<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="#e8f1fb"><b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni microbo c'è nel campione, non quante cellule vive per grammo. MetaPhlAn e Kraken sono due metodi diversi: i loro risultati stanno in tabelle separate e non vanno sommati. In fondo trovi i parametri usati, gli strumenti con le versioni e come citarli.</td></tr></table>
 <h2>1. In breve</h2>
 <h3>Campione SRR4875279</h3><ul>
 <li>Coppie di read dei microbi (dopo aver tolto l'ospite): <b>1.507.887</b></li>
-<li>MetaPhlAn, specie principali: <i>Latilactobacillus sakei</i> 21,6 %, <i>Latilactobacillus curvatus</i> 11,4 %, <i>Leuconostoc gasicomitatum</i> 4,4 %, <i>Leuconostoc carnosum</i> 2,9 %, <i>Staphylococcus equorum</i> 1,5 %</li>
-<li>Kraken, microbi principali (percentuale fra i soli microbi): <i>Latilactobacillus sakei</i> 37,2 %, <i>Latilactobacillus curvatus</i> 31,4 %, <i>Leuconostoc carnosum</i> 5,7 %, <i>Leuconostoc gasicomitatum</i> 4,6 %, <i>Staphylococcus equorum</i> 3,5 %</li>
+<li>MetaPhlAn: 27 specie sopra la soglia; dominano Latilactobacillus sakei (21,6 % delle read), Latilactobacillus curvatus (11,4 % delle read) e Leuconostoc gasicomitatum (4,4 % delle read). Il 53,7 % delle read non è assegnato a specie note.</li>
+<li>Kraken: 48 microbi sopra la soglia; dominano Latilactobacillus sakei (37,2 % fra i microbi), Latilactobacillus curvatus (31,4 % fra i microbi) e Leuconostoc carnosum (5,7 % fra i microbi). Segnalati a parte (non microbi o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, Bottigliavirus pozzuoliense 0,019 %.</li>
 </ul>
 <h2>2. Specie trovate con MetaPhlAn</h2>
 <h3>Campione SRR4875279</h3>
@@ -45,7 +45,7 @@
 <tr><td align="left"><i>Ewingella americana</i></td><td align="right">0,007</td><td align="right">0,02</td></tr>
 </table>
 <h2>3. Microbi trovati con Kraken + Bracken</h2>
-<p class="piccolo">Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perche' non contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte (D023).</p>
+<p class="piccolo">Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte (D023).</p>
 <h3>Campione SRR4875279</h3>
 <p class="piccolo">Microbi mostrati: 48 su 48 (soglia 0,005 %).</p>
 <table border="1" cellspacing="0" cellpadding="4" width="100%">
@@ -107,7 +107,7 @@
 <tr><td align="left"><i>Bottigliavirus pozzuoliense</i></td><td align="left">virus</td><td align="right">0,019</td><td align="right">26</td></tr>
 </table>
 <h2>4. Virus</h2>
-<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="#fff4d6">Virus: opzione sperimentale, non validata con il database diviso in 6 parti. Nei pareggi fra copie virali quasi identiche la scelta puo&#x27; cambiare rispetto al MetaPhlAn standard (D017, D033).<br>Non richiesti in questo progetto.</td></tr></table>
+<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="#fff4d6">Virus: opzione sperimentale, non validata con il database diviso in 6 parti. Nei pareggi fra copie virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).<br>Non richiesti in questo progetto.</td></tr></table>
 <h2>5. Parametri usati</h2>
 <table border="1" cellspacing="0" cellpadding="4" width="100%">
 <tr><th bgcolor="#dfe8f1" align="left" width="20%">Parametro</th><th bgcolor="#dfe8f1" align="left" width="20%">Valore</th><th bgcolor="#dfe8f1" align="left" width="30%">Cosa vuol dire</th><th bgcolor="#dfe8f1" align="left" width="30%">Fonte</th></tr>
@@ -132,5 +132,5 @@
 <tr><td align="left">fastp (pulizia delle read)</td><td align="left">1.4.0</td></tr>
 </table>
 <p><b>Come citarli:</b></p><ol><li>Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w</li><li>Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice Bowtie2, costruito da profilemetananni)</li><li>Wood et al. 2019, Genome Biol 20:257: Kraken 2. DOI 10.1186/s13059-019-1891-0</li><li>Lu et al. 2017, PeerJ Comput Sci 3:e104: Bracken. DOI 10.7717/peerj-cs.104</li><li>Indici Kraken2/Bracken PlusPF-8 del 26/06/2026 di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)</li><li>Wright, Comeau &amp; Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di Kraken2. DOI 10.1099/mgen.0.000949</li><li>Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. DOI 10.1186/s40793-024-00561-w</li><li>Langmead &amp; Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923</li><li>Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560</li><li>Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051</li><li>Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116</li></ol>
-<h2>7. Parole usate</h2><ul><li><b>Read (lettura)</b>: un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento e&#x27; letto dai due lati.</li><li><b>Ospite</b>: l&#x27;animale da cui viene il prodotto (es. maiale) e l&#x27;uomo: il loro DNA si toglie prima di cercare i microbi.</li><li><b>Abbondanza relativa</b>: la percentuale di DNA di una specie rispetto al totale: non e&#x27; il numero di cellule vive per grammo.</li><li><b>MetaPhlAn</b>: riconosce le specie da geni caratteristici di ognuna (marcatori): preciso sulle specie note.</li><li><b>Kraken + Bracken</b>: confronta ogni read con interi genomi di riferimento, poi stima le abbondanze: vede piu&#x27; specie, anche funghi, ma con piu&#x27; rumore. Per questo i due risultati stanno in tabelle separate.</li><li><b>Soglia di abbondanza</b>: sotto questa percentuale una specie non si mostra nelle tabelle del referto (resta nell&#x27;Excel).</li></ul>
+<h2>7. Parole usate</h2><ul><li><b>Read (lettura)</b>: un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento è letto dai due lati.</li><li><b>Ospite</b>: l&#x27;animale da cui viene il prodotto (es. maiale) e l&#x27;uomo: il loro DNA si toglie prima di cercare i microbi.</li><li><b>Abbondanza relativa</b>: la percentuale di DNA di una specie rispetto al totale: non è il numero di cellule vive per grammo.</li><li><b>MetaPhlAn</b>: riconosce le specie da geni caratteristici di ognuna (marcatori): preciso sulle specie note.</li><li><b>Kraken + Bracken</b>: confronta ogni read con interi genomi di riferimento, poi stima le abbondanze: vede più specie, anche funghi, ma con più rumore. Per questo i due risultati stanno in tabelle separate.</li><li><b>Soglia di abbondanza</b>: sotto questa percentuale una specie non si mostra nelle tabelle del referto (resta nell&#x27;Excel).</li></ul>
 </body></html>

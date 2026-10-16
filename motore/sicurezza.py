@@ -1,8 +1,8 @@
 """Comando "sicurezza" del motore: previsioni di FSSP (motore/fssp, D019, D048-D050) con gli eventi del contratto.
 
 Usato tale e quale da pmn_motore.py (motore vero) e da installer/finto_motore.py (finto motore): il calcolo
-e' Python puro e istantaneo, quindi anche il finto da' i numeri veri. La richiesta e' quella di
-steps/45_previsione_fssp.py, piu' "campione" (facoltativo). Se manca "profilo_specie" e c'e' un progetto,
+è Python puro e istantaneo, quindi anche il finto dà i numeri veri. La richiesta è quella di
+steps/45_previsione_fssp.py, più "campione" (facoltativo). Se manca "profilo_specie" e c'è un progetto,
 il profilo delle specie si legge dal profilo MetaPhlAn in risultati/ (mai sommato a Kraken, D016).
 Solo libreria standard.
 """
@@ -16,13 +16,13 @@ _spec = importlib.util.spec_from_file_location("previsione_fssp", ROOT / "steps"
 step45 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(step45)
 
-MODELLI = {"listeria": "Modello Listeria", "listeria_lab": "Modello Listeria + batteri lattici",
-           "lab": "Modello batteri lattici"}
+MODELLI = {"listeria": "Per il modello della Listeria", "listeria_lab": "Per il modello della Listeria con i batteri lattici",
+           "lab": "Per il modello dei batteri lattici"}
 COSA_FARE = "Controlla i dati del prodotto e riprova."
 
 
 class Rifiutata(Exception):
-    """Richiesta che l'utente puo' correggere: diventa l'errore INGRESSO_NON_VALIDO (codice di uscita 1)."""
+    """Richiesta che l'utente può correggere: diventa l'errore INGRESSO_NON_VALIDO (codice di uscita 1)."""
 
 
 def specie_metaphlan(profilo):
@@ -86,7 +86,8 @@ def comando(evento, ingresso, progetto=None):
     except step45.IngressoNonValido as e:
         raise Rifiutata(str(e))
     for a in out["avvisi"]:   # M8: fuori dal campo del modello, mostrato com'e'
-        evento("avviso", f"{MODELLI[a['modello']]}: {a['messaggio']}", codice="FUORI_CAMPO")
+        evento("avviso", f"{MODELLI[a['modello']]}: {a['messaggio']}", codice="FUORI_CAMPO", modello=a["modello"],
+               fattore=a["fattore"])
     out.update(campione=campione, profilo_usato=profilo_usato,
                richiesta={k: v for k, v in richiesta.items() if k != "profilo_specie"})
     if risultati:

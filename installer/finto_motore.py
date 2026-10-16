@@ -5,13 +5,13 @@ l'interfaccia (S4-S6): non calcola nulla e non si installa per gli utenti.
 Uso: python finto_motore.py <info|installa|verifica|stima|esegui|annulla|sicurezza|referto> [opzioni]
   --progetto FILE   config.yaml del progetto (stima, esegui); i risultati vanno in <sua cartella>/risultati/
   --corsa ID        corsa da fermare (annulla)
-  --ingresso FILE   richiesta JSON di sicurezza (calcolo vero di motore/fssp: e' Python puro e istantaneo)
-  --velocita N      quante volte piu' veloce del vero (predefinito 60: un'ora diventa un minuto; 0 = senza attese)
+  --ingresso FILE   richiesta JSON di sicurezza (calcolo vero di motore/fssp: è Python puro e istantaneo)
+  --velocita N      quante volte più veloce del vero (predefinito 60: un'ora diventa un minuto; 0 = senza attese)
   --scenario S      ok (predefinito) | DB_MANCANTE (verifica, esegui) | GIA_IN_CORSO (esegui) |
                     annullata (installa, esegui) | READ_NON_TROVATE (esegui) | TEMPO_LUNGO (stima, esegui) |
                     CAMPIONE_DA_CONTROLLARE (esegui: triage "da controllare", v0.2)
 
-esegui copia in risultati/referto/ il referto vero di SF3RAt7 (installer/finto/referto/); referto lo rifa'
+esegui copia in risultati/referto/ il referto vero di SF3RAt7 (installer/finto/referto/); referto lo rifà
 con motore/referto.py (HTML sempre; Excel e PDF se ci sono openpyxl e PySide6, altrimenti REFERTO_PARZIALE).
 
 Senza --scenario si comporta come il vero: un solo esegui alla volta (GIA_IN_CORSO) e annulla ferma davvero
@@ -60,10 +60,13 @@ class Motore:
         self.a = a
         self.corsa = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.log = STATO / f"{self.corsa}_{a.comando}.log"
+        self.passo = None   # ultimo passo annunciato: va nell'evento errore (v0.2)
 
     def evento(self, tipo, messaggio, **campi):
         riga = {"tipo": tipo, "ora": datetime.now().astimezone().isoformat(timespec="seconds"),
                 "messaggio": messaggio, **campi}
+        if tipo == "avanzamento":
+            self.passo = campi.get("passo")
         print(json.dumps(riga, ensure_ascii=False), flush=True)
         with open(self.log, "a", encoding="utf-8") as f:
             f.write(f"{riga['ora']} {tipo}: {messaggio}\n")
@@ -78,9 +81,9 @@ class Motore:
                 return
             time.sleep(min(0.1, fine - time.monotonic()))
 
-    def errore(self, codice, messaggio, cosa_fare):
-        self.evento("errore", messaggio, codice=codice, cosa_fare=cosa_fare)
-        return "errore", {"codice": codice}, "L'operazione non e' andata a buon fine."
+    def errore(self, codice, messaggio, cosa_fare, passo=None):
+        self.evento("errore", messaggio, codice=codice, cosa_fare=cosa_fare, passo=passo or self.passo)
+        return "errore", {"codice": codice}, "L'operazione non è andata a buon fine."
 
     def progetto(self):
         p = self.a.progetto
@@ -90,7 +93,7 @@ class Motore:
 
     # ---------------- comandi ----------------
     def info(self):
-        return "ok", INFO, "Ecco com'e' fatto questo PC e cosa e' installato."
+        return "ok", INFO, "Ecco com'è fatto questo PC e cosa è installato."
 
     def installa(self):
         passi = [("controllo", 0, 10, "Controllo il PC e lo spazio libero..."),
@@ -103,13 +106,13 @@ class Motore:
                 raise Annullata
             self.attendi(sec)
         return "ok", {"installati": ["programmi", "metaphlan", "kraken_completo", "kraken_rapido", "ospite", "prova"]}, \
-            "VERDE: il motore e' installato e funziona."
+            "VERDE: il motore è installato e funziona."
 
     def verifica(self):
         self.evento("avanzamento", "Controllo i database e provo un piccolo campione...", passo="verifica",
                     campione=None, fatto=0, totale=1, percentuale=10, eta_s=None)
         if self.a.scenario == "DB_MANCANTE":
-            return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri Impostazioni e premi Installa.")
+            return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.")
         self.attendi(300)
         controlli = [{"nome": n, "esito": "ok"} for n in
                      ("versioni dei programmi", "MD5 dei database", "mini-campione: mapout", "mini-campione: profilo")]
@@ -135,7 +138,7 @@ class Motore:
             return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
         blocco = STATO / "esegui.lock"
         if self.a.scenario == "GIA_IN_CORSO" or blocco.exists():
-            return self.errore("GIA_IN_CORSO", "C'e' gia' un'analisi in corso.",
+            return self.errore("GIA_IN_CORSO", "C'è già un'analisi in corso.",
                                "Aspetta che finisca, oppure annullala.")
         blocco.write_text(self.corsa, encoding="utf-8")
         try:
@@ -146,26 +149,28 @@ class Motore:
 
     def _esegui(self, progetto):
         if self.a.scenario == "TEMPO_LUNGO":
-            self.evento("avviso", "L'analisi richiedera' piu' di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
+            self.evento("avviso", "L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
                         "o il cloud.", codice="TEMPO_LUNGO")
-        # (passo, secondi veri, messaggi): tempi misurati su SF3RAt7 (S2.2, S3)
+        # (passo, secondi veri, messaggi): tempi misurati su SF3RAt7 (S2.2, S3). I dati di installer/finto/ vengono
+        # da una corsa con lo screening rapido (PlusPF-8): Kraken ~20 s (K1b, WSL a 8 GB), non i ~41 min del completo
         piano = [("download", 240, ["scarico le read da NCBI"]),
-                 ("controllo_qualita", 20, ["controllo la qualita' delle read"]),
-                 ("pulizia", 60, ["tolgo le parti di bassa qualita'"]),
+                 ("controllo_qualita", 20, ["controllo la qualità delle read"]),
+                 ("pulizia", 60, ["tolgo le parti di bassa qualità"]),
                  ("ospite", 325, ["tolgo le read del maiale e dell'uomo"]),
                  ("metaphlan", 350, [f"allineo sulla parte {n} di 6 del database" for n in range(1, 7)]
                   + ["calcolo il profilo delle specie"]),
-                 ("kraken", 2445, ["classifico le read con Kraken (database completo)"] * 4
-                  + ["stimo le abbondanze con Bracken"]),
+                 ("kraken", 20, ["classifico le read con Kraken (screening rapido, PlusPF-8)",
+                                 "stimo le abbondanze con Bracken"]),
                  ("riepilogo", 10, ["preparo le tabelle e il riepilogo"])]
         totale_s = sum(p[1] for p in piano)
         fatto_s = 0.0
         for passo, sec, messaggi in piano:
             if passo == "download" and self.a.scenario == "READ_NON_TROVATE":
                 return self.errore("READ_NON_TROVATE", f"Non trovo le read del campione {CAMPIONE} su NCBI.",
-                                   "Controlla il codice SRR nel progetto.")
+                                   "Controlla il codice SRR nel progetto.", passo="download")
             if passo == "kraken" and self.a.scenario == "DB_MANCANTE":
-                return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri Impostazioni e premi Installa.")
+                return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.",
+                                   passo="kraken")
             if passo == "metaphlan" and self.a.scenario == "annullata":
                 raise Annullata
             for i, m in enumerate(messaggi):
@@ -228,7 +233,7 @@ class Motore:
         if not esito.get("html"):
             return self.errore("ERRORE_INTERNO", "Non riesco a preparare il referto.", f"Guarda il file {self.log}.")
         if esito.get("problemi"):
-            self.evento("avviso", "Il referto non e' completo: " + "; ".join(esito["problemi"])[:300],
+            self.evento("avviso", "Il referto non è completo: " + "; ".join(esito["problemi"])[:300],
                         codice="REFERTO_PARZIALE")
         file = {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
         return "ok", {"cartella": str(r), "referto": file}, "Referto pronto."
@@ -260,7 +265,7 @@ def main():
         esito, risultato, messaggio = getattr(m, a.comando)()
         codice = USCITA.get(esito) if esito != "errore" else CODICE_USCITA.get(risultato["codice"], 4)
     except Annullata:
-        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: niente di fatto a meta' e' rimasto.", 3
+        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: niente di fatto a metà è rimasto.", 3
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 
