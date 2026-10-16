@@ -11,8 +11,7 @@ from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QFrame, QGridL
     QVBoxLayout
 
 from app.motore import RADICE, MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, etichetta, numero, riquadro
-from app.pagine.progetto import STILE, Scelta, pannello, riga_di_scelte, svuota
+from app.pagine.base import Pagina, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
 
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
 CONFIDENZE = ["0", "0.05", "0.1", "0.2", "0.3"]
@@ -64,7 +63,6 @@ class PaginaScelte(Pagina):
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.setStyleSheet(STILE)
         self.profili = profili_kraken()
         self.client = MotoreClient(self)
         self.client.evento.connect(self._evento)

@@ -1,15 +1,15 @@
 """Pagina "I miei progetti" (S5b, docs/interfaccia_S4.md §3): ritrovare e aprire i progetti; crearne uno nuovo.
 
 Il nome del progetto nuovo si scrive nella pagina (già proposto, R4): "Nuovo progetto" lo crea con le regole
-di progetto.nuovo e porta a "Campioni e prodotto".
+di progetto.nuovo e porta a "Campioni e prodotto". Mentre un'analisi gira si lavora solo sul suo progetto:
+gli altri non si aprono e non se ne creano di nuovi (si spiega perché).
 """
 from datetime import date, datetime
 
 from PySide6.QtWidgets import QGridLayout, QLineEdit, QPushButton, QVBoxLayout
 
 from app import progetto
-from app.pagine.base import Pagina, etichetta, riquadro
-from app.pagine.progetto import STILE, pannello, svuota
+from app.pagine.base import Pagina, etichetta, pannello, riquadro, svuota
 
 
 class PaginaHome(Pagina):
@@ -18,13 +18,14 @@ class PaginaHome(Pagina):
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.setStyleSheet(STILE)
         self.corpo.addWidget(etichetta("Un progetto raccoglie i campioni di un lotto o di uno studio, "
                                        "le scelte fatte e i risultati."))
         self.zona_motore = QVBoxLayout()
         self.corpo.addLayout(self.zona_motore)
         self.zona_elenco = QVBoxLayout()
         self.corpo.addLayout(self.zona_elenco)
+        self.errore_elenco = QVBoxLayout()        # vicino all'elenco (R9)
+        self.corpo.addLayout(self.errore_elenco)
 
         self.corpo.addSpacing(8)
         self.corpo.addWidget(etichetta("Nuovo progetto", "sottotitolo"))
@@ -46,7 +47,14 @@ class PaginaHome(Pagina):
                 "Il motore non ha risposto.",
                 "Puoi preparare i progetti, ma per l'analisi serve il motore: apri la pagina Motore in alto.",
                 "avviso"))
+        corsa = self.contesto.progetto_in_analisi
+        if corsa is not None:
+            self.zona_motore.addWidget(riquadro(
+                f"Un'analisi è in corso sul progetto {corsa.nome}.",
+                "Finché non finisce puoi aprire solo quel progetto. Per aprirne un altro, prima ferma l'analisi.",
+                "avviso"))
         svuota(self.errore)
+        svuota(self.errore_elenco)
         self._elenco()
         if not self.nome.text():
             self.nome.setText(self._nome_proposto())
@@ -88,7 +96,10 @@ class PaginaHome(Pagina):
             apri.clicked.connect(lambda _=False, q=pr: self.apri(q))
             griglia.addWidget(apri, riga, 0)
             pronto = (pr.risultati / "risultati.json").is_file()
-            griglia.addWidget(etichetta("Risultati pronti" if pronto else "Da avviare"), riga, 1)
+            corsa = self.contesto.progetto_in_analisi
+            gira = corsa is not None and pr.cartella.resolve() == corsa.cartella.resolve()
+            griglia.addWidget(etichetta("Analisi in corso" if gira else "Risultati pronti" if pronto else
+                                        "Da avviare"), riga, 1)
             quando = datetime.fromtimestamp(pr.config.stat().st_mtime)
             griglia.addWidget(etichetta(f"{quando:%d/%m/%Y, %H:%M}"), riga, 2)
         griglia.setColumnStretch(3, 1)
@@ -96,11 +107,32 @@ class PaginaHome(Pagina):
         self.zona_elenco.addWidget(p)
         self.zona_elenco.addWidget(etichetta("Premi il nome di un progetto per aprirlo.", "nota"))
 
+    def occupato(self, pr=None):
+        """True (e lo spiega vicino a dove si è premuto) se un'analisi gira su un progetto diverso da pr."""
+        corsa = self.contesto.progetto_in_analisi
+        if corsa is None or (pr is not None and pr.cartella.resolve() == corsa.cartella.resolve()):
+            return False
+        zona = self.errore if pr is None else self.errore_elenco
+        svuota(zona)
+        zona.addWidget(riquadro(f"Un'analisi è in corso sul progetto {corsa.nome}.",
+                                "Prima fermala dalla pagina Analisi in corso, poi apri o crea l'altro progetto.",
+                                "errore"))
+        return True
+
     def apri(self, pr):
+        if self.occupato(pr):
+            return
+        corsa = self.contesto.progetto_in_analisi
+        if corsa is not None:                      # è il progetto della corsa: si torna a seguirla
+            self.contesto.progetto = corsa
+            self.vai.emit("esecuzione")
+            return
         self.contesto.progetto = pr
         self.vai.emit("risultati" if (pr.risultati / "risultati.json").is_file() else "campioni")
 
     def azione_principale(self):
+        if self.occupato():
+            return
         svuota(self.errore)
         nome = self.nome.text().strip()
         try:

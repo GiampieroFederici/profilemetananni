@@ -3,48 +3,16 @@
 Il prodotto decide l'ospite da togliere (System One v0, regola fissa: in motore/system_one.py non c'è ancora,
 proposta nel diario S5b). Salva in config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il
 motore (percorso_per_motore), perché il motore li legge così come sono.
-
-Qui ci sono anche i pezzi grafici comuni alle pagine di S5b (schede di scelta, pannelli, stile dei campi):
-stile.qss si cambia solo in S5a, quindi lo stile in più sta qui (richiesta allo scheletro nel diario S5b).
 """
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QStandardPaths, Qt, Signal
-from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QPlainTextEdit,
-                               QPushButton, QRadioButton, QVBoxLayout)
+from PySide6.QtCore import QSettings, QStandardPaths
+from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QPlainTextEdit,
+                               QPushButton, QVBoxLayout)
 
 from app import progetto
 from app.motore import percorso_per_motore
-from app.pagine.base import Pagina, etichetta, riquadro
-
-STILE = """
-QFrame#scelta { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
-QFrame#scelta[scelto="true"] { background: #E3F1E9; border: 2px solid #1E7A4C; }
-QFrame#scelta[spento="true"] { background: #F6F8F7; }
-QFrame#scelta QLabel, QFrame#scelta QRadioButton, QFrame#scelta QCheckBox { background: transparent; }
-QFrame#pannello { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
-QFrame#pannello QLabel { background: transparent; }
-#consigliato { color: #1E7A4C; font-weight: bold; font-size: 16px; }
-#etichetta_campo { font-weight: bold; }
-QLineEdit, QPlainTextEdit, QComboBox { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px;
-  padding: 8px 10px; }
-QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus { border: 2px solid #2F5D7C; }
-QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 30px; border: 0; }
-QComboBox::down-arrow { image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png); width: 16px;
-  height: 16px; }
-QRadioButton::indicator { width: 16px; height: 16px; border-radius: 10px; border: 2px solid #52625D;
-  background: #FFFFFF; }
-QRadioButton::indicator:checked { border: 2px solid #1E7A4C; background: qradialgradient(cx:0.5, cy:0.5,
-  radius:0.5, fx:0.5, fy:0.5, stop:0 #1E7A4C, stop:0.55 #1E7A4C, stop:0.65 #FFFFFF, stop:1 #FFFFFF); }
-QRadioButton::indicator:disabled { border-color: #CBD5D1; }
-QComboBox QAbstractItemView { background: #FFFFFF; selection-background-color: #E3F1E9;
-  selection-color: #1C2B27; }
-QPushButton#apri { background: transparent; border: 0; color: #2F5D7C; text-align: left; padding: 4px 0;
-  font-weight: bold; }
-QPushButton#apri:hover, QPushButton#apri:focus { text-decoration: underline; }
-QProgressBar { background: #E2E8E5; border: 0; border-radius: 6px; height: 12px; }
-QProgressBar::chunk { background: #1E7A4C; border-radius: 6px; }
-"""
+from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro, svuota
 
 # prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello)
 # D074: maiale, bovino, pecora, altro (il pollo no: il suo indice non è nel motore installato, D021).
@@ -76,79 +44,12 @@ def prodotto_da_ospiti(ospiti):
     return "altro"
 
 
-class Scelta(QFrame):
-    """Scheda grande con un pulsante tondo, il titolo e una frase che dice cosa fa (R5); si sceglie con un clic."""
-    scelta = Signal()
-
-    def __init__(self, titolo, spiega, gruppo, consigliato=False):
-        super().__init__(objectName="scelta")
-        s = QVBoxLayout(self)
-        s.setContentsMargins(18, 14, 18, 14)
-        riga = QHBoxLayout()
-        self.pulsante = QRadioButton(titolo)
-        self.pulsante.setStyleSheet("font-weight: bold;")
-        gruppo.addButton(self.pulsante)
-        riga.addWidget(self.pulsante)
-        if consigliato:
-            riga.addWidget(QLabel("consigliato", objectName="consigliato"))
-        riga.addStretch(1)
-        s.addLayout(riga)
-        self.spiega = etichetta(spiega)
-        self.spiega.setContentsMargins(30, 0, 0, 0)
-        s.addWidget(self.spiega)
-        self.pulsante.toggled.connect(self._ridisegna)
-        self._ridisegna()
-
-    def mousePressEvent(self, evento):
-        if self.pulsante.isEnabled():
-            self.pulsante.setChecked(True)
-        super().mousePressEvent(evento)
-
-    def _ridisegna(self, *_):
-        self.setProperty("scelto", self.pulsante.isChecked())
-        self.setProperty("spento", not self.pulsante.isEnabled())
-        self.style().unpolish(self)
-        self.style().polish(self)
-        if self.pulsante.isChecked():
-            self.scelta.emit()
-
-    def setEnabled(self, si):
-        self.pulsante.setEnabled(si)
-        self._ridisegna()
-
-
-def riga_di_scelte(*schede):
-    r = QHBoxLayout()
-    r.setSpacing(16)
-    for s in schede:
-        r.addWidget(s, 1)
-    return r
-
-
-def pannello():
-    p = QFrame(objectName="pannello")
-    s = QVBoxLayout(p)
-    s.setContentsMargins(22, 16, 22, 16)
-    s.setSpacing(8)
-    return p, s
-
-
-def svuota(disposizione):
-    """Toglie i widget di un layout (per ridisegnare una zona della pagina)."""
-    while disposizione.count():
-        w = disposizione.takeAt(0).widget()
-        if w:
-            w.hide()
-            w.deleteLater()
-
-
 class PaginaCampioni(Pagina):
     titolo = "Campioni e prodotto"
     testo_principale = "Avanti: scelte dell'analisi"
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.setStyleSheet(STILE)
         self.cartella = None
         self.corpo.addWidget(etichetta("Dimmi da dove arrivano le read e che prodotto stai analizzando. "
                                        "Al resto penso io."))

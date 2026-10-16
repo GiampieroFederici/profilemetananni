@@ -1,6 +1,7 @@
 """La finestra dell'app (docs/interfaccia_S4.md §3): testata, percorso a sinistra, pagina al centro,
 barra delle azioni in basso con un solo pulsante principale (R1). Prima di tutto l'avvio: l'avatar
-saltella e si ferma mentre arriva `info` dal motore (D046).
+saltella e si ferma mentre arriva `info` dal motore (D046). Tastiera (R15): Tab segue l'ordine di lettura,
+Invio preme il pulsante che ha il fuoco.
 
 Si cambia solo in S5a (D061): S5b e S6 scrivono le loro pagine in app/pagine/.
 """
@@ -62,7 +63,7 @@ def arrotondata(pixmap, lato, raggio):
 class Finestra(QMainWindow):
     def __init__(self, movimento=None):
         super().__init__()
-        self.movimento = not movimento_ridotto() if movimento is None else movimento
+        self._movimento = movimento               # None: segue Windows; True o False: deciso (per i test)
         self.setWindowTitle("ProfileMetaNanni")
         self.setWindowIcon(QIcon(str(RISORSE / "avatar_512.png")))
         self.resize(1366, 860)
@@ -76,6 +77,11 @@ class Finestra(QMainWindow):
         self.setCentralWidget(self.fuori)
         self.fuori.addWidget(self._avvio())
         self.fuori.addWidget(self._area())
+
+    @property
+    def movimento(self):
+        """L'avatar si muove? Letto da Windows a ogni animazione: vale anche se lo si cambia ad app aperta."""
+        return not movimento_ridotto() if self._movimento is None else self._movimento
 
     # ---------------- avvio ----------------
     def _avvio(self):
@@ -143,6 +149,7 @@ class Finestra(QMainWindow):
             p.vai.connect(self.vai)
             p.azioni_cambiate.connect(self._azioni)
             p.respira.connect(self.respira)
+            p.info_cambiata.connect(self._stato_motore)
             self.pagine[chiave] = p
             scorre = QScrollArea()
             scorre.setWidgetResizable(True)
@@ -155,7 +162,7 @@ class Finestra(QMainWindow):
         return w
 
     def _testata(self):
-        t = QFrame(objectName="testata")
+        t = self.zona_testata = QFrame(objectName="testata")
         s = QHBoxLayout(t)
         s.setContentsMargins(20, 10, 20, 10)
         s.setSpacing(16)
@@ -184,7 +191,7 @@ class Finestra(QMainWindow):
         return t
 
     def _percorso(self):
-        p = QFrame(objectName="percorso")
+        p = self.zona_percorso = QFrame(objectName="percorso")
         p.setFixedWidth(306)
         s = QVBoxLayout(p)
         s.setContentsMargins(16, 24, 16, 24)
@@ -203,7 +210,7 @@ class Finestra(QMainWindow):
         return p
 
     def _barra(self):
-        b = QFrame(objectName="azioni")
+        b = self.zona_barra = QFrame(objectName="azioni")
         self.barra = QHBoxLayout(b)
         self.barra.setContentsMargins(24, 12, 24, 12)
         self.barra.setSpacing(16)
@@ -224,20 +231,45 @@ class Finestra(QMainWindow):
         pagina.mostrata()
         progetto = self.contesto.progetto
         self.nome_progetto.setText(f"· {progetto.nome}" if progetto else "")
-        indice = next((i for i, (c, _, _) in enumerate(PERCORSO) if c == chiave), -1)
-        for i, (c, (b, numero, testo)) in enumerate(self.passi.items()):
-            stato = "attivo" if c == chiave else ("fatto" if 0 <= i < indice else "")
-            b.setText(f"{'✓' if stato == 'fatto' else numero}   {testo}")
+        self._azioni()
+
+    def _passi_fatti(self):
+        """I passi del percorso già fatti nel progetto aperto (letti dal progetto, non dalla pagina attuale)."""
+        progetto = self.contesto.progetto
+        if progetto is None:
+            return set()
+        try:
+            app = progetto.leggi().get("app")
+        except (OSError, ValueError):
+            app = None
+        app = app if isinstance(app, dict) else {}
+        fatti = set()
+        if app.get("prodotto"):                    # Campioni e prodotto salvati (D079)
+            fatti.add("campioni")
+        if app.get("scelte"):                      # scelte confermate (D081)
+            fatti.add("scelte")
+        if (progetto.risultati / "risultati.json").is_file():
+            fatti |= {"esecuzione", "risultati"}
+        return fatti
+
+    def _percorso_stato(self):
+        fatti = self._passi_fatti()
+        for c, (b, numero, testo) in self.passi.items():
+            stato = "attivo" if c == self.attuale else ("fatto" if c in fatti else "")
+            b.setText(f"{'✓' if c in fatti else numero}   {testo}")
             b.setProperty("stato", stato)
-            b.setAccessibleDescription("passo attuale" if stato == "attivo" else "")
+            b.setAccessibleDescription(", ".join(d for d, si in (("passo attuale", stato == "attivo"),
+                                                                 ("fatto", c in fatti)) if si))
             b.style().unpolish(b)
             b.style().polish(b)
-        self._azioni()
 
     def _azioni(self):
         p = self.pagine[self.attuale]
         self.principale.setText(p.testo_principale)
         self.principale.setEnabled(p.principale_attivo)
+        self.principale.setProperty("pericolo", p.principale_pericolo)
+        self.principale.style().unpolish(self.principale)
+        self.principale.style().polish(self.principale)
         self.aiuto.setText(p.aiuto)
         self.aiuto.setProperty("livello", p.aiuto_livello)
         self.aiuto.style().unpolish(self.aiuto)
@@ -250,6 +282,7 @@ class Finestra(QMainWindow):
             b.clicked.connect(funzione)
             self.barra.insertWidget(self.barra.count() - 1, b)
             self.secondari.append(b)
+        self._percorso_stato()                     # lo stato del progetto può essere cambiato (analisi finita)
 
     def _stato_motore(self):
         info = self.contesto.info
@@ -263,6 +296,59 @@ class Finestra(QMainWindow):
         self.pallino.style().unpolish(self.pallino)
         self.pallino.style().polish(self.pallino)
         self.stato_motore.setText(testo)
+
+    # ---------------- tastiera (R15) ----------------
+    def _fermate(self):
+        """I comandi raggiungibili col Tab, nell'ordine in cui si leggono: testata, percorso, pagina, barra.
+        Testata e barra sono righe: da sinistra a destra. Nel percorso e nella pagina i blocchi vanno dall'alto in
+        basso e da sinistra a destra; dentro un blocco (per esempio
+        le due colonne di Sicurezza) vale l'ordine in cui Qt li ha creati. Così anche i comandi comparsi dopo
+        (l'elenco dei progetti, i pulsanti della barra) sono al posto giusto."""
+        catena, w = {}, self.nextInFocusChain()
+        while w is not self and w not in catena:
+            catena[w] = len(catena)
+            w = w.nextInFocusChain()
+        scorre = self.pila.currentWidget()
+        fermate = []
+        for zona, radice, riga in ((self.zona_testata, self.zona_testata, True),
+                                   (self.zona_percorso, self.zona_percorso, False),
+                                   (scorre, scorre.widget(), False), (self.zona_barra, self.zona_barra, True)):
+            def chiave(w):
+                blocco = w
+                while blocco.parentWidget() is not radice and blocco.parentWidget() is not None:
+                    blocco = blocco.parentWidget()
+                angolo = blocco.mapTo(zona, QPoint(0, 0))
+                return 0 if riga else angolo.y() // 8, angolo.x(), catena.get(w, 0)    # 8 px: stessa riga
+            dentro = [w for w in zona.findChildren(QWidget) if w.isVisible() and w.isEnabled()
+                      and w.focusPolicy() & Qt.TabFocus and w.focusProxy() is None]
+            if zona is scorre:
+                fermate.append(scorre)          # con il fuoco sull'area le frecce fanno scorrere la pagina
+            fermate += sorted(dentro, key=chiave)
+        return fermate
+
+    def focusNextPrevChild(self, avanti):
+        if self.fuori.currentIndex() != 1:
+            return super().focusNextPrevChild(avanti)
+        fermate = self._fermate()
+        attuale = self.focusWidget()
+        if attuale in fermate:
+            i = fermate.index(attuale) + (1 if avanti else -1)
+        else:
+            i = 0 if avanti else -1
+        prossimo = fermate[i % len(fermate)]
+        prossimo.setFocus(Qt.TabFocusReason if avanti else Qt.BacktabFocusReason)
+        scorre = self.pila.currentWidget()
+        if scorre.isAncestorOf(prossimo):
+            scorre.ensureWidgetVisible(prossimo, 24, 24)
+        return True
+
+    def keyPressEvent(self, evento):
+        """Invio (o il tasto Invio del tastierino) preme il pulsante che ha il fuoco, come la barra spaziatrice."""
+        fuoco = self.focusWidget()
+        if evento.key() in (Qt.Key_Return, Qt.Key_Enter) and isinstance(fuoco, QPushButton) and fuoco.isEnabled():
+            fuoco.click()
+            return
+        super().keyPressEvent(evento)
 
     # ---------------- avatar che respira ----------------
     def respira(self, si):
