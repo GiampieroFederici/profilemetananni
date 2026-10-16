@@ -12,6 +12,12 @@ import yaml
 from PySide6.QtCore import QStandardPaths
 
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
+CODICE_VALIDO = re.compile(r"[SED]RR[0-9]{1,13}")               # come validate_srr (bin/lib/validate.sh)
+# file delle read come li conta il motore (motore/pmn_motore.py, Motore.campioni): R1 o file singolo, poi R2
+PRIMO_FILE = re.compile(r"(_R?1(_001)?\.f(ast)?q\.gz|\.f(ast)?q\.gz)$")
+SECONDO_FILE = re.compile(r"_R?2(_001)?\.f(ast)?q\.gz$")
+PERCORSO_NON_SICURO = re.compile(r"[$`;|&<>!*?]|^-|[\x00-\x1f]")   # rifiutati da validate_path_safe del motore
+INDICE_METAPHLAN = "mpa_vJan25_CHOCOPhlAnSGB_202503"             # versione fissata (config.example.yaml)
 
 
 def cartella_progetti():
@@ -34,6 +40,15 @@ class Progetto:
     @property
     def risultati(self):
         return self.cartella / "risultati"
+
+    @property
+    def codici_campioni(self):
+        """Elenco dei codici SRR del progetto (paths.srr_list, un codice per riga)."""
+        return self.cartella / "campioni.txt"
+
+    def scrivi_codici(self, codici):
+        self.cartella.mkdir(parents=True, exist_ok=True)
+        self.codici_campioni.write_text("".join(c + "\n" for c in codici), encoding="utf-8")
 
     def leggi(self):
         if not self.config.is_file():
@@ -64,6 +79,55 @@ def nuovo(nome, radice=None):
         raise FileExistsError(f"Esiste già un progetto che si chiama {nome}.")
     cartella.mkdir(parents=True)
     return Progetto(cartella)
+
+
+def base(nome):
+    """config.yaml di un progetto nuovo: schema di config.example.yaml e blocco `motore` (contratto §3).
+    I valori vuoti lasciano al motore il consigliato per il database (refs/kraken_profili.tsv)."""
+    return {
+        "language": "it",
+        "data_source": "ncbi",
+        "project_name": nome,
+        "hosts": ["sus_scrofa"],
+        "filter_human": True,
+        "paths": {"layout": "managed", "work_dir": "./pmn_work", "local_reads_dir": "", "srr_list": ""},
+        "profiling": {"tool": "both", "metaphlan_index": INDICE_METAPHLAN, "kraken_confidence": "",
+                      "bracken_readlen": 150, "abundance_threshold_pct": ""},
+        "motore": {"metaphlan_modo": "fette", "kraken_db": "completo", "virus": False, "processori": 8},
+        "execution": {"scheduler": "local", "threads": 8},
+    }
+
+
+def codici(testo):
+    """Codici dei campioni scritti dall'utente, uno per riga: (validi senza doppioni, righe non riconosciute)."""
+    validi, scartati = [], []
+    for riga in (testo or "").splitlines():
+        c = riga.strip().upper()
+        if not c:
+            continue
+        if CODICE_VALIDO.fullmatch(c):
+            if c not in validi:
+                validi.append(c)
+        else:
+            scartati.append(riga.strip())
+    return validi, scartati
+
+
+def campioni_locali(cartella):
+    """Campioni di una cartella di .fastq.gz come li trova il motore: [(nome, primo file, secondo file o None)]."""
+    cartella = Path(cartella)
+    primi = sorted(f for f in cartella.iterdir()
+                   if f.is_file() and PRIMO_FILE.search(f.name) and not SECONDO_FILE.search(f.name))
+    out = []
+    for f in primi:
+        secondo = cartella / re.sub(r"_(R?)1(_001)?\.", r"_\g<1>2\2.", f.name)
+        out.append((f.name.split(".")[0], f, secondo if secondo != f and secondo.is_file() else None))
+    return out
+
+
+def percorso_sicuro(percorso):
+    """True se il motore accetta il percorso (niente caratteri che validate_path_safe rifiuta)."""
+    return not PERCORSO_NON_SICURO.search(str(percorso))
 
 
 def elenco(radice=None):
