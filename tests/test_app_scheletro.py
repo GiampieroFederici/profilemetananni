@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QPushButton  # noqa: E402
 import contratto  # noqa: E402
 from app import finestra, main, motore, progetto  # noqa: E402
 from app.motore import MotoreClient  # noqa: E402
-from app.pagine.base import numero  # noqa: E402
+from app.pagine.base import Pagina, numero  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -114,10 +114,19 @@ def test_percorso_per_il_motore_vero(monkeypatch):
 
 
 # ---------------- finestra ----------------
+def pagine_finte():
+    """Pagine finte al posto delle vere (S5b, S6): il test prova lo scheletro, non il contenuto delle pagine."""
+    catena = {"home": "campioni", "campioni": "scelte", "scelte": "esecuzione", "esecuzione": "risultati",
+              "risultati": "sicurezza", "sicurezza": "risultati", "motore": None, "crediti": "home"}
+    return {k: type(f"Finta_{k}", (Pagina,), {"titolo": k, "testo_principale": f"Avanti da {k}", "destinazione": d})
+            for k, d in catena.items()}
+
+
 def test_finestra_avvio_e_navigazione(qtbot, qapp, monkeypatch):
     main.prepara(qapp)
     assert "Atkinson Hyperlegible" in QFontDatabase.families()
     monkeypatch.setattr(finestra, "AVVIO_MIN_MS", 0)
+    monkeypatch.setattr(finestra, "PAGINE", pagine_finte())
     f = finestra.Finestra(movimento=False)
     qtbot.addWidget(f)
     f.show()
@@ -130,17 +139,30 @@ def test_finestra_avvio_e_navigazione(qtbot, qapp, monkeypatch):
         principali = [b for b in f.findChildren(QPushButton, "principale") if b.isVisible()]
         assert len(principali) == 1                                   # R1
         assert all(b.isVisible() for b, _, _ in f.passi.values())     # R3
+        assert principali[0].text() == f"Avanti da {f.attuale}"       # la barra segue la pagina
         principali[0].click()
         visti.append(f.attuale)
     assert visti == ["home", "campioni", "scelte", "esecuzione", "risultati", "sicurezza", "risultati"]
     assert f.passi["campioni"][0].text().startswith("✓")              # passi già fatti segnati
 
+    pagina = f.pagine["motore"]                                       # barra aggiornata dalla pagina
     f.vai("motore")
-    assert "15,6 GB" in f.pagine["motore"].stato.text()
-    assert not f.principale.isEnabled()
+    pagina.principale_attivo, pagina.aiuto, pagina.aiuto_livello = False, "Attendi", "avviso"
+    pagina.secondari = [("Installa", lambda: None)]
+    pagina.azioni_cambiate.emit()
+    assert not f.principale.isEnabled() and f.aiuto.text() == "Attendi"
+    assert [b.text() for b in f.secondari] == ["Installa"]
     f.vai("crediti")
+    assert f.secondari == [] and f.principale.isEnabled()
     f.principale.click()
     assert f.attuale == "home"
+
+
+def test_pagine_vere_si_creano(qtbot):
+    """Le pagine vere di S5b e S6 nascono senza errori dentro la finestra (il contenuto lo provano i loro test)."""
+    f = finestra.Finestra(movimento=False)
+    qtbot.addWidget(f)
+    assert set(f.pagine) == {"home", "campioni", "scelte", "esecuzione", "risultati", "sicurezza", "motore", "crediti"}
 
 
 def test_avatar_respira_e_si_ferma(qtbot):
