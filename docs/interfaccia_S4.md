@@ -205,17 +205,17 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 
 | File | Che cosa dà alle pagine | Chi lo cambia |
 |---|---|---|
-| `app/pagine/base.py` | `Pagina` (sotto), `Contesto` (`info` = ultimo `info` del motore, `progetto` = progetto aperto, `avvia_analisi` = passaggio da Scelte ad Analisi in corso), `etichetta(testo, nome)`, `riquadro(titolo, testo, livello)` (info, avviso, errore), `numero(x, cifre)` (virgola all'italiana, R11) | solo S5a |
+| `app/pagine/base.py` | `Pagina` (sotto), `Contesto` (`info` = ultimo `info` del motore, `progetto` = progetto aperto, `avvia_analisi` = passaggio da Scelte ad Analisi in corso, `progetto_in_analisi` = progetto della corsa che gira), `etichetta(testo, nome)`, `riquadro(titolo, testo, livello)` (info, avviso, errore), `numero(x, cifre)` (virgola all'italiana, R11), `Scelta`, `riga_di_scelte`, `pannello(titolo=None)`, `svuota(layout)` | solo S5a |
 | `app/motore.py` | `MotoreClient`: `avvia(comando, *argomenti)`, segnali `evento(dict)` e `finito(codice_uscita, evento_fine)`, `annulla()`, `in_corso()`, `corsa`, `diagnostica`; `percorso_per_motore(p)` (Windows → `/mnt/c/...` per il motore vero) | solo S5a |
-| `app/finestra.py`, `app/stile.qss`, `app/main.py` | testata, percorso, barra delle azioni, avvio con l'avatar, avatar che respira | solo S5a |
+| `app/finestra.py`, `app/stile.qss`, `app/main.py` | testata, percorso (✓ dallo stato del progetto), barra delle azioni, avvio con l'avatar, avatar che respira, ordine del Tab e tasto Invio, "riduci movimento"; tutto lo stile (anche schede, pannelli, campi); immagini dello stile con `url(risorse:nome)` | solo S5a |
 | `app/progetto.py` | `Progetto` (`config`, `risultati`, `leggi()`, `scrivi(dati)` con `yaml.safe_dump`, tutto o niente), `nuovo(nome)`, `elenco()`, `cartella_progetti()` = Documenti\ProfileMetaNanni | S5b (S6 lo usa, non lo cambia) |
-| `app/pagine/home.py progetto.py scelte.py motore.py crediti.py` | pagine vere (fatte il 16/10, `tests/test_app_s5b.py`); `progetto.py` contiene anche `STILE`, `Scelta`, `pannello`, `svuota` (da spostare nello scheletro) | **S5b** |
+| `app/pagine/home.py progetto.py scelte.py motore.py crediti.py` | pagine vere (fatte il 16/10, `tests/test_app_s5b.py`) | **S5b** |
 | `app/pagine/esecuzione.py risultati.py sicurezza.py` | pagine vere (fatte il 16/10, `tests/test_app_s6.py`) | **S6** |
 
 **Come si scrive una pagina** (sottoclasse di `Pagina`, costruttore `(contesto, parent=None)`):
 - contenuto in `self.corpo` (un `QVBoxLayout`, il titolo c'è già se si mette `titolo`); la finestra la mette da sola dentro una zona che scorre;
-- barra delle azioni: `testo_principale`, `azione_principale()` (predefinito: va a `destinazione`), `principale_attivo`, `aiuto` e `aiuto_livello = "avviso"`, `secondari = [(testo, funzione)]`; dopo ogni cambio `self.azioni_cambiate.emit()`;
-- segnali: `vai.emit("risultati")` per cambiare pagina, `respira.emit(True/False)` per l'avatar durante un lavoro lungo;
+- barra delle azioni: `testo_principale`, `azione_principale()` (predefinito: va a `destinazione`), `principale_attivo`, `principale_pericolo` (True: bianco col bordo rosso, per "Ferma"), `aiuto` e `aiuto_livello = "avviso"`, `secondari = [(testo, funzione)]`; dopo ogni cambio `self.azioni_cambiate.emit()`;
+- segnali: `vai.emit("risultati")` per cambiare pagina, `respira.emit(True/False)` per l'avatar durante un lavoro lungo, `info_cambiata.emit()` dopo aver cambiato `contesto.info` (pallino della testata);
 - `mostrata()` si chiama a ogni ingresso nella pagina: lì si rilegge `self.contesto`;
 - chiavi delle pagine: `home`, `campioni`, `scelte`, `esecuzione`, `risultati`, `sicurezza`, `motore`, `crediti`.
 - **da Scelte (S5b) ad Analisi in corso (S6):** "Avvia l'analisi" scrive `config.yaml`, mette `contesto.progetto` e `contesto.avvia_analisi = True`, poi `vai("esecuzione")`; la pagina Esecuzione, in `mostrata()`, lancia `esegui --progetto` solo se `avvia_analisi` è True e lo rimette a False (entrare dal percorso non fa partire nulla).
@@ -226,6 +226,8 @@ e premi Controlla il motore."; se si chiude dopo `inizio` senza `fine`, un `erro
 dell'interfaccia, non del motore. Righe non JSON e stderr vanno in `diagnostica`, mai all'utente (R2).
 
 **S5b e S6 (16/10 sera):** fatte in parallelo e unite in locale (`f0616ea`, `f4c432d`); 44 test dell'app verdi; giro completo da Nuovo progetto alla sicurezza alimentare col finto motore. Decisioni D078-D096 (AMBIENTE); richieste allo scheletro e al motore in AMBIENTE "PROBLEMI APERTI".
+
+**Rifinitura (16/10 sera):** richieste di S5b e S6 allo scheletro fatte (sopra); un progetto alla volta durante un'analisi (D097); tastiera (R15): Tab in ordine di lettura (testata, percorso, pagina dall'alto, barra con il principale per ultimo), Invio preme il pulsante col fuoco, fuoco sempre visibile, `tests/test_app_tastiera.py` su tutte le 8 pagine (D099); "riduci movimento" di Windows letto a ogni animazione, spente anche le animazioni di Qt (D100). 62 test dell'app verdi.
 
 **Criteri di S5a, verificati il 16/10:** l'app si apre, l'avatar saltella e si ferma (fotografie a 0,5 s e 2 s), le pagine vuote
 si navigano col solo pulsante principale, `info` arriva dal finto motore ("15,6 GB di memoria, 8 processori"); 12 test
