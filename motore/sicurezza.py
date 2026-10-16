@@ -73,7 +73,7 @@ def comando(evento, ingresso, progetto=None):
         campione, profilo = profilo_dal_progetto(risultati, campione)
         richiesta["profilo_specie"], non_classificato = specie_metaphlan(profilo)
         profilo_usato = (f"MetaPhlAn, campione {campione} (percentuali sul totale delle read, compresa la parte "
-                         f"non classificata: {non_classificato:.1f} %)")
+                         f"non classificata: {f'{non_classificato:.1f}'.replace('.', ',')} %)")
 
     def avanza(i, n, nome):
         evento("avanzamento", f"Scenario {i} di {n}: {nome}", passo="sicurezza", campione=campione,
@@ -87,7 +87,8 @@ def comando(evento, ingresso, progetto=None):
         raise Rifiutata(str(e))
     for a in out["avvisi"]:   # M8: fuori dal campo del modello, mostrato com'e'
         evento("avviso", f"{MODELLI[a['modello']]}: {a['messaggio']}", codice="FUORI_CAMPO")
-    out.update(campione=campione, profilo_usato=profilo_usato)
+    out.update(campione=campione, profilo_usato=profilo_usato,
+               richiesta={k: v for k, v in richiesta.items() if k != "profilo_specie"})
     if risultati:
         cartella = risultati / "sicurezza"
         cartella.mkdir(parents=True, exist_ok=True)

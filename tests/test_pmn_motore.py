@@ -77,6 +77,11 @@ def test_esegui_ok(ambiente):
     assert r["campioni"][0]["nome"] == "S1" and r["campioni"][0]["coppie_dopo_ospite"] == 1000
     assert any("Sscrofa11.1" in c for c in r["citazioni"])
     assert not (progetto.parent.parent / "pmn" / "stato" / "esegui.lock").exists()
+    # v0.2: referto fatto alla fine dell'analisi, e rifatto a richiesta
+    assert r["referto"]["html"] == "referto/referto.html"
+    assert (progetto.parent / "risultati" / "referto" / "referto.html").is_file()
+    ev, codice = lancia(env, "referto", "--progetto", str(progetto))
+    assert codice == 0 and ev[-1]["risultato"]["referto"]["html"] == "referto/referto.html"
 
 
 def test_spazio_e_rete(ambiente):

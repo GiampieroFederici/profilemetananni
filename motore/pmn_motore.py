@@ -4,7 +4,7 @@ Stessi comandi ed eventi JSON del finto motore (installer/finto_motore.py), ma i
 gia' provati: installer/installa_motore.sh (installa), installer/verifica_motore.sh (verifica),
 bin/run.sh (esegui). Su stdout solo eventi JSON, uno per riga; i dettagli tecnici vanno nel log.
 
-Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla|sicurezza> [--progetto FILE] [--corsa ID]
+Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla|sicurezza|referto> [--progetto FILE] [--corsa ID]
                  [--ingresso FILE]
 Solo libreria standard: gira anche col python3 di sistema quando il motore non e' installato
 (e allora lo dice con DB_MANCANTE). Il file del progetto si legge con PyYAML dell'ambiente pmn_reports_py.
@@ -22,6 +22,8 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
+
+import system_one   # stessa cartella (motore/)
 
 VERSIONE = "0.1.0"
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,15 +61,23 @@ ERRORI = [
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      "Il progetto contiene un valore non valido.", "Controlla le impostazioni del progetto."),
 ]
+# verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21
 CITAZIONI = {
-    "metaphlan": "Blanco-Miguez A, et al. Nat Biotechnol 2023;41(11):1633-1644. MetaPhlAn 4, database mpa_vJan25_CHOCOPhlAnSGB_202503 (6 fette: derivato, profilemetananni).",
-    "kraken": "Wood DE, Lu J, Langmead B. Genome Biol 2019;20:257 (Kraken 2); Lu J, et al. PeerJ Comput Sci 2017;3:e104 (Bracken); indici PlusPF di B. Langmead.",
-    "bowtie2": "Langmead B, Salzberg SL. Nat Methods 2012;9(4):357-359 (Bowtie 2).",
-    "fastp": "Chen S, et al. Bioinformatics 2018;34(17):i884-i890 (fastp).",
-    "sus_scrofa": "Warr A, et al. GigaScience 2020;9(6):giaa051 (Sscrofa11.1).",
-    "bos_taurus": "Rosen BD, et al. GigaScience 2020;9(3):giaa021 (ARS-UCD1.2).",
-    "ovis_aries": "Davenport KM, et al. GigaScience 2022;11:giab096 (ARS-UI_Ramb_v2.0).",
-    "grch38": "Schneider VA, et al. Genome Res 2017;27(5):849-864 (GRCh38).",
+    "metaphlan": ["Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
+                  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice "
+                  "Bowtie2, costruito da profilemetananni)"],
+    "kraken": ["Wood et al. 2019, Genome Biol 20:257: Kraken 2. DOI 10.1186/s13059-019-1891-0",
+               "Lu et al. 2017, PeerJ Comput Sci 3:e104: Bracken. DOI 10.7717/peerj-cs.104",
+               "Indici Kraken2/Bracken {db} di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)",
+               "Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di "
+               "Kraken2. DOI 10.1099/mgen.0.000949",
+               "Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. DOI 10.1186/s40793-024-00561-w"],
+    "bowtie2": ["Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923"],
+    "fastp": ["Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560"],
+    "sus_scrofa": ["Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051"],
+    "bos_taurus": ["Rosen et al. 2020, GigaScience 9(3):giaa021: bovino ARS-UCD1.2. DOI 10.1093/gigascience/giaa021"],
+    "ovis_aries": ["Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. DOI 10.1093/gigascience/giab096"],
+    "grch38": ["Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116"],
 }
 
 
@@ -101,6 +111,20 @@ def versione(envs, ambiente, pacchetto):
     for f in sorted(meta.glob(f"{pacchetto}-[0-9]*.json")) if meta.is_dir() else []:
         return f.name[len(pacchetto) + 1:].split("-")[0]
     return None
+
+
+def elenco_database(env):
+    """[{nome, installato}] dei database del motore, dai segni sul disco (come info)."""
+    db = [("metaphlan_fette_vJan25_v1", env.get("PMN_FETTE", ""), "idx6"),
+          ("metaphlan_pkl_vJan25", env.get("PMN_MPA_DB", ""), "mpa_vJan25_CHOCOPhlAnSGB_202503.pkl"),
+          ("kraken_pluspf_20260626", env.get("PMN_KRAKEN_COMPLETO", ""), "hash.k2d"),
+          ("kraken_pluspf_08gb_20260626", env.get("PMN_KRAKEN_RAPIDO", ""), "hash.k2d")]
+    database = [{"nome": n, "installato": bool(c) and (Path(c) / segno).exists()} for n, c, segno in db]
+    ospite = Path(env.get("PMN_OSPITE", "")) if env.get("PMN_OSPITE") else None
+    for o in ("sus_scrofa", "bos_taurus", "ovis_aries", "homo_sapiens"):
+        database.append({"nome": f"ospite_{o}",
+                         "installato": bool(ospite) and (ospite / o / f"{o}.rev.2.bt2").exists()})
+    return database
 
 
 def leggi_progetto(percorso):
@@ -138,6 +162,13 @@ class Motore:
         with open(self.log, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%H:%M:%S} {testo}\n")
 
+    def consigli(self, elenco):
+        """System One v0: i consigli di livello "avviso" diventano eventi; tutti restano nel risultato."""
+        for c in elenco:
+            if c["livello"] == "avviso":
+                self.evento("avviso", c["messaggio"], codice=c["codice"])
+        return elenco
+
     def avanza(self, passo, messaggio, pct, campione=None, fatto=0, totale=1):
         self.evento("avanzamento", messaggio, passo=passo, campione=campione, fatto=fatto, totale=totale,
                     percentuale=round(max(0, min(100, pct)), 1), eta_s=None)
@@ -154,20 +185,13 @@ class Motore:
         e = env.get("PMN_ENVS", "")
         programmi = {p: versione(e, a, p) for a, p in [("pmn_metaphlan", "metaphlan"), ("pmn_metaphlan", "bowtie2"),
                      ("pmn_kraken", "kraken2"), ("pmn_kraken", "bracken"), ("pmn_trim", "fastp")]} if e else {}
-        db = [("metaphlan_fette_vJan25_v1", env.get("PMN_FETTE", ""), "idx6"),
-              ("metaphlan_pkl_vJan25", env.get("PMN_MPA_DB", ""), "mpa_vJan25_CHOCOPhlAnSGB_202503.pkl"),
-              ("kraken_pluspf_20260626", env.get("PMN_KRAKEN_COMPLETO", ""), "hash.k2d"),
-              ("kraken_pluspf_08gb_20260626", env.get("PMN_KRAKEN_RAPIDO", ""), "hash.k2d")]
-        database = [{"nome": n, "installato": bool(c) and (Path(c) / segno).exists()} for n, c, segno in db]
-        ospite = Path(env.get("PMN_OSPITE", "")) if env.get("PMN_OSPITE") else None
-        for o in ("sus_scrofa", "bos_taurus", "ovis_aries", "homo_sapiens"):
-            database.append({"nome": f"ospite_{o}",
-                             "installato": bool(ospite) and (ospite / o / f"{o}.rev.2.bt2").exists()})
-        rapido_solo = not database[2]["installato"] and database[3]["installato"]
+        database = elenco_database(env)
+        mpa_db = env.get("PMN_MPA_DB", "")
+        indice_intero = bool(mpa_db) and (Path(mpa_db) / "mpa_vJan25_CHOCOPhlAnSGB_202503.1.bt2l").exists()
+        modo, consigli = system_one.modo(ram, indice_intero, database[2]["installato"], database[3]["installato"])
         return "ok", {"motore": VERSIONE, "ram_gb": round(ram, 1), "processori": os.cpu_count(),
                       "spazio_libero_gb": round(shutil.disk_usage(base).free / 1e9),
-                      "modo_consigliato": {"metaphlan": "fette" if ram < 40 else "standard",
-                                           "kraken": "rapido" if rapido_solo else "completo"},
+                      "modo_consigliato": modo, "consigli": self.consigli(consigli),
                       "programmi": programmi, "database": database}, "Ecco com'e' fatto questo PC e cosa e' installato."
 
     # ---------------- verifica ----------------
@@ -235,12 +259,18 @@ class Motore:
         tempo = {"ospite": round(coppie / 1e6 * OSPITE_S_PER_M),
                  "metaphlan": round(coppie / 1e6 * MPA_S_PER_M + MPA_FISSI_S * len(camp)) if strumento in ("metaphlan", "both") else 0,
                  "kraken": round(coppie / KRAKEN_COPPIE_MIN.get(kraken_db, 37000) * 60) if strumento in ("kraken", "both") else 0}
-        if sum(tempo.values()) > 4 * 3600:
-            self.evento("avviso", f"L'analisi richiedera' circa {round(sum(tempo.values()) / 3600)} ore. Puoi usare lo "
-                        "screening rapido (PlusPF-8) o il cloud.", codice="TEMPO_LUNGO")
         scaricare = sum(b for _, _, b in camp)
-        return "ok", {"campioni": len(camp), "coppie_totali": coppie, "tempo_s": tempo,
-                      "spazio_gb": round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)}, \
+        spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
+        lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
+        while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
+            lavoro = lavoro.parent
+        libero = round(shutil.disk_usage(lavoro).free / 1e9, 1)
+        env = installazione()
+        consigli = system_one.tempo(tempo) + system_one.spazio(spazio_gb, libero)
+        if env and strumento in ("kraken", "both"):
+            consigli += system_one.database(kraken_db, {d["nome"]: d["installato"] for d in elenco_database(env)})
+        return "ok", {"campioni": len(camp), "coppie_totali": coppie, "tempo_s": tempo, "spazio_gb": spazio_gb,
+                      "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
             "Stima pronta (prudente: conta le coppie prima di togliere l'ospite)."
 
     # ---------------- esegui ----------------
@@ -360,9 +390,14 @@ class Motore:
                 parametri[k] = v
         ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
         strumento = sezione(cfg, "profiling").get("tool", "both")
-        citazioni = [CITAZIONI[k] for k in ["metaphlan", "kraken", "bowtie2", "fastp", *ospiti] if k in CITAZIONI
-                     and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")]
+        kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
+        nome_db = "PlusPF-8 del 26/06/2026" if "08gb" in kraken_db else "PlusPF del 26/06/2026"
+        citazioni = [c.format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp", *ospiti] if k in CITAZIONI
+                     and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")
+                     for c in CITAZIONI[k]]
         env = installazione()
+        e = env.get("PMN_ENVS", "")
+        triage, consigli = system_one.triage(r / "tabelle" / "triage.tsv", system_one.soglie_triage(cfg))
         elenco = []
         for nome, file in sorted(campioni.items()):
             coppie = None
@@ -371,14 +406,47 @@ class Motore:
                 coppie = sum(int(c.split("\t")[1]) for c in rep.read_text(encoding="utf-8").splitlines()
                              if c.split("\t")[-1].strip() in ("unclassified", "root"))
             elenco.append({"nome": nome, "esito": "ok", "coppie_dopo_ospite": coppie, "file": file})
+        versioni = {"metaphlan": versione(e, "pmn_metaphlan", "metaphlan"), "database_metaphlan": parametri.get("metaphlan_index"),
+                    "kraken2": versione(e, "pmn_kraken", "kraken2"), "bracken": versione(e, "pmn_kraken", "bracken"),
+                    "database_kraken": kraken_db or None, "bowtie2": versione(e, "pmn_metaphlan", "bowtie2"),
+                    "fastp": versione(e, "pmn_trim", "fastp")}
         risultati = {"motore": VERSIONE, "corsa": self.corsa, "campioni": elenco, "parametri": parametri,
-                     "versioni": {"metaphlan": versione(env.get("PMN_ENVS", ""), "pmn_metaphlan", "metaphlan"),
-                                  "kraken2": versione(env.get("PMN_ENVS", ""), "pmn_kraken", "kraken2"),
-                                  "database_metaphlan": parametri.get("metaphlan_index")},
-                     "citazioni": citazioni}
+                     "versioni": {k: v for k, v in versioni.items() if v}, "citazioni": citazioni,
+                     "triage": triage, "consigli": self.consigli(consigli)}
+        (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
+        risultati["referto"] = self._referto(r, progetto)
         (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
         shutil.copy(self.log, r / "log")
         return {"cartella": str(r), **risultati}
+
+    def _referto(self, r, progetto):
+        """risultati/referto/ (HTML + Excel + PDF) con motore/referto.py; {file: percorso relativo o null}."""
+        self.avanza("referto", "Preparo il referto (pagina, PDF ed Excel)...", 97)
+        p = subprocess.run([sys.executable, str(ROOT / "motore" / "referto.py"), "--risultati", str(r),
+                            *(["--progetto", str(progetto)] if progetto else [])],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.scrivi(p.stdout.strip() + p.stderr.strip())
+        try:
+            esito = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            esito = {"problemi": ["referto.py non ha risposto"]}
+        if esito.get("problemi") or not esito.get("html"):
+            self.evento("avviso", "Il referto non e' completo: " + "; ".join(esito.get("problemi") or ["manca la pagina"])[:300],
+                        codice="REFERTO_PARZIALE")
+        return {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
+
+    # ---------------- referto (v0.2) ----------------
+    def referto(self):
+        """Rifa' il referto di un progetto gia' analizzato (per esempio dopo un calcolo di sicurezza)."""
+        progetto = Path(self.a.progetto).resolve() if self.a.progetto else None
+        leggi_progetto(progetto)
+        r = progetto.parent / "risultati"
+        if not (r / "risultati.json").is_file():
+            raise Errore("CONFIG_NON_VALIDA", "Questo progetto non ha ancora risultati.", "Prima avvia l'analisi.")
+        file = self._referto(r, progetto)
+        if not file["html"]:
+            raise Errore("ERRORE_INTERNO", "Non riesco a preparare il referto.", f"Manda a noi il file {self.log}.")
+        return "ok", {"cartella": str(r), "referto": file}, "Referto pronto."
 
     # ---------------- sicurezza (FSSP, v0.2) ----------------
     def sicurezza(self):
@@ -422,7 +490,8 @@ class Motore:
 
 def main():
     p = argparse.ArgumentParser(description="Motore di profilemetananni (eventi JSON, docs/contratto_motore.md).")
-    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla", "sicurezza"])
+    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla", "sicurezza",
+                                       "referto"])
     p.add_argument("--progetto")
     p.add_argument("--corsa", default="")
     p.add_argument("--ingresso", help="sicurezza: richiesta JSON (prodotto, temperature, conte)")

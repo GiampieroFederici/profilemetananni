@@ -92,7 +92,7 @@ def test_f4_ponte_dal_profilo_vero_di_SF3RAt7(motore, tmp_path, progetto):
     assert rc == 0
     r = ev[-1]["risultato"]
     assert r["campione"] == "SRR4875279" and r["profilo_usato"].startswith("MetaPhlAn, campione SRR4875279")
-    assert "53.7 %" in r["profilo_usato"]                             # UNCLASSIFIED del profilo
+    assert "53,7 %" in r["profilo_usato"]                             # UNCLASSIFIED del profilo
     assert r["ponte"]["lab_trovati"] == ["latilactobacillus curvatus", "latilactobacillus sakei"]
     assert any("leuconostoc" in n for n in r["note"])                # postilla: modello non adatto
     assert {p["modello"] for p in r["previsioni"]} == {"listeria"}   # senza conte: caso peggiore
