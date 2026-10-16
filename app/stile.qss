@@ -1,0 +1,54 @@
+/* Stile dell'app (docs/interfaccia_S4.md §2, D057): chiaro e sobrio.
+   banco #EEF2F0, carta #FFFFFF, linea #CBD5D1, inchiostro #1C2B27, tenue #52625D,
+   agar #1E7A4C (scuro #155C39, chiaro #E3F1E9), piastra #121816,
+   ambra #9A5A00/#FFF3DC, rosso #A8251C/#FCE9E7, acciaio #2F5D7C/#E6EEF4. Base 18 px (R15). */
+
+* { font-family: "Atkinson Hyperlegible", "Segoe UI"; font-size: 18px; color: #1C2B27; }
+QMainWindow, #area { background: #EEF2F0; }
+QScrollArea, QScrollArea > QWidget > QWidget { background: #EEF2F0; border: 0; }
+
+/* avvio: piastra scura, avatar che saltella */
+#avvio { background: #121816; }
+#avvio QLabel { color: #DDE5E1; background: transparent; }
+
+/* testata */
+#testata { background: #FFFFFF; border-bottom: 1px solid #CBD5D1; }
+#emblema { background: #121816; border-radius: 21px; }
+#nome { font-weight: bold; font-size: 20px; }
+#nome_progetto { color: #52625D; }
+#pallino { border-radius: 7px; background: #1E7A4C; }
+#pallino[stato="rosso"] { background: #A8251C; }
+#pallino[stato="attesa"] { background: #9DB3A8; }
+QPushButton#link { background: transparent; border: 0; border-radius: 8px; padding: 8px 12px; color: #2F5D7C; }
+QPushButton#link:hover, QPushButton#link:focus { background: #E6EEF4; }
+
+/* percorso a 4 passi + Sicurezza alimentare (R3) */
+#percorso { background: #F6F8F7; border-right: 1px solid #CBD5D1; }
+QPushButton#passo { text-align: left; background: transparent; border: 0; border-radius: 8px;
+  padding: 12px 10px; color: #52625D; }
+QPushButton#passo:hover, QPushButton#passo:focus { background: #E6EEF4; }
+QPushButton#passo[stato="attivo"] { background: #E3F1E9; color: #1C2B27; font-weight: bold; }
+QPushButton#passo[stato="fatto"] { color: #1C2B27; }
+#separatore { background: #CBD5D1; max-height: 1px; min-height: 1px; }
+
+/* contenuto */
+#titolo { font-size: 32px; font-weight: bold; }
+#sottotitolo { font-size: 23px; font-weight: bold; }
+#nota { color: #52625D; font-size: 17px; }
+#riquadro { border-radius: 12px; border-left: 6px solid #2F5D7C; background: #E6EEF4; }
+#riquadro[livello="avviso"] { border-left-color: #9A5A00; background: #FFF3DC; }
+#riquadro[livello="errore"] { border-left-color: #A8251C; background: #FCE9E7; }
+#riquadro QLabel { background: transparent; }
+#riquadro_titolo { font-weight: bold; }
+
+/* barra delle azioni: un solo pulsante principale, in basso a destra (R1) */
+#azioni { background: #FFFFFF; border-top: 1px solid #CBD5D1; }
+#aiuto { color: #52625D; }
+#aiuto[livello="avviso"] { color: #9A5A00; font-weight: bold; }
+QPushButton#principale { background: #1E7A4C; color: #FFFFFF; border: 0; border-radius: 8px;
+  padding: 14px 28px; font-weight: bold; font-size: 19px; min-width: 230px; }
+QPushButton#principale:hover { background: #155C39; }
+QPushButton#principale:focus { border: 3px solid #2F5D7C; }
+QPushButton#principale:disabled { background: #9DB3A8; }
+QPushButton#secondario { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px; padding: 12px 20px; }
+QPushButton#secondario:hover, QPushButton#secondario:focus { border-color: #2F5D7C; }

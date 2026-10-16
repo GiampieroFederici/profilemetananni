@@ -102,6 +102,10 @@ Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_
 `VERIFICA_ROSSA` (prova finale fallita); avvisi `RETE_NON_MISURATA`, `RETE_INTERROTTA` (riprova da sola).
 `ERRORE_INTERNO` (codice di uscita 4: un errore nostro, non dell'utente; `cosa_fare` indica il log da mandarci).
 
+**Codice dell'interfaccia, non del motore (S5a, D077):** `MOTORE_NON_AVVIATO` lo crea `app/motore.py` quando il motore
+non parte o si chiude senza aver mandato `inizio` (per esempio manca la WSL `pmn`); se si chiude dopo `inizio` senza `fine`,
+l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce sempre con un solo `fine`.
+
 **[v0.2]** Nuovi codici:
 
 | Codice | Tipo | Quando |

@@ -196,13 +196,44 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 
 - **S5a (prima, da sola):** scheletro, stile, `MotoreClient` provato col finto motore, `Pagina` base, navigazione. Criterio: l'app si apre, mostra l'avatar, va da una pagina vuota all'altra, `info` arriva dal finto motore.
 - **Poi in parallelo, ognuna nel suo worktree:** **S5b** (Progetti, Campioni e prodotto, Scelte, Motore, Come citare) e **S6** (Esecuzione, Risultati, Sicurezza alimentare). Non toccano gli stessi file: solo `pagine/` diverse. `finestra.py`, `motore.py`, `stile.qss` si cambiano solo in S5a.
-- PySide6 non è installato sul PC (Windows): va deciso dove gira la GUI (Python di Windows con PySide6 in un ambiente dedicato, impacchettato in S13). Da chiedere a Giampiero prima di S5a.
+- ~~PySide6 non è installato sul PC~~ → deciso il 16/10 (D072): Python 3.11 di Windows con un ambiente dedicato `app/.venv` (fuori da git), versioni in `app/requirements.txt` (PySide6 6.12.0); il pacchetto per gli utenti si fa in S13.
+
+### 7.1 Lo scheletro fatto (S5a, 16/10): come lo usano S5b e S6
+
+**Avvio:** `app\.venv\Scripts\python -m app.main` dalla cartella del progetto. Col finto motore: `set PMN_MOTORE=finto`
+(e, se serve, `set PMN_FINTO_OPZIONI=--velocita 0 --scenario DB_MANCANTE`). Test: `app\.venv\Scripts\python -m pytest tests/test_app_*.py`.
+
+| File | Che cosa dà alle pagine | Chi lo cambia |
+|---|---|---|
+| `app/pagine/base.py` | `Pagina` (sotto), `Contesto` (`info` = ultimo `info` del motore, `progetto` = progetto aperto), `etichetta(testo, nome)`, `riquadro(titolo, testo, livello)` (info, avviso, errore), `numero(x, cifre)` (virgola all'italiana, R11) | solo S5a |
+| `app/motore.py` | `MotoreClient`: `avvia(comando, *argomenti)`, segnali `evento(dict)` e `finito(codice_uscita, evento_fine)`, `annulla()`, `in_corso()`, `corsa`, `diagnostica`; `percorso_per_motore(p)` (Windows → `/mnt/c/...` per il motore vero) | solo S5a |
+| `app/finestra.py`, `app/stile.qss`, `app/main.py` | testata, percorso, barra delle azioni, avvio con l'avatar, avatar che respira | solo S5a |
+| `app/progetto.py` | `Progetto` (`config`, `risultati`, `leggi()`, `scrivi(dati)` con `yaml.safe_dump`, tutto o niente), `nuovo(nome)`, `elenco()`, `cartella_progetti()` = Documenti\ProfileMetaNanni | S5b (S6 lo usa, non lo cambia) |
+| `app/pagine/home.py progetto.py scelte.py motore.py crediti.py` | segnaposto | **S5b** |
+| `app/pagine/esecuzione.py risultati.py sicurezza.py` | segnaposto | **S6** |
+
+**Come si scrive una pagina** (sottoclasse di `Pagina`, costruttore `(contesto, parent=None)`):
+- contenuto in `self.corpo` (un `QVBoxLayout`, il titolo c'è già se si mette `titolo`); la finestra la mette da sola dentro una zona che scorre;
+- barra delle azioni: `testo_principale`, `azione_principale()` (predefinito: va a `destinazione`), `principale_attivo`, `aiuto` e `aiuto_livello = "avviso"`, `secondari = [(testo, funzione)]`; dopo ogni cambio `self.azioni_cambiate.emit()`;
+- segnali: `vai.emit("risultati")` per cambiare pagina, `respira.emit(True/False)` per l'avatar durante un lavoro lungo;
+- `mostrata()` si chiama a ogni ingresso nella pagina: lì si rilegge `self.contesto`;
+- chiavi delle pagine: `home`, `campioni`, `scelte`, `esecuzione`, `risultati`, `sicurezza`, `motore`, `crediti`.
+
+**Garanzia del `MotoreClient`:** ogni corsa finisce con un solo evento `fine` e poi `finito`. Se il motore non parte
+(per esempio la WSL `pmn` non c'è) arriva un `errore` con codice **`MOTORE_NON_AVVIATO`** e `cosa_fare` "Apri la pagina Motore
+e premi Controlla il motore."; se si chiude dopo `inizio` senza `fine`, un `errore` **`ERRORE_INTERNO`** (D077). Sono codici
+dell'interfaccia, non del motore. Righe non JSON e stderr vanno in `diagnostica`, mai all'utente (R2).
+
+**Criteri di S5a, verificati il 16/10:** l'app si apre, l'avatar saltella e si ferma (fotografie a 0,5 s e 2 s), le pagine vuote
+si navigano col solo pulsante principale, `info` arriva dal finto motore ("15,6 GB di memoria, 8 processori"); 12 test
+`tests/test_app_scheletro.py` verdi; 166 test del motore in WSL invariati.
 
 ---
 
-## 8. Domande aperte per Giampiero
+## 8. Domande per Giampiero: risposte del 16/10 (intervista di S5a)
 
-1. **Soglia di legge nel grafico** della sicurezza alimentare: mostrare una riga "100 ufc/g" (Reg. CE 2073/2005, cat. 1.3)? Oggi no: la nota del regolamento è da ricontrollare su EUR-Lex (citazione gialla del 15/10).
-2. **Dove gira la GUI**: Python di Windows con PySide6 in un ambiente dedicato (consigliato) o altro? Serve per S5a.
-3. **Elenco dei prodotti** nel passo 1: bastano maiale, bovino, pecora, altro? (Il pollo non ha un indice ospite nel motore.)
-4. **"Aggiungi al referto"** per la sicurezza alimentare: sezione nello stesso referto (consigliato) o referto separato?
+1. **Soglia di legge nel grafico:** no, come D060 (D074).
+2. **Dove gira la GUI:** Python di Windows con PySide6 in `app/.venv` (D072).
+3. **Prodotti del passo 1:** bastano maiale, bovino, pecora, altro (D074).
+4. **"Aggiungi al referto":** sezione nello stesso referto (D076).
+5. **Ponte FSSP con la conta totale:** lattici = conta × % MetaPhlAn **sul totale delle read** (come oggi, D075).

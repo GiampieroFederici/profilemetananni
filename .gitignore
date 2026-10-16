@@ -51,3 +51,6 @@ __pycache__/
 # Lavoro di progetto privato (piano app, diario, prove). MAI nel repo pubblico.
 # Private project work (app plan, log, validation runs). NEVER in the public repo.
 implementazione/
+
+# Ambiente Python dell'app su Windows (S5a): si ricrea con app/requirements.txt
+app/.venv/
