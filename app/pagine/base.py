@@ -12,10 +12,13 @@ from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
 
 class Contesto:
-    """Ciò che le pagine condividono: l'ultimo `info` del motore e il progetto aperto (app.progetto.Progetto)."""
+    """Ciò che le pagine condividono: l'ultimo `info` del motore e il progetto aperto (app.progetto.Progetto).
+    avvia_analisi: "Scelte" lo mette a True (dopo aver scritto config.yaml) prima di vai("esecuzione");
+    "Analisi in corso" lancia `esegui` solo se è True e lo rimette subito a False."""
     def __init__(self):
         self.info = None
         self.progetto = None
+        self.avvia_analisi = False
 
 
 class Pagina(QWidget):

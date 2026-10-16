@@ -205,7 +205,7 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 
 | File | Che cosa dà alle pagine | Chi lo cambia |
 |---|---|---|
-| `app/pagine/base.py` | `Pagina` (sotto), `Contesto` (`info` = ultimo `info` del motore, `progetto` = progetto aperto), `etichetta(testo, nome)`, `riquadro(titolo, testo, livello)` (info, avviso, errore), `numero(x, cifre)` (virgola all'italiana, R11) | solo S5a |
+| `app/pagine/base.py` | `Pagina` (sotto), `Contesto` (`info` = ultimo `info` del motore, `progetto` = progetto aperto, `avvia_analisi` = passaggio da Scelte ad Analisi in corso), `etichetta(testo, nome)`, `riquadro(titolo, testo, livello)` (info, avviso, errore), `numero(x, cifre)` (virgola all'italiana, R11) | solo S5a |
 | `app/motore.py` | `MotoreClient`: `avvia(comando, *argomenti)`, segnali `evento(dict)` e `finito(codice_uscita, evento_fine)`, `annulla()`, `in_corso()`, `corsa`, `diagnostica`; `percorso_per_motore(p)` (Windows → `/mnt/c/...` per il motore vero) | solo S5a |
 | `app/finestra.py`, `app/stile.qss`, `app/main.py` | testata, percorso, barra delle azioni, avvio con l'avatar, avatar che respira | solo S5a |
 | `app/progetto.py` | `Progetto` (`config`, `risultati`, `leggi()`, `scrivi(dati)` con `yaml.safe_dump`, tutto o niente), `nuovo(nome)`, `elenco()`, `cartella_progetti()` = Documenti\ProfileMetaNanni | S5b (S6 lo usa, non lo cambia) |
@@ -218,6 +218,7 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 - segnali: `vai.emit("risultati")` per cambiare pagina, `respira.emit(True/False)` per l'avatar durante un lavoro lungo;
 - `mostrata()` si chiama a ogni ingresso nella pagina: lì si rilegge `self.contesto`;
 - chiavi delle pagine: `home`, `campioni`, `scelte`, `esecuzione`, `risultati`, `sicurezza`, `motore`, `crediti`.
+- **da Scelte (S5b) ad Analisi in corso (S6):** "Avvia l'analisi" scrive `config.yaml`, mette `contesto.progetto` e `contesto.avvia_analisi = True`, poi `vai("esecuzione")`; la pagina Esecuzione, in `mostrata()`, lancia `esegui --progetto` solo se `avvia_analisi` è True e lo rimette a False (entrare dal percorso non fa partire nulla).
 
 **Garanzia del `MotoreClient`:** ogni corsa finisce con un solo evento `fine` e poi `finito`. Se il motore non parte
 (per esempio la WSL `pmn` non c'è) arriva un `errore` con codice **`MOTORE_NON_AVVIATO`** e `cosa_fare` "Apri la pagina Motore
