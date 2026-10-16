@@ -19,9 +19,13 @@ ATTESA = 60000
 
 
 @pytest.fixture(autouse=True)
-def finto(monkeypatch):
+def finto(monkeypatch, tmp_path):
     monkeypatch.setenv("PMN_MOTORE", "finto")
     monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
+    stato = tmp_path / "tmp"                 # lucchetto di esegui del finto motore solo per questo test (nota S5b)
+    stato.mkdir()
+    monkeypatch.setenv("TEMP", str(stato))
+    monkeypatch.setenv("TMP", str(stato))
 
 
 @pytest.fixture
