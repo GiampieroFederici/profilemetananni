@@ -4,7 +4,8 @@ Stessi comandi ed eventi JSON del finto motore (installer/finto_motore.py), ma i
 gia' provati: installer/installa_motore.sh (installa), installer/verifica_motore.sh (verifica),
 bin/run.sh (esegui). Su stdout solo eventi JSON, uno per riga; i dettagli tecnici vanno nel log.
 
-Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla> [--progetto FILE] [--corsa ID]
+Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla|sicurezza> [--progetto FILE] [--corsa ID]
+                 [--ingresso FILE]
 Solo libreria standard: gira anche col python3 di sistema quando il motore non e' installato
 (e allora lo dice con DB_MANCANTE). Il file del progetto si legge con PyYAML dell'ambiente pmn_reports_py.
 """
@@ -30,7 +31,7 @@ RUN_SH = os.environ.get("PMN_RUN_SH", str(ROOT / "bin" / "run.sh"))   # sostitui
 ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi prima di riprovare il download
 TENTATIVI_RETE = 3
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
-                 "DOWNLOAD_FALLITO": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
+                 "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline): secondi per milione di coppie, o coppie al minuto
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2)
@@ -379,6 +380,17 @@ class Motore:
         shutil.copy(self.log, r / "log")
         return {"cartella": str(r), **risultati}
 
+    # ---------------- sicurezza (FSSP, v0.2) ----------------
+    def sicurezza(self):
+        import sicurezza
+        if self.a.progetto and not Path(self.a.progetto).is_file():
+            raise Errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+        try:
+            risultato, messaggio = sicurezza.comando(self.evento, self.a.ingresso, self.a.progetto)
+        except sicurezza.Rifiutata as e:
+            raise Errore("INGRESSO_NON_VALIDO", f"Dati del prodotto non validi: {e}.", sicurezza.COSA_FARE)
+        return "ok", risultato, messaggio
+
     # ---------------- annulla ----------------
     def annulla(self):
         blocco = STATO / "esegui.lock"
@@ -410,9 +422,10 @@ class Motore:
 
 def main():
     p = argparse.ArgumentParser(description="Motore di profilemetananni (eventi JSON, docs/contratto_motore.md).")
-    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla"])
+    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla", "sicurezza"])
     p.add_argument("--progetto")
     p.add_argument("--corsa", default="")
+    p.add_argument("--ingresso", help="sicurezza: richiesta JSON (prodotto, temperature, conte)")
     a = p.parse_args()
     if a.comando == "installa":   # l'installatore parla gia' da solo il contratto (eventi propri, dall'inizio alla fine)
         os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si"])

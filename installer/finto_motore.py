@@ -2,9 +2,10 @@
 tempi accorciati, risultati presi da una corsa vera di SF3RAt7 (installer/finto/). Serve solo a costruire
 l'interfaccia (S4-S6): non calcola nulla e non si installa per gli utenti.
 
-Uso: python finto_motore.py <info|installa|verifica|stima|esegui|annulla> [opzioni]
+Uso: python finto_motore.py <info|installa|verifica|stima|esegui|annulla|sicurezza> [opzioni]
   --progetto FILE   config.yaml del progetto (stima, esegui); i risultati vanno in <sua cartella>/risultati/
   --corsa ID        corsa da fermare (annulla)
+  --ingresso FILE   richiesta JSON di sicurezza (calcolo vero di motore/fssp: e' Python puro e istantaneo)
   --velocita N      quante volte piu' veloce del vero (predefinito 60: un'ora diventa un minuto; 0 = senza attese)
   --scenario S      ok (predefinito) | DB_MANCANTE (verifica, esegui) | GIA_IN_CORSO (esegui) |
                     annullata (installa, esegui) | READ_NON_TROVATE (esegui) | TEMPO_LUNGO (stima, esegui)
@@ -26,7 +27,8 @@ STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
 COPPIE_DOPO_OSPITE = 1507887
 USCITA = {"ok": 0, "annullata": 3}
-CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "DB_MANCANTE": 2}
+CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "INGRESSO_NON_VALIDO": 1,
+                 "DB_MANCANTE": 2}
 INFO = {
     "motore": "0.1.0", "finto": True, "ram_gb": 15.6, "processori": 8, "spazio_libero_gb": 643,
     "modo_consigliato": {"metaphlan": "fette", "kraken": "completo"},
@@ -179,6 +181,17 @@ class Motore:
         shutil.copy(self.log, r / "log")
         return {"cartella": str(r), **risultati}
 
+    def sicurezza(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motore"))
+        import sicurezza
+        if self.a.progetto and not self.progetto():
+            return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+        try:
+            risultato, messaggio = sicurezza.comando(self.evento, self.a.ingresso, self.a.progetto)
+        except sicurezza.Rifiutata as e:
+            return self.errore("INGRESSO_NON_VALIDO", f"Dati del prodotto non validi: {e}.", sicurezza.COSA_FARE)
+        return "ok", risultato, messaggio
+
     def annulla(self):
         blocco = STATO / "esegui.lock"
         if blocco.exists() and blocco.read_text(encoding="utf-8") == self.a.corsa:
@@ -189,9 +202,10 @@ class Motore:
 
 def main():
     p = argparse.ArgumentParser(description="Finto motore di profilemetananni (solo per l'interfaccia).")
-    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla"])
+    p.add_argument("comando", choices=["info", "installa", "verifica", "stima", "esegui", "annulla", "sicurezza"])
     p.add_argument("--progetto")
     p.add_argument("--corsa", default="")
+    p.add_argument("--ingresso")
     p.add_argument("--velocita", type=float, default=60)
     p.add_argument("--scenario", default="ok", choices=["ok", "DB_MANCANTE", "GIA_IN_CORSO", "annullata",
                                                          "READ_NON_TROVATE", "TEMPO_LUNGO"])
