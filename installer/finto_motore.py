@@ -19,6 +19,7 @@ la corsa indicata. Tempi veri misurati su SF3RAt7 (S2.2, S3).
 """
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -31,6 +32,7 @@ DATI = Path(__file__).resolve().parent / "finto"
 MOTORE = Path(__file__).resolve().parent.parent / "motore"
 sys.path.insert(0, str(MOTORE))
 import system_one  # noqa: E402  (regole vere di System One v0: consigliano, non calcolano)
+from pmn_motore import messaggio_fine  # noqa: E402  (stesso testo di fine dopo un errore, v0.3)
 STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
 COPPIE_DOPO_OSPITE = 1507887
@@ -48,7 +50,47 @@ INFO = {
         {"nome": "ospite_maiale_bovino_pecora_uomo", "installato": True, "gb": 15.0},
     ],
     "consigli": system_one.modo(15.6, False, True, True)[1],
+    "prodotti": system_one.prodotti(),
 }
+# secondi veri misurati su SF3RAt7 (S2.2, S3) per i passi che stima non conta (il download dipende dalla rete)
+ALTRI_PASSI_S = {"download": 240, "controllo_qualita": 20, "pulizia": 60, "riepilogo": 10}
+KRAKEN_RAPIDO_S = 20   # PlusPF-8 su SF3RAt7 (K1b, WSL a 8 GB): i dati di installer/finto/ vengono da questa corsa
+
+
+def vivo(pid):
+    """Il processo pid c'è ancora? Su Windows con OpenProcess (lì os.kill(pid, 0) manderebbe un Ctrl+C)."""
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        codice = ctypes.c_ulong()
+        ok = k.GetExitCodeProcess(h, ctypes.byref(codice))
+        k.CloseHandle(h)
+        return bool(ok) and codice.value == 259      # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def lucchetto():
+    """Dati del lucchetto di esegui se la corsa che l'ha messo è viva; un lucchetto rimasto si toglie (come il vero)."""
+    blocco = STATO / "esegui.lock"
+    try:
+        dati = json.loads(blocco.read_text(encoding="utf-8"))
+        if vivo(dati["pid"]):
+            return dati
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    blocco.unlink(missing_ok=True)   # rimasto da un esegui chiuso a metà, o nel formato vecchio (solo la corsa)
+    return None
 
 
 class Annullata(Exception):
@@ -82,14 +124,31 @@ class Motore:
             time.sleep(min(0.1, fine - time.monotonic()))
 
     def errore(self, codice, messaggio, cosa_fare, passo=None):
-        self.evento("errore", messaggio, codice=codice, cosa_fare=cosa_fare, passo=passo or self.passo)
-        return "errore", {"codice": codice}, "L'operazione non è andata a buon fine."
+        passo = passo or self.passo
+        self.evento("errore", messaggio, codice=codice, cosa_fare=cosa_fare, passo=passo)
+        return "errore", {"codice": codice, "passo": passo}, messaggio_fine(messaggio, cosa_fare, passo)
 
     def progetto(self):
         p = self.a.progetto
         if not p or not Path(p).is_file():
             return None
         return Path(p).resolve()
+
+    def tempi(self, coppie):
+        """Secondi per passo, gli stessi per stima ed esegui (v0.3): regole del contratto (5.2) e database di Kraken
+        del progetto. Ospite solo indicativo, in proporzione a SF3RAt7 (325 s per 1,51 M coppie rimaste)."""
+        try:
+            import yaml
+            cfg = yaml.safe_load(Path(self.a.progetto).read_text(encoding="utf-8")) or {}
+        except Exception:   # niente PyYAML o file illeggibile: valgono i predefiniti
+            cfg = {}
+        sezione = lambda nome: cfg.get(nome) if isinstance(cfg, dict) and isinstance(cfg.get(nome), dict) else {}  # noqa: E731
+        strumento = sezione("profiling").get("tool") or "both"
+        rapido = sezione("motore").get("kraken_db") == "rapido"
+        kraken = round(coppie / COPPIE_DOPO_OSPITE * KRAKEN_RAPIDO_S) if rapido else round(coppie / 37000 * 60)
+        return {"ospite": round(coppie / 1e6 * 216),
+                "metaphlan": round(coppie / 1e6 * 86.2 + 150) if strumento in ("metaphlan", "both") else 0,
+                "kraken": kraken if strumento in ("kraken", "both") else 0}
 
     # ---------------- comandi ----------------
     def info(self):
@@ -121,15 +180,13 @@ class Motore:
     def stima(self):
         if not self.progetto():
             return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
-        # regole del contratto (5.2): Kraken completo ~37.000 coppie/min; MetaPhlAn a fette 86,2 s per milione + 150 s.
-        # Ospite: solo indicativo, in proporzione a SF3RAt7 (325 s per 1,51 M coppie rimaste).
         coppie = 34109943 if self.a.scenario == "TEMPO_LUNGO" else COPPIE_DOPO_OSPITE
-        tempo = {"ospite": round(coppie / 1e6 * 216), "metaphlan": round(coppie / 1e6 * 86.2 + 150),
-                 "kraken": round(coppie / 37000 * 60)}
+        tempo = self.tempi(coppie)
         consigli = system_one.tempo(tempo) + system_one.spazio(12, INFO["spazio_libero_gb"])
         for c in consigli:
             self.evento("avviso", c["messaggio"], codice=c["codice"])
-        return "ok", {"campioni": 1, "coppie_totali": coppie, "tempo_s": tempo, "spazio_gb": 12,
+        return "ok", {"campioni": 1, "nomi_campioni": [CAMPIONE], "coppie_totali": coppie, "tempo_s": tempo,
+                      "tempo_totale_s": sum(tempo.values()), "spazio_gb": 12,
                       "spazio_libero_gb": INFO["spazio_libero_gb"], "consigli": consigli}, "Stima pronta."
 
     def esegui(self):
@@ -137,10 +194,10 @@ class Motore:
         if not progetto:
             return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
         blocco = STATO / "esegui.lock"
-        if self.a.scenario == "GIA_IN_CORSO" or blocco.exists():
+        if self.a.scenario == "GIA_IN_CORSO" or lucchetto():
             return self.errore("GIA_IN_CORSO", "C'è già un'analisi in corso.",
                                "Aspetta che finisca, oppure annullala.")
-        blocco.write_text(self.corsa, encoding="utf-8")
+        blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid()}), encoding="utf-8")
         try:
             return self._esegui(progetto)
         finally:
@@ -151,17 +208,19 @@ class Motore:
         if self.a.scenario == "TEMPO_LUNGO":
             self.evento("avviso", "L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
                         "o il cloud.", codice="TEMPO_LUNGO")
-        # (passo, secondi veri, messaggi): tempi misurati su SF3RAt7 (S2.2, S3). I dati di installer/finto/ vengono
-        # da una corsa con lo screening rapido (PlusPF-8): Kraken ~20 s (K1b, WSL a 8 GB), non i ~41 min del completo
-        piano = [("download", 240, ["scarico le read da NCBI"]),
-                 ("controllo_qualita", 20, ["controllo la qualità delle read"]),
-                 ("pulizia", 60, ["tolgo le parti di bassa qualità"]),
-                 ("ospite", 325, ["tolgo le read del maiale e dell'uomo"]),
-                 ("metaphlan", 350, [f"allineo sulla parte {n} di 6 del database" for n in range(1, 7)]
+        # (passo, secondi veri, messaggi): ospite, MetaPhlAn e Kraken con gli stessi tempi di stima (v0.3), gli altri
+        # misurati su SF3RAt7. I dati di installer/finto/ vengono da una corsa con lo screening rapido (PlusPF-8)
+        t = self.tempi(COPPIE_DOPO_OSPITE)
+        kraken = ("classifico le read con Kraken (screening rapido, PlusPF-8)" if t["kraken"] == KRAKEN_RAPIDO_S else
+                  "classifico le read con Kraken (database completo, PlusPF)")
+        piano = [("download", ALTRI_PASSI_S["download"], ["scarico le read da NCBI"]),
+                 ("controllo_qualita", ALTRI_PASSI_S["controllo_qualita"], ["controllo la qualità delle read"]),
+                 ("pulizia", ALTRI_PASSI_S["pulizia"], ["tolgo le parti di bassa qualità"]),
+                 ("ospite", t["ospite"], ["tolgo le read del maiale e dell'uomo"]),
+                 ("metaphlan", t["metaphlan"], [f"allineo sulla parte {n} di 6 del database" for n in range(1, 7)]
                   + ["calcolo il profilo delle specie"]),
-                 ("kraken", 20, ["classifico le read con Kraken (screening rapido, PlusPF-8)",
-                                 "stimo le abbondanze con Bracken"]),
-                 ("riepilogo", 10, ["preparo le tabelle e il riepilogo"])]
+                 ("kraken", t["kraken"], [kraken, "stimo le abbondanze con Bracken"]),
+                 ("riepilogo", ALTRI_PASSI_S["riepilogo"], ["preparo le tabelle e il riepilogo"])]
         totale_s = sum(p[1] for p in piano)
         fatto_s = 0.0
         for passo, sec, messaggi in piano:
@@ -233,14 +292,14 @@ class Motore:
         if not esito.get("html"):
             return self.errore("ERRORE_INTERNO", "Non riesco a preparare il referto.", f"Guarda il file {self.log}.")
         if esito.get("problemi"):
-            self.evento("avviso", "Il referto non è completo: " + "; ".join(esito["problemi"])[:300],
-                        codice="REFERTO_PARZIALE")
+            import referto
+            self.evento("avviso", referto.avviso_parziale(esito["problemi"], True), codice="REFERTO_PARZIALE")
         file = {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
         return "ok", {"cartella": str(r), "referto": file}, "Referto pronto."
 
     def annulla(self):
-        blocco = STATO / "esegui.lock"
-        if blocco.exists() and blocco.read_text(encoding="utf-8") == self.a.corsa:
+        dati = lucchetto()
+        if dati and dati.get("corsa") == self.a.corsa:
             (STATO / f"{self.a.corsa}.annulla").touch()
             return "ok", {"annullata": True}, "Chiesto di fermare l'analisi."
         return "ok", {"annullata": False}, "Nessuna analisi in corso con questo codice."

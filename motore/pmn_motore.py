@@ -44,6 +44,16 @@ PASSI = [("download", 5, "scarico le read da NCBI"), ("controllo_qualita", 3, "c
          ("pulizia", 4, "tolgo le parti di bassa qualità"), ("ospite", 20, "tolgo le read dell'ospite e dell'uomo"),
          ("metaphlan", 20, "calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)"),
          ("kraken", 43, "classifico le read con Kraken e Bracken"), ("riepilogo", 5, "preparo le tabelle e il riepilogo")]
+# passo del contratto -> in parole, per il messaggio di fine dopo un errore (v0.3)
+NOMI_PASSI = {"download": "lo scaricamento delle read", "controllo_qualita": "il controllo della qualità",
+              "pulizia": "la pulizia delle read", "ospite": "la rimozione del DNA dell'ospite",
+              "metaphlan": "il profilo con MetaPhlAn", "kraken": "la classificazione con Kraken e Bracken",
+              "riepilogo": "il riepilogo", "referto": "la preparazione del referto", "sicurezza": "la previsione di crescita",
+              "verifica": "la verifica del motore"}
+# read locali: stesse coppie di for_each_sample in bin/run.sh (nome = file senza il suffisso della prima read)
+COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"), ("_R1_001.fastq.gz", "_R2_001.fastq.gz"),
+                 ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
+NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
              (r"trim_(.+)", "pulizia"), (r"(?:hf|idx)_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
              (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r".+", "riepilogo")]
@@ -155,6 +165,32 @@ def sezione(cfg, nome):
     return v if isinstance(v, dict) else {}
 
 
+def campioni_locali(cartella):
+    """[(nome, [file])] delle read in una cartella, con le regole di bin/run.sh: "C1_R1.fastq.gz" + "C1_R2.fastq.gz"
+    = campione "C1" (anche _1/_2, _R1_001/_R2_001, .fq.gz); un file senza la sua coppia si salta, come in run.sh;
+    gli altri .fastq.gz/.fq.gz sono campioni a lettura singola."""
+    file = sorted(f.name for f in Path(cartella).iterdir() if f.is_file())
+    out = []
+    for s1, s2 in COPPIE_LOCALI:
+        for f in file:
+            nome = f[:-len(s1)]
+            if f.endswith(s1) and nome + s2 in file and NOME_VALIDO.fullmatch(nome):
+                out.append((nome, [f, nome + s2]))
+    suffissi = tuple(s for coppia in COPPIE_LOCALI for s in coppia)
+    for f in file:
+        if f.endswith((".fastq.gz", ".fq.gz")) and not f.endswith(suffissi):
+            nome = f[:-len(".fastq.gz")] if f.endswith(".fastq.gz") else f[:-len(".fq.gz")]
+            if NOME_VALIDO.fullmatch(nome):
+                out.append((nome, [f]))
+    return out
+
+
+def messaggio_fine(messaggio, cosa_fare, passo):
+    """Testo dell'evento fine dopo un errore (v0.3): quale passo, che cosa è successo, che cosa fare."""
+    dove = f"Problema durante {NOMI_PASSI[passo]}. " if passo in NOMI_PASSI else ""
+    return f"{dove}{messaggio} {cosa_fare}".strip()
+
+
 class Motore:
     def __init__(self, a):
         self.a = a
@@ -205,7 +241,8 @@ class Motore:
         return "ok", {"motore": VERSIONE, "ram_gb": round(ram, 1), "processori": os.cpu_count(),
                       "spazio_libero_gb": round(shutil.disk_usage(base).free / 1e9),
                       "modo_consigliato": modo, "consigli": self.consigli(consigli),
-                      "programmi": programmi, "database": database}, "Ecco com'è fatto questo PC e cosa è installato."
+                      "programmi": programmi, "database": database, "prodotti": system_one.prodotti()}, \
+            "Ecco com'è fatto questo PC e cosa è installato."
 
     # ---------------- verifica ----------------
     def verifica(self):
@@ -253,12 +290,9 @@ class Motore:
             cartella = Path(str(paths.get("local_reads_dir") or ""))
             if not cartella.is_dir():
                 raise Errore("READ_NON_TROVATE", "Non trovo la cartella delle read.", "Controlla il progetto.")
-            prime = sorted(f for f in cartella.iterdir() if re.search(r"(_R?1(_001)?\.f(ast)?q\.gz|\.f(ast)?q\.gz)$", f.name)
-                           and not re.search(r"_R?2(_001)?\.f(ast)?q\.gz$", f.name))
-            for f in prime:
-                byte = f.stat().st_size + sum(g.stat().st_size for g in cartella.glob(re.sub(r"_(R?)1(_001)?\.", r"_\g<1>2\2.", f.name))
-                                             if g != f)
-                out.append((f.name.split(".")[0], round(byte / BYTE_PER_COPPIA), 0))
+            for nome, file in campioni_locali(cartella):   # nomi come in run.sh: "C1", non "C1_R1" (v0.3)
+                byte = sum((cartella / f).stat().st_size for f in file)
+                out.append((nome, round(byte / BYTE_PER_COPPIA), 0))
         if not out:
             raise Errore("READ_NON_TROVATE", "Il progetto non contiene campioni.", "Aggiungi le read al progetto.")
         return out
@@ -280,7 +314,8 @@ class Motore:
         consigli = system_one.tempo(tempo) + system_one.spazio(spazio_gb, libero)
         if env and strumento in ("kraken", "both"):
             consigli += system_one.database(kraken_db, {d["nome"]: d["installato"] for d in elenco_database(env)})
-        return "ok", {"campioni": len(camp), "coppie_totali": coppie, "tempo_s": tempo, "spazio_gb": spazio_gb,
+        return "ok", {"campioni": len(camp), "nomi_campioni": [n for n, _, _ in camp], "coppie_totali": coppie,
+                      "tempo_s": tempo, "tempo_totale_s": sum(tempo.values()), "spazio_gb": spazio_gb,
                       "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
             "Stima pronta (prudente: conta le coppie prima di togliere l'ospite)."
 
@@ -384,10 +419,14 @@ class Motore:
 
     @staticmethod
     def _nomi(cfg):
-        lista = Path(str(sezione(cfg, "paths").get("srr_list") or ""))
-        if lista.is_file():
-            return [r.split()[0] for r in lista.read_text(encoding="utf-8").splitlines() if r.strip() and not r.startswith("#")]
-        return []
+        paths, fonte, nomi = sezione(cfg, "paths"), cfg.get("data_source", "ncbi"), []
+        lista = Path(str(paths.get("srr_list") or ""))
+        if fonte in ("ncbi", "both") and lista.is_file():
+            nomi += [r.split()[0] for r in lista.read_text(encoding="utf-8").splitlines() if r.strip() and not r.startswith("#")]
+        cartella = Path(str(paths.get("local_reads_dir") or ""))
+        if fonte in ("local", "both") and cartella.is_dir():
+            nomi += [n for n, _ in campioni_locali(cartella)]
+        return nomi
 
     def _risultati(self, progetto, cfg):
         """Cartella <progetto>/risultati/ come nel contratto (5.3), copiando dai percorsi di run.sh."""
@@ -460,9 +499,10 @@ class Motore:
         try:
             esito = json.loads(p.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
-            esito = {"problemi": ["referto.py non ha risposto"]}
+            esito = {"problemi": ["il programma del referto non ha risposto"]}
         if esito.get("problemi") or not esito.get("html"):
-            self.evento("avviso", "Il referto non è completo: " + "; ".join(esito.get("problemi") or ["manca la pagina"])[:300],
+            import referto
+            self.evento("avviso", referto.avviso_parziale(esito.get("problemi") or [], bool(esito.get("html"))),
                         codice="REFERTO_PARZIALE")
         return {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
 
@@ -536,16 +576,18 @@ def main():
         esito, risultato, messaggio = getattr(m, a.comando)()
         codice = 0
     except Errore as e:
-        m.evento("errore", e.messaggio, codice=e.codice, cosa_fare=e.cosa_fare, passo=e.passo or m.passo)
-        esito, risultato, messaggio, codice = "errore", {"codice": e.codice}, "L'operazione non è andata a buon fine.", \
-            CODICE_USCITA.get(e.codice, 4)
+        passo = e.passo or m.passo
+        m.evento("errore", e.messaggio, codice=e.codice, cosa_fare=e.cosa_fare, passo=passo)
+        esito, risultato, codice = "errore", {"codice": e.codice, "passo": passo}, CODICE_USCITA.get(e.codice, 4)
+        messaggio = messaggio_fine(e.messaggio, e.cosa_fare, passo)
     except Annullata:
         esito, risultato, messaggio, codice = "annullata", {}, "Annullata: i passi finiti restano, quelli a metà si rifanno.", 3
     except Exception as e:   # errore nostro: lo si dice, e il dettaglio va nel log
         m.scrivi(f"ERRORE INTERNO: {e!r}")
-        m.evento("errore", "Errore imprevisto del motore.", codice="ERRORE_INTERNO", cosa_fare=f"Manda a noi il file {m.log}.",
-                 passo=m.passo)
-        esito, risultato, messaggio, codice = "errore", {"codice": "ERRORE_INTERNO"}, "L'operazione non è andata a buon fine.", 4
+        cosa_fare = f"Manda a noi il file {m.log}."
+        m.evento("errore", "Errore imprevisto del motore.", codice="ERRORE_INTERNO", cosa_fare=cosa_fare, passo=m.passo)
+        esito, risultato, codice = "errore", {"codice": "ERRORE_INTERNO", "passo": m.passo}, 4
+        messaggio = messaggio_fine("Errore imprevisto del motore.", cosa_fare, m.passo)
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 

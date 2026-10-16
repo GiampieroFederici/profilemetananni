@@ -26,6 +26,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "motore"))
 from fssp import CITAZIONE, LAB, LISTERIA, crescita_listeria_lab, crescita_singola  # noqa: E402
 from fssp import ponte, validita  # noqa: E402
+from fssp.validita import numero_it  # noqa: E402
 from fssp.calcolatrici import sale_da_aw  # noqa: E402
 from fssp.modelli import ACIDI, Prodotto  # noqa: E402
 
@@ -43,7 +44,7 @@ def numero(v, nome, lo=None, hi=None):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
         raise IngressoNonValido(f"{nome}: serve un numero")
     if (lo is not None and v < lo) or (hi is not None and v > hi):
-        raise IngressoNonValido(f"{nome} = {v}: fuori da {lo}-{hi}")
+        raise IngressoNonValido(f"{nome} = {numero_it(v)}: fuori da {numero_it(lo)}-{numero_it(hi)}")
     return float(v)
 
 
@@ -59,7 +60,7 @@ def leggi_prodotto(d):
         if "sale_fase_acquosa" in d:
             raise IngressoNonValido("prodotto: indica il sale nella fase acquosa oppure l'aw, non entrambi")
         sale = sale_da_aw(numero(d["aw"], "aw", *LIMITI["aw"]))
-        note.append(f"aw {d['aw']} convertita in sale nella fase acquosa {sale:.2f} % (calcolatrice di FSSP)")
+        note.append(f"aw {numero_it(d['aw'], 3)} convertita in sale nella fase acquosa {numero_it(sale)} % (calcolatrice di FSSP)")
     else:
         sale = numero(d.get("sale_fase_acquosa", 0.0), "sale_fase_acquosa", *LIMITI["sale_fase_acquosa"])
     acidi = d.get("acidi", {})
@@ -99,6 +100,11 @@ def campiona(tempi, *serie, passo):
     return [[round(tempi[i], 6) for i in idx]] + [[round(s[i], 6) for i in idx] for s in serie]
 
 
+def due_cifre(x):
+    """Valore in ufc/g arrotondato a 2 cifre significative (D088): 10^2,48 -> 300."""
+    return float(f"{x:.2g}")
+
+
 def esegui(r, passo_curva_ore, avanza=None):
     """avanza(i, n, nome): chiamata prima di ogni scenario (pmn-motore sicurezza la usa per la barra)."""
     if not isinstance(r, dict):
@@ -136,6 +142,7 @@ def esegui(r, passo_curva_ore, avanza=None):
             o = crescita_singola(prodotto, profilo, sc["n0_listeria"], LISTERIA, lag=lag, modalita=modalita)
             giorni, log_lm = campiona(o["tempi_giorni"], o["log_ufc"], passo=passo)
             prev = {"modello": "listeria", "mu_listeria_h": o["mu"], "psi_listeria": o["psi"],
+                    "finale_listeria_ufc_g": due_cifre(10.0 ** o["log_ufc"][-1]),
                     "cento_volte_listeria_giorni": o["cento_volte_giorni"], "curva": {"giorni": giorni,
                                                                                        "log_listeria": log_lm}}
             psi = o["psi"]
@@ -148,6 +155,8 @@ def esegui(r, passo_curva_ore, avanza=None):
                     "cento_volte_listeria_giorni": o["cento_volte_listeria_giorni"],
                     "cento_volte_lab_giorni": o["cento_volte_lab_giorni"],
                     "sette_log_lab_giorni": o["sette_log_lab_giorni"],
+                    "finale_listeria_ufc_g": due_cifre(10.0 ** o["log_listeria"][-1]),
+                    "finale_lab_ufc_g": due_cifre(10.0 ** o["log_lab"][-1]),
                     "curva": {"giorni": giorni, "log_listeria": log_lm, "log_lab": log_lab}}
             psi = o["psi_listeria"]
         prev.update({"scenario": sc["nome"], "n0_listeria_ufc_g": sc["n0_listeria"], "n0_lab_ufc_g": sc["n0_lab"],

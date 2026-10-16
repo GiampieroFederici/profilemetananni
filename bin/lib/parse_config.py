@@ -75,6 +75,7 @@ def main():
     emit("PMN_KRK_CUSTOM_GENOMES", get(cfg, "profiling", "kraken_custom_genomes", default=""))
     # empty = the recommended value of the Kraken profile (refs/kraken_profili.tsv), chosen in run.sh
     emit("PMN_KRK_CONF", get(cfg, "profiling", "kraken_confidence", default=""))
+    emit("PMN_KRK_MINREADS", get(cfg, "profiling", "bracken_min_reads", default=""))
     emit("PMN_BRACKEN_READLEN", get(cfg, "profiling", "bracken_readlen", default="150"))
     emit("PMN_THRESHOLD", get(cfg, "profiling", "abundance_threshold_pct", default=""))
     # desktop engine choices (docs/contratto_motore.md section 3)

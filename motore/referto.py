@@ -29,6 +29,7 @@ import system_one  # noqa: E402
 OSPITI = {"sus_scrofa": "maiale (Sscrofa11.1)", "bos_taurus": "bovino (ARS-UCD1.2)",
           "ovis_aries": "pecora (ARS-UI_Ramb_v2.0)", "grch38": "uomo (GRCh38)", "homo_sapiens": "uomo (GRCh38)"}
 MICROBI = ("batteri", "archei", "funghi")
+DOMINANTI = 15   # specie in sintesi.*.dominanti (v0.3); la frase ne nomina 3
 VERSIONI = {"metaphlan": "MetaPhlAn", "database_metaphlan": "Database di MetaPhlAn", "kraken2": "Kraken 2",
             "bracken": "Bracken", "database_kraken": "Database di Kraken", "bowtie2": "Bowtie 2 (ospite, fette)",
             "fastp": "fastp (pulizia delle read)", "samtools": "SAMtools"}
@@ -160,7 +161,7 @@ def sintesi(d, soglia):
         frase = (f"MetaPhlAn: {len(sopra)} specie sopra la soglia" +
                  (f"; dominano {elenca(sopra[:3], ' delle read')}." if sopra else ".") +
                  f" Il {pct(nc, 1)} % delle read non è assegnato a specie note.")
-        out["metaphlan"] = {"specie": len(sopra), "dominanti": [{"nome": n, "pct": v} for n, v in sopra[:3]],
+        out["metaphlan"] = {"specie": len(sopra), "dominanti": [{"nome": n, "pct": v} for n, v in sopra[:DOMINANTI]],
                             "non_assegnata_pct": nc, "frase": frase}
     if d.get("kraken") is not None:
         micro = [r for r in d["kraken"] if r["categoria"] in MICROBI and r["pct"] >= soglia]
@@ -170,7 +171,7 @@ def sintesi(d, soglia):
                  (" Segnalati a parte (non microbi o virus): " +
                   ", ".join(f"{r['nome']} {pct(r['pct'], 3)} %" for r in altri) + "." if altri else ""))
         out["kraken"] = {"microbi": len(micro),
-                         "dominanti": [{"nome": r["nome"], "pct_microbi": r["pct_microbi"]} for r in micro[:3]],
+                         "dominanti": [{"nome": r["nome"], "pct_microbi": r["pct_microbi"]} for r in micro[:DOMINANTI]],
                          "non_microbi": [{"nome": r["nome"], "gruppo": r["categoria"], "pct": r["pct"],
                                           "letture": r["letture"]} for r in altri],
                          "frase": frase}
@@ -476,6 +477,23 @@ def pdf(testo_html, percorso):
     return len(re.findall(rb"/Type\s*/Page(?!s)", dati))
 
 
+def problema(file, modulo, ex):
+    """Perché un file del referto manca, in italiano semplice (v0.3); il dettaglio tecnico va nel log."""
+    if isinstance(ex, ImportError):
+        return f"manca {file}: nel motore non c'è il modulo che lo scrive ({modulo})"
+    if isinstance(ex, PermissionError):
+        return f"manca {file}: il file è aperto in un altro programma o la cartella non si può scrivere"
+    return f"manca {file}: errore imprevisto (il dettaglio è nel registro del motore)"
+
+
+def avviso_parziale(problemi, c_e_la_pagina):
+    """Testo dell'avviso REFERTO_PARZIALE (v0.3), uguale per il motore vero e il finto."""
+    if not c_e_la_pagina:
+        problemi = list(problemi) + ["manca la pagina del referto"]
+    testo = "Il referto non è completo: " + "; ".join(problemi) + "."
+    return testo + (" La pagina del referto si apre lo stesso." if c_e_la_pagina else "")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Referto HTML + Excel + PDF dei risultati di pmn-motore.")
     ap.add_argument("--risultati", required=True)
@@ -501,16 +519,19 @@ def main():
     testo = html_referto(d)
     uscita = {"html": str(cartella / "referto.html"), "xlsx": None, "pdf": None, "problemi": []}
     (cartella / "referto.html").write_text(testo, encoding="utf-8")
+    uscita["dettagli"] = []   # testo tecnico per il registro (log); per l'utente solo "problemi", in italiano
     try:
         excel(d, cartella / "referto.xlsx")
         uscita["xlsx"] = str(cartella / "referto.xlsx")
     except Exception as ex:   # manca openpyxl o il file non si scrive: il resto del referto c'e' lo stesso
-        uscita["problemi"].append(f"Excel non creato: {type(ex).__name__}: {ex}")
+        uscita["problemi"].append(problema("l'Excel", "openpyxl", ex))
+        uscita["dettagli"].append(f"Excel: {type(ex).__name__}: {ex}")
     try:
         uscita["pagine_pdf"] = pdf(testo, cartella / "referto.pdf")
         uscita["pdf"] = str(cartella / "referto.pdf")
     except Exception as ex:
-        uscita["problemi"].append(f"PDF non creato: {type(ex).__name__}: {ex}")
+        uscita["problemi"].append(problema("il PDF", "PySide6", ex))
+        uscita["dettagli"].append(f"PDF: {type(ex).__name__}: {ex}")
     print(json.dumps(uscita, ensure_ascii=False))
     return 0
 

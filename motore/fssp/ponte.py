@@ -8,6 +8,8 @@ Il profilo dice CHI c'è (percentuali di DNA), non QUANTI per grammo. Quindi (D0
 """
 import re
 
+from .validita import numero_it
+
 LISTERIA_NOMI = {"listeria monocytogenes"}
 
 # Specie che attivano il modello LAB (Lactobacillus spp. psicrotolleranti, Mejlholm & Dalgaard 2013):
@@ -23,6 +25,11 @@ def normalizza(nome):
     n = nome.split("|")[-1].strip()
     n = re.sub(r"^[a-z]__", "", n)
     return re.sub(r"\s+", " ", n.replace("_", " ")).strip().lower()
+
+
+def maiuscola(nome):
+    """'leuconostoc carnosum' -> 'Leuconostoc carnosum': il genere con la maiuscola nei testi all'utente."""
+    return nome[:1].upper() + nome[1:]
 
 
 def piano(profilo_specie, conte, scenari_listeria):
@@ -41,14 +48,14 @@ def piano(profilo_specie, conte, scenari_listeria):
         note.append("LAB iniziali dalla conta in piastra indicata.")
     elif "totale_ufc_g" in conte and lab_pct > 0.0:
         n0_lab = lab_pct / 100.0 * conte["totale_ufc_g"]
-        note.append(f"LAB iniziali = {lab_pct:.1f} % (DNA) x conta totale: stima approssimata, "
+        note.append(f"LAB iniziali = {numero_it(lab_pct, 1)} % (DNA) x conta totale: stima approssimata, "
                     "la % di DNA non è la % di cellule vive.")
     if n0_lab is None:
         note.append("Senza una conta dei LAB la Listeria è prevista da sola: è il caso peggiore "
                     "(nessun freno dai batteri lattici).")
-    scenari = [{"nome": f"Listeria {n:g} ufc/g (e se)", "n0_listeria": n, "n0_lab": n0_lab} for n in scenari_listeria]
+    scenari = [{"nome": f"Listeria {numero_it(n)} ufc/g (e se)", "n0_listeria": n, "n0_lab": n0_lab} for n in scenari_listeria]
     if listeria_pct > 0.0:
-        note.append(f"Listeria monocytogenes trovata nel profilo ({listeria_pct:g} %).")
+        note.append(f"Listeria monocytogenes trovata nel profilo ({numero_it(listeria_pct, 3)} %).")
         if "totale_ufc_g" in conte:
             scenari.append({"nome": "Listeria dal profilo (% x conta totale)",
                             "n0_listeria": listeria_pct / 100.0 * conte["totale_ufc_g"], "n0_lab": n0_lab})
@@ -60,7 +67,7 @@ def piano(profilo_specie, conte, scenari_listeria):
                     "(L. sakei, L. curvatus) in pesce e carne (Mejlholm & Dalgaard 2013).")
     non_adatti = sorted(k for k, v in norm.items() if v > 0.0 and k.split(" ")[0] in LAB_NON_ADATTI)
     if non_adatti:
-        note.append(f"Nel profilo ci sono LAB per cui il modello non è adatto ({', '.join(non_adatti)}): "
+        note.append(f"Nel profilo ci sono LAB per cui il modello non è adatto ({', '.join(maiuscola(n) for n in non_adatti)}): "
                     "la loro crescita non si prevede (Mejlholm & Dalgaard 2013).")
     coperte = LISTERIA_NOMI | set(LAB_SPECIE)
     return {"scenari": scenari, "note": note, "listeria_trovata": listeria_pct > 0.0,

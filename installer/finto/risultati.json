@@ -25,6 +25,54 @@
       {
        "nome": "Leuconostoc gasicomitatum",
        "pct": 4.417127
+      },
+      {
+       "nome": "Leuconostoc carnosum",
+       "pct": 2.869882
+      },
+      {
+       "nome": "Staphylococcus equorum",
+       "pct": 1.473571
+      },
+      {
+       "nome": "Lactococcus formosensis",
+       "pct": 0.955129
+      },
+      {
+       "nome": "Macrococcoides caseolyticum",
+       "pct": 0.686442
+      },
+      {
+       "nome": "Brochothrix thermosphacta",
+       "pct": 0.579825
+      },
+      {
+       "nome": "Enterococcus faecalis",
+       "pct": 0.410196
+      },
+      {
+       "nome": "Staphylococcus xylosus",
+       "pct": 0.407292
+      },
+      {
+       "nome": "Leuconostoc gelidum",
+       "pct": 0.246961
+      },
+      {
+       "nome": "Lactococcus lactis",
+       "pct": 0.236528
+      },
+      {
+       "nome": "Lactococcus garvieae",
+       "pct": 0.159407
+      },
+      {
+       "nome": "Staphylococcus saprophyticus",
+       "pct": 0.153712
+      },
+      {
+       "nome": "Pediococcus pentosaceus",
+       "pct": 0.134995
       }
      ],
      "non_assegnata_pct": 53.651104,
@@ -44,6 +92,54 @@
       {
        "nome": "Leuconostoc carnosum",
        "pct_microbi": 5.665027097963395
+      },
+      {
+       "nome": "Leuconostoc gasicomitatum",
+       "pct_microbi": 4.5801067890165585
+      },
+      {
+       "nome": "Staphylococcus equorum",
+       "pct_microbi": 3.4691403784698918
+      },
+      {
+       "nome": "Enterococcus faecalis",
+       "pct_microbi": 2.44833355038418
+      },
+      {
+       "nome": "Lactococcus formosensis",
+       "pct_microbi": 1.6489185858970377
+      },
+      {
+       "nome": "Macrococcus psychrotolerans",
+       "pct_microbi": 1.300301533714675
+      },
+      {
+       "nome": "Staphylococcus xylosus",
+       "pct_microbi": 1.1820923033769772
+      },
+      {
+       "nome": "Brochothrix thermosphacta",
+       "pct_microbi": 1.088927401500656
+      },
+      {
+       "nome": "Lactiplantibacillus plantarum",
+       "pct_microbi": 1.0749025775622851
+      },
+      {
+       "nome": "Leuconostoc mesenteroides",
+       "pct_microbi": 0.8785550424250924
+      },
+      {
+       "nome": "Debaryomyces hansenii",
+       "pct_microbi": 0.8184486541177884
+      },
+      {
+       "nome": "Macrococcoides caseolyticum",
+       "pct_microbi": 0.7483245344259338
+      },
+      {
+       "nome": "Lactococcus lactis",
+       "pct_microbi": 0.7052482894723661
       }
      ],
      "non_microbi": [

@@ -95,7 +95,7 @@ fi
 # Kraken runs; for MetaPhlAn alone it stays 0.001 %, as before.
 krk_profile() { awk -F'\t' -v p="$PMN_KRK_PROFILO" -v c="$1" '!/^#/ && $1 == p { print $c; exit }' "$PMN_ROOT/refs/kraken_profili.tsv"; }
 [ -n "$PMN_KRK_CONF" ] || PMN_KRK_CONF="$(krk_profile 2)"
-PMN_KRK_MINREADS="$(krk_profile 3)"
+[ -n "$PMN_KRK_MINREADS" ] || PMN_KRK_MINREADS="$(krk_profile 3)"
 if [ -z "$PMN_THRESHOLD" ]; then
   case "$PMN_TOOL" in kraken|both) PMN_THRESHOLD="$(krk_profile 4)" ;; *) PMN_THRESHOLD=0.001 ;; esac
 fi
@@ -108,7 +108,7 @@ validate_name "$PMN_PROJECT"         || die "invalid project_name"
 validate_path_safe "$PMN_WORK_DIR"   || die "unsafe work_dir"
 validate_tool_choice "$PMN_TOOL"     || die "invalid profiling.tool"
 validate_decimal "$PMN_KRK_CONF"     || die "invalid kraken_confidence"
-validate_uint "$PMN_KRK_MINREADS"    || die "invalid bracken_min_reads in refs/kraken_profili.tsv"
+validate_uint "$PMN_KRK_MINREADS"    || die "invalid bracken_min_reads"
 validate_decimal "$PMN_THRESHOLD"    || die "invalid abundance_threshold_pct"
 validate_uint "$PMN_THREADS"         || die "invalid threads"
 validate_yesno "$PMN_FILTER_HUMAN"   || die "invalid filter_human"

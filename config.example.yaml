@@ -83,6 +83,8 @@ profiling:
   kraken_confidence: ""      # empty = recommended value for the database (refs/kraken_profili.tsv)
                              # vuoto = valore consigliato per il database
   bracken_readlen: 150       # MUST match the Bracken DB build length (often 100 or 150)
+  bracken_min_reads: ""      # Bracken -t; empty = recommended value for the database (refs/kraken_profili.tsv)
+                             # vuoto = valore consigliato per il database
   abundance_threshold_pct: ""      # empty = 0.005 with Kraken (Edwin 2024, refs/kraken_profili.tsv), 0.001 MetaPhlAn alone
 
 # ---------------------------------------------------------------------------

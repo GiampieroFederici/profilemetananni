@@ -16,7 +16,7 @@ FONTE_RAM_STANDARD = ("MetaPhlAn standard: picco 25,5 GB con il catalogo in swap
                       "non entra nei 31,4 GB del PC di prova (13/10). Soglia 40 GB come run.sh 'auto' (D051)")
 RAM_MINIMA_GB = 7.5
 FONTE_RAM_MINIMA = ("MetaPhlAn a fette provato con WSL a 8 GB (circa 7,7 GB visibili): SF3RAt7 e C03_1, RAM 7,9 GB "
-                    "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificatò). Sotto non è provato")
+                    "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificato'). Sotto non è provato")
 TEMPO_LUNGO_S = 4 * 3600
 FONTE_TEMPO = "D023: oltre 4 ore si propone lo screening rapido (PlusPF-8) o il cloud"
 MARGINE_SPAZIO = 1.15
@@ -26,6 +26,22 @@ FONTE_TRIAGE = ("steps/17_triage_report.py: soglie host {host:g} %, {reads:,.0f}
                 "Q30 {q30:g} % (triage.* del progetto); zona grigia +-20 %")
 TRIAGE_ESITO = {"pass": "buono", "review": "da controllare", "exclude": "da rifare"}
 TRIAGE_PREDEFINITE = {"max_host_pct": 95.0, "min_nonhost_reads": 1_000_000.0, "min_q30_pct": 70.0}
+# prodotto -> (ospiti da togliere oltre all'uomo: chiavi di hosts: in config.yaml, frase, perché, livello).
+# L'uomo (GRCh38) si toglie sempre. Testi presi dalla pagina Campioni dell'app (S5b), che li mostra così come sono.
+_CARNE = ("Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+          "Il DNA umano si toglie sempre.")
+PRODOTTI = [
+    ("maiale", ["sus_scrofa"], "Toglierò il DNA del maiale e quello umano.",
+     "Sono la gran parte delle read di un salume e non dicono nulla dei microbi. Il DNA umano si toglie sempre.", "info"),
+    ("bovino", ["bos_taurus"], "Toglierò il DNA del bovino e quello umano.", _CARNE, "info"),
+    ("pecora", ["ovis_aries"], "Toglierò il DNA della pecora e quello umano.", _CARNE, "info"),
+    ("altro", [], "Toglierò solo il DNA umano.",
+     "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read della carne "
+     "finiscono assegnate per errore a qualche microbo.", "avviso"),
+]
+GENOMI = {"sus_scrofa": "Sscrofa11.1", "bos_taurus": "ARS-UCD1.2", "ovis_aries": "ARS-UI_Ramb_v2.0"}
+FONTE_OSPITE = ("D021: gli stessi genomi dell'ospite dei profili pubblicati (maiale Sscrofa11.1, bovino ARS-UCD1.2, "
+                "pecora ARS-UI_Ramb_v2.0); il DNA umano (GRCh38) si toglie sempre. D074: i 4 prodotti dell'app")
 
 _spec = importlib.util.spec_from_file_location("triage_report", ROOT / "steps" / "17_triage_report.py")
 _triage = importlib.util.module_from_spec(_spec)
@@ -52,6 +68,13 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
         c.append(consiglio("DB_MANCANTE", "Manca il database completo di Kraken: si può usare solo lo screening "
                            "rapido (PlusPF-8), che perde alcune specie fra 0,1 e 1 %.", FONTE_DB))
     return {"metaphlan": mpa, "kraken": kraken}, c
+
+
+def prodotti():
+    """Regola prodotto -> ospite per l'interfaccia (info.prodotti), nell'ordine del menu:
+    [{prodotto, ospiti, genomi, frase, perche, livello, fonte}]."""
+    return [{"prodotto": p, "ospiti": o, "genomi": [GENOMI[x] for x in o], "frase": frase, "perche": perche,
+             "livello": livello, "fonte": FONTE_OSPITE} for p, o, frase, perche, livello in PRODOTTI]
 
 
 def tempo(tempo_s):

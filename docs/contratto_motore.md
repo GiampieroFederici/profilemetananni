@@ -1,4 +1,4 @@
-# Contratto motore-interfaccia · Engine-GUI contract (v0.2, 16/10/2026)
+# Contratto motore-interfaccia · Engine-GUI contract (v0.3, 16/10/2026)
 
 > Regola (D006, standard RAPID): **l'interfaccia non fa scienza**. Mostra, chiede, lancia.
 > Tutto il calcolo sta nel motore, dentro WSL2 (Windows) o Linux.
@@ -8,6 +8,13 @@
 > **v0.2 (16/10/2026, filone "Motore, seconda parte", D055):** comandi `sicurezza` e `referto`, referto in
 > `risultati/referto/`, consigli di System One v0, `stima` a gruppi. Le aggiunte sono segnate **[v0.2]**;
 > tutto ciò che c'era in v0 resta valido.
+>
+> **v0.3 (16/10/2026, filone "richieste dell'app", dopo S5b e S6):** regola prodotto → ospite in `info.prodotti`,
+> `stima.tempo_totale_s` e `stima.nomi_campioni`, Bracken `-t` dal progetto, nomi dei campioni locali come in `bin/run.sh`,
+> fonti dei parametri in italiano, `dominanti` fino a 15 specie, valore finale in ufc/g negli scenari di sicurezza,
+> `REFERTO_PARZIALE` e `fine` dopo un errore con testi in italiano più precisi, numeri all'italiana negli avvisi FSSP,
+> finto motore con lucchetto a pid e `stima` coerente con `esegui`. Aggiunte segnate **[v0.3]**: solo campi nuovi o testi
+> migliori, nessun campo tolto o rinominato (l'interfaccia v0.2 continua a funzionare).
 
 ---
 
@@ -54,6 +61,13 @@ motore:
 
 - I parametri con più valori in letteratura (`kraken_confidence`, `abundance_threshold_pct`, Bracken) li sceglie
   l'utente da un menu con il consigliato preselezionato e la fonte accanto (D022). Il motore li riporta nel referto.
+- **[v0.3]** `profiling.bracken_min_reads` (Bracken `-t`, numero intero ≥ 0): vuoto o assente = valore consigliato del
+  profilo del database in `refs/kraken_profili.tsv` (oggi 10), come `kraken_confidence` e `abundance_threshold_pct` (D080);
+  un valore scritto vince. Un valore non valido dà `CONFIG_NON_VALIDA`. Il referto dice se è il consigliato o "scelto nel progetto".
+- **[v0.3]** Read locali (`data_source: local`): il nome del campione è il nome del file senza il suffisso della prima read,
+  con le stesse regole di `bin/run.sh`: `C1_R1.fastq.gz` + `C1_R2.fastq.gz` = `C1` (anche `_1`/`_2`, `_R1_001`/`_R2_001`,
+  `.fq.gz`); un file a coppia senza la sua compagna si salta; ogni altro `.fastq.gz`/`.fq.gz` è un campione a lettura
+  singola (nome = file senza estensione). Nomi ammessi: lettere, cifre, `.`, `_`, `-`, al massimo 64, non all'inizio `-` o `.`.
 - L'interfaccia scrive il file; il motore lo **valida** (lettura sicura, `yaml.safe_load`) e risponde con
   `errore` e codice `CONFIG_NON_VALIDA` se qualcosa non va, indicando il campo.
 
@@ -82,6 +96,10 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
   `kraken` per `DB_MANCANTE` di Kraken). L'installatore non lo manda ancora: lì vale l'ultimo `avanzamento`.
 - Ogni corsa finisce **sempre** con un solo evento `fine`, anche dopo un errore.
+- **[v0.3]** `fine` dopo un errore: `messaggio` dice dove si è fermato, che cosa è successo e che cosa fare, già pronto
+  ("Problema durante la classificazione con Kraken e Bracken. Manca il database di Kraken. Apri la pagina Motore e premi
+  Installa."; senza "Problema durante..." se l'errore è nato prima del primo passo). `risultato` = `{"codice", "passo"}`
+  (`passo` come in `errore`, o `null`).
 
 ### Codici di uscita
 
@@ -113,7 +131,7 @@ l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce semp
 | `INGRESSO_NON_VALIDO` | errore (uscita 1) | `sicurezza`: dati del prodotto mancanti o fuori dai limiti; il messaggio dice quale campo |
 | `FUORI_CAMPO` | avviso | `sicurezza`: un fattore è fuori dal campo di validità del modello (M8); uno per fattore e modello, con i campi `modello` (`listeria`, `listeria_lab`, `lab`) e `fattore`, testo già pronto ("Per il modello della Listeria: pH = 5.4: fuori dal campo...") |
 | `CAMPIONE_DA_CONTROLLARE`, `CAMPIONE_DA_RIFARE` | avviso | `esegui`: esito del triage (System One v0, §5.5) |
-| `REFERTO_PARZIALE` | avviso | `esegui`/`referto`: manca il PDF o l'Excel (la pagina HTML c'è sempre) |
+| `REFERTO_PARZIALE` | avviso | `esegui`/`referto`: manca il PDF o l'Excel (la pagina HTML c'è sempre). **[v0.3]** Testo solo in italiano, per esempio "Il referto non è completo: manca l'Excel: nel motore non c'è il modulo che lo scrive (openpyxl). La pagina del referto si apre lo stesso."; il dettaglio tecnico va nel log |
 
 Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` possono arrivare come **avviso**
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
@@ -133,6 +151,18 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 - `modo_consigliato` viene dalle regole di System One v0 (D031): sotto ~40 GB di RAM, MetaPhlAn a fette.
 - **[v0.2]** `consigli`: lista di `{"codice", "livello", "messaggio", "fonte"}` (§5.5). Quelli con `livello: "avviso"`
   arrivano anche come eventi `avviso`; quelli `"info"` solo qui (per esempio `MODO_METAPHLAN`).
+- **[v0.3]** `prodotti`: la regola prodotto → ospite (System One v0, §5.5), nell'ordine del menu del passo 1 (D074).
+  L'interfaccia scrive `ospiti` in `hosts:` del progetto e mostra `frase` e `perche` così come sono; il DNA umano (GRCh38)
+  si toglie sempre (`filter_human`).
+
+```json
+"prodotti": [{"prodotto": "maiale", "ospiti": ["sus_scrofa"], "genomi": ["Sscrofa11.1"],
+              "frase": "Toglierò il DNA del maiale e quello umano.", "perche": "Sono la gran parte delle read...",
+              "livello": "info", "fonte": "D021: ..."},
+             {"prodotto": "bovino", "ospiti": ["bos_taurus"], "genomi": ["ARS-UCD1.2"], ...},
+             {"prodotto": "pecora", "ospiti": ["ovis_aries"], "genomi": ["ARS-UI_Ramb_v2.0"], ...},
+             {"prodotto": "altro", "ospiti": [], "genomi": [], "frase": "Toglierò solo il DNA umano.", "livello": "avviso", ...}]
+```
 
 ### 5.2 `stima`
 
@@ -146,6 +176,8 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 - **[v0.2]** In più: `spazio_libero_gb` (disco dove andrà il lavoro) e `consigli` (§5.5: `TEMPO_LUNGO`,
   `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`). Le dimensioni si chiedono **a gruppi**: una richiesta a ENA ogni 100
   campioni, e una a NCBI ogni 100 per quelli che ENA non conosce o se ENA non risponde (94 campioni in ~1 s).
+- **[v0.3]** `tempo_totale_s`: la somma di `tempo_s` (download escluso), già pronta; `nomi_campioni`: i nomi con cui
+  il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine del conteggio.
 
 ### 5.3 `esegui`: cartella dei risultati
 
@@ -189,6 +221,8 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 
   `dominanti`: le prime 3 sopra la soglia di abbondanza (MetaPhlAn in % sul totale delle read, Kraken in % fra i
   soli microbi); `non_microbi`: tutto ciò che Kraken assegna fuori da batteri, archei e funghi (D023).
+  **[v0.3]** `dominanti` arriva fino a **15** specie sopra la soglia (in ordine di abbondanza; meno se sopra la soglia
+  ce ne sono meno); la `frase` continua a nominarne 3. Il resto delle specie resta nel referto e nell'Excel.
 - **[v0.2]** Campi nuovi: `triage` (`[{"campione", "esito": "buono" | "da controllare" | "da rifare", "motivi", "punteggio"}]`,
   vuoto se il triage non è attivo), `consigli` (§5.5), `referto` (`{"html", "pdf", "xlsx"}`: percorsi dentro
   `risultati/`, `null` se quel file manca).
@@ -201,7 +235,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   funghi (dall'albero del report), con "% fra i soli microbi" e "% sul totale assegnato"; *Homo*, *Leishmania*,
   altri eucarioti e virus in una tabella "segnalati a parte" (D023). Nelle tabelle solo le specie sopra la soglia di
   abbondanza; l'Excel le ha tutte.
-- Parametri usati con la fonte (D022, fonti di `refs/kraken_profili.tsv`), "Strumenti e database usati" con versioni
+- Parametri usati con la fonte (D022, fonti di `refs/kraken_profili.tsv`, **[v0.3]** scritte in italiano), "Strumenti e database usati" con versioni
   e citazioni (D036), postilla sui virus (D017, D033), sezione "Sicurezza alimentare" solo se c'è `risultati/sicurezza/`.
 - Il PDF lo fa il motore dallo stesso HTML (Qt, già nell'ambiente `pmn_reports_py`): l'interfaccia non deve
   convertire nulla. Fogli Excel: `Leggimi`, `MetaPhlAn_specie`, `Kraken_microbi`, `Kraken_a_parte`, `Triage`,
@@ -241,7 +275,14 @@ Uscita (`fine.risultato`):
 
 - Con il modello *Listeria* + LAB ci sono anche `mu_lab_h`, `psi_lab`, `cento_volte_lab_giorni`,
   `sette_log_lab_giorni` e `curva.log_lab`. Le curve hanno un punto all'ora.
-- L'interfaccia mostra `note` e gli avvisi così come sono (sono già in italiano).
+- **[v0.3]** Per ogni scenario `finale_listeria_ufc_g` (e con il modello *Listeria* + LAB anche `finale_lab_ufc_g`): la
+  concentrazione alla fine della curva in ufc/g, cioè 10 alla potenza dell'ultimo log, **arrotondata a 2 cifre
+  significative** (10^4,48 → 30000), pronta da mostrare come "circa 30.000 ufc/g" (D088): l'interfaccia non fa più 10^x.
+- L'interfaccia mostra `note` e gli avvisi così come sono (sono già in italiano). **[v0.3]** Con i numeri all'italiana
+  (virgola per i decimali, al massimo 2 cifre dopo la virgola, punto per le migliaia: "sale nella fase acquosa (%) =
+  13,99", "(0,7-9)") e i nomi delle specie con la maiuscola ("Leuconostoc carnosum"). Anche i messaggi di
+  `INGRESSO_NON_VALIDO` hanno i numeri all'italiana. I campi numerici (`valore`, `campo`) restano numeri JSON.
+  `ponte.lab_trovati` e `ponte.specie_non_coperte` restano in minuscolo (sono chiavi, non testi).
 
 ### 5.5 System One v0: le regole [v0.2]
 
@@ -251,6 +292,7 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
 | Regola | Soglia | Codice | Fonte |
 |---|---|---|---|
 | Modo MetaPhlAn | `standard` solo con RAM ≥ 40 GB **e** indice intero installato, altrimenti `fette` | `MODO_METAPHLAN` (info) | S2.1 (picco 25,5 GB), PC da 31,4 GB non basta; D051 |
+| **[v0.3]** Prodotto → ospite | maiale → `sus_scrofa` (Sscrofa11.1), bovino → `bos_taurus` (ARS-UCD1.2), pecora → `ovis_aries` (ARS-UI_Ramb_v2.0), altro → nessuno (avviso); l'uomo sempre | `info.prodotti` (non un codice) | D021, D074 |
 | Memoria troppo poca | RAM visibile < 7,5 GB | `RAM_INSUFFICIENTE` | fette provate con WSL a 8 GB (14/10) |
 | Database Kraken | completo se installato, altrimenti rapido con avviso; scelto ma non installato | `DB_MANCANTE` | installazione del motore |
 | Tempo | stima totale > 4 h | `TEMPO_LUNGO` | D023 |
@@ -269,6 +311,13 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
   vero di SF3RAt7 (`installer/finto/referto/`); `referto` lo rifà con `motore/referto.py` (HTML sempre, Excel e PDF
   se ci sono `openpyxl` e PySide6, altrimenti `REFERTO_PARZIALE`); `info` e `stima` danno i consigli con le regole vere.
 - Come il vero: un solo `esegui` alla volta (`GIA_IN_CORSO`) e `annulla --corsa <id>` ferma davvero la corsa.
+- **[v0.3]** Il lucchetto `%TEMP%\pmn_finto\esegui.lock` contiene `{"corsa", "pid"}` come quello vero: se il processo che
+  l'ha messo non c'è più (un `esegui` chiuso a metà) il lucchetto si toglie da solo e la corsa parte; anche un lucchetto
+  nel formato vecchio (solo il codice della corsa) si toglie. Su Windows il controllo del pid usa `OpenProcess`.
+- **[v0.3]** `stima` ed `esegui` usano gli stessi tempi per ospite, MetaPhlAn e Kraken, presi da `motore.kraken_db` del
+  progetto: completo 41 min di Kraken, rapido 20 s (misurato su SF3RAt7 con PlusPF-8); i dati copiati restano quelli della
+  corsa con lo screening rapido. `info.prodotti`, `stima.tempo_totale_s`, `stima.nomi_campioni` e i testi di `fine` e
+  `REFERTO_PARZIALE` sono quelli del motore vero.
 - `tests/test_finto_motore.py` controlla ogni comando e scenario contro il §4; **[v0.2]** anche `tests/test_sicurezza.py`,
   `tests/test_referto.py`, `tests/test_system_one.py`, `tests/test_stima_gruppi.py`.
 

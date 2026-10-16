@@ -183,4 +183,4 @@ def test_ponte_lab_non_adatti():
     piano = ponte.piano({"s__Leuconostoc_carnosum": 5.0, "s__Latilactobacillus_curvatus": 20.0},
                         {"lab_ufc_g": 1e3}, [1.0])
     assert piano["lab_trovati"] == ["latilactobacillus curvatus"]
-    assert any("non è adatto" in n and "leuconostoc carnosum" in n for n in piano["note"])
+    assert any("non è adatto" in n and "Leuconostoc carnosum" in n for n in piano["note"])

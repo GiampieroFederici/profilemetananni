@@ -23,6 +23,12 @@ NOMI = {"temperatura": "temperatura (°C)", "co2": "CO2 (%)", "sale_fase_acquosa
         "diacetato": "diacetato (ppm)", "lattico": "acido lattico (ppm)", "sorbico": "acido sorbico (ppm)"}
 
 
+def numero_it(v, cifre=2):
+    """Numero per i testi all'utente, all'italiana: 13.9875 -> "13,99", 60000 -> "60.000", 5.0 -> "5"."""
+    testo = f"{v:,.{cifre}f}".replace(",", " ").replace(".", ",").replace(" ", ".")
+    return testo.rstrip("0").rstrip(",") if "," in testo else testo
+
+
 def avvisi(modello, prodotto, profilo=None):
     """Lista di avvisi "fuori campo" (vuota se tutto è dentro). modello: listeria | lab | listeria_lab."""
     campo = CAMPI[modello]
@@ -40,6 +46,7 @@ def avvisi(modello, prodotto, profilo=None):
             continue
         visti.add((fattore, v))
         uscita.append({"codice": "FUORI_CAMPO", "fattore": fattore, "valore": v, "campo": [lo, hi],
-                       "messaggio": f"{NOMI[fattore]} = {v:g}: fuori dal campo del modello ({lo:g}-{hi:g}). "
+                       "messaggio": f"{NOMI[fattore]} = {numero_it(v)}: fuori dal campo del modello "
+                                    f"({numero_it(lo)}-{numero_it(hi)}). "
                                     "La previsione è un'estrapolazione: usala con cautela."})
     return uscita
