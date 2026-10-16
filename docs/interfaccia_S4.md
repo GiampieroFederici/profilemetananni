@@ -209,8 +209,8 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 | `app/motore.py` | `MotoreClient`: `avvia(comando, *argomenti)`, segnali `evento(dict)` e `finito(codice_uscita, evento_fine)`, `annulla()`, `in_corso()`, `corsa`, `diagnostica`; `percorso_per_motore(p)` (Windows → `/mnt/c/...` per il motore vero) | solo S5a |
 | `app/finestra.py`, `app/stile.qss`, `app/main.py` | testata, percorso, barra delle azioni, avvio con l'avatar, avatar che respira | solo S5a |
 | `app/progetto.py` | `Progetto` (`config`, `risultati`, `leggi()`, `scrivi(dati)` con `yaml.safe_dump`, tutto o niente), `nuovo(nome)`, `elenco()`, `cartella_progetti()` = Documenti\ProfileMetaNanni | S5b (S6 lo usa, non lo cambia) |
-| `app/pagine/home.py progetto.py scelte.py motore.py crediti.py` | segnaposto | **S5b** |
-| `app/pagine/esecuzione.py risultati.py sicurezza.py` | segnaposto | **S6** |
+| `app/pagine/home.py progetto.py scelte.py motore.py crediti.py` | pagine vere (fatte il 16/10, `tests/test_app_s5b.py`); `progetto.py` contiene anche `STILE`, `Scelta`, `pannello`, `svuota` (da spostare nello scheletro) | **S5b** |
+| `app/pagine/esecuzione.py risultati.py sicurezza.py` | pagine vere (fatte il 16/10, `tests/test_app_s6.py`) | **S6** |
 
 **Come si scrive una pagina** (sottoclasse di `Pagina`, costruttore `(contesto, parent=None)`):
 - contenuto in `self.corpo` (un `QVBoxLayout`, il titolo c'è già se si mette `titolo`); la finestra la mette da sola dentro una zona che scorre;
@@ -224,6 +224,8 @@ tests/test_app_*.py       # pytest-qt contro il finto motore (--velocita 0, --sc
 (per esempio la WSL `pmn` non c'è) arriva un `errore` con codice **`MOTORE_NON_AVVIATO`** e `cosa_fare` "Apri la pagina Motore
 e premi Controlla il motore."; se si chiude dopo `inizio` senza `fine`, un `errore` **`ERRORE_INTERNO`** (D077). Sono codici
 dell'interfaccia, non del motore. Righe non JSON e stderr vanno in `diagnostica`, mai all'utente (R2).
+
+**S5b e S6 (16/10 sera):** fatte in parallelo e unite in locale (`f0616ea`, `f4c432d`); 44 test dell'app verdi; giro completo da Nuovo progetto alla sicurezza alimentare col finto motore. Decisioni D078-D096 (AMBIENTE); richieste allo scheletro e al motore in AMBIENTE "PROBLEMI APERTI".
 
 **Criteri di S5a, verificati il 16/10:** l'app si apre, l'avatar saltella e si ferma (fotografie a 0,5 s e 2 s), le pagine vuote
 si navigano col solo pulsante principale, `info` arriva dal finto motore ("15,6 GB di memoria, 8 processori"); 12 test
