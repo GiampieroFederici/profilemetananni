@@ -197,6 +197,14 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     ris.finestra_referto.close()
 
 
+def test_senza_progetto_si_va_ai_progetti(f):
+    for chiave in ("esecuzione", "risultati", "sicurezza"):
+        f.vai(chiave)
+        assert un_principale(f).text() == "Apri i miei progetti"
+        un_principale(f).click()
+        assert f.attuale == "home"
+
+
 def test_risultati_senza_progetto_invita_ad_agire(f, tmp_path):
     p = apri(f, tmp_path, avvia=False)
     f.vai("risultati")

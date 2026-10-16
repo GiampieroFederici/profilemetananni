@@ -85,9 +85,9 @@ class PaginaRisultati(Pagina):
         self.azioni_cambiate.emit()
 
     def _vuota(self, progetto):
-        if progetto is None:          # si sta solo guardando il percorso: si va avanti
-            self.lista.addWidget(etichetta("Nessun progetto aperto. Apri un progetto da «I miei progetti», in alto."))
-            self.testo_principale, self.destinazione = "Avanti: sicurezza alimentare", "sicurezza"
+        if progetto is None:
+            self.lista.addWidget(etichetta("Nessun progetto aperto. Apri un progetto o creane uno nuovo."))
+            self.testo_principale, self.destinazione = "Apri i miei progetti", "home"
         else:
             self.lista.addWidget(etichetta("Questo progetto non ha ancora risultati. Avvia l'analisi dalle "
                                            "scelte dell'analisi (passo 2)."))

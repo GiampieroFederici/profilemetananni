@@ -205,9 +205,9 @@ class PaginaEsecuzione(Pagina):
                   "ok": "Analisi finita", "annullata": "Analisi fermata", "errore": "L'analisi si è fermata"}[s]
         if s == "vuota":
             progetto = self.contesto.progetto
-            if progetto is None:          # si sta solo guardando il percorso: si va avanti
-                self.invito.setText("Nessun progetto aperto. Apri un progetto da «I miei progetti», in alto.")
-                self.testo_principale, self.destinazione = "Avanti: risultati", "risultati"
+            if progetto is None:
+                self.invito.setText("Nessun progetto aperto. Apri un progetto o creane uno nuovo.")
+                self.testo_principale, self.destinazione = "Apri i miei progetti", "home"
             elif leggi_risultati(progetto) is not None:
                 self.invito.setText("Nessuna analisi in corso. I risultati dell'ultima analisi sono pronti.")
                 self.testo_principale, self.destinazione = "Vedi i risultati", "risultati"

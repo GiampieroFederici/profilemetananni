@@ -317,7 +317,7 @@ class PaginaSicurezza(Pagina):
                 self.uscita.addWidget(etichetta("Qui compariranno le previsioni: scrivi i dati del prodotto e "
                                                 "premi «Calcola la previsione».", "nota"))
         if dati is None:
-            self.invito.setText("Nessun progetto aperto. Apri un progetto da «I miei progetti», in alto."
+            self.invito.setText("Nessun progetto aperto. Apri un progetto o creane uno nuovo."
                                 if progetto is None else
                                 "Per la previsione servono le specie trovate: prima fai l'analisi di questo progetto.")
         self._azioni()
@@ -393,7 +393,7 @@ class PaginaSicurezza(Pagina):
         self.aiuto, self.aiuto_livello = "", ""
         self.principale_attivo = True
         if leggi_risultati(progetto) is None:
-            self.testo_principale, self.destinazione = (("Torna ai risultati", "risultati") if progetto is None
+            self.testo_principale, self.destinazione = (("Apri i miei progetti", "home") if progetto is None
                                                         else ("Vai alle scelte dell'analisi", "scelte"))
         else:
             self.testo_principale, self.destinazione = "Aggiungi al referto", None
