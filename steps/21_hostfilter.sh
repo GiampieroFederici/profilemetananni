@@ -103,12 +103,15 @@ run_pass() {
     fi
   fi
   # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
+  # --reorder: non-host reads in the same order at every run. MetaPhlAn puts each read's position in its name
+  # and Bowtie2 breaks ties between equally good alignments from the name: without it the profile moves by
+  # ~0.001 points from one run to the next (D054).
   if [ -n "$r2" ]; then
-    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" \
+    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" --reorder \
       --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
       2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
   else
-    bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" \
+    bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" --reorder \
       --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
       2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
   fi

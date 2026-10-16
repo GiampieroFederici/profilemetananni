@@ -4,6 +4,10 @@
 #
 # Queries the ENA filereport API for each accession and sums `fastq_bytes` (the real
 # gzipped download size), then compares the total against the available disk space.
+# If ENA is unreachable or does not know the run, NCBI (E-utilities, SRA runinfo) is asked
+# instead: the reads are downloaded from NCBI anyway, so an ENA outage must not stop the run
+# (seen on 15/10/2026: ENA answered HTTP 500 for ~6 minutes). NCBI gives the size of the .sra
+# file, i.e. what prefetch downloads.
 # Run this BEFORE steps/10_download_sra.sh so the user can confirm there is enough room.
 #
 # No third-party dependencies (uses only the Python standard library: urllib).
@@ -16,8 +20,9 @@
 # Exit codes:
 #   0  proceed: the resolved accessions fit in the available/declared free space
 #      (some accessions may have been skipped/unresolved — see the WARN lines + CSV)
-#   2  STOP: either NO accession could be resolved (nothing to download),
-#      or the resolved download does NOT fit in the available/declared free space
+#   2  STOP: the resolved download does NOT fit in the available/declared free space
+#   3  STOP: no accession resolved because ENA and NCBI were both unreachable (retry later)
+#   4  STOP: no accession resolved: the runs do not exist (check the SRR list)
 #   1  usage / input error
 import argparse
 import json
@@ -26,17 +31,21 @@ import re
 import shutil
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 
-ENA_API = "https://www.ebi.ac.uk/ena/portal/api/filereport"
+# overridable only to test the fallback (an unreachable address simulates an outage)
+ENA_API = os.environ.get("PMN_ENA_API", "https://www.ebi.ac.uk/ena/portal/api/filereport")
+NCBI_API = os.environ.get("PMN_NCBI_API", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi")
 SRR_RE = re.compile(r"^(SRR|ERR|DRR)[0-9]{5,}$", re.IGNORECASE)
 TIMEOUT = 30
 MAX_RETRIES = 5
 
 
-def http_get_json(url, params):
-    """GET with exponential backoff; returns parsed JSON or None."""
+def http_get(url, params):
+    """GET with exponential backoff; returns the body as text, or None if the service is unreachable."""
     query = urllib.parse.urlencode(params)
     full = f"{url}?{query}"
     backoff = 1.0
@@ -44,14 +53,31 @@ def http_get_json(url, params):
         try:
             req = urllib.request.Request(full, headers={"User-Agent": "profilemetananni/1.0"})
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                raw = resp.read().decode("utf-8", "replace")
-            return json.loads(raw) if raw.strip() else []
+                return resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            if 400 <= e.code < 500 and e.code != 429:
+                return ""   # the service answered "no such run" (NCBI: HTTP 400): not an outage
+            if attempt == MAX_RETRIES - 1:
+                return None
+            time.sleep(backoff)
+            backoff *= 2
         except Exception:
             if attempt == MAX_RETRIES - 1:
                 return None
             time.sleep(backoff)
             backoff *= 2
     return None
+
+
+def http_get_json(url, params):
+    """GET a JSON body; returns parsed JSON, [] for an empty body, or None."""
+    raw = http_get(url, params)
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw) if raw.strip() else []
+    except ValueError:
+        return None
 
 
 def lookup_srr(acc):
@@ -65,10 +91,11 @@ def lookup_srr(acc):
         "fields": "run_accession,read_count,base_count,fastq_bytes",
         "format": "json",
     })
-    if data is None:
+    if not data:   # ENA unreachable (None) or run unknown to ENA ([]): ask NCBI
+        alt = lookup_ncbi(acc)
+        if alt["status"] == "OK" or data is not None:
+            return alt
         return {"status": "ERROR", "accession": acc, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
-    if not data:
-        return {"status": "NOT_FOUND", "accession": acc, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
     d = data[0]
 
     def _safe_int(x):
@@ -89,7 +116,32 @@ def lookup_srr(acc):
         "fastq_bytes": fb,
         "read_count": _safe_int(d.get("read_count", 0) or 0),
         "base_count": _safe_int(d.get("base_count", 0) or 0),
+        "source": "ENA",
     }
+
+
+def lookup_ncbi(acc):
+    """Same fields from NCBI SRA runinfo (XML); fastq_bytes = size of the .sra file prefetch downloads."""
+    raw = http_get(NCBI_API, {"db": "sra", "id": acc, "rettype": "runinfo"})
+    empty = {"accession": acc, "fastq_bytes": 0, "read_count": 0, "base_count": 0, "source": "NCBI"}
+    if raw is None:
+        return {"status": "ERROR", **empty}
+    if not raw.strip():
+        return {"status": "NOT_FOUND", **empty}
+    try:
+        row = ET.fromstring(raw).find("Row")
+    except ET.ParseError:
+        return {"status": "ERROR", **empty}
+    if row is None or (row.findtext("Run") or "").upper() != acc:
+        return {"status": "NOT_FOUND", **empty}
+
+    def num(tag):
+        try:
+            return int(float(row.findtext(tag) or 0))
+        except ValueError:
+            return 0
+    return {"status": "OK", "accession": acc, "fastq_bytes": num("size_MB") * 1_000_000,
+            "read_count": num("spots"), "base_count": num("bases"), "source": "NCBI"}
 
 
 def load_cache(path):
@@ -142,11 +194,14 @@ def main():
     csv_path = os.path.join(a.out, "download_size_estimate.csv")
     cache = {} if a.force else load_cache(cache_path)
 
-    todo = [x for x in items if x not in cache]
+    # a network error is not an answer: ask again instead of reusing it from the cache
+    todo = [x for x in items if x not in cache or cache[x].get("status") == "ERROR"]
     print(f"[INFO] {len(items)} accessions ({len(todo)} to query, {len(items) - len(todo)} cached)")
 
     for i, acc in enumerate(todo, 1):
         cache[acc] = lookup_srr(acc)
+        if cache[acc]["status"] == "OK" and cache[acc].get("source") == "NCBI":
+            print(f"[INFO] {acc}: size taken from NCBI (ENA unavailable or without this run)")
         if i % 20 == 0 or i == len(todo):
             save_cache(cache, cache_path)
             print(f"  [{i}/{len(todo)}] last: {acc} -> {cache[acc]['status']}")
@@ -218,9 +273,11 @@ def main():
 
     # Genuine error: nothing resolved means there is literally nothing to download.
     if n_ok == 0:
-        print("[FAIL] No accession could be resolved — nothing to download. "
-              "Check the SRR list / ENA connectivity and retry.")
-        return 2
+        if any(status == "ERROR" for _, status in bad_accessions):
+            print("[FAIL] ENA and NCBI could not be reached — nothing to download. Retry in a few minutes.")
+            return 3
+        print("[FAIL] No accession could be resolved — the runs were not found. Check the SRR list.")
+        return 4
 
     # The real gate: the resolved download must fit in the available space.
     if free_gb is not None and needed_gb > free_gb:

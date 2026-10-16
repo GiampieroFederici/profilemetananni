@@ -12,7 +12,8 @@ PASSI = {"download", "controllo_qualita", "pulizia", "ospite", "metaphlan", "kra
          "controllo", "programmi", "database", "verifica", "fine"}
 CODICI = {"CONFIG_NON_VALIDA", "DB_MANCANTE", "DB_ROVINATO", "SPAZIO_INSUFFICIENTE", "RAM_INSUFFICIENTE",
           "READ_NON_TROVATE", "DOWNLOAD_FALLITO", "GIA_IN_CORSO", "TEMPO_LUNGO",
-          "SISTEMA_NON_ADATTO", "PROGRAMMA_MANCANTE", "VERIFICA_ROSSA", "RETE_NON_MISURATA", "RETE_INTERROTTA"}
+          "SISTEMA_NON_ADATTO", "PROGRAMMA_MANCANTE", "VERIFICA_ROSSA", "RETE_NON_MISURATA", "RETE_INTERROTTA",
+          "ERRORE_INTERNO"}
 USCITA = {"ok": 0, "annullata": 3}
 
 

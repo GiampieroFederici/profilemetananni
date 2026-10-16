@@ -229,6 +229,8 @@ PMN_OSPITE=$PMN_HOME/db/ospite
 PMN_PROVA=$PMN_HOME/db/prova
 PMN_TMP=$PMN_HOME/tmp
 EOF
+chmod +x "$PMN_ROOT/motore/pmn-motore"
+ln -sfn "$PMN_ROOT/motore/pmn-motore" "$PMN_HOME/bin/pmn-motore"   # il comando unico (docs/contratto_motore.md §1)
 
 # ===================== 5. prova finale =====================
 PASSO=verifica; FATTO=0; TOTALE=1; ETA=null

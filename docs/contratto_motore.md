@@ -11,6 +11,8 @@
 
 - Un solo programma: `pmn-motore <comando> [opzioni]`, installato da `installer/installa_motore.sh`
   in `~/.pmn/bin/pmn-motore`.
+  **Esiste dal 16/10/2026** (`motore/pmn-motore` + `motore/pmn_motore.py`, D053): stessi comandi ed eventi del
+  finto motore; `installa` passa all'installatore, `esegui` lancia `bin/run.sh`, `verifica` lancia `installer/verifica_motore.sh`.
 - Da Windows: `wsl.exe -d <distro> -- ~/.pmn/bin/pmn-motore <comando> ...`.
 - Da Linux: direttamente.
 - **stdout** = solo eventi JSON, uno per riga (JSON Lines, §4). **stderr** = vuoto o diagnostica breve.
@@ -82,6 +84,8 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 
 Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_MANCANTE` (programma di sistema),
 `VERIFICA_ROSSA` (prova finale fallita); avvisi `RETE_NON_MISURATA`, `RETE_INTERROTTA` (riprova da sola).
+`ERRORE_INTERNO` (codice di uscita 4: un errore nostro, non dell'utente; `cosa_fare` indica il log da mandarci).
+In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
 
 ## 5. Uscite
 
