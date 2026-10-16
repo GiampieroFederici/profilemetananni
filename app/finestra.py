@@ -63,7 +63,7 @@ def arrotondata(pixmap, lato, raggio):
 class Finestra(QMainWindow):
     def __init__(self, movimento=None):
         super().__init__()
-        self.movimento = not movimento_ridotto() if movimento is None else movimento
+        self._movimento = movimento               # None: segue Windows; True o False: deciso (per i test)
         self.setWindowTitle("ProfileMetaNanni")
         self.setWindowIcon(QIcon(str(RISORSE / "avatar_512.png")))
         self.resize(1366, 860)
@@ -77,6 +77,11 @@ class Finestra(QMainWindow):
         self.setCentralWidget(self.fuori)
         self.fuori.addWidget(self._avvio())
         self.fuori.addWidget(self._area())
+
+    @property
+    def movimento(self):
+        """L'avatar si muove? Letto da Windows a ogni animazione: vale anche se lo si cambia ad app aperta."""
+        return not movimento_ridotto() if self._movimento is None else self._movimento
 
     # ---------------- avvio ----------------
     def _avvio(self):

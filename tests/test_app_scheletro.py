@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("pytestqt")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QFontDatabase  # noqa: E402
 from PySide6.QtWidgets import QLabel, QPushButton  # noqa: E402
 
@@ -262,6 +263,43 @@ def test_avatar_respira_e_si_ferma(qtbot):
     qtbot.addWidget(f2)
     f2.respira(True)
     assert f2.emblema.graphicsEffect() is None
+
+
+def test_riduci_movimento_segue_windows(qtbot, monkeypatch):
+    """R15: con "Effetti animazione" spento in Windows l'avatar non saltella e non respira; vale subito,
+    anche se lo si cambia ad app aperta."""
+    spento = [True]
+    monkeypatch.setattr(finestra, "movimento_ridotto", lambda: spento[0])
+    monkeypatch.setattr(finestra, "AVVIO_MIN_MS", 0)
+    f = finestra.Finestra()
+    qtbot.addWidget(f)
+    f.avvia()
+    assert not hasattr(f, "_salto")                     # niente salto all'avvio
+    f.respira(True)
+    assert f.emblema.graphicsEffect() is None
+    spento[0] = False                                   # acceso ad app aperta: si muove di nuovo
+    f.respira(True)
+    assert f.emblema.graphicsEffect() is not None
+    f.respira(False)
+    qtbot.waitUntil(lambda: not f.client_info.in_corso(), timeout=30000)
+
+
+def test_riduci_movimento_spegne_le_animazioni_di_qt(qapp, monkeypatch):
+    effetti = (Qt.UI_AnimateMenu, Qt.UI_FadeMenu, Qt.UI_AnimateCombo, Qt.UI_AnimateTooltip, Qt.UI_FadeTooltip,
+               Qt.UI_AnimateToolBox)
+    prima = {e: qapp.isEffectEnabled(e) for e in effetti}
+    try:
+        monkeypatch.setattr(main, "movimento_ridotto", lambda: True)
+        main.prepara(qapp)
+        assert not any(qapp.isEffectEnabled(e) for e in effetti)
+    finally:
+        for e, acceso in prima.items():
+            qapp.setEffectEnabled(e, acceso)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="impostazione di Windows")
+def test_impostazione_di_windows_si_legge():
+    assert finestra.movimento_ridotto() in (True, False)
 
 
 # ---------------- progetto e formati ----------------

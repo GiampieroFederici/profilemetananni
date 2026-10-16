@@ -6,21 +6,26 @@ Con il finto motore (D032):   set PMN_MOTORE=finto  (opzioni in PMN_FINTO_OPZION
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QDir
+from PySide6.QtCore import QDir, Qt
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
-from app.finestra import Finestra
+from app.finestra import Finestra, movimento_ridotto
 
 CARTELLA = Path(__file__).resolve().parent
 
 
 def prepara(app):
-    """Carattere Atkinson Hyperlegible (OFL, app/risorse/carattere) e stile (url(risorse:...) = app/risorse)."""
+    """Carattere Atkinson Hyperlegible (OFL, app/risorse/carattere) e stile (url(risorse:...) = app/risorse).
+    Con "riduci movimento" di Windows (R15) si spengono anche le animazioni di Qt (menu, suggerimenti)."""
     QDir.addSearchPath("risorse", str(CARTELLA / "risorse"))
     for ttf in sorted((CARTELLA / "risorse" / "carattere").glob("*.ttf")):
         QFontDatabase.addApplicationFont(str(ttf))
     app.setStyleSheet((CARTELLA / "stile.qss").read_text(encoding="utf-8"))
+    if movimento_ridotto():
+        for effetto in (Qt.UI_AnimateMenu, Qt.UI_FadeMenu, Qt.UI_AnimateCombo, Qt.UI_AnimateTooltip,
+                        Qt.UI_FadeTooltip, Qt.UI_AnimateToolBox):
+            app.setEffectEnabled(effetto, False)
 
 
 def main():
