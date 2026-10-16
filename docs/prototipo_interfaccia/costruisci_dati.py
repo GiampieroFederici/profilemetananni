@@ -1,11 +1,13 @@
 """Prepara dati.js per il prototipo dell'interfaccia (S4): niente numeri inventati.
 
 - eventi: registrati dal finto motore (installer/finto_motore.py, --velocita 0) per ogni comando e scenario;
-- risultati: profilo MetaPhlAn e Bracken della corsa vera di SF3RAt7 (installer/finto/);
-- sicurezza alimentare: 3 casi calcolati con steps/45_previsione_fssp.py (motore/fssp).
+- risultati: profilo MetaPhlAn e Bracken della corsa vera di SF3RAt7 (installer/finto/), letti con le stesse
+  funzioni del referto (motore/referto.py): interfaccia e referto mostrano gli stessi numeri;
+- sicurezza alimentare: 3 casi calcolati dal comando `sicurezza` del finto motore (contratto v0.2, motore/fssp).
 
 Uso: python docs/prototipo_interfaccia/costruisci_dati.py   (solo libreria standard, gira anche su Windows)
 """
+import importlib.util
 import json
 import subprocess
 import sys
@@ -16,6 +18,13 @@ QUI = Path(__file__).resolve().parent
 ROOT = QUI.parent.parent
 FINTO = ROOT / "installer" / "finto_motore.py"
 DATI = ROOT / "installer" / "finto"
+
+
+def modulo_referto():
+    spec = importlib.util.spec_from_file_location("referto", ROOT / "motore" / "referto.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def eventi(comando, progetto=None, scenario="ok"):
@@ -29,45 +38,29 @@ def eventi(comando, progetto=None, scenario="ok"):
     return {"codice_uscita": p.returncode, "eventi": righe}
 
 
-def metaphlan():
-    specie, non_assegnato = [], None
-    # colonne: clade_name, NCBI_tax_id, relative_abundance, additional_species
-    for r in (DATI / "SRR4875279_profile.txt").read_text(encoding="utf-8").splitlines():
-        if r.startswith("#"):
-            continue
-        clade, _, pct = r.split("\t")[:3]
-        livelli = clade.split("|")
-        if clade == "UNCLASSIFIED":
-            non_assegnato = float(pct)
-        elif livelli[-1].startswith("s__"):
-            specie.append({"nome": livelli[-1][3:].replace("_", " "),
-                           "genere": next((x[3:] for x in livelli if x.startswith("g__")), ""),
-                           "regno": livelli[0][3:], "pct": float(pct)})
-    specie.sort(key=lambda s: -s["pct"])
-    return {"specie": specie, "non_assegnato_pct": non_assegnato}
-
-
-def bracken():
-    righe = (DATI / "SRR4875279.bracken").read_text(encoding="utf-8").splitlines()[1:]
-    out = [{"nome": c[0], "read": int(c[5]), "pct": round(100 * float(c[6]), 3)}
-           for c in (r.split("\t") for r in righe)]
-    return sorted(out, key=lambda s: -s["read"])
+def profili(referto):
+    """MetaPhlAn e Kraken del campione, letti come li legge il referto. Sempre separati."""
+    specie, non_class = referto.leggi_metaphlan(DATI / "SRR4875279_profile.txt")
+    kraken = referto.leggi_kraken(DATI / "SRR4875279.bracken", DATI / "SRR4875279.k2report")
+    return ({"specie": [{"nome": n, "pct": v} for n, v in specie], "non_assegnato_pct": non_class},
+            [{k: r[k] for k in ("nome", "categoria", "pct", "pct_microbi")} for r in kraken])
 
 
 def fssp(casi, profilo):
+    """Ogni caso con il comando sicurezza del finto motore: eventi (avvisi FUORI_CAMPO) e risultato."""
     out = {}
     with tempfile.TemporaryDirectory() as t:
         for nome, (titolo, richiesta) in casi.items():
             richiesta = {**richiesta, "profilo_specie": profilo}
-            ing, usc = Path(t) / f"{nome}_in.json", Path(t) / f"{nome}_out.json"
+            ing = Path(t) / f"{nome}.json"
             ing.write_text(json.dumps(richiesta), encoding="utf-8")
-            p = subprocess.run([sys.executable, str(ROOT / "steps" / "45_previsione_fssp.py"), "--ingresso", str(ing),
-                                "--uscita", str(usc), "--passo-curva-ore", "12"],
+            p = subprocess.run([sys.executable, str(FINTO), "sicurezza", "--ingresso", str(ing), "--velocita", "0"],
                                capture_output=True, text=True, encoding="utf-8", check=False)
-            if p.returncode != 0:
-                raise SystemExit(f"FSSP caso {nome}: {p.stdout} {p.stderr}")
-            out[nome] = {"titolo": titolo, "richiesta": richiesta,
-                         "risultato": json.loads(usc.read_text(encoding="utf-8"))}
+            ev = [json.loads(r) for r in p.stdout.splitlines() if r.strip()]
+            fine = ev[-1] if ev else {}
+            if p.returncode != 0 or fine.get("esito") != "ok":
+                raise SystemExit(f"sicurezza, caso {nome}: {p.stdout} {p.stderr}")
+            out[nome] = {"titolo": titolo, "richiesta": richiesta, "eventi": ev, "risultato": fine["risultato"]}
     return out
 
 
@@ -84,7 +77,7 @@ def main():
                   "esegui_READ_NON_TROVATE": eventi("esegui", progetto, "READ_NON_TROVATE"),
                   "esegui_annullata": eventi("esegui", progetto, "annullata"),
                   "esegui_GIA_IN_CORSO": eventi("esegui", progetto, "GIA_IN_CORSO")}
-    mpa = metaphlan()
+    mpa, kraken = profili(modulo_referto())
     profilo = {s["nome"]: s["pct"] for s in mpa["specie"]}
     casi = {
         "salsiccia": ("Salsiccia fresca in frigo (5 °C, 21 giorni), senza conta dei LAB",
@@ -97,11 +90,11 @@ def main():
                    {"prodotto": {"temperatura": 15, "aw": 0.90, "ph": 5.2, "nitrito": 100}, "giorni": 60}),
     }
     dati = {"motore": motore, "risultati": json.loads((DATI / "risultati.json").read_text(encoding="utf-8")),
-            "metaphlan": mpa, "bracken": bracken(), "fssp": fssp(casi, profilo)}
+            "metaphlan": mpa, "kraken": kraken, "fssp": fssp(casi, profilo)}
     (QUI / "dati.js").write_text("// Generato da costruisci_dati.py: non modificare a mano.\nwindow.PMN_DATI = "
                                  + json.dumps(dati, ensure_ascii=False) + ";\n", encoding="utf-8")
     print("dati.js scritto:", {k: len(v["eventi"]) for k, v in motore.items()},
-          "specie MetaPhlAn", len(mpa["specie"]), "Bracken", len(dati["bracken"]))
+          "specie MetaPhlAn", len(mpa["specie"]), "righe Kraken", len(kraken))
 
 
 if __name__ == "__main__":

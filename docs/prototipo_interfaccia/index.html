@@ -128,6 +128,8 @@ details.avanzate > summary { cursor: pointer; color: var(--acciaio); font-weight
 .passi li.fatto::before { content: "✓"; color: var(--agar); font-weight: 700; }
 .passi li.ora { color: var(--inchiostro); font-weight: 700; }
 .passi li.ora::before { content: "●"; color: var(--agar); }
+.passi li.errore { color: var(--rosso); font-weight: 700; }
+.passi li.errore::before { content: "✗"; color: var(--rosso); }
 
 /* risultati */
 .schede { display: flex; gap: .3rem; border-bottom: 2px solid var(--linea); margin: 1rem 0 .8rem; flex-wrap: wrap; }
@@ -546,7 +548,14 @@ function mostra(e, ev) {
   if (e.tipo === "avviso") $("#es-avvisi").insertAdjacentHTML("beforeend", `<div class="avviso"><b>Da sapere</b>${e.messaggio}</div>`);
   if (e.tipo === "errore") {
     $("#es-titolo").textContent = "L'analisi si è fermata";
-    document.querySelectorAll("#es-passi li.ora").forEach(li => li.className = "");
+    $("#es-eta").textContent = "ferma";
+    // contratto v0.2: l'errore dice in quale passo si e' fermato
+    let prima = true;
+    document.querySelectorAll("#es-passi li").forEach(li => {
+      const qui = li.dataset.p === e.passo;
+      li.className = qui ? "errore" : prima && e.passo ? "fatto" : "";
+      if (qui) prima = false;
+    });
     $("#es-avvisi").insertAdjacentHTML("beforeend", `<div class="errore"><b>${e.messaggio}</b>${e.cosa_fare}</div>`);
   }
   if (e.tipo === "fine") {
@@ -578,26 +587,32 @@ $("#ann-si").onclick = () => {
 };
 
 /* 4: risultati. MetaPhlAn e Kraken sempre separati, mai fusi */
-const NON_MICROBI = ["Homo sapiens", "Leishmania mexicana"];
 function barre(lista, cls, n = 15) {
   const max = Math.max(...lista.slice(0, n).map(s => s.pct));
   return `<div class="barre">${lista.slice(0, n).map(s => `<i class="sp">${s.nome}</i>
     <div class="b ${cls}" style="width:${100 * s.pct / max}%"></div><span class="v">${s.pct.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</span>`).join("")}</div>`;
 }
 function risultati() {
-  const m = D.metaphlan, k = D.bracken.filter(s => !NON_MICROBI.includes(s.nome)), res = D.risultati;
-  const top = m.specie.slice(0, 2);
-  $("#ris-sintesi").innerHTML = `Nel campione <b>${res.campioni[0].nome}</b> dominano <i class="sp">${top[0].nome}</i> e
-    <i class="sp">${top[1].nome}</i>, batteri lattici tipici dei salumi. MetaPhlAn trova <b>${m.specie.length} specie</b>, Kraken <b>${k.length}</b>.`;
-  $("#sch-mpa").innerHTML = `<p>Percentuale sul totale delle read del campione. Il <b>${it(m.non_assegnato_pct, 1)} %</b> non è assegnato a nessuna specie del database
+  // frasi e conteggi dal motore (risultati.json, campioni[].sintesi, D070): l'interfaccia mostra, non calcola
+  const res = D.risultati, c = res.campioni[0], s = c.sintesi, m = D.metaphlan;
+  const corsivo = testo => [...s.metaphlan.dominanti, ...s.kraken.dominanti, ...s.kraken.non_microbi]
+    .reduce((t, d) => t.split(d.nome).join(`<i class="sp">${d.nome}</i>`), testo);
+  $("#ris-sintesi").innerHTML = `Campione <b>${c.nome}</b>.<br>${corsivo(s.metaphlan.frase)}<br>${corsivo(s.kraken.frase)}`;
+  $("#sch-mpa").innerHTML = `<p>Percentuale sul totale delle read del campione. Il <b>${it(s.metaphlan.non_assegnata_pct, 1)} %</b> non è assegnato a nessuna specie del database
     (è normale: microbi non ancora nel database e DNA non microbico rimasto).</p>${barre(m.specie, "")}
-    <p class="nota">Le prime 15 di ${m.specie.length}. Le altre sono nel referto e nelle tabelle Excel.</p>`;
-  const res_nm = D.bracken.filter(s => NON_MICROBI.includes(s.nome));
-  $("#sch-krk").innerHTML = `<p>Percentuale sulle read classificate da Kraken e ridistribuite da Bracken. Metodo diverso da MetaPhlAn: i numeri non si sommano e non si confrontano uno a uno.</p>
-    ${barre(k, "k")}<div class="info"><b>DNA non microbico ancora presente</b>Kraken assegna una piccola parte delle read a ${res_nm.map(s => `<i class="sp">${s.nome}</i> (${it(s.pct, 3)} %)`).join(" e ")}: sono avanzi di DNA dell'ospite, non microbi. Li tolgo dal profilo e li segnalo qui.</div>`;
+    <p class="nota">Le prime 15 di ${s.metaphlan.specie}. Le altre sono nel referto e nelle tabelle Excel.</p>`;
+  // Kraken: tabella dei soli microbi letta come nel referto (motore/referto.py), "% fra i microbi"
+  const k = D.kraken.filter(r => r.pct_microbi != null).map(r => ({ nome: r.nome, pct: r.pct_microbi }));
+  const nm = s.kraken.non_microbi;
+  $("#sch-krk").innerHTML = `<p>Percentuale fra i soli microbi (batteri, archei, funghi), dopo la ridistribuzione di Bracken. Metodo diverso da MetaPhlAn: i numeri non si sommano e non si confrontano uno a uno.</p>
+    ${barre(k, "k")}<p class="nota">Le prime 15 di ${s.kraken.microbi}. Le altre sono nel referto e nelle tabelle Excel.</p>
+    ${nm.length ? `<div class="info"><b>Segnalati a parte, fuori dal profilo</b>${nm.map(x => `<i class="sp">${x.nome}</i> (${x.gruppo}, ${it(x.pct, 3)} %)`).join(", ")}. Non sono microbi del prodotto (per esempio avanzi di DNA dell'ospite) o sono virus.</div>` : ""}`;
+  // parametri come li scrive run.sh (results/parameters.tsv), riportati dal motore in risultati.json
   const p = res.parametri, v = res.versioni;
+  const ospiti = String(p.hosts || "").split(/[ ,]+/).filter(Boolean).concat(p.filter_human === "yes" ? ["grch38"] : []);
+  p.metaphlan_modo = p.metaphlan_modo || p.metaphlan_mode;
   $("#sch-come").innerHTML = `<table class="semplice">
-    <tr><td>Ospite tolto</td><td>${p.ospiti.map(o => ({ sus_scrofa: "maiale (Sscrofa11.1)", grch38: "uomo (GRCh38)" })[o] || o).join(", ")}</td></tr>
+    <tr><td>Ospite tolto</td><td>${ospiti.map(o => ({ sus_scrofa: "maiale (Sscrofa11.1)", bos_taurus: "bovino (ARS-UCD1.2)", ovis_aries: "pecora (ARS-UI_Ramb_v2.0)", grch38: "uomo (GRCh38)" })[o] || o).join(", ")}</td></tr>
     <tr><td>Coppie di read rimaste</td><td>${it(res.campioni[0].coppie_dopo_ospite, 0)}</td></tr>
     <tr><td>MetaPhlAn</td><td>${v.metaphlan}, database ${v.database_metaphlan}, ${p.metaphlan_modo === "fette" ? "in 6 parti (stesso profilo dell'analisi standard)" : "standard"}</td></tr>
     <tr><td>Kraken e Bracken</td><td>Kraken ${v.kraken2}, Bracken ${v.bracken}, database ${v.database_kraken}</td></tr>
@@ -610,7 +625,7 @@ document.querySelectorAll(".schede button").forEach(b => b.addEventListener("cli
   ["mpa", "krk", "come"].forEach(s => $("#sch-" + s).hidden = s !== b.dataset.scheda);
 }));
 
-/* sicurezza alimentare: numeri calcolati da motore/fssp (steps/45), mostrati come sono */
+/* sicurezza alimentare: comando sicurezza del motore (contratto v0.2, motore/fssp), numeri mostrati come sono */
 function sicurezza() {
   const sel = $("#s-caso");
   sel.innerHTML = Object.entries(D.fssp).map(([k, c]) => `<option value="${k}">${c.titolo}</option>`).join("");
@@ -618,6 +633,11 @@ function sicurezza() {
   caso(sel.value);
 }
 const log10 = x => it(x, 1);
+// nomi dei LAB fuori modello dalla nota del motore: "... non è adatto (leuconostoc carnosum, ...)"
+const nonAdatti = note => {
+  const n = note.find(x => x.includes("adatto (")); if (!n) return "nessuno";
+  return n.slice(n.indexOf("(") + 1, n.indexOf(")")).split(", ").map(s => `<i class="sp">${s[0].toUpperCase() + s.slice(1)}</i>`).join(", ");
+};
 function caso(k) {
   const c = D.fssp[k], q = c.richiesta, r = c.risultato, pr = q.prodotto;
   $("#s-temp").value = it(pr.temperatura); $("#s-giorni").value = q.giorni;
@@ -626,9 +646,8 @@ function caso(k) {
   $("#s-lab").value = q.conte ? it(q.conte.lab_ufc_g, 0) : "";
   $("#s-nota-lab").innerHTML = q.conte ? "Uso la conta per far partire i batteri lattici: frenano la <i class=sp>Listeria</i>."
     : "Senza conta prevedo la <i class=sp>Listeria</i> da sola: è il caso peggiore, senza il freno dei batteri lattici.";
-  // avvisi "fuori campo" mostrati cosi' come arrivano dal motore (D048, M8)
-  const visti = new Set();
-  const av = r.avvisi.filter(a => !visti.has(a.messaggio) && visti.add(a.messaggio));
+  // avvisi FUORI_CAMPO: eventi del comando sicurezza (contratto v0.2), testo del motore cosi' com'e' (D048, M8)
+  const av = c.eventi.filter(e => e.tipo === "avviso" && e.codice === "FUORI_CAMPO");
   $("#s-avvisi").innerHTML = av.length ? `<div class="avviso"><b>Fuori dal campo dei modelli: è un'estrapolazione, usala con cautela.</b>
     <ul>${av.map(a => `<li>${a.messaggio.replace(/\. La previsione.*$/, "")}</li>`).join("")}</ul></div>` : "";
   $("#s-esiti").innerHTML = r.previsioni.map(p => {
@@ -648,7 +667,7 @@ function caso(k) {
   $("#s-ponte").innerHTML = `<h3 style="margin-top:0">Che cosa ho usato del profilo</h3><ul>
     <li><i class="sp">Listeria monocytogenes</i>: ${pn.listeria_trovata ? "<b>trovata</b> nel profilo" : "non trovata. Non vuol dire che manchi: sotto la soglia di rilevamento può esserci"}.</li>
     <li>Batteri lattici del modello: ${pn.lab_trovati.map(s => `<i class="sp">${s[0].toUpperCase() + s.slice(1)}</i>`).join(", ") || "nessuno"}.</li>
-    <li>Altri batteri lattici trovati, per cui il modello non è adatto: ${r.note.find(n => n.includes("non e' adatto")) ? "<i class=sp>Leuconostoc</i>, <i class=sp>Weissella</i>" : "nessuno"}. La loro crescita non si prevede.</li></ul>
+    <li>Altri batteri lattici trovati, per cui il modello non è adatto: ${nonAdatti(r.note)}. La loro crescita non si prevede.</li></ul>
     <p class="nota">${pn.specie_non_coperte.length} specie del profilo non hanno un modello in FSSP.</p>`;
   $("#s-cita").textContent = `Modelli: ${r.citazione}`;
 }

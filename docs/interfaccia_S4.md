@@ -157,6 +157,12 @@ Lettura degli eventi in PySide6: `QProcess` con `readyReadStandardOutput`, una r
 
 ## 6. Che cosa serve dal motore (mandato al filone "Motore, seconda parte")
 
+> **Stato al 16/10, dopo l'unione (`31e954e`):** fatti 1, 2, 3, 5, 6, 7, 8 e il campo `modello` del punto 4; il prototipo li usa
+> (passo dell'errore segnato con ✗, frasi di sintesi dal motore, Kraken "fra i soli microbi" letto con `motore/referto.py`,
+> avvisi FSSP presi dagli eventi del comando `sicurezza`). **Ancora aperti:** i numeri negli avvisi FSSP sono all'inglese
+> ("13.9875", "0.7-9": testo di `motore/fssp/validita.py`); nel finto motore `stima` conta Kraken completo (51 min) mentre
+> `esegui` usa i dati dello screening rapido (17 min).
+
 1. `errore` con il campo `passo` (oggi non si sa in quale passo si è fermato).
 2. `cosa_fare`: "Apri la pagina Motore e premi Installa." (nell'app non esiste una pagina "Impostazioni").
 3. `esegui` vero: `eta_s` oggi sempre null; calcolarlo con le regole di `stima`.
