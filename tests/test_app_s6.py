@@ -181,8 +181,8 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     linguette.setCurrentIndex(1)
     assert [not w.isHidden() for w in ris.schede] == [False, True, False]
     mpa, krk, come = (scritte(w) for w in ris.schede)
-    assert "gasicomitatum" in mpa and "carnosum" not in mpa and "53,7 %" in mpa       # R12: mai fusi
-    assert "carnosum" in krk and "gasicomitatum" not in krk and "Metodo diverso" in krk
+    assert "gelidum" in mpa and "Debaryomyces" not in mpa and "53,7 %" in mpa       # R12: mai fusi
+    assert "Debaryomyces" in krk and "gelidum" not in krk and "Metodo diverso" in krk
     assert "Homo sapiens" in krk and "Homo sapiens" not in mpa                         # non microbi a parte
     assert "uomo (GRCh38)" in come and "1.507.887" in come
     assert "Strumenti e database usati" in sintesi and "Blanco-Míguez" in sintesi     # R14
@@ -269,7 +269,7 @@ def test_sicurezza_salame_fuori_campo_grigio(f, qtbot, tmp_path):
     assert [s.property("esito") for s in schede] == ["incerto", "incerto"]     # mai verde su un'estrapolazione
     assert "non è una garanzia" in scritte(schede[0])
     primo = sic.uscita.itemAt(0).widget()                                       # avvisi PRIMA dei numeri (R9)
-    assert primo.property("livello") == "avviso" and "pH = 5.2" in scritte(primo)
+    assert primo.property("livello") == "avviso" and "pH = 5,2" in scritte(primo)
     assert un_principale(f).isEnabled()
 
 
