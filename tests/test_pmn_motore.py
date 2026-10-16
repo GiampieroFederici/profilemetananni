@@ -77,12 +77,19 @@ def test_esegui_ok(ambiente):
     assert r["campioni"][0]["nome"] == "S1" and r["campioni"][0]["coppie_dopo_ospite"] == 1000
     assert any("Sscrofa11.1" in c for c in r["citazioni"])
     assert not (progetto.parent.parent / "pmn" / "stato" / "esegui.lock").exists()
+    # v0.2: referto fatto alla fine dell'analisi, e rifatto a richiesta
+    assert r["referto"]["html"] == "referto/referto.html"
+    assert r["campioni"][0]["sintesi"]["metaphlan"]["specie"] == 0      # profilo finto vuoto: frase lo stesso
+    assert (progetto.parent / "risultati" / "referto" / "referto.html").is_file()
+    ev, codice = lancia(env, "referto", "--progetto", str(progetto))
+    assert codice == 0 and ev[-1]["risultato"]["referto"]["html"] == "referto/referto.html"
 
 
 def test_spazio_e_rete(ambiente):
     env, progetto = ambiente
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="spazio")
     assert codice == 1 and ev[-2]["codice"] == "SPAZIO_INSUFFICIENTE"
+    assert ev[-2]["passo"] == "download"            # v0.2: passo in cui si e' fermato
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="rete")
     assert codice == 1 and ev[-2]["codice"] == "DOWNLOAD_FALLITO"
     assert [e["codice"] for e in ev if e["tipo"] == "avviso"] == ["RETE_INTERROTTA", "RETE_INTERROTTA"]   # 3 tentativi
@@ -121,3 +128,21 @@ def test_stima_read_locali(ambiente, tmp_path):
     progetto.write_text(f"data_source: local\npaths:\n  local_reads_dir: {read}\n", encoding="utf-8")
     ev, codice = lancia(env, "stima", "--progetto", str(progetto))
     assert codice == 0 and ev[-1]["risultato"]["campioni"] == 1
+
+
+def test_esegui_tempo_stimato(ambiente, tmp_path):
+    """v0.2 (richiesta 3 di S4): eta_s con le regole di stima; qui le read sono locali, quindi niente rete."""
+    env, _ = ambiente
+    read = tmp_path / "read"
+    read.mkdir()
+    for m in (1, 2):
+        with gzip.open(read / f"S1_R{m}.fastq.gz", "wt") as f:
+            f.write("@r\nACGT\n+\nIIII\n" * 200000)
+    progetto = tmp_path / "locale" / "config.yaml"
+    progetto.parent.mkdir()
+    progetto.write_text(f"data_source: local\npaths:\n  work_dir: {tmp_path / 'lavoro2'}\n  srr_list: {tmp_path / 'srr.txt'}\n"
+                        f"  local_reads_dir: {read}\n", encoding="utf-8")
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto))
+    eta = [e["eta_s"] for e in ev if e["tipo"] == "avanzamento" and e["passo"] != "referto"]
+    assert codice == 0 and all(isinstance(x, int) and x >= 0 for x in eta)
+    assert eta == sorted(eta, reverse=True) and eta[0] > 0      # scende fino alla fine

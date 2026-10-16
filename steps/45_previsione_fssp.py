@@ -99,7 +99,8 @@ def campiona(tempi, *serie, passo):
     return [[round(tempi[i], 6) for i in idx]] + [[round(s[i], 6) for i in idx] for s in serie]
 
 
-def esegui(r, passo_curva_ore):
+def esegui(r, passo_curva_ore, avanza=None):
+    """avanza(i, n, nome): chiamata prima di ogni scenario (pmn-motore sicurezza la usa per la barra)."""
     if not isinstance(r, dict):
         raise IngressoNonValido("la richiesta deve essere un oggetto JSON")
     modalita = r.get("modalita", "migliorata")
@@ -128,7 +129,9 @@ def esegui(r, passo_curva_ore):
     piano = ponte.piano(specie, conte, scenari)
     passo = max(1, int(round(passo_curva_ore * 60.0)))
     previsioni = []
-    for sc in piano["scenari"]:
+    for i, sc in enumerate(piano["scenari"], 1):
+        if avanza:
+            avanza(i, len(piano["scenari"]), sc["nome"])
         if sc["n0_lab"] is None:
             o = crescita_singola(prodotto, profilo, sc["n0_listeria"], LISTERIA, lag=lag, modalita=modalita)
             giorni, log_lm = campiona(o["tempi_giorni"], o["log_ufc"], passo=passo)
@@ -152,9 +155,9 @@ def esegui(r, passo_curva_ore):
                      "listeria_puo_crescere": psi is not None and psi < 1.0})
         previsioni.append(prev)
     modello_campo = "listeria_lab" if any(p["modello"] == "listeria_lab" for p in previsioni) else "listeria"
-    avvisi = validita.avvisi(modello_campo, prodotto, profilo)
+    avvisi = [dict(a, modello=modello_campo) for a in validita.avvisi(modello_campo, prodotto, profilo)]
     if piano["lab_trovati"]:
-        avvisi += validita.avvisi("lab", prodotto, profilo)
+        avvisi += [dict(a, modello="lab") for a in validita.avvisi("lab", prodotto, profilo)]
     return {"modalita": modalita, "citazione": CITAZIONE, "note": note + piano["note"], "avvisi": avvisi,
             "ponte": {k: piano[k] for k in ("listeria_trovata", "lab_trovati", "specie_non_coperte")},
             "previsioni": previsioni}

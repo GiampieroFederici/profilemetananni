@@ -9,6 +9,9 @@
 # (seen on 15/10/2026: ENA answered HTTP 500 for ~6 minutes). NCBI gives the size of the .sra
 # file, i.e. what prefetch downloads.
 # Run this BEFORE steps/10_download_sra.sh so the user can confirm there is enough room.
+# Many accessions are asked in groups (lookup_many): one ENA portal "search" request per 100 accessions,
+# and one NCBI request per 100 for those ENA does not know or when ENA is down (16/10/2026: before, one
+# request per accession at 0.4-12 s each).
 #
 # No third-party dependencies (uses only the Python standard library: urllib).
 # Idempotent: results are cached on disk and re-used on the next run.
@@ -39,19 +42,22 @@ import xml.etree.ElementTree as ET
 # overridable only to test the fallback (an unreachable address simulates an outage)
 ENA_API = os.environ.get("PMN_ENA_API", "https://www.ebi.ac.uk/ena/portal/api/filereport")
 NCBI_API = os.environ.get("PMN_NCBI_API", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi")
+ENA_SEARCH = os.environ.get("PMN_ENA_SEARCH", "https://www.ebi.ac.uk/ena/portal/api/search")
+GROUP = 100                     # accessions per grouped request (sent with POST: no URL length limit)
+ENA_FIELDS = "run_accession,read_count,base_count,fastq_bytes"
 SRR_RE = re.compile(r"^(SRR|ERR|DRR)[0-9]{5,}$", re.IGNORECASE)
 TIMEOUT = 30
 MAX_RETRIES = 5
 
 
-def http_get(url, params):
-    """GET with exponential backoff; returns the body as text, or None if the service is unreachable."""
+def http_get(url, params, post=False):
+    """GET (or POST of a form) with exponential backoff; returns the body as text, or None if unreachable."""
     query = urllib.parse.urlencode(params)
-    full = f"{url}?{query}"
+    full, data = (url, query.encode("ascii")) if post else (f"{url}?{query}", None)
     backoff = 1.0
     for attempt in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(full, headers={"User-Agent": "profilemetananni/1.0"})
+            req = urllib.request.Request(full, data=data, headers={"User-Agent": "profilemetananni/1.0"})
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
                 return resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
@@ -69,9 +75,9 @@ def http_get(url, params):
     return None
 
 
-def http_get_json(url, params):
+def http_get_json(url, params, post=False):
     """GET a JSON body; returns parsed JSON, [] for an empty body, or None."""
-    raw = http_get(url, params)
+    raw = http_get(url, params, post)
     if raw is None:
         return None
     try:
@@ -96,8 +102,11 @@ def lookup_srr(acc):
         if alt["status"] == "OK" or data is not None:
             return alt
         return {"status": "ERROR", "accession": acc, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
-    d = data[0]
+    return ena_record(acc, data[0])
 
+
+def ena_record(acc, d):
+    """One ENA read_run row (filereport or search) -> the dict of lookup_srr."""
     def _safe_int(x):
         try:
             return int(x)                 # exact integers (no precision loss)
@@ -134,7 +143,10 @@ def lookup_ncbi(acc):
         return {"status": "ERROR", **empty}
     if row is None or (row.findtext("Run") or "").upper() != acc:
         return {"status": "NOT_FOUND", **empty}
+    return ncbi_record(acc, row)
 
+
+def ncbi_record(acc, row):
     def num(tag):
         try:
             return int(float(row.findtext(tag) or 0))
@@ -142,6 +154,54 @@ def lookup_ncbi(acc):
             return 0
     return {"status": "OK", "accession": acc, "fastq_bytes": num("size_MB") * 1_000_000,
             "read_count": num("spots"), "base_count": num("bases"), "source": "NCBI"}
+
+
+def lookup_ncbi_many(accs):
+    """{accession: dict} from ONE NCBI runinfo request for up to GROUP accessions."""
+    raw = http_get(NCBI_API, {"db": "sra", "id": ",".join(accs), "rettype": "runinfo"}, post=True)
+    if raw is None:
+        status = "ERROR"
+    elif not raw.strip():
+        status = "NOT_FOUND"
+    else:
+        try:
+            rows = ET.fromstring(raw).findall("Row")
+        except ET.ParseError:
+            rows, status = None, "ERROR"
+        else:
+            found = {(r.findtext("Run") or "").upper(): r for r in rows}
+            return {a: ncbi_record(a, found[a]) if a in found else
+                    {"status": "NOT_FOUND", "accession": a, "fastq_bytes": 0, "read_count": 0, "base_count": 0,
+                     "source": "NCBI"} for a in accs}
+    return {a: {"status": status, "accession": a, "fastq_bytes": 0, "read_count": 0, "base_count": 0, "source": "NCBI"}
+            for a in accs}
+
+
+def lookup_many(accessions):
+    """Same answers as lookup_srr for each accession (same order), with grouped requests: ENA first, then
+    NCBI for the runs ENA does not know or when ENA is unreachable (same rules as lookup_srr)."""
+    wanted = [a.strip().upper() for a in accessions]
+    valid = list(dict.fromkeys(a for a in wanted if SRR_RE.match(a)))
+    out, ena_down = {}, set()
+    for i in range(0, len(valid), GROUP):
+        group = valid[i:i + GROUP]
+        data = http_get_json(ENA_SEARCH, {"result": "read_run", "includeAccessions": ",".join(group),
+                                          "fields": ENA_FIELDS, "format": "json", "limit": "0"}, post=True)
+        if data is None:
+            ena_down.update(group)
+            continue
+        for d in data if isinstance(data, list) else []:
+            acc = str(d.get("run_accession", "")).upper()
+            if acc in group:
+                out[acc] = ena_record(acc, d)
+    missing = [a for a in valid if a not in out]
+    for i in range(0, len(missing), GROUP):
+        group = missing[i:i + GROUP]
+        for acc, alt in lookup_ncbi_many(group).items():
+            # as lookup_srr: when ENA was down, an NCBI "not found" is not trusted (ERROR, retried next time)
+            out[acc] = alt if alt["status"] == "OK" or acc not in ena_down else {**alt, "status": "ERROR"}
+    return [out.get(a) or {"status": "INVALID", "accession": a, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
+            for a in wanted]
 
 
 def load_cache(path):
@@ -198,14 +258,14 @@ def main():
     todo = [x for x in items if x not in cache or cache[x].get("status") == "ERROR"]
     print(f"[INFO] {len(items)} accessions ({len(todo)} to query, {len(items) - len(todo)} cached)")
 
-    for i, acc in enumerate(todo, 1):
-        cache[acc] = lookup_srr(acc)
-        if cache[acc]["status"] == "OK" and cache[acc].get("source") == "NCBI":
-            print(f"[INFO] {acc}: size taken from NCBI (ENA unavailable or without this run)")
-        if i % 20 == 0 or i == len(todo):
-            save_cache(cache, cache_path)
-            print(f"  [{i}/{len(todo)}] last: {acc} -> {cache[acc]['status']}")
-        time.sleep(0.12)
+    for i in range(0, len(todo), GROUP):
+        for acc, e in zip(todo[i:i + GROUP], lookup_many(todo[i:i + GROUP])):
+            cache[acc] = e
+            if e["status"] == "OK" and e.get("source") == "NCBI":
+                print(f"[INFO] {acc}: size taken from NCBI (ENA unavailable or without this run)")
+        save_cache(cache, cache_path)
+        print(f"  [{min(i + GROUP, len(todo))}/{len(todo)}] -> " +
+              ", ".join(f"{s} {sum(cache[a]['status'] == s for a in todo[i:i + GROUP])}" for s in ("OK", "NOT_FOUND", "ERROR")))
     save_cache(cache, cache_path)
 
     # Aggregate + write CSV

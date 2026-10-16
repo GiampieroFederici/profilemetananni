@@ -1,5 +1,5 @@
-"""Campo di validita' dei modelli (M8): avvisa quando una previsione esce dai dati con cui il modello
-e' stato costruito e validato. Fonte: pagine di aiuto di FSSP 4.0 ("Range of applicability"),
+"""Campo di validità dei modelli (M8): avvisa quando una previsione esce dai dati con cui il modello
+è stato costruito e validato. Fonte: pagine di aiuto di FSSP 4.0 ("Range of applicability"),
 da Mejlholm & Dalgaard (2009, 2013, 2015)."""
 
 # (minimo, massimo); acidi in ppm nella fase acquosa, nitrito in ppm nel prodotto, CO2 in % (spazio di testa)
@@ -24,7 +24,7 @@ NOMI = {"temperatura": "temperatura (°C)", "co2": "CO2 (%)", "sale_fase_acquosa
 
 
 def avvisi(modello, prodotto, profilo=None):
-    """Lista di avvisi "fuori campo" (vuota se tutto e' dentro). modello: listeria | lab | listeria_lab."""
+    """Lista di avvisi "fuori campo" (vuota se tutto è dentro). modello: listeria | lab | listeria_lab."""
     campo = CAMPI[modello]
     valori = {"co2": prodotto.co2, "sale_fase_acquosa": prodotto.sale_fase_acquosa, "ph": prodotto.ph,
               "fenoli": prodotto.fenoli, "nitrito": prodotto.nitrito}
@@ -41,5 +41,5 @@ def avvisi(modello, prodotto, profilo=None):
         visti.add((fattore, v))
         uscita.append({"codice": "FUORI_CAMPO", "fattore": fattore, "valore": v, "campo": [lo, hi],
                        "messaggio": f"{NOMI[fattore]} = {v:g}: fuori dal campo del modello ({lo:g}-{hi:g}). "
-                                    "La previsione e' un'estrapolazione: usala con cautela."})
+                                    "La previsione è un'estrapolazione: usala con cautela."})
     return uscita

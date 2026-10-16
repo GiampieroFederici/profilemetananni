@@ -9,11 +9,14 @@ CAMPI = {"inizio": {"comando", "corsa", "log"},
          "avanzamento": {"passo", "campione", "fatto", "totale", "percentuale", "eta_s"},
          "avviso": {"codice"}, "errore": {"codice", "cosa_fare"}, "fine": {"esito", "risultato"}}
 PASSI = {"download", "controllo_qualita", "pulizia", "ospite", "metaphlan", "kraken", "riepilogo",
-         "controllo", "programmi", "database", "verifica", "fine"}
+         "controllo", "programmi", "database", "verifica", "fine",
+         "sicurezza", "referto"}                                  # v0.2
 CODICI = {"CONFIG_NON_VALIDA", "DB_MANCANTE", "DB_ROVINATO", "SPAZIO_INSUFFICIENTE", "RAM_INSUFFICIENTE",
           "READ_NON_TROVATE", "DOWNLOAD_FALLITO", "GIA_IN_CORSO", "TEMPO_LUNGO",
           "SISTEMA_NON_ADATTO", "PROGRAMMA_MANCANTE", "VERIFICA_ROSSA", "RETE_NON_MISURATA", "RETE_INTERROTTA",
-          "ERRORE_INTERNO"}
+          "ERRORE_INTERNO",
+          # v0.2: food safety, System One v0, report
+          "INGRESSO_NON_VALIDO", "FUORI_CAMPO", "CAMPIONE_DA_CONTROLLARE", "CAMPIONE_DA_RIFARE", "REFERTO_PARZIALE"}
 USCITA = {"ok": 0, "annullata": 3}
 
 
@@ -33,6 +36,8 @@ def controlla(stdout, codice_uscita, comando):
             assert e["eta_s"] is None or e["eta_s"] >= 0
         if e["tipo"] in ("avviso", "errore"):
             assert e["codice"] in CODICI
+        if e["tipo"] == "errore" and "passo" in e:      # v0.2: dove si e' fermato (null = prima di iniziare)
+            assert e["passo"] is None or e["passo"] in PASSI
     assert ev[0]["tipo"] == "inizio" and ev[0]["comando"] == comando
     fini = [e for e in ev if e["tipo"] == "fine"]
     assert len(fini) == 1 and ev[-1]["tipo"] == "fine"
