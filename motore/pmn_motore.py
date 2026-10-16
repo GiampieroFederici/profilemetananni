@@ -227,7 +227,7 @@ class Motore:
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             codici = [r.split()[0] for r in lista.read_text(encoding="utf-8").splitlines() if r.strip() and not r.startswith("#")]
-            esiti = [mod.lookup_srr(c) for c in codici]
+            esiti = mod.lookup_many(codici)   # richieste a gruppi (ENA, poi NCBI)
             if esiti and all(e["status"] == "ERROR" for e in esiti):
                 raise Errore("DOWNLOAD_FALLITO", "I server di ENA e NCBI non rispondono: non posso stimare il download.",
                              "Controlla la connessione e riprova fra qualche minuto.")

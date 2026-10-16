@@ -460,6 +460,8 @@ def main():
     d = raccogli(risultati, cfg)
     cartella = risultati / "referto"
     cartella.mkdir(exist_ok=True)
+    for vecchio in ("referto.html", "referto.xlsx", "referto.pdf"):   # niente file di un referto precedente
+        (cartella / vecchio).unlink(missing_ok=True)
     testo = html_referto(d)
     uscita = {"html": str(cartella / "referto.html"), "xlsx": None, "pdf": None, "problemi": []}
     (cartella / "referto.html").write_text(testo, encoding="utf-8")
