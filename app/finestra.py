@@ -1,6 +1,7 @@
 """La finestra dell'app (docs/interfaccia_S4.md §3): testata, percorso a sinistra, pagina al centro,
 barra delle azioni in basso con un solo pulsante principale (R1). Prima di tutto l'avvio: l'avatar
-saltella e si ferma mentre arriva `info` dal motore (D046).
+saltella e si ferma mentre arriva `info` dal motore (D046). Tastiera (R15): Tab segue l'ordine di lettura,
+Invio preme il pulsante che ha il fuoco.
 
 Si cambia solo in S5a (D061): S5b e S6 scrivono le loro pagine in app/pagine/.
 """
@@ -156,7 +157,7 @@ class Finestra(QMainWindow):
         return w
 
     def _testata(self):
-        t = QFrame(objectName="testata")
+        t = self.zona_testata = QFrame(objectName="testata")
         s = QHBoxLayout(t)
         s.setContentsMargins(20, 10, 20, 10)
         s.setSpacing(16)
@@ -185,7 +186,7 @@ class Finestra(QMainWindow):
         return t
 
     def _percorso(self):
-        p = QFrame(objectName="percorso")
+        p = self.zona_percorso = QFrame(objectName="percorso")
         p.setFixedWidth(306)
         s = QVBoxLayout(p)
         s.setContentsMargins(16, 24, 16, 24)
@@ -204,7 +205,7 @@ class Finestra(QMainWindow):
         return p
 
     def _barra(self):
-        b = QFrame(objectName="azioni")
+        b = self.zona_barra = QFrame(objectName="azioni")
         self.barra = QHBoxLayout(b)
         self.barra.setContentsMargins(24, 12, 24, 12)
         self.barra.setSpacing(16)
@@ -290,6 +291,59 @@ class Finestra(QMainWindow):
         self.pallino.style().unpolish(self.pallino)
         self.pallino.style().polish(self.pallino)
         self.stato_motore.setText(testo)
+
+    # ---------------- tastiera (R15) ----------------
+    def _fermate(self):
+        """I comandi raggiungibili col Tab, nell'ordine in cui si leggono: testata, percorso, pagina, barra.
+        Testata e barra sono righe: da sinistra a destra. Nel percorso e nella pagina i blocchi vanno dall'alto in
+        basso e da sinistra a destra; dentro un blocco (per esempio
+        le due colonne di Sicurezza) vale l'ordine in cui Qt li ha creati. Così anche i comandi comparsi dopo
+        (l'elenco dei progetti, i pulsanti della barra) sono al posto giusto."""
+        catena, w = {}, self.nextInFocusChain()
+        while w is not self and w not in catena:
+            catena[w] = len(catena)
+            w = w.nextInFocusChain()
+        scorre = self.pila.currentWidget()
+        fermate = []
+        for zona, radice, riga in ((self.zona_testata, self.zona_testata, True),
+                                   (self.zona_percorso, self.zona_percorso, False),
+                                   (scorre, scorre.widget(), False), (self.zona_barra, self.zona_barra, True)):
+            def chiave(w):
+                blocco = w
+                while blocco.parentWidget() is not radice and blocco.parentWidget() is not None:
+                    blocco = blocco.parentWidget()
+                angolo = blocco.mapTo(zona, QPoint(0, 0))
+                return 0 if riga else angolo.y() // 8, angolo.x(), catena.get(w, 0)    # 8 px: stessa riga
+            dentro = [w for w in zona.findChildren(QWidget) if w.isVisible() and w.isEnabled()
+                      and w.focusPolicy() & Qt.TabFocus and w.focusProxy() is None]
+            if zona is scorre:
+                fermate.append(scorre)          # con il fuoco sull'area le frecce fanno scorrere la pagina
+            fermate += sorted(dentro, key=chiave)
+        return fermate
+
+    def focusNextPrevChild(self, avanti):
+        if self.fuori.currentIndex() != 1:
+            return super().focusNextPrevChild(avanti)
+        fermate = self._fermate()
+        attuale = self.focusWidget()
+        if attuale in fermate:
+            i = fermate.index(attuale) + (1 if avanti else -1)
+        else:
+            i = 0 if avanti else -1
+        prossimo = fermate[i % len(fermate)]
+        prossimo.setFocus(Qt.TabFocusReason if avanti else Qt.BacktabFocusReason)
+        scorre = self.pila.currentWidget()
+        if scorre.isAncestorOf(prossimo):
+            scorre.ensureWidgetVisible(prossimo, 24, 24)
+        return True
+
+    def keyPressEvent(self, evento):
+        """Invio (o il tasto Invio del tastierino) preme il pulsante che ha il fuoco, come la barra spaziatrice."""
+        fuoco = self.focusWidget()
+        if evento.key() in (Qt.Key_Return, Qt.Key_Enter) and isinstance(fuoco, QPushButton) and fuoco.isEnabled():
+            fuoco.click()
+            return
+        super().keyPressEvent(evento)
 
     # ---------------- avatar che respira ----------------
     def respira(self, si):
