@@ -6,6 +6,7 @@ Con il finto motore (D032):   set PMN_MOTORE=finto  (opzioni in PMN_FINTO_OPZION
 import sys
 from pathlib import Path
 
+from PySide6.QtCore import QDir
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
@@ -15,7 +16,8 @@ CARTELLA = Path(__file__).resolve().parent
 
 
 def prepara(app):
-    """Carattere Atkinson Hyperlegible (OFL, app/risorse/carattere) e stile."""
+    """Carattere Atkinson Hyperlegible (OFL, app/risorse/carattere) e stile (url(risorse:...) = app/risorse)."""
+    QDir.addSearchPath("risorse", str(CARTELLA / "risorse"))
     for ttf in sorted((CARTELLA / "risorse" / "carattere").glob("*.ttf")):
         QFontDatabase.addApplicationFont(str(ttf))
     app.setStyleSheet((CARTELLA / "stile.qss").read_text(encoding="utf-8"))

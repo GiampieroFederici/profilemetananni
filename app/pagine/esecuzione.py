@@ -122,6 +122,7 @@ class PaginaEsecuzione(Pagina):
     def _lancia(self):
         self.stato, self.errore, self.ultimo_passo = "in_corso", None, None
         self.progetto_corsa = self.contesto.progetto
+        self.contesto.progetto_in_analisi = self.progetto_corsa      # intanto non se ne apre un altro
         self.registro.setText("")
         self._svuota_avvisi()
         self._passi(None)
@@ -162,6 +163,7 @@ class PaginaEsecuzione(Pagina):
 
     def _finito(self, codice, fine):
         self.respira.emit(False)
+        self.contesto.progetto_in_analisi = None
         self.stato = {"ok": "ok", "annullata": "annullata"}.get(fine.get("esito"), "errore")
         if self.stato == "annullata":         # il passo a metà si rifà quando riparte
             self._passi(self.ultimo_passo, fermo=True)
@@ -201,6 +203,7 @@ class PaginaEsecuzione(Pagina):
         self.invito.setVisible(not lavoro)
         self.principale_attivo = s != "ferma_chiesto"
         self.aiuto, self.aiuto_livello, self.destinazione = "", "", None
+        self.principale_pericolo = s == "in_corso"          # "Ferma l'analisi": bianco col bordo rosso
         titolo = {"vuota": "Analisi in corso", "in_corso": "Analisi in corso", "ferma_chiesto": "Analisi in corso",
                   "ok": "Analisi finita", "annullata": "Analisi fermata", "errore": "L'analisi si è fermata"}[s]
         if s == "vuota":

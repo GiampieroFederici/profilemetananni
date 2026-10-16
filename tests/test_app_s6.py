@@ -114,10 +114,12 @@ def test_ferma_e_riprendi(f, qtbot, tmp_path, monkeypatch):
     qtbot.waitUntil(lambda: es.messaggio.text().startswith("Campione"), timeout=ATTESA)
     assert es.ancora.isVisible() and "usare il computer per altro" in es.ancora.text()
     b = un_principale(f)
-    assert b.text() == "Ferma l'analisi"
+    assert b.text() == "Ferma l'analisi" and b.property("pericolo") is True     # bianco col bordo rosso
+    assert f.contesto.progetto_in_analisi is f.contesto.progetto                 # intanto niente altri progetti
     b.click()
     assert chieste == [1] and es.stato == "ferma_chiesto" and not b.isEnabled()
     qtbot.waitUntil(lambda: es.stato == "annullata", timeout=ATTESA)
+    assert f.contesto.progetto_in_analisi is None and b.property("pericolo") is False
     assert es.titolo_pagina.text() == "Analisi fermata"
     assert b.isEnabled() and b.text() == "Riprendi l'analisi"
     monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")

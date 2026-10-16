@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLi
                                QRadioButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from app.motore import MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, etichetta, numero, riquadro
+from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro
 from app.pagine.risultati import leggi_risultati
 
 ACIDI = [("lattico", "Acido lattico"), ("acetico", "Acido acetico"), ("diacetato", "Diacetato"),
@@ -120,20 +120,6 @@ class Grafico(QWidget):
             p.drawText(QPointF(x + 24, riga + 6), nome)
             x += largo
         p.end()
-
-
-def pannello(titolo=None):
-    f = QFrame(objectName="pannello")
-    f.setStyleSheet("QFrame#pannello { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }"
-                    "QFrame#pannello QLabel { background: transparent; }")
-    s = QVBoxLayout(f)
-    s.setContentsMargins(20, 16, 20, 16)
-    s.setSpacing(8)
-    if titolo:
-        t = etichetta(titolo)
-        t.setStyleSheet("font-weight: bold; font-size: 20px;")
-        s.addWidget(t)
-    return f, s
 
 
 class PaginaSicurezza(Pagina):

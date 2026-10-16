@@ -143,6 +143,7 @@ class Finestra(QMainWindow):
             p.vai.connect(self.vai)
             p.azioni_cambiate.connect(self._azioni)
             p.respira.connect(self.respira)
+            p.info_cambiata.connect(self._stato_motore)
             self.pagine[chiave] = p
             scorre = QScrollArea()
             scorre.setWidgetResizable(True)
@@ -224,20 +225,45 @@ class Finestra(QMainWindow):
         pagina.mostrata()
         progetto = self.contesto.progetto
         self.nome_progetto.setText(f"· {progetto.nome}" if progetto else "")
-        indice = next((i for i, (c, _, _) in enumerate(PERCORSO) if c == chiave), -1)
-        for i, (c, (b, numero, testo)) in enumerate(self.passi.items()):
-            stato = "attivo" if c == chiave else ("fatto" if 0 <= i < indice else "")
-            b.setText(f"{'✓' if stato == 'fatto' else numero}   {testo}")
+        self._azioni()
+
+    def _passi_fatti(self):
+        """I passi del percorso già fatti nel progetto aperto (letti dal progetto, non dalla pagina attuale)."""
+        progetto = self.contesto.progetto
+        if progetto is None:
+            return set()
+        try:
+            app = progetto.leggi().get("app")
+        except (OSError, ValueError):
+            app = None
+        app = app if isinstance(app, dict) else {}
+        fatti = set()
+        if app.get("prodotto"):                    # Campioni e prodotto salvati (D079)
+            fatti.add("campioni")
+        if app.get("scelte"):                      # scelte confermate (D081)
+            fatti.add("scelte")
+        if (progetto.risultati / "risultati.json").is_file():
+            fatti |= {"esecuzione", "risultati"}
+        return fatti
+
+    def _percorso_stato(self):
+        fatti = self._passi_fatti()
+        for c, (b, numero, testo) in self.passi.items():
+            stato = "attivo" if c == self.attuale else ("fatto" if c in fatti else "")
+            b.setText(f"{'✓' if c in fatti else numero}   {testo}")
             b.setProperty("stato", stato)
-            b.setAccessibleDescription("passo attuale" if stato == "attivo" else "")
+            b.setAccessibleDescription(", ".join(d for d, si in (("passo attuale", stato == "attivo"),
+                                                                 ("fatto", c in fatti)) if si))
             b.style().unpolish(b)
             b.style().polish(b)
-        self._azioni()
 
     def _azioni(self):
         p = self.pagine[self.attuale]
         self.principale.setText(p.testo_principale)
         self.principale.setEnabled(p.principale_attivo)
+        self.principale.setProperty("pericolo", p.principale_pericolo)
+        self.principale.style().unpolish(self.principale)
+        self.principale.style().polish(self.principale)
         self.aiuto.setText(p.aiuto)
         self.aiuto.setProperty("livello", p.aiuto_livello)
         self.aiuto.style().unpolish(self.aiuto)
@@ -250,6 +276,7 @@ class Finestra(QMainWindow):
             b.clicked.connect(funzione)
             self.barra.insertWidget(self.barra.count() - 1, b)
             self.secondari.append(b)
+        self._percorso_stato()                     # lo stato del progetto può essere cambiato (analisi finita)
 
     def _stato_motore(self):
         info = self.contesto.info

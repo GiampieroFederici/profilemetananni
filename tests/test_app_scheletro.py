@@ -11,7 +11,7 @@ pytest.importorskip("pytestqt")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtGui import QFontDatabase  # noqa: E402
-from PySide6.QtWidgets import QPushButton  # noqa: E402
+from PySide6.QtWidgets import QLabel, QPushButton  # noqa: E402
 
 import contratto  # noqa: E402
 from app import finestra, main, motore, progetto  # noqa: E402
@@ -59,6 +59,9 @@ def test_errore_con_cosa_fare_e_codice_di_uscita(qtbot, monkeypatch):
 
 def test_annulla_ferma_la_corsa(qtbot, monkeypatch, tmp_path):
     monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 60")      # download: 4 s, c'è tempo per annullare
+    (tmp_path / "temp").mkdir()                                    # lucchetto di esegui solo per questo test
+    monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setenv("TMP", str(tmp_path / "temp"))
     config = tmp_path / "config.yaml"
     config.write_text("project_name: prova\n", encoding="utf-8")
     chiesto = []
@@ -143,7 +146,6 @@ def test_finestra_avvio_e_navigazione(qtbot, qapp, monkeypatch):
         principali[0].click()
         visti.append(f.attuale)
     assert visti == ["home", "campioni", "scelte", "esecuzione", "risultati", "sicurezza", "risultati"]
-    assert f.passi["campioni"][0].text().startswith("✓")              # passi già fatti segnati
 
     pagina = f.pagine["motore"]                                       # barra aggiornata dalla pagina
     f.vai("motore")
@@ -156,6 +158,90 @@ def test_finestra_avvio_e_navigazione(qtbot, qapp, monkeypatch):
     assert f.secondari == [] and f.principale.isEnabled()
     f.principale.click()
     assert f.attuale == "home"
+
+
+def finestra_finta(qtbot):
+    w = finestra.Finestra(movimento=False)
+    qtbot.addWidget(w)
+    w.fuori.setCurrentIndex(1)
+    return w
+
+
+def segni(f):
+    return {c: b.text().split()[0] for c, (b, _, _) in f.passi.items()}
+
+
+def test_percorso_segue_lo_stato_del_progetto(qtbot, monkeypatch, tmp_path):
+    """✓ dai passi fatti nel progetto, non dalla pagina attuale: in Sicurezza i passi 1-4 restano segnati."""
+    monkeypatch.setattr(finestra, "PAGINE", pagine_finte())
+    f = finestra_finta(qtbot)
+    f.vai("sicurezza")
+    assert segni(f) == {"campioni": "1", "scelte": "2", "esecuzione": "3", "risultati": "4", "sicurezza": "+"}
+    p = progetto.nuovo("salame", tmp_path)
+    p.scrivi({"project_name": "salame", "app": {"prodotto": "maiale"}})
+    f.contesto.progetto = p
+    f.vai("scelte")
+    assert segni(f)["campioni"] == "✓" and segni(f)["scelte"] == "2"
+    assert f.passi["scelte"][0].property("stato") == "attivo"
+    p.scrivi({"project_name": "salame", "app": {"prodotto": "maiale", "scelte": True}})
+    (p.risultati).mkdir()
+    (p.risultati / "risultati.json").write_text("{}", encoding="utf-8")
+    f.pagine["scelte"].azioni_cambiate.emit()          # senza cambiare pagina (per esempio analisi finita)
+    assert segni(f) == {"campioni": "✓", "scelte": "✓", "esecuzione": "✓", "risultati": "✓", "sicurezza": "+"}
+    f.vai("sicurezza")
+    assert [segni(f)[c] for c in ("campioni", "scelte", "esecuzione", "risultati")] == ["✓"] * 4
+    assert f.passi["campioni"][0].accessibleDescription() == "fatto"
+    assert f.passi["sicurezza"][0].accessibleDescription() == "passo attuale"
+
+
+def test_pallino_della_testata_segue_info(qtbot, monkeypatch):
+    """Dopo `installa` la pagina Motore cambia contesto.info: la testata si aggiorna senza riavviare."""
+    monkeypatch.setattr(finestra, "PAGINE", pagine_finte())
+    f = finestra_finta(qtbot)
+    f.contesto.info = None
+    f.pagine["motore"].info_cambiata.emit()
+    assert f.pallino.property("stato") == "rosso" and f.stato_motore.text() == "Motore da controllare"
+    f.contesto.info = {"finto": False}
+    f.pagine["motore"].info_cambiata.emit()
+    assert f.pallino.property("stato") == "" and f.stato_motore.text() == "Motore pronto"
+
+
+def test_principale_pericolo(qtbot, monkeypatch):
+    monkeypatch.setattr(finestra, "PAGINE", pagine_finte())
+    f = finestra_finta(qtbot)
+    f.vai("esecuzione")
+    assert f.principale.property("pericolo") is False
+    f.pagine["esecuzione"].principale_pericolo = True
+    f.pagine["esecuzione"].azioni_cambiate.emit()
+    assert f.principale.property("pericolo") is True
+    f.vai("risultati")
+    assert f.principale.property("pericolo") is False
+
+
+def test_altro_progetto_durante_un_analisi(qtbot, monkeypatch, tmp_path):
+    """Mentre un'analisi gira si apre solo il suo progetto; gli altri no, e si spiega perché."""
+    monkeypatch.setattr(progetto, "cartella_progetti", lambda: tmp_path)
+    f = finestra.Finestra(movimento=False)
+    qtbot.addWidget(f)
+    f.fuori.setCurrentIndex(1)
+    corsa, altro = progetto.nuovo("corsa", tmp_path), progetto.nuovo("altro", tmp_path)
+    for p in (corsa, altro):
+        p.scrivi({"project_name": p.nome})
+    f.contesto.progetto = f.contesto.progetto_in_analisi = corsa
+    home = f.pagine["home"]
+    f.vai("home")
+    scritte = [e.text() for e in home.findChildren(QLabel)]
+    assert "Un'analisi è in corso sul progetto corsa." in scritte and "Analisi in corso" in scritte
+    home.apri(progetto.Progetto(altro.cartella))
+    assert f.attuale == "home" and f.contesto.progetto is corsa and home.errore_elenco.count() == 1
+    home.nome.setText("nuovo")
+    home.azione_principale()
+    assert f.attuale == "home" and not (tmp_path / "nuovo").exists() and home.errore.count() == 1
+    home.apri(progetto.Progetto(corsa.cartella))       # lo stesso progetto: si torna a seguire la corsa
+    assert f.attuale == "esecuzione" and f.contesto.progetto is corsa
+    f.contesto.progetto_in_analisi = None                # analisi finita: si apre tutto
+    home.apri(progetto.Progetto(altro.cartella))
+    assert f.contesto.progetto.nome == "altro"
 
 
 def test_pagine_vere_si_creano(qtbot):

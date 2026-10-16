@@ -50,5 +50,43 @@ QPushButton#principale { background: #1E7A4C; color: #FFFFFF; border: 0; border-
 QPushButton#principale:hover { background: #155C39; }
 QPushButton#principale:focus { border: 3px solid #2F5D7C; }
 QPushButton#principale:disabled { background: #9DB3A8; }
+/* principale che interrompe un lavoro ("Ferma l'analisi"): bianco col bordo rosso, come nel prototipo */
+QPushButton#principale[pericolo="true"] { background: #FFFFFF; color: #A8251C; border: 2px solid #A8251C; }
+QPushButton#principale[pericolo="true"]:hover { background: #FCE9E7; }
+QPushButton#principale[pericolo="true"]:focus { border: 3px solid #A8251C; }
 QPushButton#secondario { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px; padding: 12px 20px; }
 QPushButton#secondario:hover, QPushButton#secondario:focus { border-color: #2F5D7C; }
+
+/* schede di scelta e pannelli bianchi (R5) */
+QFrame#scelta { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#scelta[scelto="true"] { background: #E3F1E9; border: 2px solid #1E7A4C; }
+QFrame#scelta[spento="true"] { background: #F6F8F7; }
+QFrame#scelta QLabel, QFrame#scelta QRadioButton, QFrame#scelta QCheckBox { background: transparent; }
+QFrame#pannello { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#pannello QLabel { background: transparent; }
+#pannello_titolo { font-weight: bold; font-size: 20px; }
+#consigliato { color: #1E7A4C; font-weight: bold; font-size: 16px; }
+#etichetta_campo { font-weight: bold; }
+
+/* campi */
+QLineEdit, QPlainTextEdit, QComboBox { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px;
+  padding: 8px 10px; }
+QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus { border: 2px solid #2F5D7C; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 30px; border: 0; }
+QComboBox::down-arrow { image: url(risorse:freccia_giu.svg); width: 16px; height: 16px; }
+QComboBox QAbstractItemView { background: #FFFFFF; selection-background-color: #E3F1E9;
+  selection-color: #1C2B27; }
+QRadioButton::indicator { width: 16px; height: 16px; border-radius: 10px; border: 2px solid #52625D;
+  background: #FFFFFF; }
+QRadioButton::indicator:checked { border: 2px solid #1E7A4C; background: qradialgradient(cx:0.5, cy:0.5,
+  radius:0.5, fx:0.5, fy:0.5, stop:0 #1E7A4C, stop:0.55 #1E7A4C, stop:0.65 #FFFFFF, stop:1 #FFFFFF); }
+QRadioButton::indicator:disabled { border-color: #CBD5D1; }
+/* fuoco della tastiera visibile anche su pulsanti tondi e caselle (R15) */
+QRadioButton:focus, QCheckBox:focus { background: #E6EEF4; border-radius: 6px; }
+QTextBrowser { border: 1px solid #CBD5D1; border-radius: 8px; }
+QTextBrowser:focus { border: 2px solid #2F5D7C; }
+QPushButton#apri { background: transparent; border: 0; color: #2F5D7C; text-align: left; padding: 4px 0;
+  font-weight: bold; }
+QPushButton#apri:hover, QPushButton#apri:focus { text-decoration: underline; }
+QProgressBar { background: #E2E8E5; border: 0; border-radius: 6px; height: 12px; }
+QProgressBar::chunk { background: #1E7A4C; border-radius: 6px; }

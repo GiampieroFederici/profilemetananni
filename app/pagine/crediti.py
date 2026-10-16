@@ -5,8 +5,7 @@ Testi copiati dalle fonti già verificate su PubMed: README §21 "Citations" e C
 """
 from PySide6.QtGui import QGuiApplication
 
-from app.pagine.base import Pagina, etichetta
-from app.pagine.progetto import STILE, pannello
+from app.pagine.base import Pagina, etichetta, pannello
 
 FONTI = [
     ("Profilo delle specie", [
@@ -77,7 +76,6 @@ class PaginaCrediti(Pagina):
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.setStyleSheet(STILE)
         self.corpo.addWidget(etichetta("ProfileMetaNanni mette insieme strumenti e database scritti da altri. Ogni "
                                        "referto elenca quelli usati davvero; qui c'è l'elenco completo. Se pubblichi "
                                        "un risultato, cita le fonti che hai usato."))

@@ -5,8 +5,7 @@ Durante un lavoro lungo l'avatar della testata respira (D046). Gli errori mostra
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout
 
 from app.motore import MotoreClient
-from app.pagine.base import Pagina, etichetta, numero, riquadro
-from app.pagine.progetto import STILE, pannello, svuota
+from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro, svuota
 
 NOMI_DB = {"metaphlan_fette_vJan25_v1": "MetaPhlAn, database in 6 parti",
            "kraken_pluspf_20260626": "Kraken, database completo",
@@ -27,7 +26,6 @@ class PaginaMotore(Pagina):
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.setStyleSheet(STILE)
         self.client = MotoreClient(self)
         self.client.evento.connect(self._evento)
         self.client.finito.connect(self._finito)
@@ -91,6 +89,7 @@ class PaginaMotore(Pagina):
     def _finito_info(self, codice, fine):
         self.contesto.info = fine["risultato"] if fine.get("esito") == "ok" else None
         self._disegna(self.errore_info)
+        self.info_cambiata.emit()                # pallino della testata (dopo installa)
 
     def _disegna(self, errore=None):
         svuota(self.zona_avvisi)

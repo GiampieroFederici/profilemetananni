@@ -5,32 +5,41 @@ Una pagina mette il suo contenuto in `self.corpo` e dichiara la barra delle azio
   azione_principale  che cosa fa (predefinito: va alla pagina `destinazione`)
   aiuto              frase accanto al pulsante; aiuto_livello "avviso" la colora d'ambra (R9)
   secondari          altri pulsanti della barra: [(testo, funzione)]
+  principale_pericolo  True se il principale interrompe un lavoro ("Ferma l'analisi"): bianco col bordo rosso
 Dopo averli cambiati chiama self.azioni_cambiate.emit(). La finestra chiama mostrata() a ogni ingresso.
+Se la pagina cambia contesto.info chiama self.info_cambiata.emit(): la testata aggiorna il pallino del motore.
+
+Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); il loro stile è in stile.qss.
 """
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QRadioButton, QVBoxLayout, QWidget
 
 
 class Contesto:
     """Ciò che le pagine condividono: l'ultimo `info` del motore e il progetto aperto (app.progetto.Progetto).
     avvia_analisi: "Scelte" lo mette a True (dopo aver scritto config.yaml) prima di vai("esecuzione");
-    "Analisi in corso" lancia `esegui` solo se è True e lo rimette subito a False."""
+    "Analisi in corso" lancia `esegui` solo se è True e lo rimette subito a False.
+    progetto_in_analisi: il progetto della corsa che sta girando (None se non gira nulla); intanto non se ne
+    apre un altro."""
     def __init__(self):
         self.info = None
         self.progetto = None
         self.avvia_analisi = False
+        self.progetto_in_analisi = None
 
 
 class Pagina(QWidget):
     vai = Signal(str)               # chiave della pagina dove andare
     azioni_cambiate = Signal()      # la barra delle azioni va ridisegnata
     respira = Signal(bool)          # l'avatar "respira" durante un lavoro lungo (D046)
+    info_cambiata = Signal()        # contesto.info è cambiato (per esempio dopo `installa`)
 
     titolo = ""
     testo_principale = ""
     destinazione = None
     aiuto = ""
     aiuto_livello = ""
+    principale_pericolo = False
 
     def __init__(self, contesto, parent=None):
         super().__init__(parent)
@@ -80,3 +89,72 @@ def numero(x, cifre=1):
     """Formatta un numero all'italiana (R11: l'interfaccia formatta, non calcola): 15.6 -> '15,6'."""
     testo = f"{x:,.{cifre}f}"
     return testo.replace(",", " ").replace(".", ",").replace(" ", ".")
+
+
+class Scelta(QFrame):
+    """Scheda grande con un pulsante tondo, il titolo e una frase che dice cosa fa (R5); si sceglie con un clic."""
+    scelta = Signal()
+
+    def __init__(self, titolo, spiega, gruppo, consigliato=False):
+        super().__init__(objectName="scelta")
+        s = QVBoxLayout(self)
+        s.setContentsMargins(18, 14, 18, 14)
+        riga = QHBoxLayout()
+        self.pulsante = QRadioButton(titolo)
+        self.pulsante.setStyleSheet("font-weight: bold;")
+        gruppo.addButton(self.pulsante)
+        riga.addWidget(self.pulsante)
+        if consigliato:
+            riga.addWidget(QLabel("consigliato", objectName="consigliato"))
+        riga.addStretch(1)
+        s.addLayout(riga)
+        self.spiega = etichetta(spiega)
+        self.spiega.setContentsMargins(30, 0, 0, 0)
+        s.addWidget(self.spiega)
+        self.pulsante.toggled.connect(self._ridisegna)
+        self._ridisegna()
+
+    def mousePressEvent(self, evento):
+        if self.pulsante.isEnabled():
+            self.pulsante.setChecked(True)
+        super().mousePressEvent(evento)
+
+    def _ridisegna(self, *_):
+        self.setProperty("scelto", self.pulsante.isChecked())
+        self.setProperty("spento", not self.pulsante.isEnabled())
+        self.style().unpolish(self)
+        self.style().polish(self)
+        if self.pulsante.isChecked():
+            self.scelta.emit()
+
+    def setEnabled(self, si):
+        self.pulsante.setEnabled(si)
+        self._ridisegna()
+
+
+def riga_di_scelte(*schede):
+    r = QHBoxLayout()
+    r.setSpacing(16)
+    for s in schede:
+        r.addWidget(s, 1)
+    return r
+
+
+def pannello(titolo=None):
+    """Riquadro bianco con il bordo grigio; titolo facoltativo in grassetto."""
+    p = QFrame(objectName="pannello")
+    s = QVBoxLayout(p)
+    s.setContentsMargins(22, 16, 22, 16)
+    s.setSpacing(8)
+    if titolo:
+        s.addWidget(etichetta(titolo, "pannello_titolo"))
+    return p, s
+
+
+def svuota(disposizione):
+    """Toglie i widget di un layout (per ridisegnare una zona della pagina)."""
+    while disposizione.count():
+        w = disposizione.takeAt(0).widget()
+        if w:
+            w.hide()
+            w.deleteLater()
