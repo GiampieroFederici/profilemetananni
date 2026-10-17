@@ -293,7 +293,9 @@ def test_tempo_totale_dal_motore(qtbot, f):
     s = vai_alle_scelte(qtbot, f)
     s._mostra_stima({"campioni": 1, "coppie_totali": 1e6, "tempo_s": {"kraken": 600}, "tempo_totale_s": 3000,
                      "spazio_gb": 1}, "")
-    assert f.aiuto.text().startswith("Tempo stimato: circa 50 minuti.")
+    assert f.aiuto.text() == "Tempo stimato: circa 50 minuti. Spazio: 1 GB."
+    s._mostra_stima({"campioni": 1, "coppie_totali": 2e5, "tempo_s": {}, "tempo_totale_s": 389, "spazio_gb": 0.2}, "")
+    assert f.aiuto.text() == "Tempo stimato: circa 6 minuti. Spazio: meno di 1 GB."        # campione d'esempio
 
 
 def test_virus_sempre_con_riquadro_ambra(qtbot, f):

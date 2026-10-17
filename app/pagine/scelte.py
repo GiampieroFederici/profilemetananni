@@ -59,6 +59,11 @@ def durata(secondi):
     return f"{numero(secondi / 3600, 1)} ore"
 
 
+def gb(x):
+    """Spazio in parole: '12 GB'; sotto 1 GB 'meno di 1 GB' (non '0 GB', come per il campione d'esempio)."""
+    return "meno di 1 GB" if 0 < x < 0.5 else f"{numero(x, 0)} GB"
+
+
 class PaginaScelte(Pagina):
     titolo = "Scelte dell'analisi"
     testo_principale = "Avvia l'analisi"
@@ -363,7 +368,7 @@ class PaginaScelte(Pagina):
         elenco = f": {', '.join(nomi_campioni[:6])}{'...' if len(nomi_campioni) > 6 else ''}" if nomi_campioni else ""
         righe = [("Campioni", f"{campioni}{elenco} ({numero(coppie / 1e6, 1)} milioni di coppie di read)"),
                  ("Tempo stimato", f"circa {durata(totale)}" + (f" ({dettaglio})" if dettaglio else "")),
-                 ("Spazio che serve", f"{numero(r.get('spazio_gb', 0), 0)} GB"
+                 ("Spazio che serve", gb(r.get("spazio_gb", 0))
                   + (f", ne hai {numero(r['spazio_libero_gb'], 0)} liberi" if r.get("spazio_libero_gb") is not None
                      else ""))]
         for i, (nome, valore) in enumerate(righe):
@@ -376,7 +381,7 @@ class PaginaScelte(Pagina):
         if self._profilo() == "completo" and tempi.get("kraken"):
             self.completo.spiega.setText("Trova anche le specie poco abbondanti. Più lento: per questo progetto "
                                          f"circa {durata(tempi['kraken'])}.")
-        aiuto = f"Tempo stimato: circa {durata(totale)}. Spazio: {numero(r.get('spazio_gb', 0), 0)} GB."
+        aiuto = f"Tempo stimato: circa {durata(totale)}. Spazio: {gb(r.get('spazio_gb', 0))}."
         if lungo:
             aiuto += " Ci vorrà molto: leggi l'avviso qui sopra."
         elif self.avvisi:
