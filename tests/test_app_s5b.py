@@ -98,8 +98,8 @@ def test_da_nuovo_progetto_ad_avvia_l_analisi(qtbot, f, ambiente, monkeypatch):
     assert f.attuale == "scelte"
     assert "15,6 GB di memoria, 8 processori" in scritte(f.pagine["scelte"])
     aspetta_stima(qtbot, f)
-    assert f.aiuto.text() == "Tempo stimato: circa 51 minuti. Spazio: 12 GB."     # riassunto anche nella barra
-    assert "circa 51 minuti (ospite 5 minuti, MetaPhlAn 5 minuti, Kraken 41 minuti)" in scritte(f.pagine["scelte"])
+    assert f.aiuto.text() == "Tempo stimato: circa 56 minuti. Spazio: 12 GB."     # riassunto anche nella barra
+    assert "circa 56 minuti (download 2 minuti, ospite 5 minuti, MetaPhlAn 6 minuti, Kraken 41 minuti)" in scritte(f.pagine["scelte"])
     assert f.principale.text() == "Avvia l'analisi"
     premi(f)
     assert f.attuale == "esecuzione" and avvio == [True]        # passaggio a S6 (Contesto.avvia_analisi)
@@ -223,7 +223,7 @@ def test_tempo_lungo_ambra_e_screening_rapido(qtbot, f, monkeypatch):
     s = vai_alle_scelte(qtbot, f)
     assert s.completo.pulsante.isChecked()
     assert f.aiuto.property("livello") == "avviso" and "Ci vorrà molto" in f.aiuto.text()
-    assert "Ci vorrà molto tempo." in scritte(s) and "circa 18 ore" in scritte(s)
+    assert "Ci vorrà molto tempo." in scritte(s) and "circa 9,1 ore" in scritte(s)
     secondario(f, "Passa allo screening rapido").click()
     assert s.rapido.pulsante.isChecked()
     assert f.contesto.progetto.leggi()["motore"]["kraken_db"] == "rapido"

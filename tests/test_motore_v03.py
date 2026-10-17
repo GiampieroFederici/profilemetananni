@@ -297,15 +297,15 @@ def test_11_lucchetto_vivo_blocca(tmp_path):
     assert ev[-1]["risultato"] == {"annullata": True}
 
 
-@pytest.mark.parametrize("kraken_db, kraken_s, messaggio", [("completo", 2445, "database completo"),
-                                                             ("rapido", 20, "screening rapido")])
-def test_11_stima_coerente_con_esegui(tmp_path, kraken_db, kraken_s, messaggio):
-    cfg = progetto(tmp_path, f"project_name: prova\nmotore: {{kraken_db: {kraken_db}}}\n")
+@pytest.mark.parametrize("kraken_db, messaggio", [("completo", "database completo"), ("rapido", "screening rapido")])
+def test_11_stima_coerente_con_esegui(tmp_path, kraken_db, messaggio):
+    """17/10: il finto usa tempi() del vero (stesse regole, tutti i passi): stima ed esegui danno lo stesso totale."""
+    cfg = progetto(tmp_path, f"project_name: prova\nhosts: [sus_scrofa]\nmotore: {{kraken_db: {kraken_db}}}\n")
     stima, _ = finto(tmp_path, "stima", "--progetto", str(cfg))
     t = stima[-1]["risultato"]
-    assert t["tempo_s"]["kraken"] == kraken_s
+    assert t["tempo_s"] == pmn_motore.tempi([("SRR4875279", 3240847, 533522098)],
+                                            {"hosts": ["sus_scrofa"], "motore": {"kraken_db": kraken_db}})
     ev, rc = finto(tmp_path, "esegui", "--progetto", str(cfg), velocita="1000000")
     minuti = int(re.search(r"Analisi finita in (\d+) min", ev[-1]["messaggio"]).group(1))
-    altri = 240 + 20 + 60 + 10                                           # download, controllo, pulizia, riepilogo
-    assert rc == 0 and minuti == round((t["tempo_totale_s"] + altri) / 60)
+    assert rc == 0 and minuti == round(t["tempo_totale_s"] / 60)
     assert any(messaggio in e["messaggio"] for e in ev if e.get("passo") == "kraken")

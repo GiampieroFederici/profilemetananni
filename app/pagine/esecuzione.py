@@ -2,8 +2,12 @@
 i 7 passi del contratto e gli avvisi; si può fermare (`annulla`) e riprendere. Mostra, non calcola (R11).
 
 Parte solo se "Scelte" ha messo contesto.avvia_analisi = True: entrare dal percorso non lancia nulla.
+Fra due eventi un orologio locale fa scendere il tempo che manca e avanzare la barra (un passo lungo come
+Kraken dura anche mezz'ora): parte dagli ultimi eta_s e percentuale del motore, non stima nulla da sé.
 """
-from PySide6.QtCore import Qt
+import time
+
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
 from app.motore import MotoreClient, percorso_per_motore
@@ -49,6 +53,10 @@ class PaginaEsecuzione(Pagina):
         self.errore = None
         self.ultimo_passo = None
         self.progetto_corsa = None
+        self.orologio = QTimer(self)                 # fra due eventi: il tempo che manca scende da solo
+        self.orologio.setInterval(1000)
+        self.orologio.timeout.connect(self._scorre)
+        self.ultimo = None                           # (istante, percentuale, eta_s) dell'ultimo avanzamento
 
         self.messaggio = etichetta("")
         self.barra = QProgressBar()
@@ -129,6 +137,7 @@ class PaginaEsecuzione(Pagina):
         self.messaggio.setText("Avvio l'analisi...")
         self.barra.setValue(0)
         self.pct.setText("0 %")
+        self.ultimo = None
         self.eta.setText("")
         self._mostra()
         self.respira.emit(True)
@@ -141,12 +150,18 @@ class PaginaEsecuzione(Pagina):
             self.registro.setText(f"Registro tecnico, da mandarci se c'è un problema:\n{e.get('log', '')}")
         elif tipo == "avanzamento":
             self.messaggio.setText(e["messaggio"])
-            self.barra.setValue(round(e.get("percentuale") or 0))
-            self.pct.setText(f"{numero(e.get('percentuale') or 0, 0)} %")
+            pct = max(e.get("percentuale") or 0, self.barra.value())   # la barra non torna indietro
+            self.barra.setValue(round(pct))
+            self.pct.setText(f"{numero(pct, 0)} %")
             self.eta.setText(durata(e["eta_s"]) if e.get("eta_s") is not None else "")
             self.eta_nota.setVisible(e.get("eta_s") is not None)      # null: non lo diciamo
             self._passi(e.get("passo"))
             self.ultimo_passo = e.get("passo")
+            self.ultimo = (time.monotonic(), pct, e["eta_s"]) if e.get("eta_s") else None
+            if self.ultimo:
+                self.orologio.start()
+            else:
+                self.orologio.stop()
         elif tipo == "avviso":
             self.avvisi.addWidget(riquadro(TITOLI_AVVISO.get(e.get("codice"), "Da sapere"), e["messaggio"], "avviso"))
         elif tipo == "errore":
@@ -155,13 +170,30 @@ class PaginaEsecuzione(Pagina):
             self.avvisi.insertWidget(0, riquadro(e["messaggio"], e.get("cosa_fare", ""), "errore"))
             self._passi(e.get("passo"), errore=True)
         elif tipo == "fine":
+            self.orologio.stop()
             self.messaggio.setText(e["messaggio"])
             if e["esito"] == "ok":
                 self.barra.setValue(100)
                 self.pct.setText("100 %")
                 self._passi("tutti")
 
+    def _scorre(self):
+        """Ogni secondo: tempo che manca = eta_s meno il tempo passato; la barra va verso 100 allo stesso passo.
+        Se il passo dura più del previsto si dice "qualche minuto" e la barra si ferma prima della fine."""
+        if not self.ultimo or self.stato != "in_corso":
+            self.orologio.stop()
+            return
+        t0, pct0, eta0 = self.ultimo
+        passati = time.monotonic() - t0
+        resto = eta0 - passati
+        self.eta.setText(durata(resto) if resto >= 1 else "qualche minuto")
+        pct = min(99, pct0 + (100 - pct0) * min(passati, eta0) / eta0)
+        if round(pct) > self.barra.value():
+            self.barra.setValue(round(pct))
+            self.pct.setText(f"{numero(pct, 0)} %")
+
     def _finito(self, codice, fine):
+        self.orologio.stop()
         self.respira.emit(False)
         self.contesto.progetto_in_analisi = None
         self.stato = {"ok": "ok", "annullata": "annullata"}.get(fine.get("esito"), "errore")

@@ -93,6 +93,14 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
 - **[v0.2]** In `esegui` `eta_s` è calcolato con le stesse regole di `stima` (§5.2) e scende a ogni evento: secondi
   per finire il passo in corso più i passi dopo. Il download non è stimato (dipende dalla rete); se le dimensioni
   dei campioni non si possono chiedere (rete giù) `eta_s` resta `null`.
+- **[17/10]** `eta_s` e `percentuale` seguono il piano per campione nell'ordine vero di `bin/run.sh` (download, triage,
+  pulizia e ospite per campione, MultiQC, poi MetaPhlAn e Kraken **alternati** per campione, riepilogo, referto):
+  `eta_s` = il passo che parte, contato intero, più i passi non ancora partiti; `percentuale` = la parte di tempo già
+  fatta (all'inizio di Kraken di SF3RAt7: 37 %, non più 95 %). Un passo di un gruppo prima di quello in corso che non è
+  partito, `run.sh` l'ha saltato e non si conta; in una corsa ripresa non si contano i passi con l'uscita già sul disco
+  (read scaricate, read senza ospite, profilo MetaPhlAn, Bracken). Il download ora è stimato. `percentuale` non torna
+  mai indietro. L'interfaccia fra due eventi fa scendere da sé il tempo che manca e avanzare la barra con un orologio
+  locale (un passo come Kraken dura anche mezz'ora); se il passo dura più del previsto scrive "qualche minuto".
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
   `kraken` per `DB_MANCANTE` di Kraken). L'installatore non lo manda ancora: lì vale l'ultimo `avanzamento`.
 - Ogni corsa finisce **sempre** con un solo evento `fine`, anche dopo un errore.
@@ -167,17 +175,39 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 ### 5.2 `stima`
 
 ```json
-{"campioni": 3, "coppie_totali": 4500000,
- "tempo_s": {"ospite": 900, "metaphlan": 838, "kraken": 7297}, "spazio_gb": 12}
+{"campioni": 1, "coppie_totali": 3240847,
+ "tempo_s": {"download": 130, "controllo_qualita": 15, "pulizia": 18, "ospite": 327, "metaphlan": 361,
+             "kraken": 1426, "riepilogo": 10, "referto": 10}, "tempo_totale_s": 2297, "spazio_gb": 3.2}
 ```
 
-- Regole di stima (misurate in S2.2-S2.3): Kraken completo ~37.000 coppie/min con 8 processori;
-  MetaPhlAn a fette 86,2 s per milione di coppie + ~150 s fissi per campione.
+- **[v0.3, 17/10]** Regole di stima (`tempi()` e `piano()` in `motore/pmn_motore.py`), misurate in S2.2-S2.3 e nella
+  prova L1a del 17/10 (SF3RAt7 su NVMe, 24 processori: 37 min 39 s dall'inizio al referto; l'esempio qui sopra è la
+  sua stima, 38 min):
+
+  | Passo | Regola | Misura |
+  |---|---|---|
+  | `download` | byte delle read gz (ENA) / 4,1 MB/s; 0 per le read locali | 533,5 MB in 129 s (rete di casa) |
+  | `pulizia` | 5,6 s per milione di coppie | fastp 18 s per 3,24 M |
+  | `ospite` | 101 s per milione di coppie (non scala con i processori) | 325 s (S2.2), 327 s con 24 processori |
+  | `metaphlan` | 86,2 s per milione di coppie **senza ospite** + 230 s fissi per campione | 357 s per 1,51 M |
+  | `kraken` | coppie **senza ospite** / (37.000 al minuto × √(processori / 8)); rapido 10 M al minuto | 40 min 47 s con 8 (K2), 1.415 s con 24 |
+  | `controllo_qualita`, `riepilogo`, `referto` | 15 s, 10 s, 10 s fissi; triage (se attivo) 60 s per campione, non misurato | MultiQC 3-16 s, tabelle 4 s, referto 1 s |
+
+- Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie
+  è dell'ospite quando il progetto ne toglie uno (`hosts:` non vuoto: SF3RAt7, maiale, 3,24 M → 1,51 M; bovino e
+  pecora non ancora misurati), 0 % se si toglie solo l'uomo (prudente).
+- Processori: `execution.threads` (quelli che `run.sh` usa davvero), poi `motore.processori`, poi 8.
+  La radice quadrata per Kraken viene da 2 sole misure (8 e 24 processori): da riconfermare su altri PC.
+- Prima del 17/10 Kraken e MetaPhlAn contavano le coppie **prima** di togliere l'ospite e download, pulizia, MultiQC e
+  referto non c'erano: SF3RAt7 era stimato 1,7 ore contro 37 min veri.
 - **[v0.2]** In più: `spazio_libero_gb` (disco dove andrà il lavoro) e `consigli` (§5.5: `TEMPO_LUNGO`,
   `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`). Le dimensioni si chiedono **a gruppi**: una richiesta a ENA ogni 100
   campioni, e una a NCBI ogni 100 per quelli che ENA non conosce o se ENA non risponde (94 campioni in ~1 s).
-- **[v0.3]** `tempo_totale_s`: la somma di `tempo_s` (download escluso), già pronta; `nomi_campioni`: i nomi con cui
-  il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine del conteggio.
+- **[v0.3]** `tempo_totale_s`: la somma di `tempo_s`, già pronta (**[17/10]** download compreso); `nomi_campioni`: i
+  nomi con cui il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine
+  del conteggio.
+- **[17/10]** `tempo_s` ha una chiave per ogni passo di `esegui` (più `referto`), nell'ordine in cui girano; chi è 0
+  non gira (per esempio `kraken` con solo MetaPhlAn). Nessuna chiave tolta: le 3 di prima restano.
 
 ### 5.3 `esegui`: cartella dei risultati
 
@@ -318,6 +348,9 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
   progetto: completo 41 min di Kraken, rapido 20 s (misurato su SF3RAt7 con PlusPF-8); i dati copiati restano quelli della
   corsa con lo screening rapido. `info.prodotti`, `stima.tempo_totale_s`, `stima.nomi_campioni` e i testi di `fine` e
   `REFERTO_PARZIALE` sono quelli del motore vero.
+- **[17/10]** I tempi del finto vengono da `tempi()` del motore vero (§5.2) per SF3RAt7 (3,24 M coppie, 533,5 MB) con
+  il progetto dato: stessi passi, stesso ordine di `run.sh` (MultiQC dopo l'ospite), stesso totale in `stima` ed `esegui`.
+  Il finto e il vero non danno più due stime diverse per lo stesso progetto (prima 51 min contro 1,7 ore).
 - `tests/test_finto_motore.py` controlla ogni comando e scenario contro il §4; **[v0.2]** anche `tests/test_sicurezza.py`,
   `tests/test_referto.py`, `tests/test_system_one.py`, `tests/test_stima_gruppi.py`.
 

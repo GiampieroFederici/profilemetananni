@@ -337,16 +337,18 @@ class PaginaScelte(Pagina):
             self.zona_stima.addWidget(riquadro(titolo, a["messaggio"], "avviso"))
         tempi = r.get("tempo_s") or {}
         totale = sum(v for v in tempi.values() if v)
-        nomi = {"ospite": "ospite", "metaphlan": "MetaPhlAn", "kraken": "Kraken"}
+        nomi = {"download": "download", "pulizia": "pulizia", "ospite": "ospite", "controllo_qualita": "controlli",
+                "metaphlan": "MetaPhlAn", "kraken": "Kraken", "riepilogo": "tabelle", "referto": "referto"}
         ordine = [k for k in nomi if k in tempi] + [k for k in tempi if k not in nomi]   # i dict arrivano in ordine alfabetico
-        dettaglio = ", ".join(f"{nomi.get(k, k)} {durata(tempi[k])}" for k in ordine if tempi[k])
+        # solo i passi da almeno un minuto: quelli brevi (controlli, tabelle, referto) sono nel totale
+        dettaglio = ", ".join(f"{nomi.get(k, k)} {durata(tempi[k])}" for k in ordine if (tempi[k] or 0) >= 60)
         coppie = r.get("coppie_totali") or 0
         campioni = r.get("campioni", 0)
         griglia = QGridLayout()
         griglia.setHorizontalSpacing(24)
         griglia.setVerticalSpacing(6)
         righe = [("Campioni", f"{campioni} ({numero(coppie / 1e6, 1)} milioni di coppie di read)"),
-                 ("Tempo stimato", f"circa {durata(totale)} ({dettaglio})"),
+                 ("Tempo stimato", f"circa {durata(totale)}" + (f" ({dettaglio})" if dettaglio else "")),
                  ("Spazio che serve", f"{numero(r.get('spazio_gb', 0), 0)} GB"
                   + (f", ne hai {numero(r['spazio_libero_gb'], 0)} liberi" if r.get("spazio_libero_gb") is not None
                      else ""))]
