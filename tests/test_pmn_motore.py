@@ -26,6 +26,9 @@ for l in ${STUB_ETICHETTE:-size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 k
     lento) sleep 1 ;;
     spazio) [ "$l" = size ] && { echo "[FAIL] Not enough space: need ~9.0 GB, have 1.0 GB."; exit 1; } ;;
     rete) [ "$l" = size ] && { echo "[FAIL] ENA and NCBI could not be reached - nothing to download."; exit 1; } ;;
+    ospite) case "$l" in hf_*) mkdir -p "$work/hostfilter_logs"   # come steps/21: 80 % delle coppie e' ospite
+      printf '1000000 reads; of these:\n  1000000 (100.00%%) were paired; of these:\n    200000 (20.00%%) aligned concordantly 0 times\n' \
+        > "$work/hostfilter_logs/${l#hf_}.sus_scrofa.bowtie2.log" ;; esac ;;
   esac
 done
 mkdir -p "$work/metaphlan" "$work/kraken" "$work/results"
@@ -189,6 +192,42 @@ def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
     assert per[("controllo_qualita", None)]["eta_s"] < per[("ospite", "S2")]["eta_s"]   # MultiQC: l'ospite non torna
     assert av[-1]["passo"] == "referto" and av[-1]["eta_s"] == round(sec["referto"])
     assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1                           # niente e' fatto
+
+
+def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):
+    """A1, 17/10: SF3RAt3 aveva il 68 % di ospite, non il 53 %: tolto l'ospite, il tempo che manca si ricalcola
+    sulle coppie rimaste davvero (log di Bowtie2 di steps/21)."""
+    env, _ = ambiente
+    progetto, _ = due_campioni(tmp_path, "ospite")
+    progetto.write_text(progetto.read_text(encoding="utf-8") + "hosts: [sus_scrofa]\n", encoding="utf-8")
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_ETICHETTE=ETICHETTE_2, STUB_MODO="ospite")
+    import pmn_motore as pm
+    read = tmp_path / "read"
+    camp = [(n, round(sum((read / x).stat().st_size for x in file) / pm.BYTE_PER_COPPIA), 0)
+            for n, file in pm.campioni_locali(read)]
+    cfg = {"hosts": ["sus_scrofa"]}
+    prima = {e: s for e, _, _, s in pm.piano(camp, cfg)}                         # quota fissa, 53 %
+    dopo = {e: s for e, _, _, s in pm.piano(camp, cfg, {"S1": 0.8, "S2": 0.8})}  # misurata, 80 %
+    per = {(e["passo"], e["campione"]): e for e in ev if e["tipo"] == "avanzamento"}
+    assert codice == 0
+    assert abs(per[("ospite", "S1")]["eta_s"] - sum(prima.values()) + prima["trim_S1"]) <= 1   # prima: quota fissa
+    resto = dopo["krk_S1"] + dopo["mpa_S2"] + dopo["krk_S2"] + dopo["riepilogo"] + dopo["referto"]
+    assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                                       # dopo: coppie vere
+
+
+def test_quote_dai_log_dell_ospite(tmp_path):
+    sys.path.insert(0, os.path.join(ROOT, "motore"))
+    import pmn_motore as pm
+    log = tmp_path / "hostfilter_logs"
+    log.mkdir()
+    pe = "{} reads; of these:\n  {} (100.00%) were paired; of these:\n    {} (31.71%) aligned concordantly 0 times\n"
+    (log / "SRR4875285.sus_scrofa.bowtie2.log").write_text(pe.format(4351080, 4351080, 1379760), encoding="utf-8")
+    (log / "SRR4875285.homo_sapiens.bowtie2.log").write_text(pe.format(1379760, 1379760, 1378590), encoding="utf-8")
+    se = "1000 reads; of these:\n  1000 (100.00%) were unpaired; of these:\n    250 (25.00%) aligned 0 times\n"
+    (log / "C.1.homo_sapiens.bowtie2.log").write_text(se, encoding="utf-8")          # lettura singola, nome col punto
+    q = pm.quote_ospite(tmp_path)
+    assert abs(q["SRR4875285"] - (1 - 1378590 / 4351080)) < 1e-9 and q["C.1"] == 0.75
+    assert pm.quote_ospite(tmp_path / "manca") == {}
 
 
 def test_eta_corsa_ripresa_salta_i_passi_fatti(ambiente, tmp_path):

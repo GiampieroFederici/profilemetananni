@@ -172,6 +172,16 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
              {"prodotto": "altro", "ospiti": [], "genomi": [], "frase": "Toglierò solo il DNA umano.", "livello": "avviso", ...}]
 ```
 
+- **[17/10, sessione A]** `esempio`: il campione d'esempio a un clic, cioè il mini-campione della verifica (200.000 coppie
+  di SF3RAt7, già nel motore in `PMN_PROVA`), oppure `null` se non è installato. `cartella` è già come la vede il motore:
+  l'interfaccia la scrive così com'è in `paths.local_reads_dir` (con `data_source: local`) e `hosts:` dalla regola di
+  `prodotto`. Il finto motore dà lo stesso oggetto (la cartella non la legge). Sul PC di casa: stima 389 s, reale 348 s.
+
+```json
+"esempio": {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000, "cartella": "/home/pmn/.pmn/db/prova",
+            "frase": "Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel motore."}
+```
+
 ### 5.2 `stima`
 
 ```json
@@ -196,6 +206,12 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 - Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie
   è dell'ospite quando il progetto ne toglie uno (`hosts:` non vuoto: SF3RAt7, maiale, 3,24 M → 1,51 M; bovino e
   pecora non ancora misurati), 0 % se si toglie solo l'uomo (prudente).
+- **[17/10, A1]** In `esegui`, appena l'ospite è tolto (dal passo MultiQC in poi) `eta_s` ricalcola MetaPhlAn e Kraken
+  sulle coppie rimaste davvero, lette dai log di Bowtie2 di `steps/21` (`hostfilter_logs/`, `quote_ospite()`): prima
+  entrate nel primo indice, poi rimaste dopo l'ultimo. Prova del 17/10 su SF3RAt3 (68 % di ospite, non 53 %): all'inizio
+  di Kraken `eta_s` 1.954 s con la quota fissa, 1.324 s con i log, reale 1.533 s (+27,5 % → −13,6 %). La `stima` prima
+  di partire resta con la quota fissa (scelta di Giampiero, 17/10): su SF3RAt3 3.026 s contro 4.598 s reali, di cui
+  2.229 s di download con la rete lenta.
 - Processori: `execution.threads` (quelli che `run.sh` usa davvero), poi `motore.processori`, poi 8.
   La radice quadrata per Kraken viene da 2 sole misure (8 e 24 processori): da riconfermare su altri PC.
 - Prima del 17/10 Kraken e MetaPhlAn contavano le coppie **prima** di togliere l'ospite e download, pulizia, MultiQC e
@@ -267,6 +283,9 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   abbondanza; l'Excel le ha tutte.
 - Parametri usati con la fonte (D022, fonti di `refs/kraken_profili.tsv`, **[v0.3]** scritte in italiano), "Strumenti e database usati" con versioni
   e citazioni (D036), postilla sui virus (D017, D033), sezione "Sicurezza alimentare" solo se c'è `risultati/sicurezza/`.
+- **[17/10, D115]** Le sezioni di Kraken e della sicurezza alimentare si aprono con il riquadro "Prototipo, non per
+  decisioni." (`PROTOTIPO_KRAKEN`, `PROTOTIPO_FSSP` in `motore/referto.py`), come le pagine dell'app, finché K4 e L3
+  non sono fatte.
 - Il PDF lo fa il motore dallo stesso HTML (Qt, già nell'ambiente `pmn_reports_py`): l'interfaccia non deve
   convertire nulla. Fogli Excel: `Leggimi`, `MetaPhlAn_specie`, `Kraken_microbi`, `Kraken_a_parte`, `Triage`,
   `Sicurezza`, `Parametri`, `Strumenti_citazioni` (gli ultimi tre fissi, `Triage` e `Sicurezza` solo se ci sono).

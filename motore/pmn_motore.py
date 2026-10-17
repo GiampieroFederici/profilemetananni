@@ -156,6 +156,23 @@ def quote_triage(lavoro):
     return out
 
 
+def quote_ospite(lavoro):
+    """{campione: quota di coppie tolte con l'ospite} dai log di Bowtie2 di steps/21 (hostfilter_logs/<campione>.<indice>
+    .bowtie2.log): coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo. A1 (17/10): SF3RAt3 aveva il
+    68 % di ospite, non il 53 % di OSPITE_QUOTA; tolto l'ospite, esegui ricalcola MetaPhlAn e Kraken su queste."""
+    entrate, rimaste = {}, {}
+    for f in (Path(lavoro) / "hostfilter_logs").glob("*.bowtie2.log"):
+        nome = f.name[:-len(".bowtie2.log")].rsplit(".", 1)[0]
+        testo = f.read_text(encoding="utf-8", errors="replace")
+        dentro = re.search(r"^(\d+) reads; of these:", testo, re.M)
+        fuori = (re.search(r"^\s*(\d+) \([\d.]+%\) aligned concordantly 0 times", testo, re.M)
+                 or re.search(r"were unpaired; of these:\s*\n\s*(\d+) \([\d.]+%\) aligned 0 times", testo))
+        if dentro and fuori:
+            entrate[nome] = max(entrate.get(nome, 0), int(dentro[1]))
+            rimaste[nome] = min(rimaste.get(nome, int(fuori[1])), int(fuori[1]))
+    return {n: 1 - rimaste[n] / entrate[n] for n in entrate if entrate[n] > 0}
+
+
 # uscite di run.sh per etichetta (layout managed): se ci sono già, run.sh salta il passo (corsa ripresa)
 USCITE = {"dl": ("raw/{}_1.fastq.gz", "raw/{}.fastq.gz"), "mpa": ("metaphlan/{}_profile.txt",),
           "krk": ("kraken/{}.bracken",), **dict.fromkeys(("tq", "th", "trim", "hf"),
@@ -451,11 +468,12 @@ class Motore:
         lavoro = progetto.parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
         # senza dimensioni (rete giu') la barra va lo stesso, con campioni grandi come SF3RAt7; il tempo resta null
         campioni = camp or [(x, 3_240_847, 0) for x in self._nomi(cfg)]
-        unita = piano(campioni, cfg, quote_triage(lavoro))
+        quote = lambda: {**quote_triage(lavoro), **quote_ospite(lavoro)}   # noqa: E731  (misurate: l'ospite vince)
+        unita = piano(campioni, cfg, quote())
         secondi, gruppo = {e: s for e, _, _, s in unita}, {e: g for e, _, g, _ in unita}
         totale = sum(secondi.values()) or 1
         fatti = gia_fatti(lavoro, secondi)   # corsa ripresa: i passi già finiti non si contano
-        triage_letto = False
+        riletto = 0                          # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
 
         def eta(etichetta, passo):
             """(percentuale, secondi che restano): questo passo intero + quelli non ancora partiti. Un passo di
@@ -490,9 +508,10 @@ class Motore:
                     if campione:
                         i.add(campione)
                     fatto = len(i)
-                    if not triage_letto and gruppo.get(m.group(1), 0) >= 2:   # triage finito: quote misurate
-                        triage_letto = True
-                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote_triage(lavoro)))
+                    g = min(gruppo.get(m.group(1), 0), 3)
+                    if g >= 2 and g > riletto:   # triage o ospite finiti: quote misurate al posto di OSPITE_QUOTA
+                        riletto = g
+                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
                         totale = sum(secondi.values()) or 1
                     pct, resta = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
