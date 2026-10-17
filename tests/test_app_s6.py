@@ -128,6 +128,31 @@ def test_ferma_e_riprendi(f, qtbot, tmp_path, monkeypatch):
     assert b.text() == "Vedi i risultati"
 
 
+def test_il_tempo_scende_anche_dentro_un_passo_lungo(f, monkeypatch):
+    """17/10: durante Kraken (24 minuti) l'app restava ferma su "95 %, 88 minuti". Ora fra due eventi un orologio
+    locale fa scendere il tempo e avanzare la barra, senza mai tornare indietro."""
+    import types
+    from app.pagine import esecuzione
+    ora = [1000.0]
+    monkeypatch.setattr(esecuzione, "time", types.SimpleNamespace(monotonic=lambda: ora[0]))
+    es = f.pagine["esecuzione"]
+    es.stato = "in_corso"
+    avanza = {"tipo": "avanzamento", "messaggio": "Campione 1 di 1: classifico le read con Kraken e Bracken",
+              "passo": "kraken", "campione": "S1", "fatto": 1, "totale": 1, "percentuale": 40, "eta_s": 1500}
+    es._evento(avanza)
+    assert es.orologio.isActive() and es.eta.text() == "25 minuti" and es.barra.value() == 40
+    ora[0] += 750                                    # metà del tempo che mancava
+    es._scorre()
+    assert es.eta.text() == "12 minuti" and es.barra.value() == 70 and es.pct.text() == "70 %"
+    ora[0] += 1000                                   # più lungo del previsto: niente numeri inventati
+    es._scorre()
+    assert es.eta.text() == "qualche minuto" and es.barra.value() == 99
+    es._evento({**avanza, "passo": "riepilogo", "percentuale": 98, "eta_s": 20})
+    assert es.barra.value() == 99 and es.eta.text() == "20 secondi"   # la barra non torna indietro
+    es._evento({**avanza, "eta_s": None})
+    assert not es.orologio.isActive()                # senza stima l'orologio si ferma
+
+
 @pytest.mark.parametrize("scenario, passo, dove", [("DB_MANCANTE", "kraken", "motore"),
                                                    ("READ_NON_TROVATE", "download", "campioni"),
                                                    ("GIA_IN_CORSO", None, "home")])

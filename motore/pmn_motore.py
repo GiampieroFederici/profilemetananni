@@ -10,6 +10,7 @@ Solo libreria standard: gira anche col python3 di sistema quando il motore non �
 (e allora lo dice con DB_MANCANTE). Il file del progetto si legge con PyYAML dell'ambiente pmn_reports_py.
 """
 import argparse
+import csv
 import importlib.util
 import json
 import os
@@ -34,16 +35,23 @@ ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi
 TENTATIVI_RETE = 3
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
                  "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
-# regole di stima misurate (S2.2, S3, filone pipeline): secondi per milione di coppie, o coppie al minuto
+# regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
-OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2)
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 150
-KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}
-# passi di run.sh (etichette di do_step) -> passo del contratto, peso nella barra e cosa sta facendo
-PASSI = [("download", 5, "scarico le read da NCBI"), ("controllo_qualita", 3, "controllo la qualità delle read"),
-         ("pulizia", 4, "tolgo le parti di bassa qualità"), ("ospite", 20, "tolgo le read dell'ospite e dell'uomo"),
-         ("metaphlan", 20, "calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)"),
-         ("kraken", 43, "classifico le read con Kraken e Bracken"), ("riepilogo", 5, "preparo le tabelle e il riepilogo")]
+DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
+PULIZIA_S_PER_M = 5.6          # fastp: 18 s per 3,24 M coppie (17/10)
+OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
+OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
+                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
+MPA_S_PER_M, MPA_FISSI_S = 86.2, 230   # per M coppie senza ospite (C03_1, S2.2); fissi: 357 s per 1,51 M (17/10)
+KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2)
+KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
+ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
+TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
+# passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
+PASSI = [("download", "scarico le read da NCBI"), ("controllo_qualita", "controllo la qualità delle read"),
+         ("pulizia", "tolgo le parti di bassa qualità"), ("ospite", "tolgo le read dell'ospite e dell'uomo"),
+         ("metaphlan", "calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)"),
+         ("kraken", "classifico le read con Kraken e Bracken"), ("riepilogo", "preparo le tabelle e il riepilogo")]
 # passo del contratto -> in parole, per il messaggio di fine dopo un errore (v0.3)
 NOMI_PASSI = {"download": "lo scaricamento delle read", "controllo_qualita": "il controllo della qualità",
               "pulizia": "la pulizia delle read", "ospite": "la rimozione del DNA dell'ospite",
@@ -91,14 +99,79 @@ CITAZIONI = {
 }
 
 
-def tempi(camp, cfg):
-    """Secondi previsti per passo (regole misurate sopra), usati da stima e per eta_s di esegui."""
-    coppie = sum(c for _, c, _ in camp)
+def processori(cfg):
+    """Processori della corsa: execution.threads (quelli che usa run.sh), poi motore.processori, poi 8 come run.sh."""
+    for v in (sezione(cfg, "execution").get("threads"), sezione(cfg, "motore").get("processori")):
+        try:
+            if int(v) > 0:
+                return int(v)
+        except (TypeError, ValueError):
+            pass
+    return KRAKEN_PROC_RIF
+
+
+def piano(camp, cfg, quote=None):
+    """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
+    per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
+    contano le coppie senza ospite: quote {campione: quota dell'ospite} dal triage se c'è, se no OSPITE_QUOTA."""
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
-    return {"ospite": round(coppie / 1e6 * OSPITE_S_PER_M),
-            "metaphlan": round(coppie / 1e6 * MPA_S_PER_M + MPA_FISSI_S * len(camp)) if strumento in ("metaphlan", "both") else 0,
-            "kraken": round(coppie / KRAKEN_COPPIE_MIN.get(kraken_db, 37000) * 60) if strumento in ("kraken", "both") else 0}
+    velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
+    quota = OSPITE_QUOTA if cfg.get("hosts") else 0.0
+    out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
+    if sezione(cfg, "triage").get("enabled") is True:
+        out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
+        out.append(("triage", "controllo_qualita", 1, 0))
+    for n, c, _ in camp:
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
+    out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
+    for n, c, _ in camp:
+        resto = c * (1 - (quote or {}).get(n, quota))
+        if strumento in ("metaphlan", "both"):
+            out.append((f"mpa_{n}", "metaphlan", 4, resto / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
+        if strumento in ("kraken", "both"):
+            out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
+    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"]), ("referto", "referto", 6, ALTRI_S["referto"])]
+
+
+def tempi(camp, cfg, quote=None):
+    """Secondi previsti per passo del contratto (somma del piano), usati da stima; esegui usa il piano intero."""
+    out = dict.fromkeys([p for p, _ in PASSI] + ["referto"], 0)
+    for _, passo, _, s in piano(camp, cfg, quote):
+        out[passo] += s
+    return {p: round(s) for p, s in out.items()}
+
+
+def quote_triage(lavoro):
+    """{campione: quota di frammenti dell'ospite} da results/triage.tsv (steps/17), se il triage c'è stato."""
+    f = Path(lavoro) / "results" / "triage.tsv"
+    out = {}
+    if f.is_file():
+        with open(f, encoding="utf-8", newline="") as t:
+            for r in csv.DictReader(t, delimiter="\t"):
+                try:
+                    out[r["sample"]] = min(max(float(r["host_pct"]) / 100, 0.0), 1.0)
+                except (KeyError, TypeError, ValueError):
+                    pass
+    return out
+
+
+# uscite di run.sh per etichetta (layout managed): se ci sono già, run.sh salta il passo (corsa ripresa)
+USCITE = {"dl": ("raw/{}_1.fastq.gz", "raw/{}.fastq.gz"), "mpa": ("metaphlan/{}_profile.txt",),
+          "krk": ("kraken/{}.bracken",), **dict.fromkeys(("tq", "th", "trim", "hf"),
+                                                         ("nonhost/{}_nonhost_1.fastq.gz", "nonhost/{}_nonhost.fastq.gz"))}
+
+
+def gia_fatti(lavoro, etichette):
+    """Etichette del piano con l'uscita già sul disco: in una corsa ripresa non si contano più."""
+    fatti = set()
+    for e in etichette:
+        tipo, _, nome = e.partition("_")
+        for modello in USCITE.get(tipo, ()) if nome else ():
+            f = Path(lavoro) / modello.format(nome)
+            if f.is_file() and f.stat().st_size > 0:
+                fatti.add(e)
+    return fatti
 
 
 class Annullata(Exception):
@@ -198,6 +271,7 @@ class Motore:
         cartella = PMN_HOME / "log" if (PMN_HOME / "log").is_dir() else Path(tempfile.gettempdir())
         self.log = cartella / f"pmn_{self.corsa}_{a.comando}.log"
         self.passo = None   # ultimo passo annunciato: va nell'evento errore (v0.2)
+        self.ultimo_pct, self.eta_referto = 97, None   # dove parte il referto (esegui li aggiorna)
 
     def evento(self, tipo, messaggio, **campi):
         riga = {"tipo": tipo, "ora": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -303,10 +377,10 @@ class Motore:
         coppie = sum(c for _, c, _ in camp)
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
-        tempo = tempi(camp, cfg)
+        lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
+        tempo = tempi(camp, cfg, quote_triage(lavoro))
         scaricare = sum(b for _, _, b in camp)
         spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
-        lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
             lavoro = lavoro.parent
         libero = round(shutil.disk_usage(lavoro).free / 1e9, 1)
@@ -317,7 +391,7 @@ class Motore:
         return "ok", {"campioni": len(camp), "nomi_campioni": [n for n, _, _ in camp], "coppie_totali": coppie,
                       "tempo_s": tempo, "tempo_totale_s": sum(tempo.values()), "spazio_gb": spazio_gb,
                       "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
-            "Stima pronta (prudente: conta le coppie prima di togliere l'ospite)."
+            f"Stima pronta per {processori(cfg)} processori (dipende anche dalla rete e dalla quantità di DNA dell'ospite)."
 
     # ---------------- esegui ----------------
     def esegui(self):
@@ -335,13 +409,13 @@ class Motore:
                 blocco.unlink(missing_ok=True)   # rimasto da una corsa interrotta
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": None}), encoding="utf-8")
         try:   # tempo stimato (D027) con le regole di stima; senza dimensioni (rete giu', read non trovate) resta null
-            previsti = tempi(self.campioni(cfg), cfg)
+            camp = self.campioni(cfg)
         except (Errore, OSError, ValueError):
-            previsti = None
+            camp = None
         try:
             for tentativo in range(1, TENTATIVI_RETE + 1):
                 try:
-                    self._run_sh(progetto, cfg, blocco, previsti)
+                    self._run_sh(progetto, cfg, blocco, camp)
                     break
                 except Errore as e:
                     if e.codice != "DOWNLOAD_FALLITO" or tentativo == TENTATIVI_RETE:
@@ -358,25 +432,28 @@ class Motore:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
 
-    def _run_sh(self, progetto, cfg, blocco, previsti=None):
+    def _run_sh(self, progetto, cfg, blocco, camp=None):
         n = max(1, len(self._nomi(cfg)))
-        ordine = [p for p, _, _ in PASSI]
+        lavoro = progetto.parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
+        # senza dimensioni (rete giu') la barra va lo stesso, con campioni grandi come SF3RAt7; il tempo resta null
+        campioni = camp or [(x, 3_240_847, 0) for x in self._nomi(cfg)]
+        unita = piano(campioni, cfg, quote_triage(lavoro))
+        secondi, gruppo = {e: s for e, _, _, s in unita}, {e: g for e, _, g, _ in unita}
+        totale = sum(secondi.values()) or 1
+        fatti = gia_fatti(lavoro, secondi)   # corsa ripresa: i passi già finiti non si contano
+        triage_letto = False
 
-        def eta(passo, fatto, campione):
-            """Secondi che restano: la parte non fatta di questo passo + i passi dopo (download non stimato)."""
-            if not previsti:
-                return None
-            quota = previsti.get(passo, 0) * ((n - min(fatto, n) + 1) / n if campione else 1)
-            return round(quota + sum(previsti.get(p, 0) for p in ordine[ordine.index(passo) + 1:]))
-        pesi = dict((p, w) for p, w, _ in PASSI)
-        if sezione(cfg, "motore").get("kraken_db") == "rapido":
-            pesi["kraken"] = 5
-        if sezione(cfg, "profiling").get("tool", "both") == "metaphlan":
-            pesi["kraken"] = 0
-        inizio, somma = {}, 0
-        for p, _, _ in PASSI:
-            inizio[p] = somma
-            somma += pesi[p]
+        def eta(etichetta, passo):
+            """(percentuale, secondi che restano): questo passo intero + quelli non ancora partiti. Un passo di
+            un gruppo prima di questo che non è partito, run.sh l'ha saltato."""
+            chiave = etichetta if etichetta in secondi else "riepilogo" if passo == "riepilogo" else None
+            if chiave:
+                fatti.update(e for e in secondi if gruppo[e] < gruppo[chiave])
+            resta = (secondi[chiave] if chiave and chiave not in fatti else 0) + \
+                sum(s for e, s in secondi.items() if e not in fatti and e != chiave)
+            if chiave:
+                fatti.add(chiave)
+            return 100 * (totale - resta) / totale, round(resta) if camp else None
         visti, ultimo = {}, 0.0
         p = subprocess.Popen(["bash", RUN_SH, "--config", str(progetto), "--skip-preflight"], cwd=progetto.parent,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
@@ -399,13 +476,17 @@ class Motore:
                     if campione:
                         i.add(campione)
                     fatto = len(i)
-                    # la barra non torna mai indietro (MultiQC, per esempio, gira dopo l'ospite)
-                    pct = ultimo = max(ultimo, 100 * (inizio[passo] + pesi[passo] * min(fatto, n) / n) / somma)
-                    testo = dict((x, t) for x, _, t in PASSI)[passo]
+                    if not triage_letto and gruppo.get(m.group(1), 0) >= 2:   # triage finito: quote misurate
+                        triage_letto = True
+                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote_triage(lavoro)))
+                        totale = sum(secondi.values()) or 1
+                    pct, resta = eta(m.group(1), passo)
+                    pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
+                    testo = dict(PASSI)[passo]
                     chi = f"Campione {min(fatto, n)} di {n}: " if campione else ""
-                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n,
-                                eta_s=eta(passo, fatto, campione))
+                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta)
                     break
+        self.ultimo_pct, self.eta_referto = ultimo, secondi["referto"] if camp else None
         codice = p.wait()
         if (STATO / f"{self.corsa}.annulla").exists():
             raise Annullata
@@ -491,7 +572,8 @@ class Motore:
 
     def _referto(self, r, progetto):
         """risultati/referto/ (HTML + Excel + PDF) con motore/referto.py; {file: percorso relativo o null}."""
-        self.avanza("referto", "Preparo il referto (pagina, PDF ed Excel)...", 97)
+        self.avanza("referto", "Preparo il referto (pagina, PDF ed Excel)...", max(97, self.ultimo_pct),
+                    eta_s=self.eta_referto)
         p = subprocess.run([sys.executable, str(ROOT / "motore" / "referto.py"), "--risultati", str(r),
                             *(["--progetto", str(progetto)] if progetto else [])],
                            capture_output=True, text=True, encoding="utf-8", errors="replace")

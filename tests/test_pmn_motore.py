@@ -20,7 +20,7 @@ MOTORE = os.path.join(ROOT, "motore", "pmn_motore.py")
 STUB = r"""#!/usr/bin/env bash
 # stub of bin/run.sh: same "[locale] <label>" lines; outputs where run.sh puts them
 cfg=$2; work=$(awk '/work_dir/ {print $2}' "$cfg")
-for l in size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 krk_S1 merge kmatrix report; do
+for l in ${STUB_ETICHETTE:-size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 krk_S1 merge kmatrix report}; do
   echo "[INFO] [locale] $l"
   case "${STUB_MODO:-ok}" in
     lento) sleep 1 ;;
@@ -146,3 +146,60 @@ def test_esegui_tempo_stimato(ambiente, tmp_path):
     eta = [e["eta_s"] for e in ev if e["tipo"] == "avanzamento" and e["passo"] != "referto"]
     assert codice == 0 and all(isinstance(x, int) and x >= 0 for x in eta)
     assert eta == sorted(eta, reverse=True) and eta[0] > 0      # scende fino alla fine
+
+
+def due_campioni(tmp_path, nome, prima=()):
+    """Progetto con read locali S1 e S2 (niente rete); prima = uscite gia' sul disco (corsa ripresa)."""
+    read = tmp_path / "read"
+    if not read.is_dir():
+        read.mkdir()
+        for s, n in (("S1", 200000), ("S2", 400000)):
+            for m in (1, 2):
+                with gzip.open(read / f"{s}_R{m}.fastq.gz", "wt") as f:
+                    f.write("".join(f"@r{i}\nACGT\n+\nIIII\n" for i in range(n)))
+    lavoro = tmp_path / f"lavoro_{nome}"
+    for f in prima:
+        (lavoro / f).parent.mkdir(parents=True, exist_ok=True)
+        (lavoro / f).write_text("x", encoding="utf-8")
+    progetto = tmp_path / nome / "config.yaml"
+    progetto.parent.mkdir()
+    progetto.write_text(f"data_source: local\npaths:\n  work_dir: {lavoro}\n  local_reads_dir: {read}\n", encoding="utf-8")
+    sys.path.insert(0, os.path.join(ROOT, "motore"))
+    import pmn_motore as pm
+    camp = [(n, round(sum((read / x).stat().st_size for x in file) / pm.BYTE_PER_COPPIA), 0)
+            for n, file in pm.campioni_locali(read)]
+    return progetto, {e: s for e, _, _, s in pm.piano(camp, {})}
+
+
+ETICHETTE_2 = "size trim_S1 hf_S1 trim_S2 hf_S2 multiqc mpa_S1 krk_S1 mpa_S2 krk_S2 merge kmatrix report"
+
+
+def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
+    """17/10: MetaPhlAn e Kraken alternati per campione, MultiQC dopo l'ospite, il passo che parte conta intero."""
+    env, _ = ambiente
+    progetto, sec = due_campioni(tmp_path, "nuovo")
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_ETICHETTE=ETICHETTE_2)
+    av = [e for e in ev if e["tipo"] == "avanzamento"]
+    assert codice == 0 and [e["eta_s"] for e in av] == sorted((e["eta_s"] for e in av), reverse=True)
+    pct = [e["percentuale"] for e in av]
+    assert pct == sorted(pct) and pct[0] == 0 and pct[-1] < 100
+    per = {(e["passo"], e["campione"]): e for e in av}
+    resto = sec["krk_S1"] + sec["mpa_S2"] + sec["krk_S2"] + sec["riepilogo"] + sec["referto"]
+    assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                       # Kraken di S1 non e' gia' fatto
+    assert per[("controllo_qualita", None)]["eta_s"] < per[("ospite", "S2")]["eta_s"]   # MultiQC: l'ospite non torna
+    assert av[-1]["passo"] == "referto" and av[-1]["eta_s"] == round(sec["referto"])
+    assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1                           # niente e' fatto
+
+
+def test_eta_corsa_ripresa_salta_i_passi_fatti(ambiente, tmp_path):
+    env, _ = ambiente
+    progetto, sec = due_campioni(tmp_path, "nuovo")
+    nuovo, _ = lancia(env, "esegui", "--progetto", str(progetto), STUB_ETICHETTE=ETICHETTE_2)
+    fatti = ("nonhost/S1_nonhost_1.fastq.gz", "metaphlan/S1_profile.txt")   # run.sh salta trim, ospite e MetaPhlAn di S1
+    ripreso, _ = due_campioni(tmp_path, "ripreso", fatti)
+    ev, codice = lancia(env, "esegui", "--progetto", str(ripreso),
+                        STUB_ETICHETTE="size trim_S2 hf_S2 multiqc krk_S1 mpa_S2 krk_S2 merge")
+    primo = lambda ev: next(e for e in ev if e["tipo"] == "avanzamento")  # noqa: E731
+    assert codice == 0 and abs(primo(nuovo)["eta_s"] - primo(ev)["eta_s"]
+                               - (sec["trim_S1"] + sec["hf_S1"] + sec["mpa_S1"])) <= 1
+    assert primo(ev)["percentuale"] > 0                                     # la barra riparte da dove era

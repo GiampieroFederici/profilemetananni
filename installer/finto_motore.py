@@ -32,10 +32,11 @@ DATI = Path(__file__).resolve().parent / "finto"
 MOTORE = Path(__file__).resolve().parent.parent / "motore"
 sys.path.insert(0, str(MOTORE))
 import system_one  # noqa: E402  (regole vere di System One v0: consigliano, non calcolano)
-from pmn_motore import messaggio_fine  # noqa: E402  (stesso testo di fine dopo un errore, v0.3)
+from pmn_motore import messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
 STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
-COPPIE_DOPO_OSPITE = 1507887
+COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e byte delle read gz
+COPPIE_LUNGO = 34109943             # C03_1 (scenario TEMPO_LUNGO)
 USCITA = {"ok": 0, "annullata": 3}
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "INGRESSO_NON_VALIDO": 1,
                  "DB_MANCANTE": 2, "ERRORE_INTERNO": 4}
@@ -52,9 +53,6 @@ INFO = {
     "consigli": system_one.modo(15.6, False, True, True)[1],
     "prodotti": system_one.prodotti(),
 }
-# secondi veri misurati su SF3RAt7 (S2.2, S3) per i passi che stima non conta (il download dipende dalla rete)
-ALTRI_PASSI_S = {"download": 240, "controllo_qualita": 20, "pulizia": 60, "riepilogo": 10}
-KRAKEN_RAPIDO_S = 20   # PlusPF-8 su SF3RAt7 (K1b, WSL a 8 GB): i dati di installer/finto/ vengono da questa corsa
 
 
 def vivo(pid):
@@ -134,21 +132,17 @@ class Motore:
             return None
         return Path(p).resolve()
 
-    def tempi(self, coppie):
-        """Secondi per passo, gli stessi per stima ed esegui (v0.3): regole del contratto (5.2) e database di Kraken
-        del progetto. Ospite solo indicativo, in proporzione a SF3RAt7 (325 s per 1,51 M coppie rimaste)."""
+    def cfg(self):
         try:
             import yaml
             cfg = yaml.safe_load(Path(self.a.progetto).read_text(encoding="utf-8")) or {}
         except Exception:   # niente PyYAML o file illeggibile: valgono i predefiniti
             cfg = {}
-        sezione = lambda nome: cfg.get(nome) if isinstance(cfg, dict) and isinstance(cfg.get(nome), dict) else {}  # noqa: E731
-        strumento = sezione("profiling").get("tool") or "both"
-        rapido = sezione("motore").get("kraken_db") == "rapido"
-        kraken = round(coppie / COPPIE_DOPO_OSPITE * KRAKEN_RAPIDO_S) if rapido else round(coppie / 37000 * 60)
-        return {"ospite": round(coppie / 1e6 * 216),
-                "metaphlan": round(coppie / 1e6 * 86.2 + 150) if strumento in ("metaphlan", "both") else 0,
-                "kraken": kraken if strumento in ("kraken", "both") else 0}
+        return cfg if isinstance(cfg, dict) else {}
+
+    def tempi(self, coppie):
+        """Secondi per passo con tempi() del motore vero (contratto 5.2), gli stessi per stima ed esegui."""
+        return tempi([(CAMPIONE, coppie, BYTE * coppie / COPPIE)], self.cfg())
 
     # ---------------- comandi ----------------
     def info(self):
@@ -180,7 +174,7 @@ class Motore:
     def stima(self):
         if not self.progetto():
             return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
-        coppie = 34109943 if self.a.scenario == "TEMPO_LUNGO" else COPPIE_DOPO_OSPITE
+        coppie = COPPIE_LUNGO if self.a.scenario == "TEMPO_LUNGO" else COPPIE
         tempo = self.tempi(coppie)
         consigli = system_one.tempo(tempo) + system_one.spazio(12, INFO["spazio_libero_gb"])
         for c in consigli:
@@ -208,19 +202,20 @@ class Motore:
         if self.a.scenario == "TEMPO_LUNGO":
             self.evento("avviso", "L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
                         "o il cloud.", codice="TEMPO_LUNGO")
-        # (passo, secondi veri, messaggi): ospite, MetaPhlAn e Kraken con gli stessi tempi di stima (v0.3), gli altri
-        # misurati su SF3RAt7. I dati di installer/finto/ vengono da una corsa con lo screening rapido (PlusPF-8)
-        t = self.tempi(COPPIE_DOPO_OSPITE)
-        kraken = ("classifico le read con Kraken (screening rapido, PlusPF-8)" if t["kraken"] == KRAKEN_RAPIDO_S else
+        # (passo, secondi veri, messaggi) nell'ordine di run.sh, con gli stessi tempi di stima (v0.3).
+        # I dati di installer/finto/ vengono da una corsa con lo screening rapido (PlusPF-8)
+        t = self.tempi(COPPIE)
+        kraken = ("classifico le read con Kraken (screening rapido, PlusPF-8)"
+                  if sezione(self.cfg(), "motore").get("kraken_db") == "rapido" else
                   "classifico le read con Kraken (database completo, PlusPF)")
-        piano = [("download", ALTRI_PASSI_S["download"], ["scarico le read da NCBI"]),
-                 ("controllo_qualita", ALTRI_PASSI_S["controllo_qualita"], ["controllo la qualità delle read"]),
-                 ("pulizia", ALTRI_PASSI_S["pulizia"], ["tolgo le parti di bassa qualità"]),
+        piano = [("download", t["download"], ["scarico le read da NCBI"]),
+                 ("pulizia", t["pulizia"], ["tolgo le parti di bassa qualità"]),
                  ("ospite", t["ospite"], ["tolgo le read del maiale e dell'uomo"]),
+                 ("controllo_qualita", t["controllo_qualita"], ["controllo la qualità delle read"]),
                  ("metaphlan", t["metaphlan"], [f"allineo sulla parte {n} di 6 del database" for n in range(1, 7)]
                   + ["calcolo il profilo delle specie"]),
                  ("kraken", t["kraken"], [kraken, "stimo le abbondanze con Bracken"]),
-                 ("riepilogo", ALTRI_PASSI_S["riepilogo"], ["preparo le tabelle e il riepilogo"])]
+                 ("riepilogo", t["riepilogo"] + t["referto"], ["preparo le tabelle e il riepilogo"])]
         totale_s = sum(p[1] for p in piano)
         fatto_s = 0.0
         for passo, sec, messaggi in piano:
