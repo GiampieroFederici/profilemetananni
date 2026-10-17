@@ -99,6 +99,7 @@ def test_da_nuovo_progetto_ad_avvia_l_analisi(qtbot, f, ambiente, monkeypatch):
     assert "15,6 GB di memoria, 8 processori" in scritte(f.pagine["scelte"])
     aspetta_stima(qtbot, f)
     assert f.aiuto.text() == "Tempo stimato: circa 56 minuti. Spazio: 12 GB."     # riassunto anche nella barra
+    assert "1: SRR4875279 (3,2 milioni di coppie di read)" in scritte(f.pagine["scelte"])   # nomi_campioni (v0.3)
     assert "circa 56 minuti (download 2 minuti, ospite 5 minuti, MetaPhlAn 6 minuti, Kraken 41 minuti)" in scritte(f.pagine["scelte"])
     assert f.principale.text() == "Avvia l'analisi"
     premi(f)
@@ -111,6 +112,7 @@ def test_da_nuovo_progetto_ad_avvia_l_analisi(qtbot, f, ambiente, monkeypatch):
     assert Path(cfg["paths"]["srr_list"]).read_text(encoding="utf-8") == "SRR4875279\n"
     assert cfg["motore"] == {"metaphlan_modo": "fette", "kraken_db": "completo", "virus": False, "processori": 8}
     assert cfg["profiling"]["kraken_confidence"] == "" and cfg["profiling"]["abundance_threshold_pct"] == ""
+    assert cfg["profiling"]["bracken_min_reads"] == ""                          # consigliato = vuoto (v0.3)
     assert cfg["profiling"]["metaphlan_index"] == "mpa_vJan25_CHOCOPhlAnSGB_202503"
     assert cfg["app"]["prodotto"] == "maiale" and cfg["app"]["scelte"] is True
     assert (p.cartella / "config.yaml").read_text(encoding="utf-8").startswith("language: it")
@@ -165,6 +167,35 @@ def test_prodotti_e_ospiti_di_hosts_tsv():
         assert "umano" in titolo and perche                                    # dice perché
 
 
+def test_nomi_locali_come_il_motore(tmp_path):
+    """Stessi nomi di pmn_motore.campioni_locali (v0.3): l'app non deve promettere nomi diversi."""
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore
+    for n in ("C1_R1.fastq.gz", "C1_R2.fastq.gz", "D_R1_001.fastq.gz", "D_R2_001.fastq.gz", "E_1.fq.gz", "E_2.fq.gz",
+              "F.fq.gz", "G_R1.fastq.gz", "H_2.fastq.gz", "-x.fastq.gz"):
+        (tmp_path / n).write_bytes(b"")
+    trovati, saltati = progetto.campioni_locali(tmp_path)
+    assert [n for n, _, _ in trovati] == [n for n, _ in pmn_motore.campioni_locali(tmp_path)]
+    assert saltati == ["G_R1.fastq.gz", "H_2.fastq.gz"]
+
+
+def test_prodotti_dal_motore(qtbot, f, monkeypatch):
+    """info.prodotti (v0.3) decide frase e ospiti; la tabella dell'app resta solo come ripiego."""
+    premi(f)
+    c = f.pagine["campioni"]
+    regole = [dict(r) for r in f.contesto.info["prodotti"]]
+    regole[1] = {**regole[1], "ospiti": ["bos_taurus", "ovis_aries"], "frase": "Frase del motore."}
+    monkeypatch.setitem(f.contesto.info, "prodotti", regole)
+    c.prodotto.setCurrentIndex(c.prodotto.findData("bovino"))
+    assert "Frase del motore." in scritte(c)
+    c.testo_codici.setPlainText("SRR4875279")
+    premi(f)
+    assert f.contesto.progetto.leggi()["hosts"] == ["bos_taurus", "ovis_aries"]
+    f.contesto.info = None                                         # motore che non ha risposto: ripiego
+    f.vai("campioni")
+    assert "Toglierò il DNA del bovino e quello umano." in scritte(c)
+
+
 def test_codici_dei_campioni():
     validi, scartati = progetto.codici("SRR4875279\n  err123 \n\nSRR4875279\nciao\nDRR0001")
     assert validi == ["SRR4875279", "ERR123", "DRR0001"] and scartati == ["ciao"]
@@ -187,11 +218,14 @@ def test_cartella_locale_coppie_e_prodotto(qtbot, f, ambiente, tmp_path):
     assert "carattere che il motore non accetta" in scritte(c) and c.cartella is None
     reads = tmp_path / "reads"
     reads.mkdir()
-    for n in ("A_R1.fastq.gz", "A_R2.fastq.gz", "B_1.fq.gz", "B_2.fq.gz", "solo.fastq.gz", "note.txt"):
+    for n in ("A_R1.fastq.gz", "A_R2.fastq.gz", "B_1.fq.gz", "B_2.fq.gz", "solo.fastq.gz", "note.txt",
+              "orfano_R1.fastq.gz"):
         (reads / n).write_bytes(b"")
     c.usa_cartella(reads)
-    assert [n for n, _, _ in progetto.campioni_locali(reads)] == ["A_R1", "B_1", "solo"]
-    assert "Ho trovato 3 campioni" in scritte(c) and "Per solo c'è un solo file" in scritte(c)
+    trovati, saltati = progetto.campioni_locali(reads)              # stesse regole del motore (contratto §3)
+    assert [n for n, _, _ in trovati] == ["A", "B", "solo"] and saltati == ["orfano_R1.fastq.gz"]
+    assert "Ho trovato 3 campioni: A, B, solo." in scritte(c) and "Per solo c'è un solo file" in scritte(c)
+    assert "Salto orfano_R1.fastq.gz: manca l'altro file della coppia." in scritte(c)
     c.prodotto.setCurrentIndex(c.prodotto.findData("pecora"))
     assert "Toglierò il DNA della pecora e quello umano." in scritte(c)
     premi(f)
@@ -242,14 +276,24 @@ def test_esperti_chiusi_consigliati_e_fonti(qtbot, f):
     s.rapido.pulsante.setChecked(True)                       # segue il consigliato del nuovo database
     assert s.confidenza.currentData() == profili["rapido"]["confidenza"] == "0.1"
     assert f.contesto.progetto.leggi()["profiling"]["kraken_confidence"] == ""
+    assert s.letture.currentText() == "10 (consigliato)" and "Lu et al. 2017" in scritte(s)   # Bracken -t (v0.3)
     s.confidenza.setCurrentIndex(s.confidenza.findData("0.2"))
     s.lunghezza.setCurrentIndex(s.lunghezza.findData(100))
+    s.letture.setCurrentIndex(s.letture.findData("20"))
     cfg = f.contesto.progetto.leggi()["profiling"]
-    assert cfg["kraken_confidence"] == 0.2 and cfg["bracken_readlen"] == 100
+    assert cfg["kraken_confidence"] == 0.2 and cfg["bracken_readlen"] == 100 and cfg["bracken_min_reads"] == 20
     s.apri_file.click()
     assert "kraken_confidence: 0.2" in s.file.toPlainText()
     f.vai("scelte")                                          # riaperta: restano le scelte dell'utente
-    assert s.rapido.pulsante.isChecked() and s.confidenza.currentData() == "0.2"
+    assert s.rapido.pulsante.isChecked() and s.confidenza.currentData() == "0.2" and s.letture.currentData() == "20"
+
+
+def test_tempo_totale_dal_motore(qtbot, f):
+    """v0.3: il totale lo dà il motore (tempo_totale_s); la pagina non somma più."""
+    s = vai_alle_scelte(qtbot, f)
+    s._mostra_stima({"campioni": 1, "coppie_totali": 1e6, "tempo_s": {"kraken": 600}, "tempo_totale_s": 3000,
+                     "spazio_gb": 1}, "")
+    assert f.aiuto.text().startswith("Tempo stimato: circa 50 minuti.")
 
 
 def test_virus_sempre_con_riquadro_ambra(qtbot, f):
@@ -330,3 +374,46 @@ def test_come_citare(f):
 def test_niente_trattini_lunghi():
     for nome in ("home", "progetto", "scelte", "motore", "crediti"):
         assert "—" not in (RADICE / "app" / "pagine" / f"{nome}.py").read_text(encoding="utf-8"), nome
+
+
+# ---------------- campione d'esempio e avvio a freddo (A2) ----------------
+def test_campione_d_esempio_a_un_clic(qtbot, f, ambiente):
+    h = f.pagine["home"]
+    f.vai("home")
+    assert h.esempio.isVisible() and "SRR4875279" in scritte(h)
+    next(b for b in h.findChildren(QPushButton) if b.text() == "Prova il campione d'esempio").click()
+    assert f.attuale == "scelte" and f.contesto.progetto.nome == "esempio_SF3RAt7"
+    cfg = f.contesto.progetto.leggi()
+    assert cfg["data_source"] == "local" and cfg["paths"]["local_reads_dir"] == "/home/pmn/.pmn/db/prova"
+    assert cfg["hosts"] == ["sus_scrofa"] and cfg["app"]["esempio"] is True
+    aspetta_stima(qtbot, f)
+    assert f.principale.text() == "Avvia l'analisi"
+    f.vai("campioni")                                              # niente da scegliere: lo dice e va avanti
+    c = f.pagine["campioni"]
+    assert "Questo è il progetto d'esempio." in scritte(c) and not c.prodotto.isEnabled()
+    assert not c.zona_pc.isVisible() and not c.zona_ncbi.isVisible()
+    premi(f)
+    assert f.attuale == "scelte" and f.contesto.progetto.leggi()["paths"]["local_reads_dir"] == "/home/pmn/.pmn/db/prova"
+    f.vai("home")                                                  # di nuovo: riapre lo stesso progetto
+    next(b for b in h.findChildren(QPushButton) if b.text() == "Prova il campione d'esempio").click()
+    assert f.attuale == "scelte" and [p.nome for p in progetto.elenco(ambiente)] == ["esempio_SF3RAt7"]
+    f.contesto.progetto = progetto.Progetto(ambiente / "altro")    # un progetto normale non è "d'esempio"
+    f.vai("campioni")
+    assert c.prodotto.isEnabled() and "Questo è il progetto d'esempio." not in scritte(c)
+
+
+def test_senza_esempio_niente_pulsante(f, monkeypatch):
+    monkeypatch.setitem(f.contesto.info, "esempio", None)           # motore senza mini-campione
+    f.vai("home")
+    assert not f.pagine["home"].esempio.isVisible()
+
+
+def test_avvio_lento_spiegato(qtbot, monkeypatch):
+    monkeypatch.setattr(finestra, "AVVIO_LENTO_MS", 50)
+    monkeypatch.setattr(motore.MotoreClient, "avvia", lambda self, *a: None)    # info non arriva mai
+    w = finestra.Finestra(movimento=False)
+    qtbot.addWidget(w)
+    w.avvia()
+    assert w.messaggio_avvio.text() == "Avvio il motore..."
+    qtbot.waitUntil(lambda: w.messaggio_avvio.text() == finestra.AVVIO_LENTO, timeout=5000)
+    assert "fino a un minuto" in w.messaggio_avvio.text()

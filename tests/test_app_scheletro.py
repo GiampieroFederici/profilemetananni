@@ -157,6 +157,8 @@ def test_finestra_avvio_e_navigazione(qtbot, qapp, monkeypatch):
     assert [b.text() for b in f.secondari] == ["Installa"]
     f.vai("crediti")
     assert f.secondari == [] and f.principale.isEnabled()
+    qapp.processEvents()                   # L1a: senza il giro "cancella più tardi" il vecchio pulsante restava
+    assert [b.text() for b in f.zona_barra.findChildren(QPushButton) if b.isVisible()] == [f.principale.text()]
     f.principale.click()
     assert f.attuale == "home"
 

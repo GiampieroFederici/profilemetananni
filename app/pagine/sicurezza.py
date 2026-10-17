@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLi
                                QRadioButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from app.motore import MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro
+from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, pannello, riquadro
 from app.pagine.risultati import leggi_risultati
 
 ACIDI = [("lattico", "Acido lattico"), ("acetico", "Acido acetico"), ("diacetato", "Diacetato"),
@@ -138,6 +138,8 @@ class PaginaSicurezza(Pagina):
                             "conservazione del prodotto? Calcolo con i modelli di FSSP (DTU Food) partendo dalle "
                             "caratteristiche del prodotto e dalle specie trovate con MetaPhlAn.")
         domanda.setTextFormat(Qt.RichText)
+        prototipo = riquadro(PROTOTIPO, "Il collegamento fra le specie trovate e i modelli FSSP è ancora in prova. "
+                             "Le previsioni non dicono se un prodotto è sicuro: non usarle per decidere.", "avviso")
         fisso = riquadro("Il profilo dice chi c'è, non quanti sono per grammo.", "", "info")
         e = etichetta(f"Per questo provo degli scenari: 1 e 100 ufc/g (cellule vive per grammo) di {LISTERIA} "
                       "all'inizio. Se hai una conta dei batteri lattici in piastra, mettila: rende la previsione "
@@ -156,7 +158,7 @@ class PaginaSicurezza(Pagina):
         destra.setLayout(self.uscita)
         destra.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         due.addWidget(destra, 1, Qt.AlignTop)
-        for w in (domanda, fisso, self.invito, self.zona):
+        for w in (domanda, prototipo, fisso, self.invito, self.zona):
             self.corpo.addWidget(w)
 
     # ---------------- ingressi ----------------
@@ -437,7 +439,7 @@ class PaginaSicurezza(Pagina):
         if p["listeria_puo_crescere"]:
             classe = "cresce"
             frase = (f"Dopo {numero(giorni, 0)} giorni arriverebbe a <b>10<sup>{numero(finale)}</sup> ufc/g</b> "
-                     f"(circa {due_cifre(10 ** finale)} ufc/g).")
+                     f"(circa {due_cifre(p.get('finale_listeria_ufc_g') or 10 ** finale)} ufc/g).")   # v0.3, D088
             if p.get("cento_volte_listeria_giorni"):
                 frase += f" Si moltiplica per 100 in circa {due_cifre(p['cento_volte_listeria_giorni'])} giorni."
             if p.get("modello") == "listeria_lab":

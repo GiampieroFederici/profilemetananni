@@ -33,6 +33,9 @@ PERCORSO = [("campioni", "1", "Campioni e prodotto"), ("scelte", "2", "Scelte de
 EXTRA = ("sicurezza", "+", "Sicurezza alimentare")
 MENU = [("home", "I miei progetti"), ("motore", "Motore"), ("crediti", "Come citare")]
 AVVIO_MIN_MS = 2500                  # l'avatar resta almeno 2,5 s (prototipo: 2-3 s)
+AVVIO_LENTO_MS = 5000                # info oltre 5 s: avvio a freddo della WSL, lo si spiega (A2)
+AVVIO_LENTO = ("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
+               "minuto: è normale, non chiudere la finestra.")
 
 
 def movimento_ridotto():
@@ -114,10 +117,15 @@ class Finestra(QMainWindow):
             self._salto.setEasingCurve(QEasingCurve.OutBounce)
             self._salto.start()
         QTimer.singleShot(AVVIO_MIN_MS, lambda: self._avvio_pronto("tempo"))
+        QTimer.singleShot(AVVIO_LENTO_MS, self._avvio_lento)
         self.client_info = MotoreClient(self)
         self.client_info.evento.connect(self._evento_info)
         self.client_info.finito.connect(self._info_finito)
         self.client_info.avvia("info")
+
+    def _avvio_lento(self):
+        if not self._pronto["info"]:
+            self.messaggio_avvio.setText(AVVIO_LENTO)
 
     def _evento_info(self, e):
         if e["tipo"] == "fine":
@@ -275,6 +283,7 @@ class Finestra(QMainWindow):
         self.aiuto.style().unpolish(self.aiuto)
         self.aiuto.style().polish(self.aiuto)
         for b in self.secondari:
+            b.hide()                               # deleteLater non lo toglie finché Qt non fa quel giro (L1a)
             b.deleteLater()
         self.secondari = []
         for testo, funzione in p.secondari:

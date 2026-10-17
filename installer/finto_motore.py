@@ -32,7 +32,7 @@ DATI = Path(__file__).resolve().parent / "finto"
 MOTORE = Path(__file__).resolve().parent.parent / "motore"
 sys.path.insert(0, str(MOTORE))
 import system_one  # noqa: E402  (regole vere di System One v0: consigliano, non calcolano)
-from pmn_motore import messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
+from pmn_motore import ESEMPIO, messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
 STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
 COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e byte delle read gz
@@ -52,6 +52,7 @@ INFO = {
     ],
     "consigli": system_one.modo(15.6, False, True, True)[1],
     "prodotti": system_one.prodotti(),
+    "esempio": {**ESEMPIO, "cartella": "/home/pmn/.pmn/db/prova"},
 }
 
 

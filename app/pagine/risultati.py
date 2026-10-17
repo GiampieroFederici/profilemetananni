@@ -13,7 +13,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHBoxLayout, QPushButton, QTabBar, QTextBrowser,
                                QVBoxLayout, QWidget)
 
-from app.pagine.base import Pagina, etichetta, numero, riquadro
+from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, riquadro
 
 OSPITI = {"sus_scrofa": "maiale (Sscrofa11.1)", "bos_taurus": "bovino (ARS-UCD1.2)",
           "ovis_aries": "pecora (ARS-UI_Ramb_v2.0)", "grch38": "uomo (GRCh38)"}
@@ -105,6 +105,8 @@ class PaginaRisultati(Pagina):
                 e = etichetta(frase)
                 e.setTextFormat(Qt.RichText)
                 self.lista.addWidget(e)
+            if k.get("frase"):
+                self.lista.addWidget(etichetta("Kraken è un prototipo: non usare i suoi numeri per decisioni.", "nota"))
 
         for t in d.get("triage", []):                       # ben visibile, prima del resto (R9)
             if t.get("esito") in TRIAGE:
@@ -219,6 +221,8 @@ class PaginaRisultati(Pagina):
 
     def _scheda_kraken(self, campioni):
         w, s = self._scheda()
+        s.addWidget(riquadro(PROTOTIPO, "Le impostazioni di Kraken sono ancora in prova su comunità di composizione "
+                             "nota. Guarda questi numeri come un confronto, non usarli per decidere.", "avviso"))
         s.addWidget(riquadro("Metodo diverso da MetaPhlAn",
                              "Kraken confronta ogni read con genomi interi: i suoi numeri non si sommano e non si "
                              "confrontano uno a uno con quelli di MetaPhlAn.", "info"))

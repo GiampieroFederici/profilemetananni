@@ -281,6 +281,13 @@ def tabella(intestazione, righe, allinea_destra=(), larghezze=None):
     return "\n".join(t)
 
 
+# D115: nella prova con le persone Kraken e FSSP sono prototipi, finché K4 e L3 non sono fatte
+PROTOTIPO_KRAKEN = ("<b>Prototipo, non per decisioni.</b> Le impostazioni di Kraken sono ancora in prova su comunità di "
+                    "composizione nota: guarda questi numeri come un confronto, non usarli per decidere.")
+PROTOTIPO_FSSP = ("<b>Prototipo, non per decisioni.</b> Il collegamento fra le specie trovate e i modelli FSSP è "
+                  "ancora in prova: le previsioni non dicono se un prodotto è sicuro.")
+
+
 def riquadro(testo, colore="#fff4d6"):
     return f'<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="{colore}">{testo}</td></tr></table>'
 
@@ -329,6 +336,7 @@ def html_referto(d):
                          [[f"<i>{e(n)}</i>", pct(v, 3), pct(100 * v / somma, 2)] for n, v in sopra], (1, 2), [50, 25, 25]))
     # Kraken
     h.append("<h2>3. Microbi trovati con Kraken + Bracken</h2>")
+    h.append(riquadro(PROTOTIPO_KRAKEN))
     h.append('<p class="piccolo">Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, che il '
              "database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non contiene il genoma del maiale, "
              "e i virus sono nella tabella successiva, a parte (D023).</p>")
@@ -356,6 +364,7 @@ def html_referto(d):
     n = 5
     if d["sicurezza"]:
         h.append(f"<h2>{n}. Sicurezza alimentare (previsioni di crescita)</h2>")
+        h.append(riquadro(PROTOTIPO_FSSP))
         h.append(riquadro("Previsioni da modelli di microbiologia previsionale (FSSP, DTU Food). Il profilo dice chi "
                           "c'è, non quanti per grammo: per la <i>Listeria</i> si calcolano scenari \"e se\" (1 e 100 "
                           "ufc/g). Una previsione non sostituisce le analisi di laboratorio."))

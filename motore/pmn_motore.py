@@ -192,6 +192,19 @@ def installazione():
     return dict(r.split("=", 1) for r in f.read_text(encoding="utf-8").splitlines() if "=" in r and not r.startswith("#"))
 
 
+# campione d'esempio a un clic (A2): il mini-campione della verifica, già nel motore (installer/installa_motore.sh)
+ESEMPIO = {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000,
+           "frase": "Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel motore."}
+
+
+def esempio(env):
+    """info.esempio: la cartella del mini-campione come la vede il motore, o None se non è installato."""
+    cartella = env.get("PMN_PROVA", "")
+    if cartella and all((Path(cartella) / f"mini_SF3RAt7_{i}.fastq.gz").is_file() for i in (1, 2)):
+        return {**ESEMPIO, "cartella": cartella}
+    return None
+
+
 def serve_installazione():
     env = installazione()
     if not env:
@@ -315,7 +328,8 @@ class Motore:
         return "ok", {"motore": VERSIONE, "ram_gb": round(ram, 1), "processori": os.cpu_count(),
                       "spazio_libero_gb": round(shutil.disk_usage(base).free / 1e9),
                       "modo_consigliato": modo, "consigli": self.consigli(consigli),
-                      "programmi": programmi, "database": database, "prodotti": system_one.prodotti()}, \
+                      "programmi": programmi, "database": database, "prodotti": system_one.prodotti(),
+                      "esempio": esempio(env)}, \
             "Ecco com'è fatto questo PC e cosa è installato."
 
     # ---------------- verifica ----------------

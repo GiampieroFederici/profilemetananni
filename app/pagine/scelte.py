@@ -16,6 +16,7 @@ from app.pagine.base import Pagina, Scelta, etichetta, numero, pannello, riga_di
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
 CONFIDENZE = ["0", "0.05", "0.1", "0.2", "0.3"]
 SOGLIE = ["0.001", "0.005", "0.01", "0.1"]
+LETTURE = ["0", "5", "10", "20", "50"]           # Bracken -t (profiling.bracken_min_reads, contratto v0.3)
 LUNGHEZZE = [100, 150, 250]
 LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_readlen)
 FONTE_CONFIDENZA = ("Consigliato 0 con il database completo (il valore di Kraken 2 se non si cambia nulla) e 0,1 con "
@@ -23,7 +24,8 @@ FONTE_CONFIDENZA = ("Consigliato 0 con il database completo (il valore di Kraken
                     "Langille 2023).")
 FONTE_SOGLIA = ("0,005 % è la soglia migliore trovata da Edwin et al. 2024 (campioni di suolo: da confermare sui "
                 "salumi). Le specie sotto la soglia restano nel file Excel.")
-FONTE_LETTURE = "Fisso nel profilo del database del motore: Bracken stima una specie solo se ha almeno queste read."
+FONTE_LETTURE = ("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
+                 "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
 FONTE_LUNGHEZZA = ("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
                    "read Illumina di oggi.")
 # dove si risolve un errore di stima (R8): codice -> (testo del pulsante principale, pagina o None = riprova)
@@ -135,7 +137,7 @@ class PaginaScelte(Pagina):
         self.confidenza = QComboBox()
         self.soglia = QComboBox()
         self.lunghezza = QComboBox()
-        self.letture = etichetta("")
+        self.letture = QComboBox()
         righe = [("Soglia di confidenza di Kraken", self.confidenza, FONTE_CONFIDENZA),
                  ("Abbondanza minima mostrata", self.soglia, FONTE_SOGLIA),
                  ("Read minime per specie (Bracken)", self.letture, FONTE_LETTURE),
@@ -172,7 +174,7 @@ class PaginaScelte(Pagina):
                 l.addItem(fmt(v), v)
         self.completo.scelta.connect(self._kraken_cambiato)
         self.rapido.scelta.connect(self._kraken_cambiato)
-        for w in (self.confidenza, self.soglia, self.lunghezza):
+        for w in (self.confidenza, self.soglia, self.letture, self.lunghezza):
             w.currentIndexChanged.connect(self._cambiato)
         self.virus.toggled.connect(self._cambiato)
 
@@ -211,6 +213,8 @@ class PaginaScelte(Pagina):
         self._confidenze()
         self._seleziona(self.confidenza, str(profiling.get("kraken_confidence") or ""))
         self._seleziona(self.soglia, str(profiling.get("abundance_threshold_pct") or ""))
+        letture = profiling.get("bracken_min_reads")
+        self._seleziona(self.letture, "" if letture in ("", None) else str(letture))
         self._seleziona(self.lunghezza, profiling.get("bracken_readlen") or LUNGHEZZA_CONSIGLIATA)
         self.virus.setChecked(bool(motore.get("virus", False)))
         self.carico = False
@@ -231,7 +235,13 @@ class PaginaScelte(Pagina):
             self.soglia.setItemText(i, f"{virgola(v)} %" + (" (consigliato)" if v == consigliati["soglia"] else ""))
         for i, v in enumerate(LUNGHEZZE):
             self.lunghezza.setItemText(i, str(v) + (" (consigliato)" if v == LUNGHEZZA_CONSIGLIATA else ""))
-        self.letture.setText(consigliati["letture"])
+        prima_letture = self.letture.currentData()
+        self.letture.blockSignals(True)
+        self.letture.clear()
+        for v in LETTURE:
+            self.letture.addItem(v + (" (consigliato)" if v == consigliati["letture"] else ""), v)
+        self.letture.blockSignals(False)
+        self._seleziona(self.letture, prima_letture or "")
         self._seleziona(self.confidenza, prima or "")
 
     def _seleziona(self, menu, valore):
@@ -239,7 +249,7 @@ class PaginaScelte(Pagina):
         consigliati = self.profili[self._profilo()]
         if valore in ("", None):
             valore = {self.confidenza: consigliati["confidenza"], self.soglia: consigliati["soglia"],
-                      self.lunghezza: LUNGHEZZA_CONSIGLIATA}[menu]
+                      self.letture: consigliati["letture"], self.lunghezza: LUNGHEZZA_CONSIGLIATA}[menu]
         i = menu.findData(valore)
         if i >= 0:
             menu.setCurrentIndex(i)
@@ -280,6 +290,8 @@ class PaginaScelte(Pagina):
         conf, soglia = self.confidenza.currentData(), self.soglia.currentData()
         profiling["kraken_confidence"] = "" if conf == consigliati["confidenza"] else float(conf)
         profiling["abundance_threshold_pct"] = "" if soglia == consigliati["soglia"] else float(soglia)
+        letture = self.letture.currentData()
+        profiling["bracken_min_reads"] = "" if letture == consigliati["letture"] else int(letture)
         profiling["bracken_readlen"] = self.lunghezza.currentData()
         if scelte:
             cfg.setdefault("app", {})["scelte"] = True
@@ -336,7 +348,7 @@ class PaginaScelte(Pagina):
             titolo = "Ci vorrà molto tempo." if a.get("codice") == "TEMPO_LUNGO" else "Attenzione"
             self.zona_stima.addWidget(riquadro(titolo, a["messaggio"], "avviso"))
         tempi = r.get("tempo_s") or {}
-        totale = sum(v for v in tempi.values() if v)
+        totale = r.get("tempo_totale_s") or sum(v for v in tempi.values() if v)    # v0.3: totale del motore
         nomi = {"download": "download", "pulizia": "pulizia", "ospite": "ospite", "controllo_qualita": "controlli",
                 "metaphlan": "MetaPhlAn", "kraken": "Kraken", "riepilogo": "tabelle", "referto": "referto"}
         ordine = [k for k in nomi if k in tempi] + [k for k in tempi if k not in nomi]   # i dict arrivano in ordine alfabetico
@@ -347,7 +359,9 @@ class PaginaScelte(Pagina):
         griglia = QGridLayout()
         griglia.setHorizontalSpacing(24)
         griglia.setVerticalSpacing(6)
-        righe = [("Campioni", f"{campioni} ({numero(coppie / 1e6, 1)} milioni di coppie di read)"),
+        nomi_campioni = r.get("nomi_campioni") or []                            # v0.3: i nomi del motore
+        elenco = f": {', '.join(nomi_campioni[:6])}{'...' if len(nomi_campioni) > 6 else ''}" if nomi_campioni else ""
+        righe = [("Campioni", f"{campioni}{elenco} ({numero(coppie / 1e6, 1)} milioni di coppie di read)"),
                  ("Tempo stimato", f"circa {durata(totale)}" + (f" ({dettaglio})" if dettaglio else "")),
                  ("Spazio che serve", f"{numero(r.get('spazio_gb', 0), 0)} GB"
                   + (f", ne hai {numero(r['spazio_libero_gb'], 0)} liberi" if r.get("spazio_libero_gb") is not None

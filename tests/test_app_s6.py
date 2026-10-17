@@ -14,6 +14,7 @@ from PySide6.QtGui import QDesktopServices  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFrame, QLabel, QPushButton, QTabBar, QTextBrowser  # noqa: E402
 
 from app import finestra, main, motore, progetto  # noqa: E402
+from app.pagine.base import PROTOTIPO  # noqa: E402
 
 ATTESA = 60000
 
@@ -208,6 +209,8 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     mpa, krk, come = (scritte(w) for w in ris.schede)
     assert "gelidum" in mpa and "Debaryomyces" not in mpa and "53,7 %" in mpa       # R12: mai fusi
     assert "Debaryomyces" in krk and "gelidum" not in krk and "Metodo diverso" in krk
+    assert PROTOTIPO in krk and PROTOTIPO not in mpa and "Kraken è un prototipo" in sintesi    # D115
+    assert "Qui le 15 più abbondanti delle 27 specie" in mpa and "Qui i 15 più abbondanti dei 48" in krk   # v0.3
     assert "Homo sapiens" in krk and "Homo sapiens" not in mpa                         # non microbi a parte
     assert "uomo (GRCh38)" in come and "1.507.887" in come
     assert "Strumenti e database usati" in sintesi and "Blanco-Míguez" in sintesi     # R14
@@ -269,7 +272,7 @@ def test_sicurezza_salsiccia_cresce_e_va_nel_referto(f, qtbot, tmp_path):
     assert [s.property("esito") for s in schede] == ["cresce", "cresce"]
     assert "10<sup>4,5</sup>" in schede[1].findChildren(QLabel)[1].text()       # numeri del motore, formattati
     assert "circa 30.000 ufc/g" in scritte(schede[1]) and "circa 17 giorni" in scritte(schede[1])
-    assert not riquadri(sic, "avviso")                                         # nessun fuori campo
+    assert [PROTOTIPO in scritte(r) for r in riquadri(sic, "avviso")] == [True]  # solo il prototipo (D115), nessun fuori campo
     assert "non trovata" in scritte(sic) and "Latilactobacillus sakei" in scritte(sic)
     assert "Food Spoilage and Safety Predictor" in scritte(sic)
     richiesta = json.loads((p.cartella / "sicurezza_richiesta.json").read_text(encoding="utf-8"))
@@ -312,3 +315,13 @@ def test_sicurezza_rimostra_l_ultima_previsione(f, qtbot, tmp_path, qapp):
     s2 = f2.pagine["sicurezza"]
     assert s2.lab.text() == "1000000" and s2.sale.text() == "3,5"
     assert len(s2.findChildren(QFrame, "scenario")) == 2 and s2.principale_attivo
+
+
+def test_sicurezza_usa_le_ufc_del_motore(f):
+    """v0.3 (D088): il valore finale in ufc/g lo arrotonda il motore; l'app non fa più 10 alla x."""
+    sic = f.pagine["sicurezza"]
+    p = {"scenario": "Listeria 1 ufc/g (e se)", "modello": "listeria", "listeria_puo_crescere": True,
+         "n0_listeria_ufc_g": 1, "finale_listeria_ufc_g": 12000, "curva": {"giorni": [0, 21], "log_listeria": [0, 4.48]}}
+    assert "circa 12.000 ufc/g" in scritte(sic._scheda(p, False))
+    del p["finale_listeria_ufc_g"]                                               # motore v0.2: ripiego
+    assert "circa 30.000 ufc/g" in scritte(sic._scheda(p, False))

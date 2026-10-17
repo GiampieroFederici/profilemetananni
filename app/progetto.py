@@ -13,9 +13,10 @@ from PySide6.QtCore import QStandardPaths
 
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
 CODICE_VALIDO = re.compile(r"[SED]RR[0-9]{1,13}")               # come validate_srr (bin/lib/validate.sh)
-# file delle read come li conta il motore (motore/pmn_motore.py, Motore.campioni): R1 o file singolo, poi R2
-PRIMO_FILE = re.compile(r"(_R?1(_001)?\.f(ast)?q\.gz|\.f(ast)?q\.gz)$")
-SECONDO_FILE = re.compile(r"_R?2(_001)?\.f(ast)?q\.gz$")
+# coppie di file delle read come le trova il motore (contratto §3, motore/pmn_motore.py campioni_locali)
+COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"),
+                 ("_R1_001.fastq.gz", "_R2_001.fastq.gz"), ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
+NOME_CAMPIONE = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")      # validate_name di bin/lib/validate.sh
 PERCORSO_NON_SICURO = re.compile(r"[$`;|&<>!*?]|^-|[\x00-\x1f]")   # rifiutati da validate_path_safe del motore
 INDICE_METAPHLAN = "mpa_vJan25_CHOCOPhlAnSGB_202503"             # versione fissata (config.example.yaml)
 
@@ -114,15 +115,25 @@ def codici(testo):
 
 
 def campioni_locali(cartella):
-    """Campioni di una cartella di .fastq.gz come li trova il motore: [(nome, primo file, secondo file o None)]."""
+    """Campioni di una cartella di .fastq.gz con le regole del motore (contratto §3):
+    ([(nome, primo file, secondo file o None)], [file di una coppia senza la sua compagna, che il motore salta])."""
     cartella = Path(cartella)
-    primi = sorted(f for f in cartella.iterdir()
-                   if f.is_file() and PRIMO_FILE.search(f.name) and not SECONDO_FILE.search(f.name))
-    out = []
-    for f in primi:
-        secondo = cartella / re.sub(r"_(R?)1(_001)?\.", r"_\g<1>2\2.", f.name)
-        out.append((f.name.split(".")[0], f, secondo if secondo != f and secondo.is_file() else None))
-    return out
+    file = sorted(f.name for f in cartella.iterdir() if f.is_file())
+    out, usati = [], set()
+    for s1, s2 in COPPIE_LOCALI:
+        for f in file:
+            nome = f[:-len(s1)]
+            if f.endswith(s1) and nome + s2 in file and NOME_CAMPIONE.fullmatch(nome):
+                out.append((nome, cartella / f, cartella / (nome + s2)))
+                usati |= {f, nome + s2}
+    suffissi = tuple(s for coppia in COPPIE_LOCALI for s in coppia)
+    for f in file:
+        if f.endswith((".fastq.gz", ".fq.gz")) and not f.endswith(suffissi):
+            nome = f.removesuffix(".fastq.gz") if f.endswith(".fastq.gz") else f.removesuffix(".fq.gz")
+            if NOME_CAMPIONE.fullmatch(nome):
+                out.append((nome, cartella / f, None))
+    saltati = [f for f in file if f.endswith(suffissi) and f not in usati]
+    return out, saltati
 
 
 def percorso_sicuro(percorso):

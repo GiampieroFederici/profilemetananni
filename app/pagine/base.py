@@ -61,6 +61,10 @@ class Pagina(QWidget):
         pass
 
 
+# D115: Kraken e FSSP portano questa scritta nella prova con le persone, finché K4 e L3 non sono fatte
+PROTOTIPO = "Prototipo, non per decisioni."
+
+
 def etichetta(testo, nome=None):
     """Testo che va a capo da solo; nome = objectName per lo stile (titolo, sottotitolo, nota)."""
     e = QLabel(testo)

@@ -1,7 +1,7 @@
 """Pagina "Campioni e prodotto" (S5b, docs/interfaccia_S4.md §3.1): da dove vengono le read e che prodotto è.
 
-Il prodotto decide l'ospite da togliere (System One v0, regola fissa: in motore/system_one.py non c'è ancora,
-proposta nel diario S5b). Salva in config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il
+Il prodotto decide l'ospite da togliere: la regola la dà il motore (`info.prodotti`, System One v0, contratto
+v0.3); la tabella PRODOTTI qui sotto dà i testi del menu e fa da ripiego se il motore non ha risposto. Salva in config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il
 motore (percorso_per_motore), perché il motore li legge così come sono.
 """
 from pathlib import Path
@@ -14,7 +14,8 @@ from app import progetto
 from app.motore import percorso_per_motore
 from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro, svuota
 
-# prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello)
+# prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello);
+# ospiti, frase, perché e livello sono il ripiego di info.prodotti (stessi testi, motore/system_one.py)
 # D074: maiale, bovino, pecora, altro (il pollo no: il suo indice non è nel motore installato, D021).
 PRODOTTI = {
     "maiale": ("Salume di maiale (salame, salsiccia, prosciutto...)", ["sus_scrofa"],
@@ -34,6 +35,14 @@ PRODOTTI = {
               "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read "
               "della carne finiscono assegnate per errore a qualche microbo.", "avviso"),
 }
+
+
+def regola(info, chiave):
+    """(ospiti, frase, perché, livello) del prodotto: da info.prodotti del motore, altrimenti da PRODOTTI."""
+    for r in (info or {}).get("prodotti") or []:
+        if r.get("prodotto") == chiave:
+            return list(r["ospiti"]), r["frase"], r["perche"], r["livello"]
+    return tuple(PRODOTTI[chiave][1:])
 
 
 def prodotto_da_ospiti(ospiti):
@@ -56,6 +65,11 @@ class PaginaCampioni(Pagina):
         self.senza_progetto = riquadro("Nessun progetto aperto.",
                                        "Apri un progetto o creane uno nuovo nella pagina I miei progetti.", "avviso")
         self.corpo.addWidget(self.senza_progetto)
+        self.esempio = False                             # progetto d'esempio (home): read e prodotto già decisi
+        self.avviso_esempio = riquadro("Questo è il progetto d'esempio.",
+                                       "Le read sono già nel motore e il prodotto è un salame di maiale: qui non c'è "
+                                       "nulla da scegliere. Premi Avanti.", "info")
+        self.corpo.addWidget(self.avviso_esempio)
 
         self.corpo.addSpacing(8)
         self.corpo.addWidget(etichetta("Dove sono le read?", "sottotitolo"))
@@ -127,10 +141,15 @@ class PaginaCampioni(Pagina):
         self.testo_principale = "Avanti: scelte dell'analisi" if p else "Vai ai miei progetti"
         self.azioni_cambiate.emit()
         svuota(self.errore)
+        self._ospite()                                   # info.prodotti può essere arrivato dopo la costruzione
+        cfg = p.leggi() if p else {}
+        app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
+        self.esempio = bool(app.get("esempio"))
+        self.avviso_esempio.setVisible(self.esempio)
+        for w in (self.scelta_pc, self.scelta_ncbi, self.prodotto):
+            w.setEnabled(not self.esempio)
         if p is None:
             return
-        cfg = p.leggi()
-        app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
         self.prodotto.setCurrentIndex(max(0, self.prodotto.findData(app.get("prodotto")
                                                                     or prodotto_da_ospiti(cfg.get("hosts", [])))))
         codici = p.codici_campioni.read_text(encoding="utf-8") if p.codici_campioni.is_file() else ""
@@ -141,6 +160,9 @@ class PaginaCampioni(Pagina):
         if app.get("cartella_read") and Path(app["cartella_read"]).is_dir():
             self.usa_cartella(app["cartella_read"])
         (self.scelta_pc if cfg.get("data_source") == "local" else self.scelta_ncbi).pulsante.setChecked(True)
+        if self.esempio:                                 # la cartella sta dentro il motore: niente da mostrare
+            self.zona_pc.setVisible(False)
+            self.zona_ncbi.setVisible(False)
 
     def _fonte(self):
         pc = self.scelta_pc.pulsante.isChecked()
@@ -149,7 +171,7 @@ class PaginaCampioni(Pagina):
         svuota(self.errore)
 
     def _ospite(self):
-        _, _, titolo, perche, livello = PRODOTTI[self.prodotto.currentData()]
+        _, titolo, perche, livello = regola(self.contesto.info, self.prodotto.currentData())
         svuota(self.zona_ospite)
         self.zona_ospite.addWidget(riquadro(titolo, perche, livello))
 
@@ -190,7 +212,7 @@ class PaginaCampioni(Pagina):
             return
         try:
             percorso_per_motore(cartella)
-            trovati = progetto.campioni_locali(cartella)
+            trovati, saltati = progetto.campioni_locali(cartella)
         except (ValueError, OSError):
             self.esito_cartella.addWidget(riquadro(
                 "Non riesco a leggere questa cartella.",
@@ -201,23 +223,31 @@ class PaginaCampioni(Pagina):
                 "In questa cartella non ci sono read.",
                 "Le read sono i file che finiscono in .fastq.gz. Scegli la cartella che ti ha mandato il laboratorio.",
                 "errore"))
-            return
-        self.cartella = cartella
-        nomi = [n for n, _, _ in trovati]
-        soli = [n for n, _, r2 in trovati if r2 is None]
-        n = len(trovati)
-        testo = (f"Ho trovato 1 campione: {nomi[0]}." if n == 1 else
-                 f"Ho trovato {n} campioni: {', '.join(nomi[:6])}{'...' if n > 6 else ''}.")
-        if soli:
-            testo += (f" Per {', '.join(soli[:4])}{'...' if len(soli) > 4 else ''} c'è un solo file invece della "
-                      "coppia R1 e R2: lo analizzo da solo.")
-        self.esito_cartella.addWidget(etichetta(testo))
+        else:
+            self.cartella = cartella
+            nomi = [n for n, _, _ in trovati]
+            soli = [n for n, _, r2 in trovati if r2 is None]
+            n = len(trovati)
+            testo = (f"Ho trovato 1 campione: {nomi[0]}." if n == 1 else
+                     f"Ho trovato {n} campioni: {', '.join(nomi[:6])}{'...' if n > 6 else ''}.")
+            if soli:
+                testo += (f" Per {', '.join(soli[:4])}{'...' if len(soli) > 4 else ''} c'è un solo file invece della "
+                          "coppia R1 e R2: lo analizzo da solo.")
+            self.esito_cartella.addWidget(etichetta(testo))
+        if saltati:                                      # come il motore (contratto §3): non li analizza
+            self.esito_cartella.addWidget(riquadro(
+                f"Salto {', '.join(saltati[:4])}{'...' if len(saltati) > 4 else ''}: manca l'altro file della coppia.",
+                "Se ti serve, metti nella cartella anche l'altro file (R1 con R2) e scegli di nuovo la cartella.",
+                "avviso"))
 
     # ---------------- salvataggio ----------------
     def azione_principale(self):
         p = self.contesto.progetto
         if p is None:
             self.vai.emit("home")
+            return
+        if self.esempio:
+            self.vai.emit("scelte")
             return
         svuota(self.errore)
         locale = self.scelta_pc.pulsante.isChecked()
@@ -241,7 +271,7 @@ class PaginaCampioni(Pagina):
                 cfg[chiave] = valore
         chiave = self.prodotto.currentData()
         cfg["project_name"] = p.nome
-        cfg["hosts"] = list(PRODOTTI[chiave][1])
+        cfg["hosts"] = list(regola(self.contesto.info, chiave)[0])
         cfg["filter_human"] = True
         cfg["data_source"] = "local" if locale else "ncbi"
         if locale:

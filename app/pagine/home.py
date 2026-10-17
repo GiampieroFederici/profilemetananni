@@ -3,13 +3,19 @@
 Il nome del progetto nuovo si scrive nella pagina (già proposto, R4): "Nuovo progetto" lo crea con le regole
 di progetto.nuovo e porta a "Campioni e prodotto". Mentre un'analisi gira si lavora solo sul suo progetto:
 gli altri non si aprono e non se ne creano di nuovi (si spiega perché).
+"Prova il campione d'esempio" (A2) crea o riapre il progetto d'esempio con il mini-campione che il motore annuncia
+in `info.esempio`: si arriva alle scelte già pronte, e un clic su "Avvia l'analisi" basta.
 """
 from datetime import date, datetime
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QLineEdit, QPushButton, QVBoxLayout
 
 from app import progetto
 from app.pagine.base import Pagina, etichetta, pannello, riquadro, svuota
+from app.pagine.progetto import regola
+
+NOME_ESEMPIO = "esempio_SF3RAt7"
 
 
 class PaginaHome(Pagina):
@@ -26,6 +32,16 @@ class PaginaHome(Pagina):
         self.corpo.addLayout(self.zona_elenco)
         self.errore_elenco = QVBoxLayout()        # vicino all'elenco (R9)
         self.corpo.addLayout(self.errore_elenco)
+
+        self.esempio, s = pannello("Vuoi provare subito?")
+        self.frase_esempio = etichetta("")
+        s.addWidget(self.frase_esempio)
+        b = QPushButton("Prova il campione d'esempio", objectName="secondario")
+        b.clicked.connect(self.prova_esempio)
+        s.addWidget(b, 0, Qt.AlignLeft)
+        self.errore_esempio = QVBoxLayout()
+        s.addLayout(self.errore_esempio)
+        self.corpo.addWidget(self.esempio)
 
         self.corpo.addSpacing(8)
         self.corpo.addWidget(etichetta("Nuovo progetto", "sottotitolo"))
@@ -55,6 +71,12 @@ class PaginaHome(Pagina):
                 "avviso"))
         svuota(self.errore)
         svuota(self.errore_elenco)
+        svuota(self.errore_esempio)
+        es = (self.contesto.info or {}).get("esempio")
+        self.esempio.setVisible(bool(es))
+        if es:
+            self.frase_esempio.setText(f"{es['frase']} Lo analizzo con le scelte consigliate: vedi come funziona "
+                                       "senza preparare nulla.")
         self._elenco()
         if not self.nome.text():
             self.nome.setText(self._nome_proposto())
@@ -129,6 +151,36 @@ class PaginaHome(Pagina):
             return
         self.contesto.progetto = pr
         self.vai.emit("risultati" if (pr.risultati / "risultati.json").is_file() else "campioni")
+
+    def prova_esempio(self):
+        """Crea il progetto d'esempio (o lo riapre) e porta alle scelte; con i risultati pronti, ai risultati."""
+        es = (self.contesto.info or {}).get("esempio")
+        if not es or self.occupato():
+            return
+        svuota(self.errore_esempio)
+        cartella = progetto.cartella_progetti() / NOME_ESEMPIO
+        if (cartella / "config.yaml").is_file():
+            pr = progetto.Progetto(cartella)
+            if self.contesto.progetto_in_analisi is None and not (pr.risultati / "risultati.json").is_file():
+                self.contesto.progetto = pr
+                self.vai.emit("scelte")
+            else:
+                self.apri(pr)
+            return
+        try:
+            pr = progetto.nuovo(NOME_ESEMPIO)
+        except (OSError, ValueError):
+            self.errore_esempio.addWidget(riquadro("Non riesco a creare il progetto d'esempio.",
+                                                   "Controlla di poter scrivere nella cartella Documenti.", "errore"))
+            return
+        cfg = progetto.base(pr.nome)
+        cfg["data_source"] = "local"
+        cfg["paths"]["local_reads_dir"] = es["cartella"]          # già come la vede il motore
+        cfg["hosts"] = list(regola(self.contesto.info, es["prodotto"])[0])
+        cfg["app"] = {"prodotto": es["prodotto"], "cartella_read": "", "esempio": True}
+        pr.scrivi(cfg)
+        self.contesto.progetto = pr
+        self.vai.emit("scelte")
 
     def azione_principale(self):
         if self.occupato():
