@@ -101,6 +101,11 @@ Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano 
   (read scaricate, read senza ospite, profilo MetaPhlAn, Bracken). Il download ora è stimato. `percentuale` non torna
   mai indietro. L'interfaccia fra due eventi fa scendere da sé il tempo che manca e avanzare la barra con un orologio
   locale (un passo come Kraken dura anche mezz'ora); se il passo dura più del previsto scrive "qualche minuto".
+- **[17/10, A1]** In `esegui` ogni `avanzamento` ha anche `passo_s`: i secondi previsti per il passo che parte (0 se
+  già fatto, `null` se `eta_s` è `null`). L'orologio locale dell'interfaccia fa scendere `eta_s` solo per `passo_s`:
+  se il passo sfora (SF3RAt3: download previsto 3 min, durato 37 con la rete lenta) tempo e barra si fermano a quello
+  che resta dopo il passo, con la nota "tempo che manca dopo questo passo, che sta durando più del previsto".
+  Senza `passo_s` (motore più vecchio) vale la regola di prima. Il finto motore lo manda anche lui.
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
   `kraken` per `DB_MANCANTE` di Kraken). L'installatore non lo manda ancora: lì vale l'ultimo `avanzamento`.
 - Ogni corsa finisce **sempre** con un solo evento `fine`, anche dopo un errore.

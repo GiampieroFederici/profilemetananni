@@ -29,6 +29,7 @@ TITOLI_AVVISO = {"TEMPO_LUNGO": "Ci vorrà molto tempo", "CAMPIONE_DA_CONTROLLAR
                  "CAMPIONE_DA_RIFARE": "Campione da rifare", "RETE_INTERROTTA": "La rete si è interrotta",
                  "REFERTO_PARZIALE": "Il referto non è completo"}
 ANCORA = "Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non finiti."
+NOTA_ETA = "tempo che manca, stimato"
 
 
 def durata(secondi):
@@ -73,7 +74,7 @@ class PaginaEsecuzione(Pagina):
         self.eta = etichetta("", "grande")
         for e in (self.pct, self.eta):
             e.setStyleSheet("font-size: 40px; font-weight: bold;")
-        self.eta_nota = etichetta("tempo che manca, stimato", "nota")
+        self.eta_nota = etichetta(NOTA_ETA, "nota")
         fatto = etichetta("fatto", "nota")
         for e in (self.pct, self.eta, fatto, self.eta_nota):
             e.setWordWrap(False)
@@ -157,7 +158,9 @@ class PaginaEsecuzione(Pagina):
             self.eta_nota.setVisible(e.get("eta_s") is not None)      # null: non lo diciamo
             self._passi(e.get("passo"))
             self.ultimo_passo = e.get("passo")
-            self.ultimo = (time.monotonic(), pct, e["eta_s"]) if e.get("eta_s") else None
+            self.eta_nota.setText(NOTA_ETA)
+            # passo_s (17/10): quanto dura questo passo; senza, l'orologio può scendere fino alla fine
+            self.ultimo = (time.monotonic(), pct, e["eta_s"], e.get("passo_s")) if e.get("eta_s") else None
             if self.ultimo:
                 self.orologio.start()
             else:
@@ -178,16 +181,20 @@ class PaginaEsecuzione(Pagina):
                 self._passi("tutti")
 
     def _scorre(self):
-        """Ogni secondo: tempo che manca = eta_s meno il tempo passato; la barra va verso 100 allo stesso passo.
-        Se il passo dura più del previsto si dice "qualche minuto" e la barra si ferma prima della fine."""
+        """Ogni secondo: tempo che manca = eta_s meno il tempo passato, ma solo dentro il passo in corso (passo_s);
+        la barra va verso 100 allo stesso passo. Se il passo dura più del previsto, il tempo e la barra si fermano a
+        quello che resta dopo il passo e la nota lo dice; se era l'ultimo, "qualche minuto"."""
         if not self.ultimo or self.stato != "in_corso":
             self.orologio.stop()
             return
-        t0, pct0, eta0 = self.ultimo
+        t0, pct0, eta0, passo_s = self.ultimo
         passati = time.monotonic() - t0
-        resto = eta0 - passati
+        dentro = min(passati, eta0 if passo_s is None else passo_s)
+        resto = eta0 - dentro
         self.eta.setText(durata(resto) if resto >= 1 else "qualche minuto")
-        pct = min(99, pct0 + (100 - pct0) * min(passati, eta0) / eta0)
+        if passo_s is not None and passati > passo_s and resto >= 1:
+            self.eta_nota.setText("tempo che manca dopo questo passo, che sta durando più del previsto")
+        pct = min(99, pct0 + (100 - pct0) * dentro / eta0)
         if round(pct) > self.barra.value():
             self.barra.setValue(round(pct))
             self.pct.setText(f"{numero(pct, 0)} %")

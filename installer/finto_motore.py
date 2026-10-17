@@ -232,7 +232,8 @@ class Motore:
                 rimasti = totale_s - fatto_s
                 self.evento("avanzamento", f"Campione 1 di 1: {m}", passo=passo, campione=CAMPIONE, fatto=i,
                             totale=len(messaggi), percentuale=round(100 * fatto_s / totale_s, 1),
-                            eta_s=round(rimasti / self.a.velocita) if self.a.velocita > 0 else 0)
+                            eta_s=round(rimasti / self.a.velocita) if self.a.velocita > 0 else 0,
+                            passo_s=round(sec / len(messaggi) / self.a.velocita) if self.a.velocita > 0 else 0)
                 self.attendi(sec / len(messaggi))
                 fatto_s += sec / len(messaggi)
         return "ok", self._scrivi_risultati(progetto.parent / "risultati"),             f"Analisi finita in {round(totale_s / 60)} min (tempo vero, qui accorciato)."

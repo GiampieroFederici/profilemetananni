@@ -322,9 +322,9 @@ class Motore:
                 self.evento("avviso", c["messaggio"], codice=c["codice"])
         return elenco
 
-    def avanza(self, passo, messaggio, pct, campione=None, fatto=0, totale=1, eta_s=None):
+    def avanza(self, passo, messaggio, pct, campione=None, fatto=0, totale=1, eta_s=None, **altro):
         self.evento("avanzamento", messaggio, passo=passo, campione=campione, fatto=fatto, totale=totale,
-                    percentuale=round(max(0, min(100, pct)), 1), eta_s=eta_s)
+                    percentuale=round(max(0, min(100, pct)), 1), eta_s=eta_s, **altro)
 
     # ---------------- info ----------------
     def info(self):
@@ -476,16 +476,16 @@ class Motore:
         riletto = 0                          # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
 
         def eta(etichetta, passo):
-            """(percentuale, secondi che restano): questo passo intero + quelli non ancora partiti. Un passo di
-            un gruppo prima di questo che non è partito, run.sh l'ha saltato."""
+            """(percentuale, secondi che restano, secondi previsti per questo passo): questo passo intero + quelli
+            non ancora partiti. Un passo di un gruppo prima di questo che non è partito, run.sh l'ha saltato."""
             chiave = etichetta if etichetta in secondi else "riepilogo" if passo == "riepilogo" else None
             if chiave:
                 fatti.update(e for e in secondi if gruppo[e] < gruppo[chiave])
-            resta = (secondi[chiave] if chiave and chiave not in fatti else 0) + \
-                sum(s for e, s in secondi.items() if e not in fatti and e != chiave)
+            questo = secondi[chiave] if chiave and chiave not in fatti else 0
+            resta = questo + sum(s for e, s in secondi.items() if e not in fatti and e != chiave)
             if chiave:
                 fatti.add(chiave)
-            return 100 * (totale - resta) / totale, round(resta) if camp else None
+            return 100 * (totale - resta) / totale, round(resta) if camp else None, round(questo) if camp else None
         visti, ultimo = {}, 0.0
         p = subprocess.Popen(["bash", RUN_SH, "--config", str(progetto), "--skip-preflight"], cwd=progetto.parent,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
@@ -513,11 +513,12 @@ class Motore:
                         riletto = g
                         secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
                         totale = sum(secondi.values()) or 1
-                    pct, resta = eta(m.group(1), passo)
+                    pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
                     testo = dict(PASSI)[passo]
                     chi = f"Campione {min(fatto, n)} di {n}: " if campione else ""
-                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta)
+                    self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
+                                passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
                     break
         self.ultimo_pct, self.eta_referto = ultimo, secondi["referto"] if camp else None
         codice = p.wait()

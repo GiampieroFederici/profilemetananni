@@ -189,6 +189,7 @@ def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
     per = {(e["passo"], e["campione"]): e for e in av}
     resto = sec["krk_S1"] + sec["mpa_S2"] + sec["krk_S2"] + sec["riepilogo"] + sec["referto"]
     assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                       # Kraken di S1 non e' gia' fatto
+    assert per[("kraken", "S1")]["passo_s"] == round(sec["krk_S1"])                # 17/10: durata del passo
     assert per[("controllo_qualita", None)]["eta_s"] < per[("ospite", "S2")]["eta_s"]   # MultiQC: l'ospite non torna
     assert av[-1]["passo"] == "referto" and av[-1]["eta_s"] == round(sec["referto"])
     assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1                           # niente e' fatto

@@ -154,6 +154,29 @@ def test_il_tempo_scende_anche_dentro_un_passo_lungo(f, monkeypatch):
     assert not es.orologio.isActive()                # senza stima l'orologio si ferma
 
 
+def test_un_passo_che_sfora_non_fa_avanzare_gli_altri(f, monkeypatch):
+    """A1, 17/10: SF3RAt3, download previsto 3 min, durato 37 (rete lenta). Dopo 30 min l'app diceva "60 %, 20 minuti"
+    ancora dentro il download. Con passo_s l'orologio scende solo dentro il passo; se il passo sfora, lo dice."""
+    import types
+    from app.pagine import esecuzione
+    ora = [1000.0]
+    monkeypatch.setattr(esecuzione, "time", types.SimpleNamespace(monotonic=lambda: ora[0]))
+    es = f.pagine["esecuzione"]
+    es.stato = "in_corso"
+    es._evento({"tipo": "avanzamento", "messaggio": "scarico le read da NCBI", "passo": "download", "campione": None,
+                "fatto": 0, "totale": 1, "percentuale": 0, "eta_s": 3025, "passo_s": 180})
+    ora[0] += 90                                     # metà del download previsto
+    es._scorre()
+    assert es.eta.text() == "49 minuti" and es.barra.value() == 3
+    ora[0] += 1800                                   # il download sfora: si ferma a quello che resta dopo il passo
+    es._scorre()
+    assert es.eta.text() == "47 minuti" and es.barra.value() == 6
+    assert "più del previsto" in es.eta_nota.text()
+    es._evento({"tipo": "avanzamento", "messaggio": "tolgo le parti di bassa qualità", "passo": "pulizia",
+                "campione": "S1", "fatto": 1, "totale": 1, "percentuale": 6, "eta_s": 2846, "passo_s": 25})
+    assert es.eta_nota.text() == "tempo che manca, stimato"
+
+
 @pytest.mark.parametrize("scenario, passo, dove", [("DB_MANCANTE", "kraken", "motore"),
                                                    ("READ_NON_TROVATE", "download", "campioni"),
                                                    ("GIA_IN_CORSO", None, "home")])
