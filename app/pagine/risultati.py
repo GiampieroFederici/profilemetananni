@@ -215,7 +215,8 @@ class PaginaRisultati(Pagina):
             s.addWidget(e)
             dom = m.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct"]) for x in dom], "#1E7A4C"))
-            s.addWidget(etichetta(f"Qui le {len(dom)} più abbondanti delle {m['specie']} specie sopra la soglia. "
+            s.addWidget(etichetta(f"Qui tutte le {len(dom)} specie sopra la soglia." if len(dom) >= m["specie"] else
+                                  f"Qui le {len(dom)} più abbondanti delle {m['specie']} specie sopra la soglia. "
                                   "Tutte le altre sono nel referto e nelle tabelle Excel.", "nota"))
         return w
 
@@ -236,7 +237,8 @@ class PaginaRisultati(Pagina):
                                   "ridistribuzione di Bracken (il programma che stima le abbondanze)."))
             dom = k.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct_microbi"]) for x in dom], "#2F5D7C"))
-            s.addWidget(etichetta(f"Qui i {len(dom)} più abbondanti dei {k['microbi']} microbi sopra la soglia. "
+            s.addWidget(etichetta(f"Qui tutti i {len(dom)} microbi sopra la soglia." if len(dom) >= k["microbi"] else
+                                  f"Qui i {len(dom)} più abbondanti dei {k['microbi']} microbi sopra la soglia. "
                                   "Tutti gli altri sono nel referto e nelle tabelle Excel.", "nota"))
             nm = k.get("non_microbi", [])
             if nm:

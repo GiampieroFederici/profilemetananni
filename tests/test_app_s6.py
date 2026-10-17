@@ -325,3 +325,13 @@ def test_sicurezza_usa_le_ufc_del_motore(f):
     assert "circa 12.000 ufc/g" in scritte(sic._scheda(p, False))
     del p["finale_listeria_ufc_g"]                                               # motore v0.2: ripiego
     assert "circa 30.000 ufc/g" in scritte(sic._scheda(p, False))
+
+
+def test_poche_specie_tutte_mostrate(f):
+    """Mini-campione d'esempio: 6 specie sopra la soglia, tutte nelle barre: non "le 6 più abbondanti delle 6"."""
+    ris = f.pagine["risultati"]
+    dom = [{"nome": "Latilactobacillus sakei", "pct": 24.5, "pct_microbi": 40.4}]
+    c = [{"nome": "mini", "sintesi": {"metaphlan": {"non_assegnata_pct": 56.2, "specie": 1, "dominanti": dom},
+                                      "kraken": {"microbi": 1, "dominanti": dom}}}]
+    assert "Qui tutte le 1 specie sopra la soglia." in scritte(ris._scheda_metaphlan(c))
+    assert "Qui tutti i 1 microbi sopra la soglia." in scritte(ris._scheda_kraken(c))
