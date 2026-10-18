@@ -2,10 +2,10 @@
 motore" (`verifica`, VERDE o ROSSO con i controlli) e "Installa o completa" (`installa`, con la barra).
 Durante un lavoro lungo l'avatar della testata respira (D046). Gli errori mostrano `messaggio` e `cosa_fare` (R8).
 """
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QProgressBar, QScrollArea, QVBoxLayout
 
 from app.lingua import N_, _
-from app.motore import MotoreClient
+from app.motore import MotoreClient, spazio_windows_gb
 from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro, svuota
 
 NOMI_DB = {"metaphlan_fette_vJan25_v1": N_("MetaPhlAn, database in 6 parti"),
@@ -36,6 +36,8 @@ class PaginaMotore(Pagina):
         self.errore_info = None
         self.errore_corsa = None
         self.da_installare = False
+        self._in_fondo = False
+        self._barra_scorre = None
         self.corpo.addWidget(etichetta(_("Il motore fa i calcoli dentro Windows, in uno spazio Linux tutto suo. "
                                          "Si installa una volta e si controlla da qui.")))
         self.zona_avvisi = QVBoxLayout()
@@ -125,9 +127,13 @@ class PaginaMotore(Pagina):
         programmi = i.get("programmi") or {}          # i dict arrivano in ordine alfabetico: quello dei passi
         ordine = [k for k in NOMI_PROGRAMMI if k in programmi] + [k for k in programmi if k not in NOMI_PROGRAMMI]
         versioni = ", ".join(f"{NOMI_PROGRAMMI.get(k, k)} {programmi[k]}" for k in ordine)
+        libero = i['spazio_libero_gb']
+        windows = None if i.get("finto") else spazio_windows_gb()      # B2 (P8): il disco vero sotto quello virtuale
+        if windows is not None:
+            libero = min(libero, windows)
         self.stato.setText(_("Questo computer: {ram} GB di memoria, {processori} processori, {libero} GB liberi. "
                              "Versioni: {versioni}.", ram=numero(i['ram_gb']), processori=i['processori'],
-                             libero=numero(i['spazio_libero_gb'], 0), versioni=versioni))
+                             libero=numero(libero, 0), versioni=versioni))
         for c in i.get("consigli", []):
             if c.get("livello") == "avviso":
                 self.zona_avvisi.addWidget(riquadro(_("Consiglio del motore"), c["messaggio"], "avviso"))
@@ -149,6 +155,7 @@ class PaginaMotore(Pagina):
         if self.client.in_corso():
             return
         svuota(self.zona_esito)
+        self._in_fondo = False
         self.errore_corsa = None
         self.da_installare = False
         self.barra.setValue(0)
@@ -200,6 +207,20 @@ class PaginaMotore(Pagina):
         rosso = r.get("esito") == "rosso"
         self.da_installare = rosso
         self.zona_esito.addWidget(riquadro(fine.get("messaggio", ""), righe, "errore" if rosso else "info"))
+        self._esito_in_vista()
+
+    def _esito_in_vista(self):
+        """B2 (P7): l'esito sta in fondo alla pagina; su uno schermo piccolo restava sotto la piega. Si scorre fino in
+        fondo, anche quando l'impaginazione cresce dopo (le etichette vanno a capo in più giri)."""
+        scorre = self.parentWidget() and self.parentWidget().parentWidget()      # viewport, poi QScrollArea (finestra.py)
+        if not isinstance(scorre, QScrollArea):
+            return
+        b = scorre.verticalScrollBar()
+        if self._barra_scorre is None:                                          # un solo collegamento
+            self._barra_scorre = b
+            b.rangeChanged.connect(lambda _min, massimo: self._in_fondo and b.setValue(massimo))
+        self._in_fondo = True                                                   # fino al prossimo controllo
+        b.setValue(b.maximum())
 
     def _lavoro(self, si):
         self.messaggio.setVisible(si)

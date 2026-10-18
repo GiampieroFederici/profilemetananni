@@ -106,6 +106,7 @@ def foto_app(lingua_scelta=None):
         def tr(testo):
             return testo
     from app.pagine import esecuzione, scelte, sicurezza
+    from app.pagine import motore as pagina_motore
     from app.pagine.base import numero
 
     app = QApplication.instance() or QApplication([])
@@ -113,6 +114,7 @@ def foto_app(lingua_scelta=None):
     tmp = Path(tempfile.mkdtemp(prefix="pmn_lingua_"))
     vecchi = {k: os.environ.get(k) for k in ("PMN_MOTORE", "PMN_FINTO_OPZIONI", "TEMP", "TMP")}
     cartella_progetti, avvio_min = progetto.cartella_progetti, finestra.AVVIO_MIN_MS
+    spazio_windows = pagina_motore.spazio_windows_gb
     foto, cartelle = {}, [tmp]
     os.environ.update(PMN_MOTORE="finto", PMN_FINTO_OPZIONI="--velocita 0")
     (tmp / "temp").mkdir()
@@ -120,6 +122,7 @@ def foto_app(lingua_scelta=None):
     radice = tmp / "Documenti" / "ProfileMetaNanni"
     progetto.cartella_progetti = lambda: radice
     finestra.AVVIO_MIN_MS = 0
+    pagina_motore.spazio_windows_gb = lambda: None     # B2 (P8): la fotografia non dipende dal disco di questo PC
     finestre = []
 
     def nuova():
@@ -426,6 +429,7 @@ def foto_app(lingua_scelta=None):
             w.close()
             w.deleteLater()
         progetto.cartella_progetti, finestra.AVVIO_MIN_MS = cartella_progetti, avvio_min
+        pagina_motore.spazio_windows_gb = spazio_windows
         if lingua_scelta:
             from app import lingua
             lingua.imposta("it")

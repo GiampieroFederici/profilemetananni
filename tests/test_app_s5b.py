@@ -334,6 +334,71 @@ def test_verifica_verde(qtbot, f):
     assert f.principale.text() == "Controlla il motore" and f.principale.isEnabled()
 
 
+def test_esito_della_verifica_in_vista_su_schermo_piccolo(qtbot, f):
+    """B2 (P7): sulla VM (8 database, un consiglio, 12 controlli) il VERDE restava sotto la piega e non si vedeva."""
+    from PySide6.QtCore import QPoint
+    f.resize(f.minimumSize())                                          # la finestra più piccola che l'app permette
+    f.vai("motore")
+    m = f.pagine["motore"]
+    scorre = f.pila.currentWidget()
+    db = [{"nome": f"altro_{i}", "installato": i < 2, "gb": None} for i in range(8)]       # come sulla VM
+    f.contesto.info = dict(f.contesto.info, database=db, consigli=[{"livello": "avviso", "messaggio": "Manca Kraken."}])
+    m._disegna()
+    controlli = [{"nome": f"pmn_programma_{i} = 1.{i}", "esito": "ok"} for i in range(12)]
+    m._esito("verifica", {"esito": "ok", "messaggio": "VERDE: il motore funziona.", "risultato": {"controlli": controlli}})
+    esito = m.zona_esito.itemAt(0).widget()
+    qtbot.wait(300)                                                    # le etichette vanno a capo in più giri
+
+    def in_vista():
+        QCoreApplication.processEvents()
+        y, alto = esito.mapTo(scorre.viewport(), QPoint(0, 0)).y(), scorre.viewport().height()
+        return 0 <= y and y + min(esito.height(), alto) <= alto           # si vede tutto (o tutto quello che ci sta)
+    assert in_vista()
+
+
+def test_finestra_mai_piu_grande_dello_schermo():
+    """B2 (P7): sulla VM la finestra (1366 x 860, minimo 1100 x 700) usciva dallo schermo e la testata era tagliata."""
+    from PySide6.QtCore import QSize
+    assert finestra.misure(QSize(1920, 1040)) == (QSize(1366, 860), QSize(1100, 700))      # schermo grande: come prima
+    grande, minima = finestra.misure(QSize(1024, 728))                                     # 1024 x 768 meno la barra
+    assert grande.width() <= 1024 and grande.height() <= 728 - 40                          # 40: barra del titolo
+    assert minima.width() <= grande.width() and minima.height() <= grande.height()
+
+
+def test_spazio_libero_quello_vero_di_windows(qtbot, f, monkeypatch):
+    """B2 (P8): dentro la WSL si vede il disco virtuale (990 GB sulla VM); conta il disco di Windows che lo contiene."""
+    from app.pagine import motore as pagina_motore
+    f.vai("motore")
+    m = f.pagine["motore"]
+    vero = dict(f.contesto.info, finto=False)                 # come il motore vero
+    monkeypatch.setattr(pagina_motore, "spazio_windows_gb", lambda: 146.4)
+    f.contesto.info = vero
+    m._disegna()
+    assert "146 GB liberi" in m.stato.text()
+    monkeypatch.setattr(pagina_motore, "spazio_windows_gb", lambda: 2000.0)   # mai più di quello della WSL
+    m._disegna()
+    assert "643 GB liberi" in m.stato.text()
+    monkeypatch.setattr(pagina_motore, "spazio_windows_gb", lambda: None)     # WSL non trovata: il numero del motore
+    m._disegna()
+    assert "643 GB liberi" in m.stato.text()
+
+
+def test_spazio_windows_della_wsl_pmn():
+    """Su questo PC la WSL pmn c'è: lo spazio è quello del suo disco di Windows."""
+    import shutil
+    import winreg
+    from app.motore import spazio_windows_gb
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Lxss"):
+            pass
+    except OSError:
+        pytest.skip("nessuna WSL su questo PC")
+    gb = spazio_windows_gb()
+    if gb is None:
+        pytest.skip("WSL pmn non installata")
+    assert abs(gb - shutil.disk_usage("C:\\").free / 1e9) < 5          # sul PC di sviluppo la WSL pmn sta su C:
+
+
 def test_verifica_rossa_porta_a_installa(qtbot, f, monkeypatch):
     scenario(monkeypatch, "DB_MANCANTE")
     f.vai("motore")

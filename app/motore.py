@@ -15,6 +15,7 @@ PMN_MOTORE=finto; PMN_FINTO_OPZIONI aggiunge opzioni al finto (per esempio "--ve
 import json
 import os
 import shlex
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
@@ -31,6 +32,21 @@ MOTORE_WSL = "/home/pmn/.pmn/bin/pmn-motore"     # collegato dall'installatore (
 
 def finto():
     return os.environ.get("PMN_MOTORE") == "finto"
+
+
+def spazio_windows_gb():
+    """B2 (P8): GB liberi del disco di Windows che contiene la WSL del motore. Dentro la WSL `info` vede il disco
+    virtuale (sulla VM "990 GB liberi" con 146 veri); None se la WSL non si trova (non Windows, non installata)."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Lxss") as lxss:
+            for i in range(winreg.QueryInfoKey(lxss)[0]):
+                with winreg.OpenKey(lxss, winreg.EnumKey(lxss, i)) as d:
+                    if winreg.QueryValueEx(d, "DistributionName")[0] == DISTRO:
+                        return shutil.disk_usage(winreg.QueryValueEx(d, "BasePath")[0]).free / 1e9
+    except (ImportError, OSError):
+        pass
+    return None
 
 
 def comando_motore():

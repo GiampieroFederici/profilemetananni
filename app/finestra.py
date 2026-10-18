@@ -8,8 +8,8 @@ Si cambia solo in S5a (D061): S5b e S6 scrivono le loro pagine in app/pagine/.
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
                                QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
@@ -65,14 +65,22 @@ def arrotondata(pixmap, lato, raggio):
     return uscita
 
 
+def misure(libero):
+    """B2 (P7): misura iniziale e minima della finestra, mai più grandi dello spazio libero dello schermo (sulla VM la
+    finestra usciva a destra e la testata era tagliata). 40 px per la barra del titolo, che Qt non conta."""
+    w, h = libero.width(), libero.height() - 40
+    return QSize(min(1366, w), min(860, h)), QSize(min(1100, w), min(700, h))
+
+
 class Finestra(QMainWindow):
     def __init__(self, movimento=None):
         super().__init__()
         self._movimento = movimento               # None: segue Windows; True o False: deciso (per i test)
         self.setWindowTitle("ProfileMetaNanni")
         self.setWindowIcon(QIcon(str(RISORSE / "avatar_512.png")))
-        self.resize(1366, 860)
-        self.setMinimumSize(1100, 700)
+        grande, minima = misure(QGuiApplication.primaryScreen().availableGeometry().size())
+        self.resize(grande)
+        self.setMinimumSize(minima)
         self.contesto = Contesto()
         self.pagine = {}
         self.attuale = None
