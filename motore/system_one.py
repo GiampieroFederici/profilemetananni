@@ -37,7 +37,7 @@ PRODOTTI = [
     ("pecora", ["ovis_aries"], "Toglierò il DNA della pecora e quello umano.", _CARNE, "info"),
     ("altro", [], "Toglierò solo il DNA umano.",
      "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read della carne "
-     "finiscono assegnate per errore a qualche microbo.", "avviso"),
+     "finiscono assegnate per errore a qualche taxon.", "avviso"),
 ]
 GENOMI = {"sus_scrofa": "Sscrofa11.1", "bos_taurus": "ARS-UCD1.2", "ovis_aries": "ARS-UI_Ramb_v2.0"}
 FONTE_OSPITE = ("D021: gli stessi genomi dell'ospite dei profili pubblicati (maiale Sscrofa11.1, bovino ARS-UCD1.2, "

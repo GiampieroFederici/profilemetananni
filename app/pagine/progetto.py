@@ -33,7 +33,7 @@ PRODOTTI = {
     "altro": ("Altro o misto", [],
               "Toglierò solo il DNA umano.",
               "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read "
-              "della carne finiscono assegnate per errore a qualche microbo.", "avviso"),
+              "della carne finiscono assegnate per errore a qualche taxon.", "avviso"),
 }
 
 

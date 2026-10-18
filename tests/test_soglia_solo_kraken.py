@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(RADICE, "motore"))
 import referto  # noqa: E402
 
 RARA = "k__Bacteria|p__Firmicutes|c__Bacilli|o__Lactobacillales|f__Lactobacillaceae|g__Pediococcus|s__Pediococcus_rarus"
-MICROBI = re.compile(r"\bmicrobi\b", re.I)
+MICROBI = re.compile(r"\bmicrob[oi]\b", re.I)
 
 
 def campione():

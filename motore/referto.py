@@ -304,7 +304,7 @@ def html_referto(d):
          f"<h1>Referto dell'analisi: {e(d['progetto'])}</h1>",
          f"<p>Corsa <b>{e(d['corsa'])}</b> &middot; motore profilemetananni {e(d['motore'])} &middot; "
          f"{len(d['campioni'])} campion{'e' if len(d['campioni']) == 1 else 'i'}</p>",
-         riquadro("<b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni microbo c'è nel "
+         riquadro("<b>Come leggere questo referto.</b> Le percentuali dicono quanto DNA di ogni taxon c'è nel "
                   "campione, non quante cellule vive per grammo. MetaPhlAn e Kraken sono due metodi diversi: i loro "
                   "risultati stanno in tabelle separate e non vanno sommati. In fondo trovi i parametri usati, gli "
                   "strumenti con le versioni e come citarli.", "#e8f1fb")]
