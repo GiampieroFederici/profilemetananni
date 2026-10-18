@@ -141,9 +141,10 @@ def triage(tsv, soglie=None):
                     motivi.append(_("troppo DNA dell'ospite ({host} %, massimo {massimo} %)", host=f"{host:.0f}",
                                     massimo=f"{s['max_host_pct']:g}"))
                 if _triage.ramp(reads, s["min_nonhost_reads"]) < 0.75:
-                    # con l'italiano il punto va su tutta la frase, come prima ("circa 900.000. minimo")
-                    motivi.append(lingua.migliaia(_("poche read senza l'ospite (circa {reads}, minimo {minimo})",
-                                                    reads=f"{reads:,.0f}", minimo=f"{s['min_nonhost_reads']:,.0f}")))
+                    # il punto delle migliaia solo nei numeri: "circa 900.000, minimo 1.000.000" (R1)
+                    motivi.append(_("poche read senza l'ospite (circa {reads}, minimo {minimo})",
+                                    reads=lingua.migliaia(f"{reads:,.0f}"),
+                                    minimo=lingua.migliaia(f"{s['min_nonhost_reads']:,.0f}")))
                 if _triage.ramp(q30, s["min_q30_pct"]) < 0.75:
                     motivi.append(_("qualità delle read bassa ({q30} % di basi buone, minimo {minimo} %)",
                                     q30=f"{q30:.0f}", minimo=f"{s['min_q30_pct']:g}"))

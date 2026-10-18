@@ -71,8 +71,9 @@
 - **Plurale "1 seconds"**: come in italiano oggi ("1 secondi"), la durata non distingue il singolare.
 - **Nomi di prova** come `esempio_SF3RAt7` (cartella del progetto d'esempio) restano uguali in tutte le lingue.
 
-## 5. Un difetto già presente (in italiano), non corretto qui
+## 5. Un difetto già presente (in italiano): corretto in R1 (18/10)
 
-- `motore/system_one.py`, motivo del triage: "poche read dei microbi (circa 900.000**.** minimo 1.000.000)": il punto
-  delle migliaia sostituisce anche la virgola prima di "minimo". In inglese esce giusto. Lasciato identico perché la
-  regola della sessione è "italiano identico a prima"; si corregge in una sessione a parte (una riga, con il suo test).
+- `motore/system_one.py`, motivo del triage: era "poche read ... (circa 900.000**.** minimo 1.000.000)": il punto
+  delle migliaia sostituiva anche la virgola prima di "minimo". Corretto in R1: il punto va solo nei numeri
+  ("circa 900.000, minimo 1.000.000"); test in `tests/test_system_one.py`, fotografia dell'italiano rifatta (cambiano
+  solo queste righe).

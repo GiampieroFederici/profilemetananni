@@ -59,6 +59,8 @@ def test_s2_triage(tmp_path):
     assert esiti[0]["motivi"] == [] and len(esiti[1]["motivi"]) == 1 and len(esiti[2]["motivi"]) == 3
     assert codici(consigli) == ["CAMPIONE_DA_CONTROLLARE", "CAMPIONE_DA_RIFARE"]
     assert so.triage(tmp_path / "manca.tsv") == ([], [])
+    # R1 (18/10): la virgola fra i due numeri resta una virgola ("circa 950.000, minimo"), non "950.000. minimo"
+    assert esiti[1]["motivi"] == ["poche read senza l'ospite (circa 950.000, minimo 1.000.000)"]
 
 
 def test_s1_ogni_consiglio_ha_fonte_e_codice_del_contratto(tmp_path):
