@@ -24,6 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "motore"))
+import diversita  # noqa: E402
 import lingua  # noqa: E402
 import system_one  # noqa: E402
 from lingua import N_, _  # noqa: E402
@@ -59,7 +60,13 @@ GLOSSARIO = [
     (N_("Soglia di abbondanza (solo Kraken)"), N_("sotto questa percentuale un taxon di Kraken non si mostra nelle "
                                                   "tabelle del referto (resta nell'Excel). MetaPhlAn non ha soglia: si "
                                                   "mostrano tutte le specie.")),
+    (N_("Diversità alfa"), N_("quanti taxa diversi ci sono in un campione (ricchezza) e quanto le loro abbondanze sono "
+                              "simili fra loro (Shannon, Simpson).")),
+    (N_("Rarefazione"), N_("confrontare i campioni alla stessa profondità, cioè con lo stesso numero di read, "
+                           "togliendo a caso le read in più dai campioni più ricchi.")),
 ]
+STATO_DIVERSITA = {"intero": N_("tutte le read"), "pareggiato": N_("profondità uguale"),
+                   "non_pareggiato": N_("non pareggiato")}
 
 
 # ---------------- lettura dei risultati ----------------
@@ -196,19 +203,84 @@ def raccogli(risultati, cfg):
     indice = json.loads((risultati / "risultati.json").read_text(encoding="utf-8"))
     par = tsv_dict(risultati / "tabelle" / "parameters.tsv") or {k: str(v) for k, v in indice.get("parametri", {}).items()}
     soglia = numero(par.get("abundance_threshold_pct")) or 0.0
-    campioni = []
+    campioni, mpa, krk = [], {}, {}
     for c in indice.get("campioni", []):
         file = c.get("file", {})
         d = {"nome": c["nome"], "coppie": c.get("coppie_dopo_ospite"), **leggi_campione(risultati, file)}
         d["sintesi"] = sintesi(d, soglia)
         campioni.append(d)
+        if d["metaphlan"] is not None:   # diversità alfa (R1): MetaPhlAn e Kraken separati, mai uniti
+            mpa[d["nome"]] = (d["metaphlan"], diversita.letture_profilo(risultati / file["metaphlan"]))
+        if d["kraken"] is not None:
+            krk[d["nome"]] = d["kraken"]
+    pari = {f.name[:-len("_profile.txt")]: (leggi_metaphlan(f)[0], diversita.letture_profilo(f))
+            for f in sorted((risultati / "metaphlan_pari").glob("*_profile.txt"))}
     triage, _ = system_one.triage(risultati / "tabelle" / "triage.tsv", system_one.soglie_triage(cfg))
     sicurezza = [json.loads(f.read_text(encoding="utf-8")) for f in sorted((risultati / "sicurezza").glob("*.json"))]
     motore = cfg.get("motore") if isinstance(cfg.get("motore"), dict) else {}
     return {"progetto": str(cfg.get("project_name") or risultati.parent.name), "corsa": indice.get("corsa", ""),
             "motore": indice.get("motore", ""), "campioni": campioni, "parametri": par, "soglia": soglia,
             "versioni": indice.get("versioni", {}), "citazioni": list(indice.get("citazioni", [])),
-            "triage": triage, "sicurezza": sicurezza, "virus": bool(motore.get("virus", False))}
+            "triage": triage, "sicurezza": sicurezza, "virus": bool(motore.get("virus", False)),
+            "diversita": {"metaphlan": diversita.tabella_metaphlan(mpa, pari),
+                          "kraken": diversita.tabella_kraken(krk, soglia, MICROBI)}}
+
+
+def valori_diversita(r):
+    """[read, read usate, ricchezza, Shannon, Simpson] di una riga di diversita.tabella_*, già scritti per le persone:
+    la ricchezza attesa della rarefazione può avere decimali."""
+    ric = r["ricchezza"]
+    return [lingua.migliaia(f"{r['letture']:,}"), lingua.migliaia(f"{r['letture_usate']:,}"),
+            str(int(ric)) if float(ric).is_integer() else pct(ric, 1), pct(r["shannon"], 2), pct(r["simpson"], 3)]
+
+
+def html_diversita(d):
+    """Sezione "Diversità alfa" (R1): avviso sulla profondità, poi MetaPhlAn e Kraken in due tabelle separate."""
+    div = d["diversita"]
+    if not div["metaphlan"] and not div["kraken"]:
+        return []
+    uno = len(d["campioni"]) == 1
+    h = [f"<h2>4. {_('Diversità alfa (quanti taxa e quanto sono distribuiti)')}</h2>",
+         riquadro(_("<b>Attenzione alla profondità.</b> La ricchezza (quanti taxa si trovano) cresce con il numero di "
+                    "read: con più read si trovano più taxa rari, anche nello stesso prodotto.") + " " +
+                  (_("Questo progetto ha un solo campione: i valori sono alla sua profondità. Confrontali solo con "
+                     "campioni analizzati alla stessa profondità.") if uno else
+                   _("Per confrontare i campioni, qui i valori sono calcolati alla stessa profondità, quella del "
+                     "campione con meno read (colonna \"Read usate\"). Confrontali solo con campioni analizzati alla "
+                     "stessa profondità."))),
+         '<p class="piccolo">' + _("<b>Ricchezza</b>: quanti taxa diversi. <b>Shannon</b>: cresce con il numero di "
+                                   "taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). "
+                                   "<b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da "
+                                   "taxa diversi.") + "</p>"]
+    if div["metaphlan"]:
+        h.append("<h3>MetaPhlAn</h3>")
+        h.append(tabella([_("Campione"), _("Read del campione"), _("Read usate"), _("Specie (ricchezza)"), "Shannon",
+                          "Simpson"], [[e(r["campione"])] + valori_diversita(r) for r in div["metaphlan"]],
+                         (1, 2, 3, 4, 5), [30, 14, 14, 14, 14, 14]))
+        h.append('<p class="piccolo">' + _("Read entrate in MetaPhlAn, dopo aver tolto l'ospite. Nessuna soglia di "
+                                           "abbondanza. Per i campioni con più read: un sottocampione casuale delle "
+                                           "read (seme 1992), poi MetaPhlAn rifatto su quelle (una sola estrazione).")
+                 + "</p>")
+        non = [r["campione"] for r in div["metaphlan"] if r["stato"] == "non_pareggiato"]
+        if non:
+            h.append('<p class="piccolo">' + _("<b>Non pareggiato</b> ({nomi}): mancano i file per rifare MetaPhlAn su "
+                                               "meno read (analisi fatta prima del 18/10/2026). I valori sono alla "
+                                               "profondità del campione: non confrontarli con gli altri.",
+                                               nomi=e(", ".join(non))) + "</p>")
+    if div["kraken"]:
+        h.append("<h3>Kraken + Bracken</h3>")
+        h.append('<p class="piccolo">' + _("<b>Prototipo, non per decisioni</b> (come la sezione 3).") + "</p>")
+        h.append(tabella([_("Campione"), _("Letture dei taxa"), _("Letture usate"), _("Taxa (ricchezza)"), "Shannon",
+                          "Simpson"], [[e(r["campione"])] + valori_diversita(r) for r in div["kraken"]],
+                         (1, 2, 3, 4, 5), [30, 14, 14, 14, 14, 14]))
+        h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi sopra la soglia di Kraken ({soglia} %), con "
+                                           "le letture stimate da Bracken. A profondità uguale si usa il valore atteso "
+                                           "della rarefazione (la media di tutti i sottocampioni possibili): per questo "
+                                           "la ricchezza può avere decimali.", soglia=pct(d["soglia"], 3)) + "</p>")
+    h.append('<p class="piccolo">' + _("Metodo: rarefazione a profondità uguale (Schloss 2024, mSphere "
+                                       "9:e00354-23). La ricchezza osservata sottostima quella vera (Willis 2019, "
+                                       "Front Microbiol 10:2407).") + "</p>")
+    return h
 
 
 def righe_parametri(d):
@@ -380,13 +452,14 @@ def html_referto(d):
             h.append(tabella([_("Nome"), _("Gruppo"), _("% sul totale assegnato"), _("Letture stimate")],
                              [[f"<i>{e(r['nome'])}</i>", e(_(r["categoria"])), pct(r["pct"], 3),
                                lingua.migliaia(f"{r['letture']:,}")] for r in altri], (2, 3), [46, 18, 18, 18]))
+    h += html_diversita(d)
     # virus
-    h.append(f"<h2>4. {_('Virus')}</h2>")
+    h.append(f"<h2>5. {_('Virus')}</h2>")
     h.append(riquadro(e(_(POSTILLA_VIRUS)) + "<br>" + (_("Richiesti nel progetto, ma non ancora calcolati da questa "
                                                           "versione del motore.") if d["virus"] else
                                                         _("Non richiesti in questo progetto."))))
     # sicurezza
-    n = 5
+    n = 6
     if d["sicurezza"]:
         h.append(f"<h2>{n}. {_('Sicurezza alimentare (previsioni di crescita)')}</h2>")
         h.append(riquadro(_(PROTOTIPO_FSSP)))
@@ -479,6 +552,13 @@ def excel(d, percorso):
                                  _("% sul totale assegnato")],
            [[c["nome"], r["nome"], _(r["categoria"]), r["taxid"], r["letture"], r["pct"]]
             for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] not in MICROBI])
+    for metodo, nome, colonne in (("metaphlan", _("Diversità_MetaPhlAn"), [_("Read del campione"), _("Read usate")]),
+                                  ("kraken", _("Diversità_Kraken"), [_("Letture dei taxa"), _("Letture usate")])):
+        if d["diversita"][metodo]:
+            foglio(nome, [_("Campione"), *colonne, _("Stato"),
+                          _("Specie (ricchezza)") if metodo == "metaphlan" else _("Taxa (ricchezza)"), "Shannon", "Simpson"],
+                   [[r["campione"], r["letture"], r["letture_usate"], _(STATO_DIVERSITA[r["stato"]]), r["ricchezza"],
+                     r["shannon"], r["simpson"]] for r in d["diversita"][metodo]])
     if d["triage"]:
         foglio("Triage", [_("Campione"), _("Esito"), _("Motivi"), _("Punteggio")],
                [[t["campione"], _(t["esito"]), "; ".join(t["motivi"]), t["punteggio"]] for t in d["triage"]])

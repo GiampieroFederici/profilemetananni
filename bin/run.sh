@@ -602,12 +602,36 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
     pmn_strip_crlf "$PMN_METADATA"
     DIV_ARGS=(--metadata "$PMN_METADATA" --group-col "$PMN_GROUP_COL")
   fi
+  # Alpha diversity at equal depth (R1): richness grows with the reads, so samples are compared at the depth of the
+  # shallowest one. MetaPhlAn: the deeper samples get a random subsample of their reads (seed 1992, from the mapout)
+  # and MetaPhlAn is re-run on it; Kraken: exact expected rarefaction of Bracken reads. One table per tool.
+  ALPHA_ARGS=(--threshold-pct "$PMN_THRESHOLD" --out "$RES_DIR")
+  if [ -n "$MPA_MERGED" ]; then
+    PARI_DIR="$RES_DIR/alpha_metaphlan_pari"
+    do_step pmn_reports_py alfa_sotto -- python "$PMN_ROOT/steps/42_alpha_equal_depth.py" sottocampiona --metaphlan-dir "$MPA_DIR" --out "$PARI_DIR"
+    shopt -s nullglob
+    for m in "$PARI_DIR"/*.mapout; do
+      s="$(basename "$m" .mapout)"
+      validate_name "$s" || die "invalid sample name: $(sanitize_for_log "$s")"
+      [ "$PARI_DIR/${s}_profile.txt" -nt "$m" ] && continue   # already re-run on this subsample
+      if [ "$PMN_MPA_MODO" = fette ]; then
+        do_step pmn_metaphlan "alfa_mpa_${s}" -- bash "$PMN_ROOT/motore/metaphlan_da_mapout.sh" "$s" "$m" "$PARI_DIR" "$PMN_THREADS"
+      else
+        do_step pmn_metaphlan "alfa_mpa_${s}" -- metaphlan "$m" --input_type mapout --nproc "$PMN_THREADS" \
+          ${PMN_MPA_DB:+--db_dir "$PMN_MPA_DB"} --index "$PMN_MPA_INDEX" --sample_id "$s" -o "$PARI_DIR/${s}_profile.txt"
+      fi
+    done
+    shopt -u nullglob
+    ALPHA_ARGS+=(--metaphlan-dir "$MPA_DIR" --pari-dir "$PARI_DIR")
+  fi
+  [ -n "$KRK_MATRIX" ] && ALPHA_ARGS+=(--kraken-dir "$KRK_DIR")
+  do_step pmn_reports_py alfa -- python "$PMN_ROOT/steps/42_alpha_equal_depth.py" calcola "${ALPHA_ARGS[@]}"
   if [ -n "$MPA_MERGED" ]; then
     do_step pmn_reports_py mpa_matrix -- python "$PMN_ROOT/steps/34_metaphlan_matrix.py" --in "$MPA_MERGED" --out "$RES_DIR/metaphlan_matrix.tsv"
-    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance 0 ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance 0 --alpha "$RES_DIR/alpha_diversity_metaphlan.tsv" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
   if [ -n "$KRK_MATRIX" ]; then
-    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" --alpha "$RES_DIR/alpha_diversity_kraken.tsv" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
 fi
 

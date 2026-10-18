@@ -48,6 +48,8 @@ MPA_S_PER_M, MPA_FISSI_S = 86.2, 230   # per M coppie senza ospite (C03_1, S2.2)
 KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2)
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
+ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
+                               # il più povero; MetaPhlAn su un mapout a cache fredda 105-121 s (S2.3, 14/10)
 TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
 # passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
 PASSI = [("download", N_("scarico le read da NCBI")), ("controllo_qualita", N_("controllo la qualità delle read")),
@@ -136,7 +138,9 @@ def piano(camp, cfg, quote=None):
             out.append((f"mpa_{n}", "metaphlan", 4, resto / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
         if strumento in ("kraken", "both"):
             out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
-    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"]), ("referto", "referto", 6, ALTRI_S["referto"])]
+    diversita = sezione(cfg, "analysis").get("diversity", True) is not False
+    alfa = ALFA_MPA_S * (len(camp) - 1) if strumento in ("metaphlan", "both") and diversita else 0
+    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"] + alfa), ("referto", "referto", 6, ALTRI_S["referto"])]
 
 
 def tempi(camp, cfg, quote=None):
@@ -574,6 +578,9 @@ class Motore:
                 campioni.setdefault(f.stem, {})["kraken"] = f"kraken/{f.name}"
         for f in sorted(res.glob("*.tsv")) + sorted(res.glob("*.xlsx")):
             shutil.copy(f, r / "tabelle")
+        for f in sorted((res / "alpha_metaphlan_pari").glob("*_profile.txt")):   # MetaPhlAn a profondità uguale (R1)
+            (r / "metaphlan_pari").mkdir(exist_ok=True)
+            shutil.copy(f, r / "metaphlan_pari")
         parametri = {}
         if (res / "parameters.tsv").is_file():
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:

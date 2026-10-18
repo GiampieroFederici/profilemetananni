@@ -9,7 +9,8 @@
 # (Dunn 1964, Technometrics 6:241-252; via the rstatix package).
 #
 # Usage:
-#   Rscript 41_diversity.R --matrix MATRIX.tsv --out DIR [--metadata META.tsv --group-col COL]
+#   Rscript 41_diversity.R --matrix MATRIX.tsv --out DIR [--alpha ALPHA.tsv] [--metadata META.tsv --group-col COL]
+# ALPHA.tsv = steps/42_alpha_equal_depth.py output (alpha diversity at equal depth, one tool per file).
 # MATRIX.tsv = taxa (rows) x samples (cols), relative abundances.
 
 suppressMessages(suppressWarnings(library(vegan)))
@@ -24,6 +25,7 @@ mat_path  <- getopt("--matrix")
 out_dir   <- getopt("--out")
 meta_path <- getopt("--metadata", NA)
 group_col <- getopt("--group-col", NA)
+alpha_path <- getopt("--alpha", NA)
 # --min-abundance: relative fraction in [0,1). Default 1e-5 (== 0.001%, the
 # project's abundance_threshold_pct default). Scale-independent filter (see below).
 min_abund <- as.numeric(getopt("--min-abundance", "1e-5"))
@@ -101,22 +103,23 @@ if (ncol(scores) < 2) scores$PC2 <- 0                       # degenerate (single
 if (length(ve) < 2) ve <- c(ve, rep(0, 2 - length(ve)))
 write.csv(scores, file.path(out_dir, "pca_scores.csv"))
 
-# --- alpha diversity (on the original relative abundances) ---
-# vegan::diversity() drops a single-column matrix to a vector and then pools every
-# sample into one community; handle that case explicitly (a single taxon => 0 diversity).
-if (ncol(X) == 1) {
-  sh <- rep(0, nrow(X)); si <- rep(0, nrow(X))
+# --- alpha diversity: AT EQUAL DEPTH, from steps/42_alpha_equal_depth.py (--alpha TSV) ---
+# R1 (18/10/2026): richness grows with the number of reads, so it is no longer computed here on the relative
+# abundances; the equal-depth values of step 42 (rarefaction, Schloss 2024 mSphere 9:e00354-23) are used for the
+# group tests below. Without the table: no alpha outputs (beta above is unchanged).
+alpha <- NULL
+if (!is.na(alpha_path) && file.exists(alpha_path)) {
+  a <- read.delim(alpha_path, check.names = FALSE, stringsAsFactors = FALSE)
+  rownames(a) <- as.character(a$sample)
+  if (all(rownames(X) %in% rownames(a))) {
+    alpha <- data.frame(sample = rownames(X), a[rownames(X), c("richness", "shannon", "simpson", "reads_used", "status")],
+                        row.names = NULL)
+  } else {
+    message("[WARN] the equal-depth alpha table does not cover every sample -> no alpha outputs")
+  }
 } else {
-  sh <- vegan::diversity(X, index = "shannon")
-  si <- vegan::diversity(X, index = "simpson")
+  message("[WARN] no equal-depth alpha table (--alpha) -> no alpha outputs")
 }
-alpha <- data.frame(
-  sample   = rownames(X),
-  richness = rowSums(X > 0),
-  shannon  = sh,
-  simpson  = si,
-  row.names = NULL
-)
 
 # --- optional grouping: colour PCA + Kruskal-Wallis on alpha ---
 groups <- NULL
@@ -132,10 +135,10 @@ if (!is.na(meta_path) && !is.na(group_col) && file.exists(meta_path)) {
       message("[WARN] no metadata IDs match the matrix -> ungrouped")
       groups <- NULL
     } else {
-      alpha[[group_col]] <- groups
+      if (!is.null(alpha)) alpha[[group_col]] <- groups
     }
     # Kruskal-Wallis (global) per alpha metric, when there are >= 2 groups
-    if (length(unique(na.omit(groups))) >= 2) {
+    if (!is.null(alpha) && length(unique(na.omit(groups))) >= 2) {
       kw <- data.frame(
         metric = c("richness", "shannon", "simpson"),
         kruskal_p = c(
@@ -170,7 +173,7 @@ if (!is.na(meta_path) && !is.na(group_col) && file.exists(meta_path)) {
     }
   }
 }
-write.csv(alpha, file.path(out_dir, "alpha_diversity.csv"), row.names = FALSE)
+if (!is.null(alpha)) write.csv(alpha, file.path(out_dir, "alpha_diversity.csv"), row.names = FALSE)
 
 # --- PCA plot (Aitchison) ---
 png(file.path(out_dir, "pca_aitchison.png"), width = 1200, height = 1000, res = 150)
