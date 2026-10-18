@@ -17,6 +17,8 @@ $Conf = @{}
 $f = Join-Path $PSScriptRoot 'prova.conf'
 if (Test-Path $f) { Get-Content $f | ForEach-Object { if ($_ -match '^\s*(\w+)\s*=\s*(\S+)\s*$') { $Conf[$Matches[1]] = $Matches[2] } } }
 $CatalogoRel = if ($Conf.catalogo) { $Conf.catalogo } else { 'installer/catalogo.tsv' }
+$AppPacchetto = Join-Path $Radice 'app_windows\ProfileMetaNanni'   # c'e' solo nel pacchetto (costruisci_pacchetto.py), non nel repository
+$AppExe = Join-Path $Cartella 'app\ProfileMetaNanni.exe'
 
 function Scrivi($t) { "$(Get-Date -Format s)  $t" | Out-File -Append -Encoding utf8 $Log }
 function Finestra($t, $pulsanti = 'OK') {   # messaggio sempre in primo piano (il processo non ha una finestra sua)
@@ -118,13 +120,29 @@ function MessaggioSpazio($s) {   # $null se lo spazio basta; GB come li mostra E
     "Lo spazio sul disco non basta: servono circa $([Math]::Ceiling($s.Serve / 1GB)) GB sul disco $($s.Disco), ce ne sono $([Math]::Floor($s.Liberi / 1GB)).`n`n" +
     "Libera almeno $([Math]::Ceiling(($s.Serve - $s.Liberi) / 1GB)) GB e riapri l'installazione."
 }
+function Collegamenti {   # icona sul desktop e nel menu Start di questo utente (B1)
+    'Desktop', 'Programs' | ForEach-Object { Join-Path ([Environment]::GetFolderPath($_)) 'ProfileMetaNanni.lnk' }
+}
+function InstallaApp($sorgente, $exe, $collegamenti) {   # copia l'app (PyInstaller a cartella) e mette le icone; si puo' rifare
+    $dest = Split-Path $exe
+    if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }   # i file sono bloccati se l'app e' aperta: errore, lo dice chi chiama
+    Copy-Item -Recurse $sorgente $dest
+    $sh = New-Object -ComObject WScript.Shell
+    foreach ($c in $collegamenti) {   # l'icona la prende dall'exe
+        $l = $sh.CreateShortcut($c); $l.TargetPath = $exe; $l.WorkingDirectory = $dest; $l.Description = 'ProfileMetaNanni'; $l.Save()
+    }
+}
 if ($MyInvocation.InvocationName -eq '.') { return }   # caricato con ". installa_pmn.ps1" (prove): solo le funzioni
 
 New-Item -ItemType Directory -Force $Cartella | Out-Null
 [Windows.Forms.Application]::EnableVisualStyles()
 Scrivi "=== fase $Fase, cartella $Radice"
 
-# ===================== fase 1: WSL =====================
+# ===================== fase 1: app, poi WSL =====================
+if ($Fase -eq 1 -and (Test-Path $AppPacchetto)) {   # subito: l'icona c'e' anche se il motore si installa dopo un riavvio
+    try { InstallaApp $AppPacchetto $AppExe (Collegamenti); Scrivi "app copiata in $(Split-Path $AppExe), icone: $(Collegamenti)" }
+    catch { Scrivi "$_"; Ferma "Non riesco a copiare il programma ProfileMetaNanni.`nSe e' aperto, chiudilo e riapri l'installazione." }
+}
 if ($Fase -eq 1 -and -not (WslPronta)) {
     Avviso "Per funzionare, profilemetananni ha bisogno di un componente di Windows (WSL).`n`nTra poco Windows ti chiedera' il permesso: rispondi Si."
     try { $p = Start-Process wsl.exe -ArgumentList '--install', '--no-distribution' -Verb RunAs -WindowStyle Hidden -Wait -PassThru }
@@ -180,4 +198,7 @@ if ($c -ne 0) {
 }
 ChiudiBarra; NonRiprendere
 Scrivi 'Tutto pronto'
-Avviso "Tutto pronto: profilemetananni e' installato e funziona."
+if (Test-Path $AppExe) {   # alla fine si apre l'app (B1): col motore installato il pallino e' verde
+    Avviso "Tutto pronto: profilemetananni e' installato e funziona.`n`nOra apro il programma. Le prossime volte lo trovi sul desktop e nel menu Start: ProfileMetaNanni."
+    Start-Process $AppExe
+} else { Avviso "Tutto pronto: profilemetananni e' installato e funziona." }

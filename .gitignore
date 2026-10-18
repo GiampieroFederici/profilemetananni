@@ -54,3 +54,6 @@ implementazione/
 
 # Ambiente Python dell'app su Windows (S5a): si ricrea con app/requirements.txt
 app/.venv/
+
+# B1: pacchetto costruito da installer/windows/costruisci_pacchetto.py
+/build/
