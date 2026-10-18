@@ -109,18 +109,18 @@
 </table>
 <h2>4. Diversità alfa (quanti taxa e quanto sono distribuiti)</h2>
 <table border="0" cellpadding="8" width="100%"><tr><td bgcolor="#fff4d6"><b>Attenzione alla profondità.</b> La ricchezza (quanti taxa si trovano) cresce con il numero di read: con più read si trovano più taxa rari, anche nello stesso prodotto. Questo progetto ha un solo campione: i valori sono alla sua profondità. Confrontali solo con campioni analizzati alla stessa profondità.</td></tr></table>
-<p class="piccolo"><b>Ricchezza</b>: quanti taxa diversi. <b>Shannon</b>: cresce con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). <b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da taxa diversi.</p>
+<p class="piccolo"><b>Ricchezza</b> (N. specie, N. taxa): quanti taxa diversi. <b>Shannon</b>: cresce con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). <b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da taxa diversi.</p>
 <h3>MetaPhlAn</h3>
 <table border="1" cellspacing="0" cellpadding="4" width="100%">
-<tr><th bgcolor="#dfe8f1" align="left" width="30%">Campione</th><th bgcolor="#dfe8f1" align="left" width="14%">Read del campione</th><th bgcolor="#dfe8f1" align="left" width="14%">Read usate</th><th bgcolor="#dfe8f1" align="left" width="14%">Specie (ricchezza)</th><th bgcolor="#dfe8f1" align="left" width="14%">Shannon</th><th bgcolor="#dfe8f1" align="left" width="14%">Simpson</th></tr>
-<tr><td align="left">SRR4875279</td><td align="right">2.975.497</td><td align="right">2.975.497</td><td align="right">27</td><td align="right">1,68</td><td align="right">0,707</td></tr>
+<tr><th bgcolor="#dfe8f1" align="left" width="24%">Campione</th><th bgcolor="#dfe8f1" align="left" width="26%">Read usate</th><th bgcolor="#dfe8f1" align="left" width="16%">N. specie</th><th bgcolor="#dfe8f1" align="left" width="17%">Shannon</th><th bgcolor="#dfe8f1" align="left" width="17%">Simpson</th></tr>
+<tr><td align="left">SRR4875279</td><td align="right">2.975.497</td><td align="right">27</td><td align="right">1,68</td><td align="right">0,707</td></tr>
 </table>
 <p class="piccolo">Read entrate in MetaPhlAn, dopo aver tolto l'ospite. Nessuna soglia di abbondanza. Per i campioni con più read: un sottocampione casuale delle read (seme 1992), poi MetaPhlAn rifatto su quelle (una sola estrazione).</p>
 <h3>Kraken + Bracken</h3>
 <p class="piccolo"><b>Prototipo, non per decisioni</b> (come la sezione 3).</p>
 <table border="1" cellspacing="0" cellpadding="4" width="100%">
-<tr><th bgcolor="#dfe8f1" align="left" width="30%">Campione</th><th bgcolor="#dfe8f1" align="left" width="14%">Letture dei taxa</th><th bgcolor="#dfe8f1" align="left" width="14%">Letture usate</th><th bgcolor="#dfe8f1" align="left" width="14%">Taxa (ricchezza)</th><th bgcolor="#dfe8f1" align="left" width="14%">Shannon</th><th bgcolor="#dfe8f1" align="left" width="14%">Simpson</th></tr>
-<tr><td align="left">SRR4875279</td><td align="right">135.792</td><td align="right">135.792</td><td align="right">48</td><td align="right">2,01</td><td align="right">0,755</td></tr>
+<tr><th bgcolor="#dfe8f1" align="left" width="24%">Campione</th><th bgcolor="#dfe8f1" align="left" width="26%">Letture usate</th><th bgcolor="#dfe8f1" align="left" width="16%">N. taxa</th><th bgcolor="#dfe8f1" align="left" width="17%">Shannon</th><th bgcolor="#dfe8f1" align="left" width="17%">Simpson</th></tr>
+<tr><td align="left">SRR4875279</td><td align="right">135.792</td><td align="right">48</td><td align="right">2,01</td><td align="right">0,755</td></tr>
 </table>
 <p class="piccolo">Solo batteri, archei e funghi sopra la soglia di Kraken (0,005 %), con le letture stimate da Bracken. A profondità uguale si usa il valore atteso della rarefazione (la media di tutti i sottocampioni possibili): per questo la ricchezza può avere decimali.</p>
 <p class="piccolo">Metodo: rarefazione a profondità uguale (Schloss 2024, mSphere 9:e00354-23). La ricchezza osservata sottostima quella vera (Willis 2019, Front Microbiol 10:2407).</p>

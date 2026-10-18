@@ -365,7 +365,6 @@
  "Diversità_MetaPhlAn": "Diversity_MetaPhlAn",
  "Diversità_Kraken": "Diversity_Kraken",
  "Diversità alfa (quanti taxa e quanto sono distribuiti)": "Alpha diversity (how many taxa and how evenly they are spread)",
- "<b>Ricchezza</b>: quanti taxa diversi. <b>Shannon</b>: cresce con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). <b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da taxa diversi.": "<b>Richness</b>: how many different taxa. <b>Shannon</b>: grows with the number of taxa and with how evenly they are spread (0 = a single taxon). <b>Simpson</b> (from 0 to 1): the probability that two reads taken at random come from different taxa.",
  "Metodo: rarefazione a profondità uguale (Schloss 2024, mSphere 9:e00354-23). La ricchezza osservata sottostima quella vera (Willis 2019, Front Microbiol 10:2407).": "Method: rarefaction to equal depth (Schloss 2024, mSphere 9:e00354-23). The observed richness underestimates the true one (Willis 2019, Front Microbiol 10:2407).",
  "Read del campione": "Reads of the sample",
  "Read usate": "Reads used",
@@ -373,12 +372,16 @@
  "Letture usate": "Reads used",
  "<b>Attenzione alla profondità.</b> La ricchezza (quanti taxa si trovano) cresce con il numero di read: con più read si trovano più taxa rari, anche nello stesso prodotto.": "<b>Mind the depth.</b> Richness (how many taxa are found) grows with the number of reads: with more reads you find more rare taxa, even in the same product.",
  "Questo progetto ha un solo campione: i valori sono alla sua profondità. Confrontali solo con campioni analizzati alla stessa profondità.": "This project has a single sample: the values are at its own depth. Compare them only with samples analysed at the same depth.",
- "Per confrontare i campioni, qui i valori sono calcolati alla stessa profondità, quella del campione con meno read (colonna \"Read usate\"). Confrontali solo con campioni analizzati alla stessa profondità.": "To compare the samples, here the values are computed at the same depth, that of the sample with the fewest reads (column \"Reads used\"). Compare them only with samples analysed at the same depth.",
+ "Per confrontare i campioni, qui i valori sono calcolati alla stessa profondità, quella del campione con meno read (colonne \"Read usate\" e \"Letture usate\"). Confrontali solo con campioni analizzati alla stessa profondità.": "To compare the samples, here the values are computed at the same depth, that of the sample with the fewest reads (columns \"Reads used\"). Compare them only with samples analysed at the same depth.",
  "Specie (ricchezza)": "Species (richness)",
  "Read entrate in MetaPhlAn, dopo aver tolto l'ospite. Nessuna soglia di abbondanza. Per i campioni con più read: un sottocampione casuale delle read (seme 1992), poi MetaPhlAn rifatto su quelle (una sola estrazione).": "Reads that entered MetaPhlAn, after removing the host. No abundance threshold. For the deeper samples: a random subsample of the reads (seed 1992), then MetaPhlAn run again on it (a single draw).",
  "<b>Prototipo, non per decisioni</b> (come la sezione 3).": "<b>Prototype, not for decisions</b> (like section 3).",
  "Taxa (ricchezza)": "Taxa (richness)",
  "Solo batteri, archei e funghi sopra la soglia di Kraken ({soglia} %), con le letture stimate da Bracken. A profondità uguale si usa il valore atteso della rarefazione (la media di tutti i sottocampioni possibili): per questo la ricchezza può avere decimali.": "Only bacteria, archaea and fungi above the Kraken threshold ({soglia} %), with the reads estimated by Bracken. At equal depth the expected value of the rarefaction is used (the average over all possible subsamples): this is why the richness can have decimals.",
  "Stato": "Status",
- "<b>Non pareggiato</b> ({nomi}): mancano i file per rifare MetaPhlAn su meno read (analisi fatta prima del 18/10/2026). I valori sono alla profondità del campione: non confrontarli con gli altri.": "<b>Not equalized</b> ({nomi}): the files needed to run MetaPhlAn again on fewer reads are missing (analysis made before 18/10/2026). The values are at the depth of the sample: do not compare them with the others."
+ "<b>Non pareggiato</b> ({nomi}): mancano i file per rifare MetaPhlAn su meno read (analisi fatta prima del 18/10/2026). I valori sono alla profondità del campione: non confrontarli con gli altri.": "<b>Not equalized</b> ({nomi}): the files needed to run MetaPhlAn again on fewer reads are missing (analysis made before 18/10/2026). The values are at the depth of the sample: do not compare them with the others.",
+ "<b>Ricchezza</b> (N. specie, N. taxa): quanti taxa diversi. <b>Shannon</b>: cresce con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). <b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da taxa diversi.": "<b>Richness</b> (No. of species, No. of taxa): how many different taxa. <b>Shannon</b>: grows with the number of taxa and with how evenly they are spread (0 = a single taxon). <b>Simpson</b> (from 0 to 1): the probability that two reads taken at random come from different taxa.",
+ "N. specie": "No. of species",
+ "N. taxa": "No. of taxa",
+ "{usate} su {tutte}": "{usate} of {tutte}"
 }

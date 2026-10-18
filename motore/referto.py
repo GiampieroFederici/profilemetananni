@@ -227,11 +227,12 @@ def raccogli(risultati, cfg):
 
 
 def valori_diversita(r):
-    """[read, read usate, ricchezza, Shannon, Simpson] di una riga di diversita.tabella_*, già scritti per le persone:
-    la ricchezza attesa della rarefazione può avere decimali."""
-    ric = r["ricchezza"]
-    return [lingua.migliaia(f"{r['letture']:,}"), lingua.migliaia(f"{r['letture_usate']:,}"),
-            str(int(ric)) if float(ric).is_integer() else pct(ric, 1), pct(r["shannon"], 2), pct(r["simpson"], 3)]
+    """[read usate, ricchezza, Shannon, Simpson] di una riga di diversita.tabella_*, già scritti per le persone: "183.241
+    su 2.731.766" se il campione è stato pareggiato; la ricchezza attesa della rarefazione può avere decimali."""
+    ric, usate = r["ricchezza"], lingua.migliaia(f"{r['letture_usate']:,}")
+    if r["letture_usate"] != r["letture"]:
+        usate = _("{usate} su {tutte}", usate=usate, tutte=lingua.migliaia(f"{r['letture']:,}"))
+    return [usate, str(int(ric)) if float(ric).is_integer() else pct(ric, 1), pct(r["shannon"], 2), pct(r["simpson"], 3)]
 
 
 def html_diversita(d):
@@ -246,17 +247,18 @@ def html_diversita(d):
                   (_("Questo progetto ha un solo campione: i valori sono alla sua profondità. Confrontali solo con "
                      "campioni analizzati alla stessa profondità.") if uno else
                    _("Per confrontare i campioni, qui i valori sono calcolati alla stessa profondità, quella del "
-                     "campione con meno read (colonna \"Read usate\"). Confrontali solo con campioni analizzati alla "
-                     "stessa profondità."))),
-         '<p class="piccolo">' + _("<b>Ricchezza</b>: quanti taxa diversi. <b>Shannon</b>: cresce con il numero di "
-                                   "taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). "
+                     "campione con meno read (colonne \"Read usate\" e \"Letture usate\"). Confrontali solo con "
+                     "campioni analizzati alla stessa profondità."))),
+         '<p class="piccolo">' + _("<b>Ricchezza</b> (N. specie, N. taxa): quanti taxa diversi. <b>Shannon</b>: cresce "
+                                   "con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo "
+                                   "taxon). "
                                    "<b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da "
                                    "taxa diversi.") + "</p>"]
     if div["metaphlan"]:
         h.append("<h3>MetaPhlAn</h3>")
-        h.append(tabella([_("Campione"), _("Read del campione"), _("Read usate"), _("Specie (ricchezza)"), "Shannon",
-                          "Simpson"], [[e(r["campione"])] + valori_diversita(r) for r in div["metaphlan"]],
-                         (1, 2, 3, 4, 5), [30, 14, 14, 14, 14, 14]))
+        h.append(tabella([_("Campione"), _("Read usate"), _("N. specie"), "Shannon", "Simpson"],
+                         [[e(r["campione"])] + valori_diversita(r) for r in div["metaphlan"]], (1, 2, 3, 4),
+                         [24, 26, 16, 17, 17]))
         h.append('<p class="piccolo">' + _("Read entrate in MetaPhlAn, dopo aver tolto l'ospite. Nessuna soglia di "
                                            "abbondanza. Per i campioni con più read: un sottocampione casuale delle "
                                            "read (seme 1992), poi MetaPhlAn rifatto su quelle (una sola estrazione).")
@@ -270,9 +272,9 @@ def html_diversita(d):
     if div["kraken"]:
         h.append("<h3>Kraken + Bracken</h3>")
         h.append('<p class="piccolo">' + _("<b>Prototipo, non per decisioni</b> (come la sezione 3).") + "</p>")
-        h.append(tabella([_("Campione"), _("Letture dei taxa"), _("Letture usate"), _("Taxa (ricchezza)"), "Shannon",
-                          "Simpson"], [[e(r["campione"])] + valori_diversita(r) for r in div["kraken"]],
-                         (1, 2, 3, 4, 5), [30, 14, 14, 14, 14, 14]))
+        h.append(tabella([_("Campione"), _("Letture usate"), _("N. taxa"), "Shannon", "Simpson"],
+                         [[e(r["campione"])] + valori_diversita(r) for r in div["kraken"]], (1, 2, 3, 4),
+                         [24, 26, 16, 17, 17]))
         h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi sopra la soglia di Kraken ({soglia} %), con "
                                            "le letture stimate da Bracken. A profondità uguale si usa il valore atteso "
                                            "della rarefazione (la media di tutti i sottocampioni possibili): per questo "
