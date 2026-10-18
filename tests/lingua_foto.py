@@ -100,7 +100,11 @@ def foto_app(lingua_scelta=None):
     """{caso: [testi]} dell'app con il finto motore. lingua_scelta: None = quella predefinita (l'italiano)."""
     from PySide6.QtWidgets import QApplication, QPushButton
     from app import finestra, main, progetto
-    from app.lingua import _ as tr
+    try:                                  # sul codice di prima della lingua (nuova fotografia per l'unione) non c'è
+        from app.lingua import _ as tr
+    except ImportError:
+        def tr(testo):
+            return testo
     from app.pagine import esecuzione, scelte, sicurezza
     from app.pagine.base import numero
 
