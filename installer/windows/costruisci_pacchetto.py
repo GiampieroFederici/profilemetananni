@@ -9,6 +9,7 @@ Uscita in build\\pacchetto\\: la cartella profilemetananni\\ e profilemetananni_
     installer\\ motore\\ bin\\ steps\\ refs\\   i file del motore, solo quelli in git (prepara_pmn.sh li copia nella WSL)
 Le librerie (PyInstaller, Pillow) sono in installer/windows/requisiti_pacchetto.txt.
 """
+import base64
 import shutil
 import subprocess
 import sys
@@ -23,8 +24,18 @@ USCITA = BUILD / "pacchetto"
 PACCHETTO = USCITA / "profilemetananni"
 MOTORE = ["installer", "motore", "bin", "steps", "refs"]     # come prepara_pmn.sh
 ESCLUSI = {"installer/windows/prova.conf"}                   # solo per le prove con lo specchio locale
+# B2: col doppio clic dentro lo zip Windows estrae solo il .cmd in %TEMP%: l'installatore manca e prima non succedeva
+# nulla. Il messaggio va a PowerShell codificato (UTF-16 in base64), così il .cmd resta ASCII e le lettere accentate restano.
+ESTRAI = ("Add-Type -AssemblyName System.Windows.Forms; "
+          "$o = New-Object Windows.Forms.Form -Property @{ TopMost = $true }; "
+          "[void][Windows.Forms.MessageBox]::Show($o, \"Il programma è ancora dentro il file zip: da qui non può installarsi."
+          "`n`nFai così:`n1. premi OK;`n2. fai clic destro sul file zip e scegli 'Estrai tutto...', poi 'Estrai';"
+          "`n3. nella cartella che si apre, fai doppio clic su 'Installa profilemetananni'.\", "
+          "'profilemetananni', 'OK', 'Information')")
 LANCIATORE = ('@echo off\r\n'
               'rem Doppio clic per installare profilemetananni: app, ambiente Linux (WSL) e motore.\r\n'
+              'if not exist "%~dp0installer\\windows\\installa_pmn.ps1" (start "" conhost.exe --headless powershell.exe '
+              '-NoProfile -EncodedCommand ' + base64.b64encode(ESTRAI.encode("utf-16-le")).decode("ascii") + ' & exit /b 1)\r\n'
               'start "" conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass '
               '-File "%~dp0installer\\windows\\installa_pmn.ps1"\r\n')
 

@@ -48,3 +48,18 @@ def test_pacchetto_come_prepara_pmn():
     bersaglio = c.LANCIATORE.split('"%~dp0')[1].split('"')[0].replace("\\", "/")
     assert (RADICE / bersaglio) == PS1                                           # il doppio clic avvia l'installatore vero
     assert "--headless" in c.LANCIATORE and c.LANCIATORE.endswith("\r\n")        # niente finestra nera; .cmd con CRLF
+
+
+def test_doppio_clic_dentro_lo_zip_spiega_come_estrarre():
+    """B2: dal doppio clic dentro lo zip Windows estrae solo il .cmd in %TEMP%: senza controllo non succedeva nulla."""
+    import base64
+    sys.path.insert(0, str(RADICE / "installer" / "windows"))
+    import costruisci_pacchetto as c
+    righe = c.LANCIATORE.split("\r\n")
+    controllo = next(i for i, r in enumerate(righe) if r.startswith('if not exist "%~dp0installer\windows\installa_pmn.ps1"'))
+    avvio = next(i for i, r in enumerate(righe) if "-File" in r)
+    assert controllo < avvio                                                     # prima controlla, poi installa
+    codice = righe[controllo].split("-EncodedCommand ")[1].split()[0].rstrip(")")
+    testo = base64.b64decode(codice).decode("utf-16-le")
+    assert "Estrai tutto" in testo and "Installa profilemetananni" in testo and "TopMost" in testo
+    c.LANCIATORE.encode("ascii")                                                 # il .cmd resta ASCII
