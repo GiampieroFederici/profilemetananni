@@ -42,8 +42,8 @@ $TESTI = [ordered]@{
                    "WSL could not be turned on (code {0}). Try again; if it happens again, send us the file shown below.")
     disco = @("Non trovo un disco interno adatto (NTFS) per installare profilemetananni.",
               "I cannot find a suitable internal disk (NTFS) to install profilemetananni.")
-    linux_barra = @("Preparo l'ambiente Linux di profilemetananni (qualche minuto)...`nWindows può aprire una sua finestra di benvenuto: non serve, la chiudo io.",
-                    "Preparing the Linux environment of profilemetananni (a few minutes)...`nWindows may open a welcome window of its own: it is not needed, I will close it.")
+    linux_barra = @("Preparo l'ambiente Linux di profilemetananni (qualche minuto)...",
+                    "Preparing the Linux environment of profilemetananni (a few minutes)...")
     linux_codice = @("Non riesco a preparare l'ambiente Linux (codice {0}).`nControlla la connessione a internet e riapri l'installazione.",
                      "I cannot prepare the Linux environment (code {0}).`nCheck the internet connection and open the installation again.")
     utente_barra = @("Preparo l'utente e i file di profilemetananni...", "Preparing the user and the files of profilemetananni...")
@@ -141,6 +141,13 @@ function ChiudiBenvenuto($dopo, $nome = 'wslsettings', $secondi = 15) {   # B2 (
         [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 300
     }
 }
+function SaltaBenvenuto($chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss') {   # B2 (P4, decisione di Giampiero)
+    # Il servizio WSL apre "Benvenuto in WSL" dopo la registrazione della prima distribuzione se manca OOBEComplete
+    # (microsoft/WSL, src/windows/service/exe/LxssUserSession.cpp, _LaunchOOBEIfNeeded; lo scrive poi WSL stesso).
+    # Solo per questo utente; se Microsoft cambia, la finestra ricompare e la chiude ChiudiBenvenuto.
+    if (-not (Test-Path $chiave)) { New-Item -Path $chiave -Force | Out-Null }
+    New-ItemProperty -Path $chiave -Name OOBEComplete -Value 1 -PropertyType DWord -Force | Out-Null
+}
 function RiavvioInSospeso { Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' }
 function WslPronta {   # wsl --status da' 0 anche quando WSL2 parte solo dopo il riavvio (S3-W, VM): conta anche il riavvio in sospeso
     $c = Attendi (Avvia '--status'); $r = RiavvioInSospeso; Scrivi "  riavvio in sospeso: $r"
@@ -236,6 +243,7 @@ if ($m) { Ferma $m }
 if (($script:Uscita | ForEach-Object { $_.Trim() }) -notcontains 'pmn') {
     MostraBarra (T 'linux_barra') $null
     New-Item -ItemType Directory -Force $s.Dove | Out-Null
+    SaltaBenvenuto
     $inizio = Get-Date
     $c = Attendi (Avvia "--install Ubuntu-24.04 --name pmn --location `"$($s.Dove)`" --no-launch")
     ChiudiBenvenuto $inizio
@@ -250,12 +258,13 @@ if ((Attendi (Avvia "-d pmn -u root --cd `"$PSScriptRoot`" -- bash prepara_pmn.s
 # peso, spazio e tempo PRIMA di scaricare (D034): il motore misura la rete con --stima; lo spazio vero e' quello di Windows
 $motore = "-d pmn -u pmn -- bash /home/pmn/profilemetananni/installer/installa_motore.sh --json --catalogo /home/pmn/profilemetananni/$CatalogoRel"
 if ($Conf.specchio) { $motore += " --specchio $($Conf.specchio)" }
+if ($Lingua -ne 'it') { $motore += " --lingua $Lingua" }   # P12: anche le righe del motore nella barra nella lingua di Windows
 MostraBarra (T 'rete_barra') $null
 $script:Eventi = @()
 $c = Attendi (Avvia "$motore --stima") { param($r) $e = Evento $r; if ($e) { $script:Eventi += $e } }
 $errore = $script:Eventi | Where-Object tipo -eq 'errore' | Select-Object -Last 1
 if ($c -ne 0) { Ferma $(if ($errore) { (T 'cosa_fare') -f $errore.messaggio, $errore.cosa_fare } else { (T 'preparazione_ferma') -f $c }) }
-$gb = $script:Eventi | ForEach-Object { if ($_.messaggio -match '^Da scaricare: circa (\d+) GB') { $Matches[1] } } | Select-Object -First 1
+$gb = [Math]::Round(($script:Eventi | Where-Object tipo -eq 'fine' | Select-Object -Last 1).risultato.da_scaricare_gb)   # P12: il numero, non il testo
 $tempo = ($script:Eventi | Where-Object { $_.passo -eq 'controllo' -and $_.percentuale -eq 2 }).messaggio   # velocita' e tempo stimato
 ChiudiBarra
 $testo = (T 'domanda_scarico') -f $gb, $s.Disco, [Math]::Ceiling($s.Serve / 1GB), [Math]::Floor($s.Liberi / 1GB), $tempo

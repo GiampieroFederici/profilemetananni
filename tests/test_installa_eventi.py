@@ -61,7 +61,7 @@ def test_stima_reports_the_numbers(tmp_path):
     assert rc == 0
     r = ev[-1]["risultato"]
     assert r["da_scaricare_gb"] == 0 and r["tempo_stimato_s"] == 0 and r["spazio_libero_gb"] > 0
-    # the Windows part (installa_pmn.ps1) reads this message by its text
+    # Italian by default, as before (since B2 the Windows part reads the number from the result, not this text)
     assert any(e["messaggio"].startswith("Da scaricare: circa 0 GB") for e in ev)
 
 
@@ -113,6 +113,18 @@ def test_messages_with_real_accents_and_decimal_comma():
     testo = open(INSTALLA, encoding="utf-8").read()
     messaggi = [r for r in testo.splitlines() if re.search(r"\b(evento|fallisci)\b", r) and not r.lstrip().startswith("#")]
     assert not [r for r in messaggi if re.search(r"\b(e|piu|gia|puo|velocita|cosi)'(?=[\s.,:;)!?])", r)]
-    riga = next(r for r in testo.splitlines() if r.startswith("mb_s()"))
-    out = subprocess.run(["bash", "-c", riga + "\nmb_s 57234567"], capture_output=True, text=True).stdout
-    assert out.strip() == "57,2"
+    righe = "\n".join(r for r in testo.splitlines() if r.startswith(("num()", "mb_s()")))
+    for lingua, atteso in (("it", "57,2"), ("en", "57.2")):
+        out = subprocess.run(["bash", "-c", f"LINGUA={lingua}\n{righe}\nmb_s 57234567"],
+                             capture_output=True, text=True).stdout
+        assert out.strip() == atteso
+
+
+def test_stima_in_english(tmp_path):
+    """B2 (P12): with --lingua en (or PMN_LINGUA=en, set by pmn-motore) the messages for the person are in English;
+    without, Italian as before."""
+    home, c = catalogo(tmp_path)
+    out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO, "--lingua", "en")
+    ev = controlla(out, rc, "installa")
+    assert rc == 0 and any(e["messaggio"].startswith("To download: about 0 GB") for e in ev)
+    assert ev[-1]["messaggio"] == "Estimate ready: I have not downloaded anything."

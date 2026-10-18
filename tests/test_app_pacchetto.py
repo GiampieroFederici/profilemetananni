@@ -122,9 +122,9 @@ def test_messaggi_con_gli_accenti_veri():
     assert rimasti == []
 
 
-def test_benvenuto_di_wsl_annunciato_e_chiuso():
+def test_benvenuto_di_wsl_chiuso_se_compare():
     """B2 (P4): dopo la registrazione di Ubuntu il servizio WSL apre da solo "Benvenuto in WSL" (wslsettings.exe,
-    LxssUserSession.cpp _LaunchOOBEIfNeeded). L'installatore lo annuncia e chiude solo le finestre nate dopo l'inizio."""
+    LxssUserSession.cpp _LaunchOOBEIfNeeded). Rete di sicurezza: si chiudono solo le finestre nate dopo l'inizio."""
     import time
     finestra = subprocess.Popen(["powershell.exe", "-NoProfile", "-Command",
                                  "Add-Type -AssemblyName System.Windows.Forms; "
@@ -139,7 +139,6 @@ def test_benvenuto_di_wsl_annunciato_e_chiuso():
     testo = PS1.read_text(encoding="utf-8-sig")
     i = testo.index("--install Ubuntu-24.04")
     assert "MostraBarra (T 'linux_barra')" in testo[testo.rindex("MostraBarra", 0, i):i]
-    assert all("benvenuto" in s or "welcome" in s for s in _testi_ps1()["linux_barra"])   # annunciato nella barra
     assert "ChiudiBenvenuto" in testo[i:testo.index("prepara_pmn.sh")]           # chiuso subito dopo
 
 
@@ -193,3 +192,42 @@ def test_messaggio_estrai_in_due_lingue():
     riga = next(r for r in c.LANCIATORE.split("\r\n") if r.startswith("if not exist"))
     testo = base64.b64decode(riga.split("-EncodedCommand ")[1].split()[0]).decode("utf-16-le")
     assert "Get-UICulture" in testo and "Estrai tutto" in testo and "Extract All" in testo
+
+
+def test_benvenuto_di_wsl_evitato_con_oobecomplete():
+    """B2 (P4, decisione di Giampiero): OOBEComplete=1 per l'utente PRIMA della prima distribuzione, così il servizio
+    WSL non apre "Benvenuto in WSL"; la chiusura automatica resta come rete di sicurezza."""
+    chiave = r"HKCU:\Software\ProfileMetaNanni_prova_B2\Lxss"
+    try:
+        powershell(f". '{PS1}'; SaltaBenvenuto '{chiave}'")
+        tipo = powershell(f"(Get-Item '{chiave}').GetValueKind('OOBEComplete')").strip()
+        valore = powershell(f"(Get-ItemProperty '{chiave}').OOBEComplete").strip()
+        assert (tipo, valore) == ("DWord", "1")
+    finally:
+        powershell(r"Remove-Item -Recurse -Force 'HKCU:\Software\ProfileMetaNanni_prova_B2' -ErrorAction SilentlyContinue")
+    testo = PS1.read_text(encoding="utf-8-sig")
+    i = testo.index("--install Ubuntu-24.04")
+    assert "SaltaBenvenuto" in testo[testo.rindex("MostraBarra", 0, i):i]          # prima della registrazione
+    assert "_LaunchOOBEIfNeeded" in testo                                            # riferimento al sorgente di WSL
+
+
+def test_messaggi_del_motore_in_inglese():
+    """B2 (P12): ogni frase che installa_motore.sh passa a T ha la traduzione nella tabella EN, con gli stessi %s."""
+    import re
+    testo = (RADICE / "installer" / "installa_motore.sh").read_text(encoding="utf-8")
+    tabella = dict(re.findall(r'^  \["(.*)"\]="(.*)"$', testo, re.M))
+    usate = set(re.findall(r"\$\(T '([^']*)'", testo)) | set(re.findall(r'\$\(T "([^"]*)"', testo))
+    assert len(usate) >= 40
+    assert sorted(usate - set(tabella)) == []
+    for it in usate:
+        assert it.count("%s") == tabella[it].count("%s"), it
+        assert "\u2014" not in tabella[it] and "microb" not in tabella[it].lower()
+
+
+
+def test_installatore_passa_la_lingua_al_motore():
+    """B2 (P12): con Windows in inglese anche le righe del motore nella barra sono in inglese; i GB da scaricare si
+    leggono dal risultato della stima (un numero), non dal testo italiano."""
+    testo = PS1.read_text(encoding="utf-8-sig")
+    assert "if ($Lingua -ne 'it') { $motore += \" --lingua $Lingua\" }" in testo
+    assert "Da scaricare: circa" not in testo and "da_scaricare_gb" in testo

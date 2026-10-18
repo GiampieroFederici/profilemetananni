@@ -66,10 +66,9 @@
 - **Testi già salvati nei risultati**: le frasi del motore in `risultati.json` (sintesi, motivi del triage, citazioni,
   note FSSP) restano nella lingua della corsa. Se si cambia lingua dopo l'analisi, le pagine sono in inglese ma quelle
   frasi restano in italiano fino a una nuova analisi.
-- **Installatore Windows** (`installer/windows/installa_pmn.ps1` e il messaggio "estrai prima" del `.cmd`): in italiano e
-  in inglese dal 18/10 (B2, P12), lingua presa da Windows (vedi §6). Le righe che arrivano dal motore dentro la sua barra
-  ("Scarico...", "Velocità misurata...") restano in italiano, perché vengono da `installa_motore.sh`.
-- **Installazione del motore** (`installer/installa_motore.sh`, bash) e **nomi dei controlli** della verifica vera
+- **Installatore Windows** (`installer/windows/installa_pmn.ps1` e il messaggio "estrai prima" del `.cmd`) e
+  **installazione del motore** (`installer/installa_motore.sh`): in italiano e in inglese dal 18/10 (B2, P12), vedi §6.
+- **Nomi dei controlli** della verifica vera
   (`installer/verifica_motore.sh`): ancora solo in italiano. Il finto motore li ha in inglese.
 - **Plurale "1 seconds"**: come in italiano oggi ("1 secondi"), la durata non distingue il singolare.
 - **Nomi di prova** come `esempio_SF3RAt7` (cartella del progetto d'esempio) restano uguali in tutte le lingue.
@@ -101,3 +100,20 @@ imposta anche l'app in inglese, se la persona non ha già scelto.
 | finestra di benvenuto | welcome window | |
 | Estrai tutto... / Estrai (menu di Windows) | Extract All... / Extract | sono i nomi del menu di Windows in inglese |
 | Dettagli tecnici nel file | Technical details in the file | |
+
+Installazione del motore (`installer/installa_motore.sh`): tabella `EN` in cima allo script, la frase italiana è la
+chiave (come nell'app); la lingua arriva con `--lingua en` (dall'installatore Windows) o con `PMN_LINGUA` (da
+`pmn-motore`). Numeri: virgola in italiano, punto in inglese.
+
+| Italiano | Inglese (prima stesura) | Da decidere |
+|---|---|---|
+| gestore dei programmi (micromamba) | program manager (micromamba) | "package manager"? |
+| ambiente (dei programmi) | environment | |
+| catalogo dei database | database catalogue | "catalog" (americano)? |
+| specchio locale | local mirror | |
+| rovinato (MD5 diverso) | damaged (different MD5) | "corrupted"? |
+| archivio da estrarre | archive to extract | |
+| Rilancia / rilanciala | Run it again | |
+| Prova finale su un piccolo campione | Final test on a small sample | |
+| VERDE / ROSSO | GREEN / RED | come nell'app |
+
