@@ -1,6 +1,8 @@
 """Campo di validità dei modelli (M8): avvisa quando una previsione esce dai dati con cui il modello
 è stato costruito e validato. Fonte: pagine di aiuto di FSSP 4.0 ("Range of applicability"),
 da Mejlholm & Dalgaard (2009, 2013, 2015)."""
+import lingua
+from lingua import N_, _
 
 # (minimo, massimo); acidi in ppm nella fase acquosa, nitrito in ppm nel prodotto, CO2 in % (spazio di testa)
 _LISTERIA = {"temperatura": (2.0, 25.0), "co2": (0.0, 100.0), "sale_fase_acquosa": (0.7, 9.0),
@@ -17,16 +19,18 @@ CAMPI = {
     "listeria_lab": dict(_LISTERIA, diacetato=(0.0, 3000.0)),
 }
 
-NOMI = {"temperatura": "temperatura (°C)", "co2": "CO2 (%)", "sale_fase_acquosa": "sale nella fase acquosa (%)",
-        "ph": "pH", "fenoli": "fenoli del fumo (ppm)", "nitrito": "nitrito (ppm)",
-        "acetico": "acido acetico (ppm)", "benzoico": "acido benzoico (ppm)", "citrico": "acido citrico (ppm)",
-        "diacetato": "diacetato (ppm)", "lattico": "acido lattico (ppm)", "sorbico": "acido sorbico (ppm)"}
+NOMI = {"temperatura": N_("temperatura (°C)"), "co2": "CO2 (%)", "sale_fase_acquosa": N_("sale nella fase acquosa (%)"),
+        "ph": "pH", "fenoli": N_("fenoli del fumo (ppm)"), "nitrito": N_("nitrito (ppm)"),
+        "acetico": N_("acido acetico (ppm)"), "benzoico": N_("acido benzoico (ppm)"),
+        "citrico": N_("acido citrico (ppm)"), "diacetato": N_("diacetato (ppm)"), "lattico": N_("acido lattico (ppm)"),
+        "sorbico": N_("acido sorbico (ppm)")}
 
 
 def numero_it(v, cifre=2):
-    """Numero per i testi all'utente, all'italiana: 13.9875 -> "13,99", 60000 -> "60.000", 5.0 -> "5"."""
-    testo = f"{v:,.{cifre}f}".replace(",", " ").replace(".", ",").replace(" ", ".")
-    return testo.rstrip("0").rstrip(",") if "," in testo else testo
+    """Numero per i testi all'utente, nella lingua scelta (all'italiana: 13.9875 -> "13,99", 60000 -> "60.000",
+    5.0 -> "5"; con l'inglese "13.99", "60,000", "5")."""
+    testo = lingua.separatori(f"{v:,.{cifre}f}")
+    return testo.rstrip("0").rstrip(lingua.decimale()) if lingua.decimale() in testo else testo
 
 
 def avvisi(modello, prodotto, profilo=None):
@@ -46,7 +50,7 @@ def avvisi(modello, prodotto, profilo=None):
             continue
         visti.add((fattore, v))
         uscita.append({"codice": "FUORI_CAMPO", "fattore": fattore, "valore": v, "campo": [lo, hi],
-                       "messaggio": f"{NOMI[fattore]} = {numero_it(v)}: fuori dal campo del modello "
-                                    f"({numero_it(lo)}-{numero_it(hi)}). "
-                                    "La previsione è un'estrapolazione: usala con cautela."})
+                       "messaggio": _("{fattore} = {valore}: fuori dal campo del modello ({lo}-{hi}). La previsione "
+                                      "è un'estrapolazione: usala con cautela.", fattore=_(NOMI[fattore]),
+                                      valore=numero_it(v), lo=numero_it(lo), hi=numero_it(hi))})
     return uscita

@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QLineEdit, QPushButton, QVBoxLayout
 
 from app import progetto
+from app.lingua import N_, _
 from app.pagine.base import Pagina, etichetta, pannello, riquadro, svuota
 from app.pagine.progetto import regola
 
@@ -19,13 +20,13 @@ NOME_ESEMPIO = "esempio_SF3RAt7"
 
 
 class PaginaHome(Pagina):
-    titolo = "I miei progetti"
-    testo_principale = "Nuovo progetto"
+    titolo = N_("I miei progetti")
+    testo_principale = N_("Nuovo progetto")
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
-        self.corpo.addWidget(etichetta("Un progetto raccoglie i campioni di un lotto o di uno studio, "
-                                       "le scelte fatte e i risultati."))
+        self.corpo.addWidget(etichetta(_("Un progetto raccoglie i campioni di un lotto o di uno studio, "
+                                         "le scelte fatte e i risultati.")))
         self.zona_motore = QVBoxLayout()
         self.corpo.addLayout(self.zona_motore)
         self.zona_elenco = QVBoxLayout()
@@ -33,10 +34,10 @@ class PaginaHome(Pagina):
         self.errore_elenco = QVBoxLayout()        # vicino all'elenco (R9)
         self.corpo.addLayout(self.errore_elenco)
 
-        self.esempio, s = pannello("Vuoi provare subito?")
+        self.esempio, s = pannello(_("Vuoi provare subito?"))
         self.frase_esempio = etichetta("")
         s.addWidget(self.frase_esempio)
-        b = QPushButton("Prova il campione d'esempio", objectName="secondario")
+        b = QPushButton(_("Prova il campione d'esempio"), objectName="secondario")
         b.clicked.connect(self.prova_esempio)
         s.addWidget(b, 0, Qt.AlignLeft)
         self.errore_esempio = QVBoxLayout()
@@ -44,15 +45,15 @@ class PaginaHome(Pagina):
         self.corpo.addWidget(self.esempio)
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Nuovo progetto", "sottotitolo"))
-        self.corpo.addWidget(etichetta("Nome del nuovo progetto", "etichetta_campo"))
+        self.corpo.addWidget(etichetta(_("Nuovo progetto"), "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Nome del nuovo progetto"), "etichetta_campo"))
         self.nome = QLineEdit()
         self.nome.setMaximumWidth(560)
-        self.nome.setAccessibleName("Nome del nuovo progetto")
+        self.nome.setAccessibleName(_("Nome del nuovo progetto"))
         self.nome.returnPressed.connect(self.azione_principale)
         self.corpo.addWidget(self.nome)
-        self.corpo.addWidget(etichetta("Lo usi tu per ritrovarlo. Lettere senza accenti, numeri, punto, trattino e "
-                                       "trattino basso, senza spazi: per esempio salame_lotto_12.", "nota"))
+        self.corpo.addWidget(etichetta(_("Lo usi tu per ritrovarlo. Lettere senza accenti, numeri, punto, trattino e "
+                                         "trattino basso, senza spazi: per esempio salame_lotto_12."), "nota"))
         self.errore = QVBoxLayout()
         self.corpo.addLayout(self.errore)
 
@@ -60,14 +61,14 @@ class PaginaHome(Pagina):
         svuota(self.zona_motore)
         if self.contesto.info is None:
             self.zona_motore.addWidget(riquadro(
-                "Il motore non ha risposto.",
-                "Puoi preparare i progetti, ma per l'analisi serve il motore: apri la pagina Motore in alto.",
+                _("Il motore non ha risposto."),
+                _("Puoi preparare i progetti, ma per l'analisi serve il motore: apri la pagina Motore in alto."),
                 "avviso"))
         corsa = self.contesto.progetto_in_analisi
         if corsa is not None:
             self.zona_motore.addWidget(riquadro(
-                f"Un'analisi è in corso sul progetto {corsa.nome}.",
-                "Finché non finisce puoi aprire solo quel progetto. Per aprirne un altro, prima ferma l'analisi.",
+                _("Un'analisi è in corso sul progetto {nome}.", nome=corsa.nome),
+                _("Finché non finisce puoi aprire solo quel progetto. Per aprirne un altro, prima ferma l'analisi."),
                 "avviso"))
         svuota(self.errore)
         svuota(self.errore_elenco)
@@ -75,8 +76,8 @@ class PaginaHome(Pagina):
         es = (self.contesto.info or {}).get("esempio")
         self.esempio.setVisible(bool(es))
         if es:
-            self.frase_esempio.setText(f"{es['frase']} Lo analizzo con le scelte consigliate: vedi come funziona "
-                                       "senza preparare nulla.")
+            self.frase_esempio.setText(es["frase"] + _(" Lo analizzo con le scelte consigliate: vedi come funziona "
+                                                       "senza preparare nulla."))
         self._elenco()
         if not self.nome.text():
             self.nome.setText(self._nome_proposto())
@@ -101,33 +102,33 @@ class PaginaHome(Pagina):
         progetti = self._progetti()
         if not progetti:
             self.zona_elenco.addWidget(riquadro(
-                "Nessun progetto.", "Scrivi il nome qui sotto e premi Nuovo progetto.", "info"))
-            self.zona_elenco.addWidget(etichetta("Primo avvio? Il motore si installa una volta sola: lo trovi in "
-                                                 "alto, alla voce Motore.", "nota"))
+                _("Nessun progetto."), _("Scrivi il nome qui sotto e premi Nuovo progetto."), "info"))
+            self.zona_elenco.addWidget(etichetta(_("Primo avvio? Il motore si installa una volta sola: lo trovi in "
+                                                   "alto, alla voce Motore."), "nota"))
             return
         p, s = pannello()
         griglia = QGridLayout()
         griglia.setHorizontalSpacing(28)
         griglia.setVerticalSpacing(6)
-        for colonna, testo in enumerate(("Progetto", "Stato", "Ultima modifica")):
+        for colonna, testo in enumerate((_("Progetto"), _("Stato"), _("Ultima modifica"))):
             griglia.addWidget(etichetta(testo, "etichetta_campo"), 0, colonna)
         for riga, pr in enumerate(progetti, start=1):
             apri = QPushButton(pr.nome, objectName="apri")
-            apri.setToolTip("Apri il progetto")
-            apri.setAccessibleName(f"Apri il progetto {pr.nome}")
+            apri.setToolTip(_("Apri il progetto"))
+            apri.setAccessibleName(_("Apri il progetto {nome}", nome=pr.nome))
             apri.clicked.connect(lambda _=False, q=pr: self.apri(q))
             griglia.addWidget(apri, riga, 0)
             pronto = (pr.risultati / "risultati.json").is_file()
             corsa = self.contesto.progetto_in_analisi
             gira = corsa is not None and pr.cartella.resolve() == corsa.cartella.resolve()
-            griglia.addWidget(etichetta("Analisi in corso" if gira else "Risultati pronti" if pronto else
-                                        "Da avviare"), riga, 1)
+            griglia.addWidget(etichetta(_("Analisi in corso") if gira else _("Risultati pronti") if pronto else
+                                        _("Da avviare")), riga, 1)
             quando = datetime.fromtimestamp(pr.config.stat().st_mtime)
             griglia.addWidget(etichetta(f"{quando:%d/%m/%Y, %H:%M}"), riga, 2)
         griglia.setColumnStretch(3, 1)
         s.addLayout(griglia)
         self.zona_elenco.addWidget(p)
-        self.zona_elenco.addWidget(etichetta("Premi il nome di un progetto per aprirlo.", "nota"))
+        self.zona_elenco.addWidget(etichetta(_("Premi il nome di un progetto per aprirlo."), "nota"))
 
     def occupato(self, pr=None):
         """True (e lo spiega vicino a dove si è premuto) se un'analisi gira su un progetto diverso da pr."""
@@ -136,8 +137,8 @@ class PaginaHome(Pagina):
             return False
         zona = self.errore if pr is None else self.errore_elenco
         svuota(zona)
-        zona.addWidget(riquadro(f"Un'analisi è in corso sul progetto {corsa.nome}.",
-                                "Prima fermala dalla pagina Analisi in corso, poi apri o crea l'altro progetto.",
+        zona.addWidget(riquadro(_("Un'analisi è in corso sul progetto {nome}.", nome=corsa.nome),
+                                _("Prima fermala dalla pagina Analisi in corso, poi apri o crea l'altro progetto."),
                                 "errore"))
         return True
 
@@ -170,8 +171,8 @@ class PaginaHome(Pagina):
         try:
             pr = progetto.nuovo(NOME_ESEMPIO)
         except (OSError, ValueError):
-            self.errore_esempio.addWidget(riquadro("Non riesco a creare il progetto d'esempio.",
-                                                   "Controlla di poter scrivere nella cartella Documenti.", "errore"))
+            self.errore_esempio.addWidget(riquadro(_("Non riesco a creare il progetto d'esempio."),
+                                                   _("Controlla di poter scrivere nella cartella Documenti."), "errore"))
             return
         cfg = progetto.base(pr.nome)
         cfg["data_source"] = "local"
@@ -190,15 +191,15 @@ class PaginaHome(Pagina):
         try:
             nuovo = progetto.nuovo(nome)
         except ValueError as e:
-            self.errore.addWidget(riquadro("Questo nome non va bene.", str(e), "errore"))
+            self.errore.addWidget(riquadro(_("Questo nome non va bene."), str(e), "errore"))
             return
         except FileExistsError as e:
-            self.errore.addWidget(riquadro(str(e), "Scegli un altro nome, oppure apri quello che c'è già "
-                                           "dall'elenco qui sopra.", "errore"))
+            self.errore.addWidget(riquadro(str(e), _("Scegli un altro nome, oppure apri quello che c'è già "
+                                             "dall'elenco qui sopra."), "errore"))
             return
         except OSError:
-            self.errore.addWidget(riquadro("Non riesco a creare la cartella del progetto.",
-                                           "Controlla di poter scrivere nella cartella Documenti.", "errore"))
+            self.errore.addWidget(riquadro(_("Non riesco a creare la cartella del progetto."),
+                                           _("Controlla di poter scrivere nella cartella Documenti."), "errore"))
             return
         nuovo.scrivi(progetto.base(nuovo.nome))      # config.yaml subito: così il progetto compare nell'elenco
         self.contesto.progetto = nuovo

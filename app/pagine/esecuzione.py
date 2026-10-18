@@ -10,39 +10,42 @@ import time
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
+from app.lingua import N_, _
 from app.motore import MotoreClient, percorso_per_motore
 from app.pagine.base import Pagina, etichetta, numero, riquadro
 from app.pagine.risultati import leggi_risultati
 
-PASSI = [("download", "Scarico le read"), ("controllo_qualita", "Controllo la qualità"),
-         ("pulizia", "Pulisco le read"), ("ospite", "Tolgo il DNA dell'ospite"),
-         ("metaphlan", "Profilo con MetaPhlAn"), ("kraken", "Profilo con Kraken"),
-         ("riepilogo", "Preparo referto e tabelle")]
+PASSI = [("download", N_("Scarico le read")), ("controllo_qualita", N_("Controllo la qualità")),
+         ("pulizia", N_("Pulisco le read")), ("ospite", N_("Tolgo il DNA dell'ospite")),
+         ("metaphlan", N_("Profilo con MetaPhlAn")), ("kraken", N_("Profilo con Kraken")),
+         ("riepilogo", N_("Preparo referto e tabelle"))]
 SEGNI = {"fatto": "✓", "ora": "●", "errore": "✗", "": "○"}
 COLORI = {"fatto": "#1C2B27", "ora": "#1E7A4C", "errore": "#A8251C", "": "#52625D"}
 # R8: il pulsante principale porta dove l'errore si risolve; gli altri errori si riprovano (esegui è riprendibile)
-RIMEDI = {"DB_MANCANTE": ("Apri la pagina Motore", "motore"), "DB_ROVINATO": ("Apri la pagina Motore", "motore"),
-          "MOTORE_NON_AVVIATO": ("Apri la pagina Motore", "motore"),
-          "READ_NON_TROVATE": ("Correggi i campioni", "campioni"),
-          "CONFIG_NON_VALIDA": ("Correggi le scelte", "scelte"), "GIA_IN_CORSO": ("Torna ai progetti", "home")}
-TITOLI_AVVISO = {"TEMPO_LUNGO": "Ci vorrà molto tempo", "CAMPIONE_DA_CONTROLLARE": "Campione da controllare",
-                 "CAMPIONE_DA_RIFARE": "Campione da rifare", "RETE_INTERROTTA": "La rete si è interrotta",
-                 "REFERTO_PARZIALE": "Il referto non è completo"}
-ANCORA = "Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non finiti."
-NOTA_ETA = "tempo che manca, stimato"
+RIMEDI = {"DB_MANCANTE": (N_("Apri la pagina Motore"), "motore"),
+          "DB_ROVINATO": (N_("Apri la pagina Motore"), "motore"),
+          "MOTORE_NON_AVVIATO": (N_("Apri la pagina Motore"), "motore"),
+          "READ_NON_TROVATE": (N_("Correggi i campioni"), "campioni"),
+          "CONFIG_NON_VALIDA": (N_("Correggi le scelte"), "scelte"), "GIA_IN_CORSO": (N_("Torna ai progetti"), "home")}
+TITOLI_AVVISO = {"TEMPO_LUNGO": N_("Ci vorrà molto tempo"), "CAMPIONE_DA_CONTROLLARE": N_("Campione da controllare"),
+                 "CAMPIONE_DA_RIFARE": N_("Campione da rifare"), "RETE_INTERROTTA": N_("La rete si è interrotta"),
+                 "REFERTO_PARZIALE": N_("Il referto non è completo")}
+ANCORA = N_("Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non "
+            "finiti.")
+NOTA_ETA = N_("tempo che manca, stimato")
 
 
 def durata(secondi):
     """Formatta i secondi stimati dal motore: '45 secondi', '12 minuti', '1,5 ore'."""
     if secondi < 90:
-        return f"{round(secondi)} secondi"
+        return _("{n} secondi", n=round(secondi))
     if secondi < 5400:
-        return f"{round(secondi / 60)} minuti"
-    return f"{numero(secondi / 3600)} ore"
+        return _("{n} minuti", n=round(secondi / 60))
+    return _("{n} ore", n=numero(secondi / 3600))
 
 
 class PaginaEsecuzione(Pagina):
-    titolo = "Analisi in corso"
+    titolo = N_("Analisi in corso")
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
@@ -74,8 +77,8 @@ class PaginaEsecuzione(Pagina):
         self.eta = etichetta("", "grande")
         for e in (self.pct, self.eta):
             e.setStyleSheet("font-size: 40px; font-weight: bold;")
-        self.eta_nota = etichetta(NOTA_ETA, "nota")
-        fatto = etichetta("fatto", "nota")
+        self.eta_nota = etichetta(_(NOTA_ETA), "nota")
+        fatto = etichetta(_("fatto"), "nota")
         for e in (self.pct, self.eta, fatto, self.eta_nota):
             e.setWordWrap(False)
         g.addWidget(self.pct, 0, 0)
@@ -94,12 +97,12 @@ class PaginaEsecuzione(Pagina):
         for i, (chiave, testo) in enumerate(PASSI):
             e = etichetta("")
             e.setWordWrap(False)
-            self.passi[chiave] = (e, testo)
+            self.passi[chiave] = (e, _(testo))
             gp.addWidget(e, i % 4, i // 4)
         gp.setColumnStretch(2, 1)
-        self.ancora = etichetta(ANCORA, "nota")
+        self.ancora = etichetta(_(ANCORA), "nota")
 
-        self.dettagli = QPushButton("▸ Dettagli tecnici", objectName="link")
+        self.dettagli = QPushButton("▸ " + _("Dettagli tecnici"), objectName="link")
         self.dettagli.setCheckable(True)
         self.dettagli.toggled.connect(self._dettagli)
         self.registro = etichetta("", "nota")
@@ -135,7 +138,7 @@ class PaginaEsecuzione(Pagina):
         self.registro.setText("")
         self._svuota_avvisi()
         self._passi(None)
-        self.messaggio.setText("Avvio l'analisi...")
+        self.messaggio.setText(_("Avvio l'analisi..."))
         self.barra.setValue(0)
         self.pct.setText("0 %")
         self.ultimo = None
@@ -148,7 +151,7 @@ class PaginaEsecuzione(Pagina):
     def _evento(self, e):
         tipo = e["tipo"]
         if tipo == "inizio":
-            self.registro.setText(f"Registro tecnico, da mandarci se c'è un problema:\n{e.get('log', '')}")
+            self.registro.setText(_("Registro tecnico, da mandarci se c'è un problema:") + f"\n{e.get('log', '')}")
         elif tipo == "avanzamento":
             self.messaggio.setText(e["messaggio"])
             pct = max(e.get("percentuale") or 0, self.barra.value())   # la barra non torna indietro
@@ -158,7 +161,7 @@ class PaginaEsecuzione(Pagina):
             self.eta_nota.setVisible(e.get("eta_s") is not None)      # null: non lo diciamo
             self._passi(e.get("passo"))
             self.ultimo_passo = e.get("passo")
-            self.eta_nota.setText(NOTA_ETA)
+            self.eta_nota.setText(_(NOTA_ETA))
             # passo_s (17/10): quanto dura questo passo; senza, l'orologio può scendere fino alla fine
             self.ultimo = (time.monotonic(), pct, e["eta_s"], e.get("passo_s")) if e.get("eta_s") else None
             if self.ultimo:
@@ -166,7 +169,8 @@ class PaginaEsecuzione(Pagina):
             else:
                 self.orologio.stop()
         elif tipo == "avviso":
-            self.avvisi.addWidget(riquadro(TITOLI_AVVISO.get(e.get("codice"), "Da sapere"), e["messaggio"], "avviso"))
+            self.avvisi.addWidget(riquadro(_(TITOLI_AVVISO.get(e.get("codice"), N_("Da sapere"))), e["messaggio"],
+                                           "avviso"))
         elif tipo == "errore":
             self.errore = e
             self._svuota_avvisi(solo_errori=True)
@@ -191,9 +195,9 @@ class PaginaEsecuzione(Pagina):
         passati = time.monotonic() - t0
         dentro = min(passati, eta0 if passo_s is None else passo_s)
         resto = eta0 - dentro
-        self.eta.setText(durata(resto) if resto >= 1 else "qualche minuto")
+        self.eta.setText(durata(resto) if resto >= 1 else _("qualche minuto"))
         if passo_s is not None and passati > passo_s and resto >= 1:
-            self.eta_nota.setText("tempo che manca dopo questo passo, che sta durando più del previsto")
+            self.eta_nota.setText(_("tempo che manca dopo questo passo, che sta durando più del previsto"))
         pct = min(99, pct0 + (100 - pct0) * dentro / eta0)
         if round(pct) > self.barra.value():
             self.barra.setValue(round(pct))
@@ -221,7 +225,7 @@ class PaginaEsecuzione(Pagina):
             e.setText(f"{SEGNI[stato]}   {testo}")
             peso = "bold" if stato in ("ora", "errore") else "normal"
             e.setStyleSheet(f"color: {COLORI[stato]}; font-weight: {peso};")
-            e.setAccessibleName(f"{testo}: {({'fatto': 'fatto', 'ora': 'in corso', 'errore': 'fermo qui'}).get(stato, 'da fare')}")
+            e.setAccessibleName(f"{testo}: {({'fatto': _('fatto'), 'ora': _('in corso'), 'errore': _('fermo qui')}).get(stato, _('da fare'))}")
 
     def _svuota_avvisi(self, solo_errori=False):
         for i in reversed(range(self.avvisi.count())):
@@ -230,7 +234,7 @@ class PaginaEsecuzione(Pagina):
                 w.setParent(None)
 
     def _dettagli(self, aperto):
-        self.dettagli.setText(("▾" if aperto else "▸") + " Dettagli tecnici")
+        self.dettagli.setText(("▾" if aperto else "▸") + " " + _("Dettagli tecnici"))
         self.registro.setVisible(aperto and bool(self.registro.text()))
 
     def _mostra(self):
@@ -243,40 +247,42 @@ class PaginaEsecuzione(Pagina):
         self.principale_attivo = s != "ferma_chiesto"
         self.aiuto, self.aiuto_livello, self.destinazione = "", "", None
         self.principale_pericolo = s == "in_corso"          # "Ferma l'analisi": bianco col bordo rosso
-        titolo = {"vuota": "Analisi in corso", "in_corso": "Analisi in corso", "ferma_chiesto": "Analisi in corso",
-                  "ok": "Analisi finita", "annullata": "Analisi fermata", "errore": "L'analisi si è fermata"}[s]
+        titolo = {"vuota": _("Analisi in corso"), "in_corso": _("Analisi in corso"),
+                  "ferma_chiesto": _("Analisi in corso"), "ok": _("Analisi finita"), "annullata": _("Analisi fermata"),
+                  "errore": _("L'analisi si è fermata")}[s]
         if s == "vuota":
             progetto = self.contesto.progetto
             if progetto is None:
-                self.invito.setText("Nessun progetto aperto. Apri un progetto o creane uno nuovo.")
-                self.testo_principale, self.destinazione = "Apri i miei progetti", "home"
+                self.invito.setText(_("Nessun progetto aperto. Apri un progetto o creane uno nuovo."))
+                self.testo_principale, self.destinazione = _("Apri i miei progetti"), "home"
             elif leggi_risultati(progetto) is not None:
-                self.invito.setText("Nessuna analisi in corso. I risultati dell'ultima analisi sono pronti.")
-                self.testo_principale, self.destinazione = "Vedi i risultati", "risultati"
+                self.invito.setText(_("Nessuna analisi in corso. I risultati dell'ultima analisi sono pronti."))
+                self.testo_principale, self.destinazione = _("Vedi i risultati"), "risultati"
             else:
-                self.invito.setText("Nessuna analisi in corso. Per avviarne una, apri le scelte dell'analisi "
-                                    "e premi Avvia l'analisi.")
-                self.testo_principale, self.destinazione = "Vai alle scelte dell'analisi", "scelte"
+                self.invito.setText(_("Nessuna analisi in corso. Per avviarne una, apri le scelte dell'analisi "
+                                      "e premi Avvia l'analisi."))
+                self.testo_principale, self.destinazione = _("Vai alle scelte dell'analisi"), "scelte"
         elif s == "in_corso":
-            self.testo_principale = "Ferma l'analisi"
-            self.aiuto = "Passo 3 di 4"
+            self.testo_principale = _("Ferma l'analisi")
+            self.aiuto = _("Passo 3 di 4")
         elif s == "ferma_chiesto":
-            self.testo_principale = "Mi sto fermando..."
-            self.aiuto = "Chiedo al motore di fermarsi: finisco di salvare e mi fermo."
+            self.testo_principale = _("Mi sto fermando...")
+            self.aiuto = _("Chiedo al motore di fermarsi: finisco di salvare e mi fermo.")
         elif s == "ok":
-            self.testo_principale, self.destinazione = "Vedi i risultati", "risultati"
+            self.testo_principale, self.destinazione = _("Vedi i risultati"), "risultati"
             self.eta.setText("")
             self.eta_nota.hide()
         elif s == "annullata":
-            self.testo_principale = "Riprendi l'analisi"
-            self.aiuto = "I passi già finiti sono salvati: riprendo da quello a metà."
+            self.testo_principale = _("Riprendi l'analisi")
+            self.aiuto = _("I passi già finiti sono salvati: riprendo da quello a metà.")
             self.eta.setText("")
             self.eta_nota.hide()
         else:
             codice = (self.errore or {}).get("codice")
-            self.testo_principale, self.destinazione = RIMEDI.get(codice, ("Riprova l'analisi", None))
-            self.aiuto, self.aiuto_livello = "Leggi qui sopra che cosa è successo e che cosa fare.", "avviso"
-            self.eta.setText("ferma")
+            testo, self.destinazione = RIMEDI.get(codice, (N_("Riprova l'analisi"), None))
+            self.testo_principale = _(testo)
+            self.aiuto, self.aiuto_livello = _("Leggi qui sopra che cosa è successo e che cosa fare."), "avviso"
+            self.eta.setText(_("ferma"))
             self.eta_nota.hide()
         if self.titolo_pagina:
             self.titolo_pagina.setText(titolo)
@@ -296,12 +302,12 @@ class PaginaEsecuzione(Pagina):
     def conferma(self):
         """Chiede se fermare davvero (i test la sostituiscono)."""
         m = QMessageBox(self)
-        m.setWindowTitle("Fermare l'analisi?")
+        m.setWindowTitle(_("Fermare l'analisi?"))
         m.setIcon(QMessageBox.Question)
-        m.setText("Fermare l'analisi?")
-        m.setInformativeText("I passi già finiti restano salvati. Quello a metà si rifà quando riparti.")
-        si = m.addButton("Ferma l'analisi", QMessageBox.AcceptRole)
-        no = m.addButton("Continua l'analisi", QMessageBox.RejectRole)
+        m.setText(_("Fermare l'analisi?"))
+        m.setInformativeText(_("I passi già finiti restano salvati. Quello a metà si rifà quando riparti."))
+        si = m.addButton(_("Ferma l'analisi"), QMessageBox.AcceptRole)
+        no = m.addButton(_("Continua l'analisi"), QMessageBox.RejectRole)
         m.setDefaultButton(no)
         m.exec()
         return m.clickedButton() is si

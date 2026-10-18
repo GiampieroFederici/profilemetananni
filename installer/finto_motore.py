@@ -10,6 +10,7 @@ Uso: python finto_motore.py <info|installa|verifica|stima|esegui|annulla|sicurez
   --scenario S      ok (predefinito) | DB_MANCANTE (verifica, esegui) | GIA_IN_CORSO (esegui) |
                     annullata (installa, esegui) | READ_NON_TROVATE (esegui) | TEMPO_LUNGO (stima, esegui) |
                     CAMPIONE_DA_CONTROLLARE (esegui: triage "da controllare", v0.2)
+  --lingua it|en    lingua dei testi (come il vero, contratto §1); con en esegui rifà sintesi e referto in inglese
 
 esegui copia in risultati/referto/ il referto vero di SF3RAt7 (installer/finto/referto/); referto lo rifà
 con motore/referto.py (HTML sempre; Excel e PDF se ci sono openpyxl e PySide6, altrimenti REFERTO_PARZIALE).
@@ -31,8 +32,10 @@ from pathlib import Path
 DATI = Path(__file__).resolve().parent / "finto"
 MOTORE = Path(__file__).resolve().parent.parent / "motore"
 sys.path.insert(0, str(MOTORE))
+import lingua  # noqa: E402
 import system_one  # noqa: E402  (regole vere di System One v0: consigliano, non calcolano)
-from pmn_motore import ESEMPIO, messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
+from lingua import N_, _  # noqa: E402
+from pmn_motore import CITAZIONI, ESEMPIO, messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
 STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
 COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e byte delle read gz
@@ -92,6 +95,17 @@ def lucchetto():
     return None
 
 
+def tradotta(citazione):
+    """Una citazione di installer/finto/risultati.json (scritta in italiano) nella lingua scelta, come la scrive il
+    motore vero (CITAZIONI di motore/pmn_motore.py)."""
+    for modelli in CITAZIONI.values():
+        for t in modelli:
+            for db in (N_("PlusPF-8 del 26/06/2026"), N_("PlusPF del 26/06/2026")):
+                if t.format(db=db) == citazione:
+                    return _(t).format(db=_(db))
+    return citazione
+
+
 class Annullata(Exception):
     pass
 
@@ -147,34 +161,40 @@ class Motore:
 
     # ---------------- comandi ----------------
     def info(self):
-        return "ok", INFO, "Ecco com'è fatto questo PC e cosa è installato."
+        info = {**INFO, "consigli": system_one.modo(15.6, False, True, True)[1], "prodotti": system_one.prodotti(),
+                "esempio": {**INFO["esempio"], "frase": _(ESEMPIO["frase"])}}   # testi nella lingua della corsa
+        return "ok", info, _("Ecco com'è fatto questo PC e cosa è installato.")
 
     def installa(self):
-        passi = [("controllo", 0, 10, "Controllo il PC e lo spazio libero..."),
-                 ("programmi", 2, 300, "Installo i programmi (8 ambienti)..."),
-                 ("database", 22, 3600, "Scarico i database e controllo che siano integri..."),
-                 ("verifica", 93, 300, "Prova finale su un piccolo campione (alcuni minuti)...")]
+        passi = [("controllo", 0, 10, N_("Controllo il PC e lo spazio libero...")),
+                 ("programmi", 2, 300, N_("Installo i programmi (8 ambienti)...")),
+                 ("database", 22, 3600, N_("Scarico i database e controllo che siano integri...")),
+                 ("verifica", 93, 300, N_("Prova finale su un piccolo campione (alcuni minuti)..."))]
         for passo, pct, sec, msg in passi:
-            self.evento("avanzamento", msg, passo=passo, campione=None, fatto=0, totale=1, percentuale=pct, eta_s=None)
+            self.evento("avanzamento", _(msg), passo=passo, campione=None, fatto=0, totale=1, percentuale=pct,
+                        eta_s=None)
             if self.a.scenario == "annullata" and passo == "database":
                 raise Annullata
             self.attendi(sec)
         return "ok", {"installati": ["programmi", "metaphlan", "kraken_completo", "kraken_rapido", "ospite", "prova"]}, \
-            "VERDE: il motore è installato e funziona."
+            _("VERDE: il motore è installato e funziona.")
 
     def verifica(self):
-        self.evento("avanzamento", "Controllo i database e provo un piccolo campione...", passo="verifica",
+        self.evento("avanzamento", _("Controllo i database e provo un piccolo campione..."), passo="verifica",
                     campione=None, fatto=0, totale=1, percentuale=10, eta_s=None)
         if self.a.scenario == "DB_MANCANTE":
-            return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.")
+            return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
+                               _("Apri la pagina Motore e premi Installa."))
         self.attendi(300)
-        controlli = [{"nome": n, "esito": "ok"} for n in
-                     ("versioni dei programmi", "MD5 dei database", "mini-campione: mapout", "mini-campione: profilo")]
-        return "ok", {"esito": "verde", "controlli": controlli}, "VERDE: il motore funziona."
+        controlli = [{"nome": _(n), "esito": "ok"} for n in
+                     (N_("versioni dei programmi"), N_("MD5 dei database"), N_("mini-campione: mapout"),
+                      N_("mini-campione: profilo"))]
+        return "ok", {"esito": "verde", "controlli": controlli}, _("VERDE: il motore funziona.")
 
     def stima(self):
         if not self.progetto():
-            return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+            return self.errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."),
+                               _("Salva il progetto e riprova."))
         coppie = COPPIE_LUNGO if self.a.scenario == "TEMPO_LUNGO" else COPPIE
         tempo = self.tempi(coppie)
         consigli = system_one.tempo(tempo) + system_one.spazio(12, INFO["spazio_libero_gb"])
@@ -182,16 +202,17 @@ class Motore:
             self.evento("avviso", c["messaggio"], codice=c["codice"])
         return "ok", {"campioni": 1, "nomi_campioni": [CAMPIONE], "coppie_totali": coppie, "tempo_s": tempo,
                       "tempo_totale_s": sum(tempo.values()), "spazio_gb": 12,
-                      "spazio_libero_gb": INFO["spazio_libero_gb"], "consigli": consigli}, "Stima pronta."
+                      "spazio_libero_gb": INFO["spazio_libero_gb"], "consigli": consigli}, _("Stima pronta.")
 
     def esegui(self):
         progetto = self.progetto()
         if not progetto:
-            return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+            return self.errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."),
+                               _("Salva il progetto e riprova."))
         blocco = STATO / "esegui.lock"
         if self.a.scenario == "GIA_IN_CORSO" or lucchetto():
-            return self.errore("GIA_IN_CORSO", "C'è già un'analisi in corso.",
-                               "Aspetta che finisca, oppure annullala.")
+            return self.errore("GIA_IN_CORSO", _("C'è già un'analisi in corso."),
+                               _("Aspetta che finisca, oppure annullala."))
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid()}), encoding="utf-8")
         try:
             return self._esegui(progetto)
@@ -201,44 +222,46 @@ class Motore:
 
     def _esegui(self, progetto):
         if self.a.scenario == "TEMPO_LUNGO":
-            self.evento("avviso", "L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
-                        "o il cloud.", codice="TEMPO_LUNGO")
+            self.evento("avviso", _("L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) "
+                                    "o il cloud."), codice="TEMPO_LUNGO")
         # (passo, secondi veri, messaggi) nell'ordine di run.sh, con gli stessi tempi di stima (v0.3).
         # I dati di installer/finto/ vengono da una corsa con lo screening rapido (PlusPF-8)
         t = self.tempi(COPPIE)
-        kraken = ("classifico le read con Kraken (screening rapido, PlusPF-8)"
+        kraken = (_("classifico le read con Kraken (screening rapido, PlusPF-8)")
                   if sezione(self.cfg(), "motore").get("kraken_db") == "rapido" else
-                  "classifico le read con Kraken (database completo, PlusPF)")
-        piano = [("download", t["download"], ["scarico le read da NCBI"]),
-                 ("pulizia", t["pulizia"], ["tolgo le parti di bassa qualità"]),
-                 ("ospite", t["ospite"], ["tolgo le read del maiale e dell'uomo"]),
-                 ("controllo_qualita", t["controllo_qualita"], ["controllo la qualità delle read"]),
-                 ("metaphlan", t["metaphlan"], [f"allineo sulla parte {n} di 6 del database" for n in range(1, 7)]
-                  + ["calcolo il profilo delle specie"]),
-                 ("kraken", t["kraken"], [kraken, "stimo le abbondanze con Bracken"]),
-                 ("riepilogo", t["riepilogo"] + t["referto"], ["preparo le tabelle e il riepilogo"])]
+                  _("classifico le read con Kraken (database completo, PlusPF)"))
+        piano = [("download", t["download"], [_("scarico le read da NCBI")]),
+                 ("pulizia", t["pulizia"], [_("tolgo le parti di bassa qualità")]),
+                 ("ospite", t["ospite"], [_("tolgo le read del maiale e dell'uomo")]),
+                 ("controllo_qualita", t["controllo_qualita"], [_("controllo la qualità delle read")]),
+                 ("metaphlan", t["metaphlan"], [_("allineo sulla parte {n} di 6 del database", n=n) for n in range(1, 7)]
+                  + [_("calcolo il profilo delle specie")]),
+                 ("kraken", t["kraken"], [kraken, _("stimo le abbondanze con Bracken")]),
+                 ("riepilogo", t["riepilogo"] + t["referto"], [_("preparo le tabelle e il riepilogo")])]
         totale_s = sum(p[1] for p in piano)
         fatto_s = 0.0
         for passo, sec, messaggi in piano:
             if passo == "download" and self.a.scenario == "READ_NON_TROVATE":
-                return self.errore("READ_NON_TROVATE", f"Non trovo le read del campione {CAMPIONE} su NCBI.",
-                                   "Controlla il codice SRR nel progetto.", passo="download")
+                return self.errore("READ_NON_TROVATE", _("Non trovo le read del campione {nome} su NCBI.", nome=CAMPIONE),
+                                   _("Controlla il codice SRR nel progetto."), passo="download")
             if passo == "kraken" and self.a.scenario == "DB_MANCANTE":
-                return self.errore("DB_MANCANTE", "Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.",
-                                   passo="kraken")
+                return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
+                                   _("Apri la pagina Motore e premi Installa."), passo="kraken")
             if passo == "metaphlan" and self.a.scenario == "annullata":
                 raise Annullata
             for i, m in enumerate(messaggi):
                 rimasti = totale_s - fatto_s
-                self.evento("avanzamento", f"Campione 1 di 1: {m}", passo=passo, campione=CAMPIONE, fatto=i,
+                self.evento("avanzamento", _("Campione {i} di {n}: ", i=1, n=1) + m, passo=passo, campione=CAMPIONE,
+                            fatto=i,
                             totale=len(messaggi), percentuale=round(100 * fatto_s / totale_s, 1),
                             eta_s=round(rimasti / self.a.velocita) if self.a.velocita > 0 else 0,
                             passo_s=round(sec / len(messaggi) / self.a.velocita) if self.a.velocita > 0 else 0)
                 self.attendi(sec / len(messaggi))
                 fatto_s += sec / len(messaggi)
-        return "ok", self._scrivi_risultati(progetto.parent / "risultati"),             f"Analisi finita in {round(totale_s / 60)} min (tempo vero, qui accorciato)."
+        return "ok", self._scrivi_risultati(progetto.parent / "risultati", progetto), \
+            _("Analisi finita in {min} min (tempo vero, qui accorciato).", min=round(totale_s / 60))
 
-    def _scrivi_risultati(self, r):
+    def _scrivi_risultati(self, r, progetto):
         for sotto in ("metaphlan", "kraken", "tabelle", "log"):
             (r / sotto).mkdir(parents=True, exist_ok=True)
         shutil.copy(DATI / f"{CAMPIONE}_profile.txt", r / "metaphlan")
@@ -246,17 +269,30 @@ class Motore:
             shutil.copy(DATI / f"{CAMPIONE}.{est}", r / "kraken")
         for f in DATI.glob("*.tsv"):
             shutil.copy(f, r / "tabelle")
-        shutil.copytree(DATI / "referto", r / "referto", dirs_exist_ok=True)
         risultati = json.loads((DATI / "risultati.json").read_text(encoding="utf-8"))
         risultati["corsa"] = self.corsa
+        italiano = lingua.attuale() == "it"
+        if italiano:                      # il referto vero di SF3RAt7, già in italiano
+            shutil.copytree(DATI / "referto", r / "referto", dirs_exist_ok=True)
+        else:                             # i testi della corsa nella lingua scelta, con le funzioni del motore vero
+            import referto
+            soglia = float(risultati["parametri"].get("abundance_threshold_pct") or 0)
+            for c in risultati["campioni"]:
+                c["sintesi"] = referto.sintesi(referto.leggi_campione(r, c["file"]), soglia)
+            risultati["citazioni"] = [tradotta(c) for c in risultati["citazioni"]]
         if self.a.scenario == "CAMPIONE_DA_CONTROLLARE":
-            motivo = "poche read dei microbi (circa 900.000, minimo 1.000.000)"
+            motivo = _("poche read dei microbi (circa {reads}, minimo {minimo})", reads=lingua.migliaia("900,000"),
+                       minimo=lingua.migliaia("1,000,000"))
             risultati["triage"] = [{"campione": CAMPIONE, "esito": "da controllare", "motivi": [motivo], "punteggio": 0.45}]
-            c = system_one.consiglio("CAMPIONE_DA_CONTROLLARE", f"Campione {CAMPIONE}: da controllare ({motivo}).",
-                                     "steps/17_triage_report.py (scenario del finto motore)")
+            c = system_one.consiglio("CAMPIONE_DA_CONTROLLARE", _("Campione {nome}: {esito}", nome=CAMPIONE,
+                                                                  esito=_("da controllare")) + f" ({motivo}).",
+                                     _("steps/17_triage_report.py (scenario del finto motore)"))
             risultati["consigli"] = [c]
             self.evento("avviso", c["messaggio"], codice=c["codice"])
         (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
+        if not italiano:
+            risultati["referto"] = self._referto(r, progetto)
+            (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
         shutil.copy(self.log, r / "log")
         return {"cartella": str(r), **risultati}
 
@@ -264,22 +300,17 @@ class Motore:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motore"))
         import sicurezza
         if self.a.progetto and not self.progetto():
-            return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+            return self.errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."),
+                               _("Salva il progetto e riprova."))
         try:
             risultato, messaggio = sicurezza.comando(self.evento, self.a.ingresso, self.a.progetto)
         except sicurezza.Rifiutata as e:
-            return self.errore("INGRESSO_NON_VALIDO", f"Dati del prodotto non validi: {e}.", sicurezza.COSA_FARE)
+            return self.errore("INGRESSO_NON_VALIDO", _("Dati del prodotto non validi: {errore}.", errore=e),
+                               _(sicurezza.COSA_FARE))
         return "ok", risultato, messaggio
 
-    def referto(self):
-        progetto = self.progetto()
-        if not progetto:
-            return self.errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
-        r = progetto.parent / "risultati"
-        if not (r / "risultati.json").is_file():
-            return self.errore("CONFIG_NON_VALIDA", "Questo progetto non ha ancora risultati.", "Prima avvia l'analisi.")
-        self.evento("avanzamento", "Preparo il referto (pagina, PDF ed Excel)...", passo="referto", campione=None,
-                    fatto=0, totale=1, percentuale=50, eta_s=None)
+    def _referto(self, r, progetto):
+        """motore/referto.py sul progetto: {file: percorso relativo o None}, None se la pagina non c'è."""
         p = subprocess.run([sys.executable, str(MOTORE / "referto.py"), "--risultati", str(r), "--progetto", str(progetto)],
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
         try:
@@ -287,19 +318,35 @@ class Motore:
         except (ValueError, IndexError):
             esito = {}
         if not esito.get("html"):
-            return self.errore("ERRORE_INTERNO", "Non riesco a preparare il referto.", f"Guarda il file {self.log}.")
+            return None
         if esito.get("problemi"):
             import referto
             self.evento("avviso", referto.avviso_parziale(esito["problemi"], True), codice="REFERTO_PARZIALE")
-        file = {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
-        return "ok", {"cartella": str(r), "referto": file}, "Referto pronto."
+        return {k: (f"referto/{Path(esito[k]).name}" if esito.get(k) else None) for k in ("html", "pdf", "xlsx")}
+
+    def referto(self):
+        progetto = self.progetto()
+        if not progetto:
+            return self.errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."),
+                               _("Salva il progetto e riprova."))
+        r = progetto.parent / "risultati"
+        if not (r / "risultati.json").is_file():
+            return self.errore("CONFIG_NON_VALIDA", _("Questo progetto non ha ancora risultati."),
+                               _("Prima avvia l'analisi."))
+        self.evento("avanzamento", _("Preparo il referto (pagina, PDF ed Excel)..."), passo="referto", campione=None,
+                    fatto=0, totale=1, percentuale=50, eta_s=None)
+        file = self._referto(r, progetto)
+        if file is None:
+            return self.errore("ERRORE_INTERNO", _("Non riesco a preparare il referto."),
+                               _("Guarda il file {log}.", log=self.log))
+        return "ok", {"cartella": str(r), "referto": file}, _("Referto pronto.")
 
     def annulla(self):
         dati = lucchetto()
         if dati and dati.get("corsa") == self.a.corsa:
             (STATO / f"{self.a.corsa}.annulla").touch()
-            return "ok", {"annullata": True}, "Chiesto di fermare l'analisi."
-        return "ok", {"annullata": False}, "Nessuna analisi in corso con questo codice."
+            return "ok", {"annullata": True}, _("Chiesto di fermare l'analisi.")
+        return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
 
 
 def main():
@@ -312,16 +359,20 @@ def main():
     p.add_argument("--velocita", type=float, default=60)
     p.add_argument("--scenario", default="ok", choices=["ok", "DB_MANCANTE", "GIA_IN_CORSO", "annullata",
                                                          "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE"])
+    p.add_argument("--lingua", choices=lingua.LINGUE)
     a = p.parse_args()
+    if a.lingua:
+        lingua.imposta(a.lingua)
     sys.stdout.reconfigure(encoding="utf-8")   # JSON Lines in UTF-8 anche su Windows (pipe = cp1252)
     STATO.mkdir(exist_ok=True)
     m = Motore(a)
-    m.evento("inizio", f"Comando {a.comando} avviato (motore finto).", comando=a.comando, corsa=m.corsa, log=str(m.log))
+    m.evento("inizio", _("Comando {comando} avviato (motore finto).", comando=a.comando), comando=a.comando,
+             corsa=m.corsa, log=str(m.log))
     try:
         esito, risultato, messaggio = getattr(m, a.comando)()
         codice = USCITA.get(esito) if esito != "errore" else CODICE_USCITA.get(risultato["codice"], 4)
     except Annullata:
-        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: niente di fatto a metà è rimasto.", 3
+        esito, risultato, messaggio, codice = "annullata", {}, _("Annullata: niente di fatto a metà è rimasto."), 3
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 

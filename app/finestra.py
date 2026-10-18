@@ -13,6 +13,8 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
                                QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
+from app import lingua
+from app.lingua import N_, _
 from app.motore import MotoreClient
 from app.pagine.base import Contesto
 from app.pagine.crediti import PaginaCrediti
@@ -28,13 +30,13 @@ RISORSE = Path(__file__).resolve().parent / "risorse"
 PAGINE = {"home": PaginaHome, "campioni": PaginaCampioni, "scelte": PaginaScelte, "esecuzione": PaginaEsecuzione,
           "risultati": PaginaRisultati, "sicurezza": PaginaSicurezza, "motore": PaginaMotore,
           "crediti": PaginaCrediti}
-PERCORSO = [("campioni", "1", "Campioni e prodotto"), ("scelte", "2", "Scelte dell'analisi"),
-            ("esecuzione", "3", "Analisi in corso"), ("risultati", "4", "Risultati")]
-EXTRA = ("sicurezza", "+", "Sicurezza alimentare")
-MENU = [("home", "I miei progetti"), ("motore", "Motore"), ("crediti", "Come citare")]
+PERCORSO = [("campioni", "1", N_("Campioni e prodotto")), ("scelte", "2", N_("Scelte dell'analisi")),
+            ("esecuzione", "3", N_("Analisi in corso")), ("risultati", "4", N_("Risultati"))]
+EXTRA = ("sicurezza", "+", N_("Sicurezza alimentare"))
+MENU = [("home", N_("I miei progetti")), ("motore", N_("Motore")), ("crediti", N_("Come citare"))]
 AVVIO_MIN_MS = 2500                  # l'avatar resta almeno 2,5 s (prototipo: 2-3 s)
 AVVIO_LENTO_MS = 5000                # info oltre 5 s: avvio a freddo della WSL, lo si spiega (A2)
-AVVIO_LENTO = ("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
+AVVIO_LENTO = N_("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
                "minuto: è normale, non chiudere la finestra.")
 
 
@@ -98,7 +100,7 @@ class Finestra(QMainWindow):
         self.avatar.setFixedSize(440, 440)
         self.avatar.move(10, 110)
         self.avatar.setAccessibleName("ProfileMetaNanni")
-        self.messaggio_avvio = QLabel("Avvio il motore...")
+        self.messaggio_avvio = QLabel(_("Avvio il motore..."))
         self.messaggio_avvio.setAlignment(Qt.AlignCenter)
         self.messaggio_avvio.setWordWrap(True)
         s.addWidget(self.palco, 0, Qt.AlignHCenter)
@@ -122,10 +124,12 @@ class Finestra(QMainWindow):
         self.client_info.evento.connect(self._evento_info)
         self.client_info.finito.connect(self._info_finito)
         self.client_info.avvia("info")
+        self.client_lingua = MotoreClient(self)        # info di nuovo dopo un cambio di lingua (testi del motore)
+        self.client_lingua.finito.connect(self._info_in_lingua)
 
     def _avvio_lento(self):
         if not self._pronto["info"]:
-            self.messaggio_avvio.setText(AVVIO_LENTO)
+            self.messaggio_avvio.setText(_(AVVIO_LENTO))
 
     def _evento_info(self, e):
         if e["tipo"] == "fine":
@@ -187,14 +191,24 @@ class Finestra(QMainWindow):
         s.addStretch(1)
         self.pallino = QLabel(objectName="pallino")
         self.pallino.setFixedSize(14, 14)
-        self.stato_motore = QPushButton("Motore: controllo...", objectName="link")
+        self.stato_motore = QPushButton(_("Motore: controllo..."), objectName="link")
         self.stato_motore.clicked.connect(lambda: self.vai("motore"))
         s.addWidget(self.pallino)
         s.addWidget(self.stato_motore)
         for chiave, testo in MENU:
-            b = QPushButton(testo, objectName="link")
-            b.clicked.connect(lambda _=False, c=chiave: self.vai(c))
+            b = QPushButton(_(testo), objectName="link")
+            b.clicked.connect(lambda _x=False, c=chiave: self.vai(c))
             s.addWidget(b)
+        scelta = QWidget(objectName="lingua")          # l'interruttore della lingua, sempre in testata (18/10)
+        r = QHBoxLayout(scelta)
+        r.setContentsMargins(0, 0, 0, 0)
+        altra = "en" if lingua.attuale() == "it" else "it"
+        self.pulsante_lingua = QPushButton(lingua.LINGUE[altra], objectName="link")
+        self.pulsante_lingua.setAccessibleName(_("Cambia lingua: {lingua}", lingua=lingua.LINGUE[altra]))
+        self.pulsante_lingua.setToolTip(self.pulsante_lingua.accessibleName())
+        self.pulsante_lingua.clicked.connect(lambda: self.cambia_lingua(altra))
+        r.addWidget(self.pulsante_lingua)
+        s.addWidget(scelta)
         self._stato_motore()
         return t
 
@@ -211,8 +225,8 @@ class Finestra(QMainWindow):
                 s.addWidget(QFrame(objectName="separatore"))
                 s.addSpacing(12)
             b = QPushButton(objectName="passo")
-            b.clicked.connect(lambda _=False, c=chiave: self.vai(c))
-            self.passi[chiave] = (b, numero, testo)
+            b.clicked.connect(lambda _x=False, c=chiave: self.vai(c))
+            self.passi[chiave] = (b, numero, _(testo))
             s.addWidget(b)
         s.addStretch(1)
         return p
@@ -266,8 +280,8 @@ class Finestra(QMainWindow):
             stato = "attivo" if c == self.attuale else ("fatto" if c in fatti else "")
             b.setText(f"{'✓' if c in fatti else numero}   {testo}")
             b.setProperty("stato", stato)
-            b.setAccessibleDescription(", ".join(d for d, si in (("passo attuale", stato == "attivo"),
-                                                                 ("fatto", c in fatti)) if si))
+            b.setAccessibleDescription(", ".join(d for d, si in ((_("passo attuale"), stato == "attivo"),
+                                                                 (_("fatto"), c in fatti)) if si))
             b.style().unpolish(b)
             b.style().polish(b)
 
@@ -296,15 +310,53 @@ class Finestra(QMainWindow):
     def _stato_motore(self):
         info = self.contesto.info
         if info is None and getattr(self, "client_info", None) and self.client_info.in_corso():
-            stato, testo = "attesa", "Motore: controllo..."
+            stato, testo = "attesa", _("Motore: controllo...")
         elif info is None:
-            stato, testo = "rosso", "Motore da controllare"
+            stato, testo = "rosso", _("Motore da controllare")
         else:
-            stato, testo = "", "Motore di prova" if info.get("finto") else "Motore pronto"
+            stato, testo = "", _("Motore di prova") if info.get("finto") else _("Motore pronto")
         self.pallino.setProperty("stato", stato)
         self.pallino.style().unpolish(self.pallino)
         self.pallino.style().polish(self.pallino)
         self.stato_motore.setText(testo)
+
+    # ---------------- lingua (18/10) ----------------
+    def occupato(self):
+        """True se il motore sta lavorando (analisi, installazione, calcolo, stima...): intanto la lingua non cambia,
+        perché le pagine si rifanno da capo e il lavoro in corso si perderebbe."""
+        return self.contesto.progetto_in_analisi is not None or any(
+            c.in_corso() for c in self.findChildren(MotoreClient))
+
+    def cambia_lingua(self, codice):
+        """Rifà testata, percorso, pagine e barra nella nuova lingua e torna alla stessa pagina; poi chiede di nuovo
+        `info` al motore, così anche i suoi testi (consigli, prodotti) sono nella nuova lingua."""
+        if self.occupato():
+            self.aiuto.setText(_("Puoi cambiare lingua quando il motore ha finito il lavoro in corso."))
+            self.aiuto.setProperty("livello", "avviso")
+            self.aiuto.style().unpolish(self.aiuto)
+            self.aiuto.style().polish(self.aiuto)
+            return False
+        lingua.imposta(codice)
+        lingua.salva(codice)
+        vecchia = self.fuori.widget(1)
+        self.fuori.removeWidget(vecchia)
+        vecchia.hide()
+        vecchia.deleteLater()
+        self.pagine, self.secondari = {}, []
+        self.fuori.insertWidget(1, self._area())
+        self.fuori.setCurrentIndex(1)
+        self.vai(self.attuale or "home")
+        self.pulsante_lingua.setFocus()
+        if getattr(self, "client_lingua", None) is not None and self.contesto.info is not None:
+            self.client_lingua.avvia("info")
+        return True
+
+    def _info_in_lingua(self, codice, fine):
+        if fine.get("esito") == "ok":
+            self.contesto.info = fine["risultato"]
+        self._stato_motore()
+        if self.attuale and not self.occupato():
+            self.vai(self.attuale)
 
     # ---------------- tastiera (R15) ----------------
     def _fermate(self):

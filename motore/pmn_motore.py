@@ -5,7 +5,7 @@ già provati: installer/installa_motore.sh (installa), installer/verifica_motore
 bin/run.sh (esegui). Su stdout solo eventi JSON, uno per riga; i dettagli tecnici vanno nel log.
 
 Uso: pmn-motore <info|installa|verifica|stima|esegui|annulla|sicurezza|referto> [--progetto FILE] [--corsa ID]
-                 [--ingresso FILE]
+                 [--ingresso FILE] [--lingua it|en]
 Solo libreria standard: gira anche col python3 di sistema quando il motore non è installato
 (e allora lo dice con DB_MANCANTE). Il file del progetto si legge con PyYAML dell'ambiente pmn_reports_py.
 """
@@ -24,7 +24,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import system_one   # stessa cartella (motore/)
+import lingua       # stessa cartella (motore/)
+import system_one
+from lingua import N_, _
 
 VERSIONE = "0.1.0"
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,16 +50,17 @@ KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 copp
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
 TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
 # passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
-PASSI = [("download", "scarico le read da NCBI"), ("controllo_qualita", "controllo la qualità delle read"),
-         ("pulizia", "tolgo le parti di bassa qualità"), ("ospite", "tolgo le read dell'ospite e dell'uomo"),
-         ("metaphlan", "calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)"),
-         ("kraken", "classifico le read con Kraken e Bracken"), ("riepilogo", "preparo le tabelle e il riepilogo")]
+PASSI = [("download", N_("scarico le read da NCBI")), ("controllo_qualita", N_("controllo la qualità delle read")),
+         ("pulizia", N_("tolgo le parti di bassa qualità")), ("ospite", N_("tolgo le read dell'ospite e dell'uomo")),
+         ("metaphlan", N_("calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)")),
+         ("kraken", N_("classifico le read con Kraken e Bracken")),
+         ("riepilogo", N_("preparo le tabelle e il riepilogo"))]
 # passo del contratto -> in parole, per il messaggio di fine dopo un errore (v0.3)
-NOMI_PASSI = {"download": "lo scaricamento delle read", "controllo_qualita": "il controllo della qualità",
-              "pulizia": "la pulizia delle read", "ospite": "la rimozione del DNA dell'ospite",
-              "metaphlan": "il profilo con MetaPhlAn", "kraken": "la classificazione con Kraken e Bracken",
-              "riepilogo": "il riepilogo", "referto": "la preparazione del referto", "sicurezza": "la previsione di crescita",
-              "verifica": "la verifica del motore"}
+NOMI_PASSI = {"download": N_("lo scaricamento delle read"), "controllo_qualita": N_("il controllo della qualità"),
+              "pulizia": N_("la pulizia delle read"), "ospite": N_("la rimozione del DNA dell'ospite"),
+              "metaphlan": N_("il profilo con MetaPhlAn"), "kraken": N_("la classificazione con Kraken e Bracken"),
+              "riepilogo": N_("il riepilogo"), "referto": N_("la preparazione del referto"),
+              "sicurezza": N_("la previsione di crescita"), "verifica": N_("la verifica del motore")}
 # read locali: stesse coppie di for_each_sample in bin/run.sh (nome = file senza il suffisso della prima read)
 COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"), ("_R1_001.fastq.gz", "_R2_001.fastq.gz"),
                  ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
@@ -68,34 +71,36 @@ ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
-     "Non riesco a scaricare le read: i server di ENA e NCBI non rispondono.",
-     "Controlla la connessione a internet e riprova fra qualche minuto."),
-    (r"Not enough space", "SPAZIO_INSUFFICIENTE", "Lo spazio libero non basta per scaricare le read.",
-     "Libera spazio sul disco e riprova."),
+     N_("Non riesco a scaricare le read: i server di ENA e NCBI non rispondono."),
+     N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
+    (r"Not enough space", "SPAZIO_INSUFFICIENTE", N_("Lo spazio libero non basta per scaricare le read."),
+     N_("Libera spazio sul disco e riprova.")),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
-     "Non trovo le read di uno o più campioni.", "Controlla i codici SRR o la cartella delle read nel progetto."),
+     N_("Non trovo le read di uno o più campioni."), N_("Controlla i codici SRR o la cartella delle read nel progetto.")),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
-     "Manca un database o un programma del motore.", "Apri la pagina Motore e premi Installa."),
+     N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa.")),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
-     "Il progetto contiene un valore non valido.", "Controlla le impostazioni del progetto."),
+     N_("Il progetto contiene un valore non valido."), N_("Controlla le impostazioni del progetto.")),
 ]
 # verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21
 CITAZIONI = {
     "metaphlan": ["Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
-                  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice "
-                  "Bowtie2, costruito da profilemetananni)"],
+                  N_("Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice "
+                     "Bowtie2, costruito da profilemetananni)")],
     "kraken": ["Wood et al. 2019, Genome Biol 20:257: Kraken 2. DOI 10.1186/s13059-019-1891-0",
                "Lu et al. 2017, PeerJ Comput Sci 3:e104: Bracken. DOI 10.7717/peerj-cs.104",
-               "Indici Kraken2/Bracken {db} di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)",
-               "Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di "
-               "Kraken2. DOI 10.1099/mgen.0.000949",
-               "Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. DOI 10.1186/s40793-024-00561-w"],
+               N_("Indici Kraken2/Bracken {db} di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)"),
+               N_("Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di "
+                  "Kraken2. DOI 10.1099/mgen.0.000949"),
+               N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. "
+                  "DOI 10.1186/s40793-024-00561-w")],
     "bowtie2": ["Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923"],
     "fastp": ["Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560"],
-    "sus_scrofa": ["Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051"],
-    "bos_taurus": ["Rosen et al. 2020, GigaScience 9(3):giaa021: bovino ARS-UCD1.2. DOI 10.1093/gigascience/giaa021"],
-    "ovis_aries": ["Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. DOI 10.1093/gigascience/giab096"],
-    "grch38": ["Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116"],
+    "sus_scrofa": [N_("Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051")],
+    "bos_taurus": [N_("Rosen et al. 2020, GigaScience 9(3):giaa021: bovino ARS-UCD1.2. DOI 10.1093/gigascience/giaa021")],
+    "ovis_aries": [N_("Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. "
+                      "DOI 10.1093/gigascience/giab096")],
+    "grch38": [N_("Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116")],
 }
 
 
@@ -211,21 +216,22 @@ def installazione():
 
 # campione d'esempio a un clic (A2): il mini-campione della verifica, già nel motore (installer/installa_motore.sh)
 ESEMPIO = {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000,
-           "frase": "Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel motore."}
+           "frase": N_("Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel "
+                       "motore.")}
 
 
 def esempio(env):
     """info.esempio: la cartella del mini-campione come la vede il motore, o None se non è installato."""
     cartella = env.get("PMN_PROVA", "")
     if cartella and all((Path(cartella) / f"mini_SF3RAt7_{i}.fastq.gz").is_file() for i in (1, 2)):
-        return {**ESEMPIO, "cartella": cartella}
+        return {**ESEMPIO, "frase": _(ESEMPIO["frase"]), "cartella": cartella}
     return None
 
 
 def serve_installazione():
     env = installazione()
     if not env:
-        raise Errore("DB_MANCANTE", "Il motore non è ancora installato.", "Apri la pagina Motore e premi Installa.")
+        raise Errore("DB_MANCANTE", _("Il motore non è ancora installato."), _("Apri la pagina Motore e premi Installa."))
     return env
 
 
@@ -252,14 +258,16 @@ def elenco_database(env):
 
 def leggi_progetto(percorso):
     if not percorso or not Path(percorso).is_file():
-        raise Errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+        raise Errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."), _("Salva il progetto e riprova."))
     try:
         import yaml
         cfg = yaml.safe_load(Path(percorso).read_text(encoding="utf-8")) or {}
     except Exception:
-        raise Errore("CONFIG_NON_VALIDA", "Il file del progetto non si legge.", "Salva di nuovo il progetto e riprova.")
+        raise Errore("CONFIG_NON_VALIDA", _("Il file del progetto non si legge."),
+                     _("Salva di nuovo il progetto e riprova."))
     if not isinstance(cfg, dict):
-        raise Errore("CONFIG_NON_VALIDA", "Il file del progetto non si legge.", "Salva di nuovo il progetto e riprova.")
+        raise Errore("CONFIG_NON_VALIDA", _("Il file del progetto non si legge."),
+                     _("Salva di nuovo il progetto e riprova."))
     return cfg
 
 
@@ -290,7 +298,7 @@ def campioni_locali(cartella):
 
 def messaggio_fine(messaggio, cosa_fare, passo):
     """Testo dell'evento fine dopo un errore (v0.3): quale passo, che cosa è successo, che cosa fare."""
-    dove = f"Problema durante {NOMI_PASSI[passo]}. " if passo in NOMI_PASSI else ""
+    dove = _("Problema durante {passo}. ", passo=_(NOMI_PASSI[passo])) if passo in NOMI_PASSI else ""
     return f"{dove}{messaggio} {cosa_fare}".strip()
 
 
@@ -347,12 +355,12 @@ class Motore:
                       "modo_consigliato": modo, "consigli": self.consigli(consigli),
                       "programmi": programmi, "database": database, "prodotti": system_one.prodotti(),
                       "esempio": esempio(env)}, \
-            "Ecco com'è fatto questo PC e cosa è installato."
+            _("Ecco com'è fatto questo PC e cosa è installato.")
 
     # ---------------- verifica ----------------
     def verifica(self):
         serve_installazione()
-        self.avanza("verifica", "Controllo i programmi e provo un piccolo campione (alcuni minuti)...", 5)
+        self.avanza("verifica", _("Controllo i programmi e provo un piccolo campione (alcuni minuti)..."), 5)
         controlli, n = [], 0
         p = subprocess.Popen(["bash", str(ROOT / "installer" / "verifica_motore.sh")], stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
@@ -363,11 +371,12 @@ class Motore:
             if m:
                 controlli.append({"nome": m.group(2).strip(), "esito": "ok" if m.group(1) == "OK" else "diverso"})
                 n += 1
-                self.avanza("verifica", f"Controllo {n}: {m.group(2).strip()[:60]}", 5 + 90 * n / 16)
+                self.avanza("verifica", _("Controllo {n}: {nome}", n=n, nome=m.group(2).strip()[:60]),
+                            5 + 90 * n / 16)
         if p.wait() != 0:
-            raise Errore("VERIFICA_ROSSA", "ROSSO: la prova del motore non ha dato il risultato atteso.",
-                         f"Manda a noi il file {self.log}.")
-        return "ok", {"esito": "verde", "controlli": controlli}, "VERDE: il motore funziona."
+            raise Errore("VERIFICA_ROSSA", _("ROSSO: la prova del motore non ha dato il risultato atteso."),
+                         _("Manda a noi il file {log}.", log=self.log))
+        return "ok", {"esito": "verde", "controlli": controlli}, _("VERDE: il motore funziona.")
 
     # ---------------- stima ----------------
     def campioni(self, cfg):
@@ -377,29 +386,31 @@ class Motore:
         if fonte in ("ncbi", "both"):
             lista = Path(str(paths.get("srr_list") or ""))
             if not lista.is_file():
-                raise Errore("CONFIG_NON_VALIDA", "Non trovo l'elenco dei codici SRR.", "Controlla il progetto.")
+                raise Errore("CONFIG_NON_VALIDA", _("Non trovo l'elenco dei codici SRR."), _("Controlla il progetto."))
             spec = importlib.util.spec_from_file_location("stima_dimensione", ROOT / "steps" / "05_estimate_size.py")
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             codici = [r.split()[0] for r in lista.read_text(encoding="utf-8").splitlines() if r.strip() and not r.startswith("#")]
             esiti = mod.lookup_many(codici)   # richieste a gruppi (ENA, poi NCBI)
             if esiti and all(e["status"] == "ERROR" for e in esiti):
-                raise Errore("DOWNLOAD_FALLITO", "I server di ENA e NCBI non rispondono: non posso stimare il download.",
-                             "Controlla la connessione e riprova fra qualche minuto.")
+                raise Errore("DOWNLOAD_FALLITO", _("I server di ENA e NCBI non rispondono: non posso stimare il "
+                                                   "download."),
+                             _("Controlla la connessione e riprova fra qualche minuto."))
             for e in esiti:
                 if e["status"] != "OK":
-                    raise Errore("READ_NON_TROVATE", f"Non trovo il campione {e['accession']} su ENA né su NCBI.",
-                                 "Controlla il codice SRR nel progetto.")
+                    raise Errore("READ_NON_TROVATE", _("Non trovo il campione {codice} su ENA né su NCBI.",
+                                                       codice=e['accession']),
+                                 _("Controlla il codice SRR nel progetto."))
                 out.append((e["accession"], e["read_count"], e["fastq_bytes"]))
         if fonte in ("local", "both"):
             cartella = Path(str(paths.get("local_reads_dir") or ""))
             if not cartella.is_dir():
-                raise Errore("READ_NON_TROVATE", "Non trovo la cartella delle read.", "Controlla il progetto.")
+                raise Errore("READ_NON_TROVATE", _("Non trovo la cartella delle read."), _("Controlla il progetto."))
             for nome, file in campioni_locali(cartella):   # nomi come in run.sh: "C1", non "C1_R1" (v0.3)
                 byte = sum((cartella / f).stat().st_size for f in file)
                 out.append((nome, round(byte / BYTE_PER_COPPIA), 0))
         if not out:
-            raise Errore("READ_NON_TROVATE", "Il progetto non contiene campioni.", "Aggiungi le read al progetto.")
+            raise Errore("READ_NON_TROVATE", _("Il progetto non contiene campioni."), _("Aggiungi le read al progetto."))
         return out
 
     def stima(self):
@@ -422,7 +433,8 @@ class Motore:
         return "ok", {"campioni": len(camp), "nomi_campioni": [n for n, _, _ in camp], "coppie_totali": coppie,
                       "tempo_s": tempo, "tempo_totale_s": sum(tempo.values()), "spazio_gb": spazio_gb,
                       "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
-            f"Stima pronta per {processori(cfg)} processori (dipende anche dalla rete e dalla quantità di DNA dell'ospite)."
+            _("Stima pronta per {n} processori (dipende anche dalla rete e dalla quantità di DNA dell'ospite).",
+              n=processori(cfg))
 
     # ---------------- esegui ----------------
     def esegui(self):
@@ -435,7 +447,7 @@ class Motore:
             try:
                 vecchio = json.loads(blocco.read_text(encoding="utf-8"))
                 os.kill(vecchio["pid"], 0)
-                raise Errore("GIA_IN_CORSO", "C'è già un'analisi in corso.", "Aspetta che finisca, oppure annullala.")
+                raise Errore("GIA_IN_CORSO", _("C'è già un'analisi in corso."), _("Aspetta che finisca, oppure annullala."))
             except (ProcessLookupError, ValueError, KeyError):
                 blocco.unlink(missing_ok=True)   # rimasto da una corsa interrotta
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": None}), encoding="utf-8")
@@ -451,14 +463,15 @@ class Motore:
                 except Errore as e:
                     if e.codice != "DOWNLOAD_FALLITO" or tentativo == TENTATIVI_RETE:
                         raise
-                    self.evento("avviso", f"I server di ENA e NCBI non rispondono: riprovo fra {round(ATTESA_RETE)} "
-                                f"secondi (tentativo {tentativo + 1} di {TENTATIVI_RETE}).", codice="RETE_INTERROTTA")
+                    self.evento("avviso", _("I server di ENA e NCBI non rispondono: riprovo fra {s} secondi "
+                                            "(tentativo {n} di {tot}).", s=round(ATTESA_RETE), n=tentativo + 1,
+                                            tot=TENTATIVI_RETE), codice="RETE_INTERROTTA")
                     fine = time.monotonic() + ATTESA_RETE
                     while time.monotonic() < fine:
                         if (STATO / f"{self.corsa}.annulla").exists():
                             raise Annullata
                         time.sleep(min(1, fine - time.monotonic()))
-            return "ok", self._risultati(progetto, cfg), "Analisi finita."
+            return "ok", self._risultati(progetto, cfg), _("Analisi finita.")
         finally:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
@@ -515,8 +528,8 @@ class Motore:
                         totale = sum(secondi.values()) or 1
                     pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
-                    testo = dict(PASSI)[passo]
-                    chi = f"Campione {min(fatto, n)} di {n}: " if campione else ""
+                    testo = _(dict(PASSI)[passo])
+                    chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
                     break
@@ -528,9 +541,9 @@ class Motore:
             testo = "\n".join(coda)
             for regola, cod, msg, cosa in ERRORI:
                 if re.search(regola, testo):
-                    raise Errore(cod, msg, cosa)
-            raise Errore("ERRORE_INTERNO", "L'analisi si è fermata per un errore imprevisto.",
-                         f"Manda a noi il file {self.log}.")
+                    raise Errore(cod, _(msg), _(cosa))
+            raise Errore("ERRORE_INTERNO", _("L'analisi si è fermata per un errore imprevisto."),
+                         _("Manda a noi il file {log}.", log=self.log))
 
     @staticmethod
     def _nomi(cfg):
@@ -569,8 +582,8 @@ class Motore:
         ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
-        nome_db = "PlusPF-8 del 26/06/2026" if "08gb" in kraken_db else "PlusPF del 26/06/2026"
-        citazioni = [c.format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp", *ospiti] if k in CITAZIONI
+        nome_db = _("PlusPF-8 del 26/06/2026") if "08gb" in kraken_db else _("PlusPF del 26/06/2026")
+        citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp", *ospiti] if k in CITAZIONI
                      and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")
                      for c in CITAZIONI[k]]
         env = installazione()
@@ -606,7 +619,7 @@ class Motore:
 
     def _referto(self, r, progetto):
         """risultati/referto/ (HTML + Excel + PDF) con motore/referto.py; {file: percorso relativo o null}."""
-        self.avanza("referto", "Preparo il referto (pagina, PDF ed Excel)...", max(97, self.ultimo_pct),
+        self.avanza("referto", _("Preparo il referto (pagina, PDF ed Excel)..."), max(97, self.ultimo_pct),
                     eta_s=self.eta_referto)
         p = subprocess.run([sys.executable, str(ROOT / "motore" / "referto.py"), "--risultati", str(r),
                             *(["--progetto", str(progetto)] if progetto else [])],
@@ -615,7 +628,7 @@ class Motore:
         try:
             esito = json.loads(p.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
-            esito = {"problemi": ["il programma del referto non ha risposto"]}
+            esito = {"problemi": [_("il programma del referto non ha risposto")]}
         if esito.get("problemi") or not esito.get("html"):
             import referto
             self.evento("avviso", referto.avviso_parziale(esito.get("problemi") or [], bool(esito.get("html"))),
@@ -629,21 +642,23 @@ class Motore:
         leggi_progetto(progetto)
         r = progetto.parent / "risultati"
         if not (r / "risultati.json").is_file():
-            raise Errore("CONFIG_NON_VALIDA", "Questo progetto non ha ancora risultati.", "Prima avvia l'analisi.")
+            raise Errore("CONFIG_NON_VALIDA", _("Questo progetto non ha ancora risultati."), _("Prima avvia l'analisi."))
         file = self._referto(r, progetto)
         if not file["html"]:
-            raise Errore("ERRORE_INTERNO", "Non riesco a preparare il referto.", f"Manda a noi il file {self.log}.")
-        return "ok", {"cartella": str(r), "referto": file}, "Referto pronto."
+            raise Errore("ERRORE_INTERNO", _("Non riesco a preparare il referto."),
+                         _("Manda a noi il file {log}.", log=self.log))
+        return "ok", {"cartella": str(r), "referto": file}, _("Referto pronto.")
 
     # ---------------- sicurezza (FSSP, v0.2) ----------------
     def sicurezza(self):
         import sicurezza
         if self.a.progetto and not Path(self.a.progetto).is_file():
-            raise Errore("CONFIG_NON_VALIDA", "Non trovo il file del progetto.", "Salva il progetto e riprova.")
+            raise Errore("CONFIG_NON_VALIDA", _("Non trovo il file del progetto."), _("Salva il progetto e riprova."))
         try:
             risultato, messaggio = sicurezza.comando(self.evento, self.a.ingresso, self.a.progetto)
         except sicurezza.Rifiutata as e:
-            raise Errore("INGRESSO_NON_VALIDO", f"Dati del prodotto non validi: {e}.", sicurezza.COSA_FARE)
+            raise Errore("INGRESSO_NON_VALIDO", _("Dati del prodotto non validi: {errore}.", errore=e),
+                         _(sicurezza.COSA_FARE))
         return "ok", risultato, messaggio
 
     # ---------------- annulla ----------------
@@ -654,7 +669,7 @@ class Motore:
         except (OSError, ValueError):
             dati = {}
         if not dati or dati.get("corsa") != self.a.corsa:
-            return "ok", {"annullata": False}, "Nessuna analisi in corso con questo codice."
+            return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
         (STATO / f"{self.a.corsa}.annulla").touch()
         if dati.get("pgid"):
             for segnale, attesa in ((signal.SIGTERM, 10), (signal.SIGKILL, 5)):
@@ -672,7 +687,7 @@ class Motore:
                 else:
                     continue
                 break
-        return "ok", {"annullata": True}, "Ho fermato l'analisi."
+        return "ok", {"annullata": True}, _("Ho fermato l'analisi.")
 
 
 def main():
@@ -682,12 +697,16 @@ def main():
     p.add_argument("--progetto")
     p.add_argument("--corsa", default="")
     p.add_argument("--ingresso", help="sicurezza: richiesta JSON (prodotto, temperature, conte)")
+    p.add_argument("--lingua", choices=lingua.LINGUE, help="lingua dei testi per l'utente (predefinita: it)")
     a = p.parse_args()
+    if a.lingua:
+        lingua.imposta(a.lingua)
     if a.comando == "installa":   # l'installatore parla gia' da solo il contratto (eventi propri, dall'inizio alla fine)
         os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si"])
     sys.stdout.reconfigure(encoding="utf-8")
     m = Motore(a)
-    m.evento("inizio", f"Comando {a.comando} avviato.", comando=a.comando, corsa=m.corsa, log=str(m.log))
+    m.evento("inizio", _("Comando {comando} avviato.", comando=a.comando), comando=a.comando, corsa=m.corsa,
+             log=str(m.log))
     try:
         esito, risultato, messaggio = getattr(m, a.comando)()
         codice = 0
@@ -697,13 +716,15 @@ def main():
         esito, risultato, codice = "errore", {"codice": e.codice, "passo": passo}, CODICE_USCITA.get(e.codice, 4)
         messaggio = messaggio_fine(e.messaggio, e.cosa_fare, passo)
     except Annullata:
-        esito, risultato, messaggio, codice = "annullata", {}, "Annullata: i passi finiti restano, quelli a metà si rifanno.", 3
+        esito, risultato, messaggio, codice = "annullata", {}, _("Annullata: i passi finiti restano, quelli a metà si "
+                                                                 "rifanno."), 3
     except Exception as e:   # errore nostro: lo si dice, e il dettaglio va nel log
         m.scrivi(f"ERRORE INTERNO: {e!r}")
-        cosa_fare = f"Manda a noi il file {m.log}."
-        m.evento("errore", "Errore imprevisto del motore.", codice="ERRORE_INTERNO", cosa_fare=cosa_fare, passo=m.passo)
+        cosa_fare = _("Manda a noi il file {log}.", log=m.log)
+        m.evento("errore", _("Errore imprevisto del motore."), codice="ERRORE_INTERNO", cosa_fare=cosa_fare,
+                 passo=m.passo)
         esito, risultato, codice = "errore", {"codice": "ERRORE_INTERNO", "passo": m.passo}, 4
-        messaggio = messaggio_fine("Errore imprevisto del motore.", cosa_fare, m.passo)
+        messaggio = messaggio_fine(_("Errore imprevisto del motore."), cosa_fare, m.passo)
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 

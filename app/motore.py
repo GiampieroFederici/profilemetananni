@@ -21,6 +21,9 @@ from pathlib import Path, PureWindowsPath
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
+from app import lingua
+from app.lingua import _
+
 RADICE = Path(__file__).resolve().parent.parent
 DISTRO = "pmn"                                   # nome della WSL del motore (installer/windows/installa_pmn.ps1)
 MOTORE_WSL = "/home/pmn/.pmn/bin/pmn-motore"     # collegato dall'installatore (D053)
@@ -79,7 +82,7 @@ class MotoreClient(QObject):
         p.finished.connect(self._chiuso)
         p.errorOccurred.connect(self._non_partito)
         self._p = p
-        p.start(programma[0], programma[1:] + [comando, *argomenti] + opzioni)
+        p.start(programma[0], programma[1:] + [comando, *argomenti] + opzioni + lingua.per_motore())
 
     def annulla(self):
         """Chiede al motore di fermare la corsa in modo pulito (comando annulla --corsa <id>)."""
@@ -89,7 +92,7 @@ class MotoreClient(QObject):
         a = QProcess(self)
         a.setProcessEnvironment(_ambiente())
         a.finished.connect(a.deleteLater)
-        a.start(programma[0], programma[1:] + ["annulla", "--corsa", self.corsa] + opzioni)
+        a.start(programma[0], programma[1:] + ["annulla", "--corsa", self.corsa] + opzioni + lingua.per_motore())
         return True
 
     # ------------------------------------------------------------------
@@ -122,12 +125,12 @@ class MotoreClient(QObject):
             self._riga(self._resto)
             self._resto = b""
         if self._fine is None and self.corsa is None:       # niente inizio: il motore non è mai partito
-            self._sintetico("MOTORE_NON_AVVIATO", "Non riesco ad avviare il motore.",
-                            "Apri la pagina Motore e premi Controlla il motore.")
+            self._sintetico("MOTORE_NON_AVVIATO", _("Non riesco ad avviare il motore."),
+                            _("Apri la pagina Motore e premi Controlla il motore."))
             codice = 4
         elif self._fine is None:
-            self._sintetico("ERRORE_INTERNO", "Il motore si è chiuso senza finire il lavoro.",
-                            "Riprova. Se succede ancora, mandaci il registro del motore.")
+            self._sintetico("ERRORE_INTERNO", _("Il motore si è chiuso senza finire il lavoro."),
+                            _("Riprova. Se succede ancora, mandaci il registro del motore."))
             codice = 4
         elif stato != QProcess.NormalExit:
             codice = 4
@@ -138,8 +141,8 @@ class MotoreClient(QObject):
         if errore != QProcess.FailedToStart:
             return
         self.diagnostica.append(self._p.errorString())
-        self._sintetico("MOTORE_NON_AVVIATO", "Non riesco ad avviare il motore.",
-                        "Apri la pagina Motore e premi Controlla il motore.")
+        self._sintetico("MOTORE_NON_AVVIATO", _("Non riesco ad avviare il motore."),
+                        _("Apri la pagina Motore e premi Controlla il motore."))
         self._p = None
         self.finito.emit(4, self._fine)
 

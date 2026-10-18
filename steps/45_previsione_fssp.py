@@ -29,6 +29,7 @@ from fssp import ponte, validita  # noqa: E402
 from fssp.validita import numero_it  # noqa: E402
 from fssp.calcolatrici import sale_da_aw  # noqa: E402
 from fssp.modelli import ACIDI, Prodotto  # noqa: E402
+from lingua import N_, _  # noqa: E402
 
 LIMITI = {"temperatura": (-20.0, 60.0), "sale_fase_acquosa": (0.0, 40.0), "aw": (0.5, 1.0), "ph": (2.0, 10.0),
           "fenoli": (0.0, 1000.0), "co2": (0.0, 100.0), "nitrito": (0.0, 10000.0)}
@@ -42,36 +43,38 @@ class IngressoNonValido(ValueError):
 
 def numero(v, nome, lo=None, hi=None):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
-        raise IngressoNonValido(f"{nome}: serve un numero")
+        raise IngressoNonValido(_("{nome}: serve un numero", nome=_(nome)))
     if (lo is not None and v < lo) or (hi is not None and v > hi):
-        raise IngressoNonValido(f"{nome} = {numero_it(v)}: fuori da {numero_it(lo)}-{numero_it(hi)}")
+        raise IngressoNonValido(_("{nome} = {valore}: fuori da {lo}-{hi}", nome=_(nome), valore=numero_it(v),
+                                  lo=numero_it(lo), hi=numero_it(hi)))
     return float(v)
 
 
 def leggi_prodotto(d):
     if not isinstance(d, dict):
-        raise IngressoNonValido("prodotto: serve un oggetto")
+        raise IngressoNonValido(_("prodotto: serve un oggetto"))
     noti = set(LIMITI) | {"acidi"}
     extra = set(d) - noti
     if extra:
-        raise IngressoNonValido(f"prodotto: campi sconosciuti {sorted(extra)}")
+        raise IngressoNonValido(_("prodotto: campi sconosciuti {campi}", campi=sorted(extra)))
     note = []
     if "aw" in d:
         if "sale_fase_acquosa" in d:
-            raise IngressoNonValido("prodotto: indica il sale nella fase acquosa oppure l'aw, non entrambi")
+            raise IngressoNonValido(_("prodotto: indica il sale nella fase acquosa oppure l'aw, non entrambi"))
         sale = sale_da_aw(numero(d["aw"], "aw", *LIMITI["aw"]))
-        note.append(f"aw {numero_it(d['aw'], 3)} convertita in sale nella fase acquosa {numero_it(sale)} % (calcolatrice di FSSP)")
+        note.append(_("aw {aw} convertita in sale nella fase acquosa {sale} % (calcolatrice di FSSP)",
+                      aw=numero_it(d['aw'], 3), sale=numero_it(sale)))
     else:
-        sale = numero(d.get("sale_fase_acquosa", 0.0), "sale_fase_acquosa", *LIMITI["sale_fase_acquosa"])
+        sale = numero(d.get("sale_fase_acquosa", 0.0), N_("sale_fase_acquosa"), *LIMITI["sale_fase_acquosa"])
     acidi = d.get("acidi", {})
     if not isinstance(acidi, dict) or set(acidi) - set(ACIDI):
-        raise IngressoNonValido(f"acidi: chiavi ammesse {list(ACIDI)}")
-    p = Prodotto(temperatura=numero(d.get("temperatura", 5.0), "temperatura", *LIMITI["temperatura"]),
+        raise IngressoNonValido(_("acidi: chiavi ammesse {chiavi}", chiavi=list(ACIDI)))
+    p = Prodotto(temperatura=numero(d.get("temperatura", 5.0), N_("temperatura"), *LIMITI["temperatura"]),
                  sale_fase_acquosa=sale, ph=numero(d.get("ph", 6.2), "ph", *LIMITI["ph"]),
-                 fenoli=numero(d.get("fenoli", 0.0), "fenoli", *LIMITI["fenoli"]),
+                 fenoli=numero(d.get("fenoli", 0.0), N_("fenoli"), *LIMITI["fenoli"]),
                  co2=numero(d.get("co2", 0.0), "co2", *LIMITI["co2"]),
-                 nitrito=numero(d.get("nitrito", 0.0), "nitrito", *LIMITI["nitrito"]),
-                 acidi={a: numero(v, f"acido {a}", 0.0, 1e6) for a, v in acidi.items()})
+                 nitrito=numero(d.get("nitrito", 0.0), N_("nitrito"), *LIMITI["nitrito"]),
+                 acidi={a: numero(v, _("acido {a}", a=a), 0.0, 1e6) for a, v in acidi.items()})
     return p, note
 
 
@@ -79,17 +82,17 @@ def leggi_profilo(r, prodotto):
     if "profilo_temperatura" in r:
         prof = r["profilo_temperatura"]
         if not isinstance(prof, list) or not 0 < len(prof) <= MAX_TRATTI:
-            raise IngressoNonValido("profilo_temperatura: lista di [temperatura, ore]")
+            raise IngressoNonValido(_("profilo_temperatura: lista di [temperatura, ore]"))
         out = []
         for i, tratto in enumerate(prof):
             if not isinstance(tratto, list) or len(tratto) != 2:
-                raise IngressoNonValido(f"profilo_temperatura[{i}]: serve [temperatura, ore]")
-            out.append((numero(tratto[0], f"temperatura del tratto {i + 1}", *LIMITI["temperatura"]),
-                        numero(tratto[1], f"ore del tratto {i + 1}", 1e-6, MAX_GIORNI * 24.0)))
+                raise IngressoNonValido(_("profilo_temperatura[{i}]: serve [temperatura, ore]", i=i))
+            out.append((numero(tratto[0], _("temperatura del tratto {n}", n=i + 1), *LIMITI["temperatura"]),
+                        numero(tratto[1], _("ore del tratto {n}", n=i + 1), 1e-6, MAX_GIORNI * 24.0)))
     else:
-        out = [(prodotto.temperatura, numero(r.get("giorni", 30.0), "giorni", 1e-3, MAX_GIORNI) * 24.0)]
-    if sum(o for _, o in out) > MAX_GIORNI * 24.0:
-        raise IngressoNonValido(f"durata totale oltre {MAX_GIORNI:g} giorni")
+        out = [(prodotto.temperatura, numero(r.get("giorni", 30.0), N_("giorni"), 1e-3, MAX_GIORNI) * 24.0)]
+    if sum(o for _t, o in out) > MAX_GIORNI * 24.0:
+        raise IngressoNonValido(_("durata totale oltre {giorni} giorni", giorni=f"{MAX_GIORNI:g}"))
     return out
 
 
@@ -108,28 +111,28 @@ def due_cifre(x):
 def esegui(r, passo_curva_ore, avanza=None):
     """avanza(i, n, nome): chiamata prima di ogni scenario (pmn-motore sicurezza la usa per la barra)."""
     if not isinstance(r, dict):
-        raise IngressoNonValido("la richiesta deve essere un oggetto JSON")
+        raise IngressoNonValido(_("la richiesta deve essere un oggetto JSON"))
     modalita = r.get("modalita", "migliorata")
     if modalita not in ("migliorata", "fssp"):
-        raise IngressoNonValido("modalita: 'migliorata' oppure 'fssp'")
+        raise IngressoNonValido(_("modalita: 'migliorata' oppure 'fssp'"))
     prodotto, note = leggi_prodotto(r.get("prodotto"))
     profilo = leggi_profilo(r, prodotto)
     prodotto = prodotto.con(temperatura=profilo[0][0])
     lag = r.get("lag", False)
     if not isinstance(lag, bool):
-        raise IngressoNonValido("lag: true o false")
+        raise IngressoNonValido(_("lag: true o false"))
     gamma = numero(r.get("gamma", 1.0), "gamma", 0.0, 2.0)
     scenari = r.get("scenari_listeria_ufc_g", [1.0, 100.0])
     if not isinstance(scenari, list) or not 0 < len(scenari) <= 10:
-        raise IngressoNonValido("scenari_listeria_ufc_g: lista di 1-10 concentrazioni")
-    scenari = [numero(v, "scenario Listeria", 0.0, LISTERIA.nmax) for v in scenari]
+        raise IngressoNonValido(_("scenari_listeria_ufc_g: lista di 1-10 concentrazioni"))
+    scenari = [numero(v, N_("scenario Listeria"), 0.0, LISTERIA.nmax) for v in scenari]
     specie = r.get("profilo_specie", {})
     if not isinstance(specie, dict):
-        raise IngressoNonValido("profilo_specie: oggetto nome -> percentuale")
-    specie = {str(k): numero(v, f"percentuale di {k}", 0.0, 100.0) for k, v in specie.items()}
+        raise IngressoNonValido(_("profilo_specie: oggetto nome -> percentuale"))
+    specie = {str(k): numero(v, _("percentuale di {specie}", specie=k), 0.0, 100.0) for k, v in specie.items()}
     conte = r.get("conte", {})
     if not isinstance(conte, dict) or set(conte) - {"lab_ufc_g", "totale_ufc_g"}:
-        raise IngressoNonValido("conte: 'lab_ufc_g' oppure 'totale_ufc_g'")
+        raise IngressoNonValido(_("conte: 'lab_ufc_g' oppure 'totale_ufc_g'"))
     conte = {k: numero(v, k, 0.0, LAB.nmax) for k, v in conte.items()}
 
     piano = ponte.piano(specie, conte, scenari)
@@ -167,7 +170,7 @@ def esegui(r, passo_curva_ore, avanza=None):
     avvisi = [dict(a, modello=modello_campo) for a in validita.avvisi(modello_campo, prodotto, profilo)]
     if piano["lab_trovati"]:
         avvisi += [dict(a, modello="lab") for a in validita.avvisi("lab", prodotto, profilo)]
-    return {"modalita": modalita, "citazione": CITAZIONE, "note": note + piano["note"], "avvisi": avvisi,
+    return {"modalita": modalita, "citazione": _(CITAZIONE), "note": note + piano["note"], "avvisi": avvisi,
             "ponte": {k: piano[k] for k in ("listeria_trovata", "lab_trovati", "specie_non_coperte")},
             "previsioni": previsioni}
 

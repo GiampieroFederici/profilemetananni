@@ -13,10 +13,15 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHBoxLayout, QPushButton, QTabBar, QTextBrowser,
                                QVBoxLayout, QWidget)
 
+from app import lingua
+from app.lingua import N_, _
 from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, riquadro
 
-OSPITI = {"sus_scrofa": "maiale (Sscrofa11.1)", "bos_taurus": "bovino (ARS-UCD1.2)",
-          "ovis_aries": "pecora (ARS-UI_Ramb_v2.0)", "grch38": "uomo (GRCh38)"}
+OSPITI = {"sus_scrofa": N_("maiale (Sscrofa11.1)"), "bos_taurus": N_("bovino (ARS-UCD1.2)"),
+          "ovis_aries": N_("pecora (ARS-UI_Ramb_v2.0)"), "grch38": N_("uomo (GRCh38)")}
+# valori fissi del motore (contratto §5.3: chiavi, non testi): si traducono solo quando si mostrano
+GRUPPI = [N_("batteri"), N_("archei"), N_("funghi"), N_("virus"), N_("altri eucarioti"), N_("altro"),
+          N_("da controllare"), N_("da rifare"), N_("buono")]
 TRIAGE = {"da controllare": "avviso", "da rifare": "errore"}
 SCHEDE = ("QTabBar::tab { background: transparent; border: 0; border-bottom: 4px solid transparent; color: #52625D;"
           " font-weight: bold; padding: 10px 16px; margin-right: 4px; }"
@@ -57,7 +62,7 @@ def separatore():
 
 
 class PaginaRisultati(Pagina):
-    titolo = "Risultati"
+    titolo = N_("Risultati")
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
@@ -80,18 +85,18 @@ class PaginaRisultati(Pagina):
             self._vuota(progetto)
         else:
             self._pagina(progetto, self.dati)
-            self.testo_principale, self.destinazione = "Prevedi la sicurezza alimentare", "sicurezza"
-            self.aiuto = "Passo 4 di 4"
+            self.testo_principale, self.destinazione = _("Prevedi la sicurezza alimentare"), "sicurezza"
+            self.aiuto = _("Passo 4 di 4")
         self.azioni_cambiate.emit()
 
     def _vuota(self, progetto):
         if progetto is None:
-            self.lista.addWidget(etichetta("Nessun progetto aperto. Apri un progetto o creane uno nuovo."))
-            self.testo_principale, self.destinazione = "Apri i miei progetti", "home"
+            self.lista.addWidget(etichetta(_("Nessun progetto aperto. Apri un progetto o creane uno nuovo.")))
+            self.testo_principale, self.destinazione = _("Apri i miei progetti"), "home"
         else:
-            self.lista.addWidget(etichetta("Questo progetto non ha ancora risultati. Avvia l'analisi dalle "
-                                           "scelte dell'analisi (passo 2)."))
-            self.testo_principale, self.destinazione = "Vai alle scelte dell'analisi", "scelte"
+            self.lista.addWidget(etichetta(_("Questo progetto non ha ancora risultati. Avvia l'analisi dalle "
+                                             "scelte dell'analisi (passo 2).")))
+            self.testo_principale, self.destinazione = _("Vai alle scelte dell'analisi"), "scelte"
 
     # ---------------- la pagina con i risultati ----------------
     def _pagina(self, progetto, d):
@@ -100,22 +105,26 @@ class PaginaRisultati(Pagina):
             s = c.get("sintesi", {})
             m, k = s.get("metaphlan", {}), s.get("kraken", {})
             nomi = [x["nome"] for x in m.get("dominanti", []) + k.get("dominanti", []) + k.get("non_microbi", [])]
-            frasi = [f"Campione <b>{html.escape(c['nome'])}</b>"] + [corsivo(x["frase"], nomi) for x in (m, k) if x.get("frase")]
+            frasi = [_("Campione <b>{nome}</b>", nome=html.escape(c['nome']))] + [
+                corsivo(x["frase"], nomi) for x in (m, k) if x.get("frase")]
             for frase in frasi:                      # una frase per riga: si legge meglio (R2)
                 e = etichetta(frase)
                 e.setTextFormat(Qt.RichText)
                 self.lista.addWidget(e)
             if k.get("frase"):
-                self.lista.addWidget(etichetta("Kraken è un prototipo: non usare i suoi numeri per decisioni.", "nota"))
+                self.lista.addWidget(etichetta(_("Kraken è un prototipo: non usare i suoi numeri per decisioni."),
+                                               "nota"))
 
         for t in d.get("triage", []):                       # ben visibile, prima del resto (R9)
             if t.get("esito") in TRIAGE:
                 motivi = "; ".join(t.get("motivi", []))
-                testo = (f"Motivo: {motivi}. " if motivi else "") + "Guardalo prima di usare questi risultati."
-                self.lista.addWidget(riquadro(f"Campione {t['campione']}: {t['esito']}", testo, TRIAGE[t["esito"]]))
+                testo = (_("Motivo: {motivi}. ", motivi=motivi) if motivi else "") + _(
+                    "Guardalo prima di usare questi risultati.")
+                self.lista.addWidget(riquadro(_("Campione {nome}: {esito}", nome=t['campione'], esito=_(t['esito'])),
+                                              testo, TRIAGE[t["esito"]]))
         for c in d.get("consigli", []):
             if c.get("codice") not in ("CAMPIONE_DA_CONTROLLARE", "CAMPIONE_DA_RIFARE"):
-                self.lista.addWidget(riquadro("Da sapere", c.get("messaggio", ""), "avviso"))
+                self.lista.addWidget(riquadro(_("Da sapere"), c.get("messaggio", ""), "avviso"))
 
         self._referto(progetto, d)
 
@@ -124,7 +133,8 @@ class PaginaRisultati(Pagina):
         self.linguette.setDrawBase(False)
         self.linguette.setExpanding(False)
         self.schede = [self._scheda_metaphlan(campioni), self._scheda_kraken(campioni), self._scheda_come(d)]
-        for testo in ("Specie trovate con MetaPhlAn", "Specie trovate con Kraken", "Come è stata fatta l'analisi"):
+        for testo in (_("Specie trovate con MetaPhlAn"), _("Specie trovate con Kraken"),
+                      _("Come è stata fatta l'analisi")):
             self.linguette.addTab(testo)
         self.linguette.currentChanged.connect(
             lambda i: [w.setVisible(j == i) for j, w in enumerate(self.schede)])
@@ -136,8 +146,8 @@ class PaginaRisultati(Pagina):
 
         self.lista.addSpacing(8)
         self.lista.addWidget(separatore())
-        self.lista.addWidget(etichetta("Strumenti e database usati", "sottotitolo"))
-        self.lista.addWidget(etichetta("Se usi questi risultati in un documento, cita queste fonti.", "nota"))
+        self.lista.addWidget(etichetta(_("Strumenti e database usati"), "sottotitolo"))
+        self.lista.addWidget(etichetta(_("Se usi questi risultati in un documento, cita queste fonti."), "nota"))
         for i, c in enumerate(d.get("citazioni", []), 1):
             self.lista.addWidget(etichetta(f"{i}. {c}", "nota"))
 
@@ -146,24 +156,25 @@ class PaginaRisultati(Pagina):
         self.file = {k: (dentro(progetto, progetto.risultati / r[k]) if r.get(k) else None) for k in ("html", "pdf", "xlsx")}
         riga = QHBoxLayout()
         riga.setSpacing(12)
-        pulsanti = [("Apri il referto", "html", self.apri_referto),
-                    ("Apri il referto in PDF", "pdf", lambda: self.apri(self.file["pdf"])),
-                    ("Apri le tabelle in Excel", "xlsx", lambda: self.apri(self.file["xlsx"]))]
+        pulsanti = [(_("Apri il referto"), "html", self.apri_referto),
+                    (_("Apri il referto in PDF"), "pdf", lambda: self.apri(self.file["pdf"])),
+                    (_("Apri le tabelle in Excel"), "xlsx", lambda: self.apri(self.file["xlsx"]))]
         mancano = []
         for testo, chiave, funzione in pulsanti:
             b = QPushButton(testo, objectName="secondario")
             b.clicked.connect(funzione)
             b.setEnabled(self.file[chiave] is not None)
             if self.file[chiave] is None:
-                mancano.append({"html": "la pagina del referto", "pdf": "il PDF", "xlsx": "le tabelle Excel"}[chiave])
+                mancano.append({"html": _("la pagina del referto"), "pdf": _("il PDF"),
+                                "xlsx": _("le tabelle Excel")}[chiave])
             riga.addWidget(b)
-        cartella = QPushButton("Apri la cartella dei risultati", objectName="link")
+        cartella = QPushButton(_("Apri la cartella dei risultati"), objectName="link")
         cartella.clicked.connect(lambda: self.apri(dentro(progetto, progetto.risultati)))
         riga.addWidget(cartella)
         riga.addStretch(1)
         self.lista.addLayout(riga)
         if mancano:
-            self.lista.addWidget(etichetta(f"Non sono stati preparati: {', '.join(mancano)}.", "nota"))
+            self.lista.addWidget(etichetta(_("Non sono stati preparati: {file}.", file=", ".join(mancano)), "nota"))
 
     def _barre(self, righe, colore):
         """Barre orizzontali: [(nome, percentuale)]; la lunghezza è solo disegno (la più grande = barra piena)."""
@@ -198,7 +209,7 @@ class PaginaRisultati(Pagina):
 
     def _titolo_campione(self, s, c, campioni):
         if len(campioni) > 1:
-            s.addWidget(etichetta(f"Campione {c['nome']}", "sottotitolo"))
+            s.addWidget(etichetta(_("Campione {nome}", nome=c['nome']), "sottotitolo"))
 
     def _scheda_metaphlan(self, campioni):
         w, s = self._scheda()
@@ -206,47 +217,50 @@ class PaginaRisultati(Pagina):
             m = c.get("sintesi", {}).get("metaphlan")
             self._titolo_campione(s, c, campioni)
             if not m:
-                s.addWidget(etichetta("Profilo MetaPhlAn non disponibile per questo campione.", "nota"))
+                s.addWidget(etichetta(_("Profilo MetaPhlAn non disponibile per questo campione."), "nota"))
                 continue
-            e = etichetta(f"Percentuale sul totale delle read del campione. Il <b>{numero(m['non_assegnata_pct'])} %</b> "
-                          "non è assegnato a nessuna specie del database: è normale (microbi non ancora nel database "
-                          "e DNA non microbico rimasto).")
+            e = etichetta(_("Percentuale sul totale delle read del campione. Il <b>{pct} %</b> non è assegnato a "
+                            "nessuna specie del database: è normale (microbi non ancora nel database e DNA non "
+                            "microbico rimasto).", pct=numero(m['non_assegnata_pct'])))
             e.setTextFormat(Qt.RichText)
             s.addWidget(e)
             dom = m.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct"]) for x in dom], "#1E7A4C"))
-            s.addWidget(etichetta(f"Qui tutte le {len(dom)} specie sopra la soglia." if len(dom) >= m["specie"] else
-                                  f"Qui le {len(dom)} più abbondanti delle {m['specie']} specie sopra la soglia. "
-                                  "Tutte le altre sono nel referto e nelle tabelle Excel.", "nota"))
+            s.addWidget(etichetta(_("Qui tutte le {n} specie sopra la soglia.", n=len(dom)) if len(dom) >= m["specie"]
+                                  else _("Qui le {n} più abbondanti delle {tot} specie sopra la soglia. Tutte le altre "
+                                         "sono nel referto e nelle tabelle Excel.", n=len(dom), tot=m['specie']),
+                                  "nota"))
         return w
 
     def _scheda_kraken(self, campioni):
         w, s = self._scheda()
-        s.addWidget(riquadro(PROTOTIPO, "Le impostazioni di Kraken sono ancora in prova su comunità di composizione "
-                             "nota. Guarda questi numeri come un confronto, non usarli per decidere.", "avviso"))
-        s.addWidget(riquadro("Metodo diverso da MetaPhlAn",
-                             "Kraken confronta ogni read con genomi interi: i suoi numeri non si sommano e non si "
-                             "confrontano uno a uno con quelli di MetaPhlAn.", "info"))
+        s.addWidget(riquadro(_(PROTOTIPO), _("Le impostazioni di Kraken sono ancora in prova su comunità di "
+                                             "composizione nota. Guarda questi numeri come un confronto, non usarli "
+                                             "per decidere."), "avviso"))
+        s.addWidget(riquadro(_("Metodo diverso da MetaPhlAn"),
+                             _("Kraken confronta ogni read con genomi interi: i suoi numeri non si sommano e non si "
+                               "confrontano uno a uno con quelli di MetaPhlAn."), "info"))
         for c in campioni:
             k = c.get("sintesi", {}).get("kraken")
             self._titolo_campione(s, c, campioni)
             if not k:
-                s.addWidget(etichetta("Profilo Kraken non disponibile per questo campione.", "nota"))
+                s.addWidget(etichetta(_("Profilo Kraken non disponibile per questo campione."), "nota"))
                 continue
-            s.addWidget(etichetta("Percentuale fra i soli microbi (batteri, archei, funghi), dopo la "
-                                  "ridistribuzione di Bracken (il programma che stima le abbondanze)."))
+            s.addWidget(etichetta(_("Percentuale fra i soli microbi (batteri, archei, funghi), dopo la "
+                                    "ridistribuzione di Bracken (il programma che stima le abbondanze).")))
             dom = k.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct_microbi"]) for x in dom], "#2F5D7C"))
-            s.addWidget(etichetta(f"Qui tutti i {len(dom)} microbi sopra la soglia." if len(dom) >= k["microbi"] else
-                                  f"Qui i {len(dom)} più abbondanti dei {k['microbi']} microbi sopra la soglia. "
-                                  "Tutti gli altri sono nel referto e nelle tabelle Excel.", "nota"))
+            s.addWidget(etichetta(_("Qui tutti i {n} microbi sopra la soglia.", n=len(dom)) if len(dom) >= k["microbi"]
+                                  else _("Qui i {n} più abbondanti dei {tot} microbi sopra la soglia. Tutti gli altri "
+                                         "sono nel referto e nelle tabelle Excel.", n=len(dom), tot=k['microbi']),
+                                  "nota"))
             nm = k.get("non_microbi", [])
             if nm:
-                elenco = ", ".join(f"<i>{html.escape(x['nome'])}</i> ({html.escape(x['gruppo'])}, {numero(x['pct'], 3)} %)"
-                                   for x in nm)
-                r = riquadro("Segnalati a parte, fuori dal profilo", "", "info")
-                e = etichetta(f"{elenco}. Non sono microbi del prodotto (per esempio avanzi di DNA dell'ospite) "
-                              "o sono virus.")
+                elenco = ", ".join(f"<i>{html.escape(x['nome'])}</i> ({html.escape(_(x['gruppo']))}, "
+                                   f"{numero(x['pct'], 3)} %)" for x in nm)
+                r = riquadro(_("Segnalati a parte, fuori dal profilo"), "", "info")
+                e = etichetta(elenco + _(". Non sono microbi del prodotto (per esempio avanzi di DNA dell'ospite) "
+                                         "o sono virus."))
                 e.setTextFormat(Qt.RichText)
                 r.layout().addWidget(e)
                 s.addWidget(r)
@@ -255,22 +269,25 @@ class PaginaRisultati(Pagina):
     def _scheda_come(self, d):
         w, s = self._scheda()
         p, v = d.get("parametri", {}), d.get("versioni", {})
-        ospiti = [OSPITI.get(o, o) for o in str(p.get("hosts", "")).replace(",", " ").split()]
+        ospiti = [_(OSPITI.get(o, o)) for o in str(p.get("hosts", "")).replace(",", " ").split()]
         if str(p.get("filter_human", "")).lower() in ("yes", "true", "1"):
-            ospiti.append(OSPITI["grch38"])
+            ospiti.append(_(OSPITI["grch38"]))
         modo = p.get("metaphlan_mode") or p.get("metaphlan_modo")
         profilo = p.get("kraken_profile")
-        righe = [("DNA dell'ospite tolto", ", ".join(dict.fromkeys(ospiti))),
-                 *[(f"Coppie di read rimaste ({c['nome']})", numero(c["coppie_dopo_ospite"], 0))
+        righe = [(_("DNA dell'ospite tolto"), ", ".join(dict.fromkeys(ospiti))),
+                 *[(_("Coppie di read rimaste ({nome})", nome=c['nome']), numero(c["coppie_dopo_ospite"], 0))
                    for c in d.get("campioni", []) if c.get("coppie_dopo_ospite") is not None],
-                 ("MetaPhlAn", f"{v.get('metaphlan', '')}, database {v.get('database_metaphlan', '')}"
-                  + {"fette": ", in 6 parti (stesso profilo dell'analisi standard)", "standard": ", standard"}.get(modo, "")),
-                 ("Kraken e Bracken", f"Kraken {v.get('kraken2', '')}, Bracken {v.get('bracken', '')}, "
-                                      f"database {v.get('database_kraken', '')}"
-                  + {"rapido": " (screening rapido)", "completo": " (completo)"}.get(profilo, "")),
-                 ("Soglia di confidenza di Kraken", str(p.get("kraken_confidence", "")).replace(".", ",")),
-                 ("Read minime per specie (Bracken)", str(p.get("bracken_min_reads", ""))),
-                 ("Abbondanza minima mostrata", str(p.get("abundance_threshold_pct", "")).replace(".", ",") + " %")]
+                 ("MetaPhlAn", _("{versione}, database {database}", versione=v.get('metaphlan', ''),
+                                 database=v.get('database_metaphlan', ''))
+                  + {"fette": _(", in 6 parti (stesso profilo dell'analisi standard)"),
+                     "standard": _(", standard")}.get(modo, "")),
+                 (_("Kraken e Bracken"), _("Kraken {kraken}, Bracken {bracken}, database {database}",
+                                           kraken=v.get('kraken2', ''), bracken=v.get('bracken', ''),
+                                           database=v.get('database_kraken', ''))
+                  + {"rapido": _(" (screening rapido)"), "completo": _(" (completo)")}.get(profilo, "")),
+                 (_("Soglia di confidenza di Kraken"), lingua.virgola(p.get("kraken_confidence", ""))),
+                 (_("Read minime per specie (Bracken)"), str(p.get("bracken_min_reads", ""))),
+                 (_("Abbondanza minima mostrata"), lingua.virgola(p.get("abundance_threshold_pct", "")) + " %")]
         tab = QWidget()
         g = QGridLayout(tab)
         g.setContentsMargins(0, 0, 0, 0)
@@ -282,7 +299,8 @@ class PaginaRisultati(Pagina):
             g.addWidget(etichetta(valore), i, 1)
         g.setColumnStretch(1, 1)
         s.addWidget(tab)
-        s.addWidget(etichetta(f"Corsa {d.get('corsa', '')}, motore {d.get('motore', '')}.", "nota"))
+        s.addWidget(etichetta(_("Corsa {corsa}, motore {motore}.", corsa=d.get('corsa', ''),
+                                motore=d.get('motore', '')), "nota"))
         return w
 
     # ---------------- referto e file ----------------
@@ -292,7 +310,7 @@ class PaginaRisultati(Pagina):
         if f is None:
             return
         finestra = QDialog(self)
-        finestra.setWindowTitle("Referto")
+        finestra.setWindowTitle(_("Referto"))
         finestra.resize(1100, 760)
         s = QVBoxLayout(finestra)
         testo = QTextBrowser()
@@ -301,7 +319,7 @@ class PaginaRisultati(Pagina):
         testo.setSearchPaths([str(f.parent)])
         testo.setHtml(f.read_text(encoding="utf-8"))
         s.addWidget(testo)
-        chiudi = QPushButton("Chiudi", objectName="secondario")
+        chiudi = QPushButton(_("Chiudi"), objectName="secondario")
         chiudi.clicked.connect(finestra.accept)
         s.addWidget(chiudi, 0, Qt.AlignRight)
         self.finestra_referto = finestra
