@@ -118,9 +118,10 @@ class Motore:
         while True:
             if (STATO / f"{self.corsa}.annulla").exists():
                 raise Annullata
-            if time.monotonic() >= fine:
+            resto = fine - time.monotonic()   # letto una volta: fra due letture puo' diventare negativo (B1)
+            if resto <= 0:
                 return
-            time.sleep(min(0.1, fine - time.monotonic()))
+            time.sleep(min(0.1, resto))
 
     def errore(self, codice, messaggio, cosa_fare, passo=None):
         passo = passo or self.passo

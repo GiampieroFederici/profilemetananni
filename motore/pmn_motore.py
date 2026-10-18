@@ -454,10 +454,10 @@ class Motore:
                     self.evento("avviso", f"I server di ENA e NCBI non rispondono: riprovo fra {round(ATTESA_RETE)} "
                                 f"secondi (tentativo {tentativo + 1} di {TENTATIVI_RETE}).", codice="RETE_INTERROTTA")
                     fine = time.monotonic() + ATTESA_RETE
-                    while time.monotonic() < fine:
+                    while (resto := fine - time.monotonic()) > 0:   # letto una volta: mai un sleep negativo (B1)
                         if (STATO / f"{self.corsa}.annulla").exists():
                             raise Annullata
-                        time.sleep(min(1, fine - time.monotonic()))
+                        time.sleep(min(1, resto))
             return "ok", self._risultati(progetto, cfg), "Analisi finita."
         finally:
             blocco.unlink(missing_ok=True)
