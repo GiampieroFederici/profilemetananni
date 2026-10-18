@@ -33,6 +33,10 @@ function Riprendi {   # al prossimo accesso di questo utente riparte da solo dal
     New-ItemProperty -Path $RunOnce -Name 'profilemetananni' -Value $cmd -PropertyType String -Force | Out-Null
 }
 function NonRiprendere { Remove-ItemProperty -Path $RunOnce -Name 'profilemetananni' -ErrorAction SilentlyContinue }
+function NienteSospensione {   # B2: i download durano piu' del tempo dopo cui Windows sospende il PC; vale finche' questo processo e' vivo
+    Add-Type -Namespace Pmn -Name Energia -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);'
+    [void][Pmn.Energia]::SetThreadExecutionState(2147483649)   # 0x80000001 = ES_CONTINUOUS + ES_SYSTEM_REQUIRED (lo schermo si puo' spegnere)
+}
 function ChiudiBarra { if ($script:Barra) { $script:Barra.f.Close(); $script:Barra = $null } }
 function Ferma($t) {   # errore: lo dice in italiano e si ferma; l'utente riapre l'installazione quando ha risolto
     Scrivi "STOP: $t"; ChiudiBarra; NonRiprendere
@@ -153,6 +157,7 @@ if ($Fase -eq 1 -and -not (WslPronta)) {
 }
 
 # ===================== fase 2: WSL "pmn" e motore =====================
+NienteSospensione
 Riprendi   # se si interrompe da qui in poi (PC spento durante i download), riparte al prossimo accesso
 if (-not (WslPronta)) { ChiediRiavvio }
 $s = ControllaSpazio (Join-Path $Radice $CatalogoRel)

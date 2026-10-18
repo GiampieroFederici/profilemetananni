@@ -63,3 +63,13 @@ def test_doppio_clic_dentro_lo_zip_spiega_come_estrarre():
     testo = base64.b64decode(codice).decode("utf-16-le")
     assert "Estrai tutto" in testo and "Installa profilemetananni" in testo and "TopMost" in testo
     c.LANCIATORE.encode("ascii")                                                 # il .cmd resta ASCII
+
+
+def test_installazione_lunga_senza_sospensione():
+    """B2: col catalogo intero il download dura piu' del tempo dopo cui Windows sospende il PC: l'installatore lo impedisce."""
+    stato = ("Add-Type -Namespace Prova -Name Energia -MemberDefinition "
+             "'[DllImport(\"powrprof.dll\")] public static extern uint CallNtPowerInformation(int l, System.IntPtr i, uint il, out uint o, uint ol);'; "
+             "$o = 0; [void][Prova.Energia]::CallNtPowerInformation(16, [System.IntPtr]::Zero, 0, [ref]$o, 4); $o")
+    assert int(powershell(f". '{PS1}'; NienteSospensione; {stato}").strip()) & 0x1    # ES_SYSTEM_REQUIRED attivo
+    testo = PS1.read_text(encoding="utf-8")
+    assert testo.index("NienteSospensione\n") < testo.index("Riprendi   # se si interrompe")             # chiamata in fase 2
