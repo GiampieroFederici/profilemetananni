@@ -15,6 +15,10 @@
 > `REFERTO_PARZIALE` e `fine` dopo un errore con testi in italiano più precisi, numeri all'italiana negli avvisi FSSP,
 > finto motore con lucchetto a pid e `stima` coerente con `esegui`. Aggiunte segnate **[v0.3]**: solo campi nuovi o testi
 > migliori, nessun campo tolto o rinominato (l'interfaccia v0.2 continua a funzionare).
+>
+> **[lingua, 18/10/2026, ramo `lingua-it-en`]** Opzione `--lingua it|en` per tutti i comandi (§1): i testi per l'utente
+> (eventi, referto, FSSP) nella lingua scelta. Senza l'opzione tutto resta come prima, in italiano: nessun campo nuovo,
+> tolto o rinominato. Aggiunte segnate **[lingua]**.
 
 ---
 
@@ -26,6 +30,10 @@
   finto motore; `installa` passa all'installatore, `esegui` lancia `bin/run.sh`, `verifica` lancia `installer/verifica_motore.sh`.
 - Da Windows: `wsl.exe -d <distro> -- ~/.pmn/bin/pmn-motore <comando> ...`.
 - Da Linux: direttamente.
+- **[lingua]** `--lingua it|en` vale per ogni comando (predefinita `it`; anche la variabile `PMN_LINGUA`). L'app la passa
+  solo quando l'utente ha scelto l'inglese, quindi con l'italiano i comandi sono identici a prima. Il motore la passa a
+  `motore/referto.py` (variabile `PMN_LINGUA`). Testi: `motore/lingua.py` + `motore/lingua_en.json` (l'italiano è nel
+  codice ed è la chiave del catalogo). `installa` per ora resta in italiano (`installer/installa_motore.sh`, bash).
 - **stdout** = solo eventi JSON, uno per riga (JSON Lines, §4). **stderr** = vuoto o diagnostica breve.
   I dettagli tecnici vanno nel file di log indicato nell'evento `inizio`.
 
@@ -73,7 +81,8 @@ motore:
 
 ## 4. Eventi (stdout, JSON Lines)
 
-Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano semplice** (D027).
+Ogni riga è un oggetto JSON con `tipo` e `ora` (ISO 8601). Testi in **italiano semplice** (D027); **[lingua]** in inglese
+semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai con la lingua.
 
 | `tipo` | Campi | Esempio di `messaggio` |
 |---|---|---|
@@ -264,36 +273,43 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 "sintesi": {
  "metaphlan": {"specie": 27, "dominanti": [{"nome": "Latilactobacillus sakei", "pct": 21.617793}],
                "non_assegnata_pct": 53.651104,
-               "frase": "MetaPhlAn: 27 specie sopra la soglia; dominano Latilactobacillus sakei (21,6 % delle read), ... Il 53,7 % delle read non è assegnato a specie note."},
+               "frase": "MetaPhlAn: 27 specie trovate; dominano Latilactobacillus sakei (21,6 % delle read), ... Il 53,7 % delle read non è assegnato a specie note."},
  "kraken": {"microbi": 48, "dominanti": [{"nome": "Latilactobacillus sakei", "pct_microbi": 37.16}],
             "non_microbi": [{"nome": "Homo sapiens", "gruppo": "altri eucarioti", "pct": 0.054, "letture": 74}],
-            "frase": "Kraken: 48 microbi sopra la soglia; dominano ... Segnalati a parte (non microbi o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, ..."}}
+            "frase": "Kraken: 48 taxa sopra la soglia; dominano ... Segnalati a parte (non del prodotto, o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, ..."}}
 ```
 
-  `dominanti`: le prime 3 sopra la soglia di abbondanza (MetaPhlAn in % sul totale delle read, Kraken in % fra i
-  soli microbi); `non_microbi`: tutto ciò che Kraken assegna fuori da batteri, archei e funghi (D023).
+  `dominanti`: le prime 3 (MetaPhlAn tutte le specie, nessuna soglia, D128, in % sul totale delle read; Kraken sopra la
+  soglia di abbondanza, in % fra i soli taxa del prodotto); `non_microbi`: tutto ciò che Kraken assegna fuori da batteri, archei e funghi (D023).
   **[v0.3]** `dominanti` arriva fino a **15** specie sopra la soglia (in ordine di abbondanza; meno se sopra la soglia
   ce ne sono meno); la `frase` continua a nominarne 3. Il resto delle specie resta nel referto e nell'Excel.
 - **[v0.2]** Campi nuovi: `triage` (`[{"campione", "esito": "buono" | "da controllare" | "da rifare", "motivi", "punteggio"}]`,
   vuoto se il triage non è attivo), `consigli` (§5.5), `referto` (`{"html", "pdf", "xlsx"}`: percorsi dentro
   `risultati/`, `null` se quel file manca).
+- **[lingua]** I valori fissi restano chiavi italiane in ogni lingua (`triage.esito`: buono, da controllare, da rifare;
+  `non_microbi.gruppo`: virus, altri eucarioti, altro; `modalita`: migliorata, fssp): l'interfaccia li traduce solo
+  quando li mostra. I testi (`frase`, `motivi`, `citazioni`, `messaggio` dei consigli) sono scritti nella lingua della
+  corsa e restano così: se poi si cambia lingua, li rifà una nuova analisi (il comando `referto` rifà il referto, non
+  `risultati.json`).
 
 #### Referto [v0.2]
 
 - Italiano semplice, termini tecnici spiegati (riquadro "Parole usate", D027).
 - **MetaPhlAn e Kraken in tabelle e fogli Excel separati, mai fusi.** MetaPhlAn: specie con "% sul totale delle read"
   (come le scrive MetaPhlAn) e "% fra le specie trovate"; UNCLASSIFIED detto a parte. Kraken: solo batteri, archei,
-  funghi (dall'albero del report), con "% fra i soli microbi" e "% sul totale assegnato"; *Homo*, *Leishmania*,
-  altri eucarioti e virus in una tabella "segnalati a parte" (D023). Nelle tabelle solo le specie sopra la soglia di
-  abbondanza; l'Excel le ha tutte.
+  funghi (dall'albero del report), con "% fra i taxa" e "% sul totale assegnato"; *Homo*, *Leishmania*,
+  altri eucarioti e virus in una tabella "segnalati a parte" (D023). Kraken: nelle tabelle solo i taxa sopra la soglia di
+  abbondanza, l'Excel li ha tutti; MetaPhlAn: tutte le specie, nessuna soglia (D128).
 - Parametri usati con la fonte (D022, fonti di `refs/kraken_profili.tsv`, **[v0.3]** scritte in italiano), "Strumenti e database usati" con versioni
   e citazioni (D036), postilla sui virus (D017, D033), sezione "Sicurezza alimentare" solo se c'è `risultati/sicurezza/`.
 - **[17/10, D115]** Le sezioni di Kraken e della sicurezza alimentare si aprono con il riquadro "Prototipo, non per
   decisioni." (`PROTOTIPO_KRAKEN`, `PROTOTIPO_FSSP` in `motore/referto.py`), come le pagine dell'app, finché K4 e L3
   non sono fatte.
 - Il PDF lo fa il motore dallo stesso HTML (Qt, già nell'ambiente `pmn_reports_py`): l'interfaccia non deve
-  convertire nulla. Fogli Excel: `Leggimi`, `MetaPhlAn_specie`, `Kraken_microbi`, `Kraken_a_parte`, `Triage`,
+  convertire nulla. Fogli Excel: `Leggimi`, `MetaPhlAn_specie`, `Kraken_taxa`, `Kraken_a_parte`, `Triage`,
   `Sicurezza`, `Parametri`, `Strumenti_citazioni` (gli ultimi tre fissi, `Triage` e `Sicurezza` solo se ci sono).
+  **[lingua]** Con l'inglese: `ReadMe`, `MetaPhlAn_species`, `Kraken_taxa`, `Kraken_separate`, `Triage`, `Safety`,
+  `Parameters`, `Tools_citations`; numeri con il punto per i decimali e la virgola per le migliaia; `<html lang="en">`.
 
 ### 5.4 `sicurezza` [v0.2]
 
@@ -357,7 +373,8 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
 
 - `installer/finto_motore.py`: stessi comandi, stessi eventi, tempi accorciati, risultati presi da
   una corsa vera di SF3RAt7 (`installer/finto/`). Serve solo per costruire l'interfaccia; non si installa per gli utenti.
-- `python installer/finto_motore.py <comando> [--progetto config.yaml] [--corsa ID] [--velocita N] [--scenario S]`:
+- `python installer/finto_motore.py <comando> [--progetto config.yaml] [--corsa ID] [--velocita N] [--scenario S]
+  [--lingua it|en]`:
   `--velocita` = quante volte più veloce del vero (predefinito 60, `0` = senza attese);
   `--scenario` = `ok`, `DB_MANCANTE`, `GIA_IN_CORSO`, `annullata`, `READ_NON_TROVATE`, `TEMPO_LUNGO`,
   **[v0.2]** `CAMPIONE_DA_CONTROLLARE` (esito del triage).
@@ -365,6 +382,8 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
   vero di SF3RAt7 (`installer/finto/referto/`); `referto` lo rifà con `motore/referto.py` (HTML sempre, Excel e PDF
   se ci sono `openpyxl` e PySide6, altrimenti `REFERTO_PARZIALE`); `info` e `stima` danno i consigli con le regole vere.
 - Come il vero: un solo `esegui` alla volta (`GIA_IN_CORSO`) e `annulla --corsa <id>` ferma davvero la corsa.
+- **[lingua]** Con `--lingua en` `esegui` non copia il referto italiano di SF3RAt7: rifà `sintesi` con `motore/referto.py`,
+  traduce le citazioni e rifà il referto (senza `openpyxl` nel Python dell'app: `REFERTO_PARZIALE`, come il vero).
 - **[v0.3]** Il lucchetto `%TEMP%\pmn_finto\esegui.lock` contiene `{"corsa", "pid"}` come quello vero: se il processo che
   l'ha messo non c'è più (un `esegui` chiuso a metà) il lucchetto si toglie da solo e la corsa parte; anche un lucchetto
   nel formato vecchio (solo il codice della corsa) si toglie. Su Windows il controllo del pid usa `OpenProcess`.

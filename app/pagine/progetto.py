@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QFrame, QHB
                                QPushButton, QVBoxLayout)
 
 from app import progetto
+from app.lingua import N_, _
 from app.motore import percorso_per_motore
 from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro, svuota
 
@@ -18,22 +19,22 @@ from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro,
 # ospiti, frase, perché e livello sono il ripiego di info.prodotti (stessi testi, motore/system_one.py)
 # D074: maiale, bovino, pecora, altro (il pollo no: il suo indice non è nel motore installato, D021).
 PRODOTTI = {
-    "maiale": ("Salume di maiale (salame, salsiccia, prosciutto...)", ["sus_scrofa"],
-               "Toglierò il DNA del maiale e quello umano.",
-               "Sono la gran parte delle read di un salume e non dicono nulla dei taxa del prodotto. "
-               "Il DNA umano si toglie sempre.", "info"),
-    "bovino": ("Prodotto di bovino (bresaola, carne secca...)", ["bos_taurus"],
-               "Toglierò il DNA del bovino e quello umano.",
-               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
-               "Il DNA umano si toglie sempre.", "info"),
-    "pecora": ("Prodotto di pecora o agnello", ["ovis_aries"],
-               "Toglierò il DNA della pecora e quello umano.",
-               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
-               "Il DNA umano si toglie sempre.", "info"),
-    "altro": ("Altro o misto", [],
-              "Toglierò solo il DNA umano.",
-              "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read "
-              "della carne finiscono assegnate per errore a qualche taxon.", "avviso"),
+    "maiale": (N_("Salume di maiale (salame, salsiccia, prosciutto...)"), ["sus_scrofa"],
+               N_("Toglierò il DNA del maiale e quello umano."),
+               N_("Sono la gran parte delle read di un salume e non dicono nulla dei taxa del prodotto. "
+                  "Il DNA umano si toglie sempre."), "info"),
+    "bovino": (N_("Prodotto di bovino (bresaola, carne secca...)"), ["bos_taurus"],
+               N_("Toglierò il DNA del bovino e quello umano."),
+               N_("Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
+                  "Il DNA umano si toglie sempre."), "info"),
+    "pecora": (N_("Prodotto di pecora o agnello"), ["ovis_aries"],
+               N_("Toglierò il DNA della pecora e quello umano."),
+               N_("Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
+                  "Il DNA umano si toglie sempre."), "info"),
+    "altro": (N_("Altro o misto"), [],
+              N_("Toglierò solo il DNA umano."),
+              N_("Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read "
+                 "della carne finiscono assegnate per errore a qualche taxon."), "avviso"),
 }
 
 
@@ -42,7 +43,8 @@ def regola(info, chiave):
     for r in (info or {}).get("prodotti") or []:
         if r.get("prodotto") == chiave:
             return list(r["ospiti"]), r["frase"], r["perche"], r["livello"]
-    return tuple(PRODOTTI[chiave][1:])
+    ospiti, frase, perche, livello = PRODOTTI[chiave][1:]
+    return ospiti, _(frase), _(perche), livello
 
 
 def prodotto_da_ospiti(ospiti):
@@ -54,39 +56,39 @@ def prodotto_da_ospiti(ospiti):
 
 
 class PaginaCampioni(Pagina):
-    titolo = "Campioni e prodotto"
-    testo_principale = "Avanti: scelte dell'analisi"
+    titolo = N_("Campioni e prodotto")
+    testo_principale = N_("Avanti: scelte dell'analisi")
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
         self.cartella = None
-        self.corpo.addWidget(etichetta("Dimmi da dove arrivano le read e che prodotto stai analizzando. "
-                                       "Al resto penso io."))
-        self.senza_progetto = riquadro("Nessun progetto aperto.",
-                                       "Apri un progetto o creane uno nuovo nella pagina I miei progetti.", "avviso")
+        self.corpo.addWidget(etichetta(_("Dimmi da dove arrivano le read e che prodotto stai analizzando. "
+                                         "Al resto penso io.")))
+        self.senza_progetto = riquadro(_("Nessun progetto aperto."),
+                                       _("Apri un progetto o creane uno nuovo nella pagina I miei progetti."), "avviso")
         self.corpo.addWidget(self.senza_progetto)
         self.esempio = False                             # progetto d'esempio (home): read e prodotto già decisi
-        self.avviso_esempio = riquadro("Questo è il progetto d'esempio.",
-                                       "Le read sono già nel motore e il prodotto è un salame di maiale: qui non c'è "
-                                       "nulla da scegliere. Premi Avanti.", "info")
+        self.avviso_esempio = riquadro(_("Questo è il progetto d'esempio."),
+                                       _("Le read sono già nel motore e il prodotto è un salame di maiale: qui non c'è "
+                                         "nulla da scegliere. Premi Avanti."), "info")
         self.corpo.addWidget(self.avviso_esempio)
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Dove sono le read?", "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Dove sono le read?"), "sottotitolo"))
         self.gruppo_fonte = QButtonGroup(self)
-        self.scelta_pc = Scelta("Sul mio computer", "File che ti ha mandato il laboratorio di sequenziamento "
-                                "(finiscono in .fastq.gz).", self.gruppo_fonte)
-        self.scelta_ncbi = Scelta("In un archivio pubblico", "Le scarico io da NCBI o ENA con il loro codice "
-                                  "(per esempio SRR4875279).", self.gruppo_fonte)
+        self.scelta_pc = Scelta(_("Sul mio computer"), _("File che ti ha mandato il laboratorio di sequenziamento "
+                                                         "(finiscono in .fastq.gz)."), self.gruppo_fonte)
+        self.scelta_ncbi = Scelta(_("In un archivio pubblico"), _("Le scarico io da NCBI o ENA con il loro codice "
+                                                                  "(per esempio SRR4875279)."), self.gruppo_fonte)
         self.corpo.addLayout(riga_di_scelte(self.scelta_pc, self.scelta_ncbi))
 
         # sul mio computer: una cartella; le coppie R1/R2 le trovo da solo
         self.zona_pc = QFrame()
         s = QVBoxLayout(self.zona_pc)
         s.setContentsMargins(0, 4, 0, 0)
-        s.addWidget(etichetta("Cartella delle read", "etichetta_campo"))
+        s.addWidget(etichetta(_("Cartella delle read"), "etichetta_campo"))
         riga = QHBoxLayout()
-        b = QPushButton("Scegli la cartella...", objectName="secondario")
+        b = QPushButton(_("Scegli la cartella..."), objectName="secondario")
         b.clicked.connect(self.scegli_cartella)
         riga.addWidget(b)
         self.nome_cartella = etichetta("")
@@ -94,20 +96,20 @@ class PaginaCampioni(Pagina):
         s.addLayout(riga)
         self.esito_cartella = QVBoxLayout()
         s.addLayout(self.esito_cartella)
-        s.addWidget(etichetta("Si apre nella cartella Documenti, o nell'ultima che hai usato. Trovo da solo le "
-                              "coppie di file (R1 e R2) di ogni campione.", "nota"))
+        s.addWidget(etichetta(_("Si apre nella cartella Documenti, o nell'ultima che hai usato. Trovo da solo le "
+                                "coppie di file (R1 e R2) di ogni campione."), "nota"))
         self.corpo.addWidget(self.zona_pc)
 
         # archivio pubblico: codici, uno per riga, con il conteggio dei validi
         self.zona_ncbi = QFrame()
         s = QVBoxLayout(self.zona_ncbi)
         s.setContentsMargins(0, 4, 0, 0)
-        s.addWidget(etichetta("Codici dei campioni, uno per riga", "etichetta_campo"))
+        s.addWidget(etichetta(_("Codici dei campioni, uno per riga"), "etichetta_campo"))
         self.testo_codici = QPlainTextEdit()
         self.testo_codici.setFixedHeight(110)
         self.testo_codici.setMaximumWidth(560)
         self.testo_codici.setTabChangesFocus(True)
-        self.testo_codici.setAccessibleName("Codici dei campioni, uno per riga")
+        self.testo_codici.setAccessibleName(_("Codici dei campioni, uno per riga"))
         self.testo_codici.textChanged.connect(self._conta_codici)
         s.addWidget(self.testo_codici)
         self.conteggio = etichetta("", "nota")
@@ -118,12 +120,12 @@ class PaginaCampioni(Pagina):
         self.corpo.addLayout(self.errore)
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Che prodotto è?", "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Che prodotto è?"), "sottotitolo"))
         self.prodotto = QComboBox()
         self.prodotto.setMaximumWidth(560)
-        self.prodotto.setAccessibleName("Prodotto")
+        self.prodotto.setAccessibleName(_("Prodotto"))
         for chiave, (testo, *_resto) in PRODOTTI.items():
-            self.prodotto.addItem(testo, chiave)
+            self.prodotto.addItem(_(testo), chiave)
         self.prodotto.currentIndexChanged.connect(self._ospite)
         self.corpo.addWidget(self.prodotto)
         self.zona_ospite = QVBoxLayout()
@@ -138,7 +140,7 @@ class PaginaCampioni(Pagina):
     def mostrata(self):
         p = self.contesto.progetto
         self.senza_progetto.setVisible(p is None)
-        self.testo_principale = "Avanti: scelte dell'analisi" if p else "Vai ai miei progetti"
+        self.testo_principale = _("Avanti: scelte dell'analisi") if p else _("Vai ai miei progetti")
         self.azioni_cambiate.emit()
         svuota(self.errore)
         self._ospite()                                   # info.prodotti può essere arrivato dopo la costruzione
@@ -178,11 +180,11 @@ class PaginaCampioni(Pagina):
     def _conta_codici(self):
         validi, scartati = progetto.codici(self.testo_codici.toPlainText())
         n = len(validi)
-        testo = {0: "Non ho ancora riconosciuto nessun codice.", 1: "Ho riconosciuto 1 codice valido."}.get(
-            n, f"Ho riconosciuto {n} codici validi.")
+        testo = {0: _("Non ho ancora riconosciuto nessun codice."), 1: _("Ho riconosciuto 1 codice valido.")}.get(
+            n, _("Ho riconosciuto {n} codici validi.", n=n))
         if scartati:
-            testo += (f" Non riconosco: {', '.join(scartati[:5])}{'...' if len(scartati) > 5 else ''}"
-                      " (un codice è fatto come SRR4875279, ERR... o DRR...).")
+            testo += _(" Non riconosco: {codici} (un codice è fatto come SRR4875279, ERR... o DRR...).",
+                       codici=f"{', '.join(scartati[:5])}{'...' if len(scartati) > 5 else ''}")
         self.conteggio.setText(testo)
 
     # ---------------- cartella delle read ----------------
@@ -192,7 +194,7 @@ class PaginaCampioni(Pagina):
         partenza = impostazioni.value("ultima_cartella_read", documenti)       # R10
         if not Path(str(partenza)).is_dir():
             partenza = documenti
-        scelta = QFileDialog.getExistingDirectory(self, "Scegli la cartella delle read", str(partenza))
+        scelta = QFileDialog.getExistingDirectory(self, _("Scegli la cartella delle read"), str(partenza))
         if scelta:
             impostazioni.setValue("ultima_cartella_read", scelta)
             self.usa_cartella(scelta)
@@ -206,8 +208,8 @@ class PaginaCampioni(Pagina):
         self.nome_cartella.setText(str(cartella))
         if not progetto.percorso_sicuro(cartella):
             self.esito_cartella.addWidget(riquadro(
-                "Il nome di questa cartella ha un carattere che il motore non accetta.",
-                "Togli dal nome della cartella (e da quelle che la contengono) i simboli come ; & ! $ e riprova.",
+                _("Il nome di questa cartella ha un carattere che il motore non accetta."),
+                _("Togli dal nome della cartella (e da quelle che la contengono) i simboli come ; & ! $ e riprova."),
                 "errore"))
             return
         try:
@@ -215,29 +217,30 @@ class PaginaCampioni(Pagina):
             trovati, saltati = progetto.campioni_locali(cartella)
         except (ValueError, OSError):
             self.esito_cartella.addWidget(riquadro(
-                "Non riesco a leggere questa cartella.",
-                "Scegli una cartella che sta su questo computer (non su un disco di rete).", "errore"))
+                _("Non riesco a leggere questa cartella."),
+                _("Scegli una cartella che sta su questo computer (non su un disco di rete)."), "errore"))
             return
         if not trovati:
             self.esito_cartella.addWidget(riquadro(
-                "In questa cartella non ci sono read.",
-                "Le read sono i file che finiscono in .fastq.gz. Scegli la cartella che ti ha mandato il laboratorio.",
+                _("In questa cartella non ci sono read."),
+                _("Le read sono i file che finiscono in .fastq.gz. Scegli la cartella che ti ha mandato il laboratorio."),
                 "errore"))
         else:
             self.cartella = cartella
             nomi = [n for n, _, _ in trovati]
             soli = [n for n, _, r2 in trovati if r2 is None]
             n = len(trovati)
-            testo = (f"Ho trovato 1 campione: {nomi[0]}." if n == 1 else
-                     f"Ho trovato {n} campioni: {', '.join(nomi[:6])}{'...' if n > 6 else ''}.")
+            testo = (_("Ho trovato 1 campione: {nome}.", nome=nomi[0]) if n == 1 else
+                     _("Ho trovato {n} campioni: {nomi}.", n=n, nomi=f"{', '.join(nomi[:6])}{'...' if n > 6 else ''}"))
             if soli:
-                testo += (f" Per {', '.join(soli[:4])}{'...' if len(soli) > 4 else ''} c'è un solo file invece della "
-                          "coppia R1 e R2: lo analizzo da solo.")
+                testo += _(" Per {nomi} c'è un solo file invece della coppia R1 e R2: lo analizzo da solo.",
+                           nomi=f"{', '.join(soli[:4])}{'...' if len(soli) > 4 else ''}")
             self.esito_cartella.addWidget(etichetta(testo))
         if saltati:                                      # come il motore (contratto §3): non li analizza
             self.esito_cartella.addWidget(riquadro(
-                f"Salto {', '.join(saltati[:4])}{'...' if len(saltati) > 4 else ''}: manca l'altro file della coppia.",
-                "Se ti serve, metti nella cartella anche l'altro file (R1 con R2) e scegli di nuovo la cartella.",
+                _("Salto {file}: manca l'altro file della coppia.",
+                  file=f"{', '.join(saltati[:4])}{'...' if len(saltati) > 4 else ''}"),
+                _("Se ti serve, metti nella cartella anche l'altro file (R1 con R2) e scegli di nuovo la cartella."),
                 "avviso"))
 
     # ---------------- salvataggio ----------------
@@ -251,15 +254,15 @@ class PaginaCampioni(Pagina):
             return
         svuota(self.errore)
         locale = self.scelta_pc.pulsante.isChecked()
-        validi, _ = progetto.codici(self.testo_codici.toPlainText())
+        validi, _scartati = progetto.codici(self.testo_codici.toPlainText())
         if locale and self.cartella is None:
-            self.errore.addWidget(riquadro("Manca la cartella delle read.",
-                                           "Premi Scegli la cartella... e scegli quella con i file .fastq.gz.",
+            self.errore.addWidget(riquadro(_("Manca la cartella delle read."),
+                                           _("Premi Scegli la cartella... e scegli quella con i file .fastq.gz."),
                                            "errore"))
             return
         if not locale and not validi:
-            self.errore.addWidget(riquadro("Manca il codice di almeno un campione.",
-                                           "Scrivi i codici dei campioni, uno per riga (per esempio SRR4875279).",
+            self.errore.addWidget(riquadro(_("Manca il codice di almeno un campione."),
+                                           _("Scrivi i codici dei campioni, uno per riga (per esempio SRR4875279)."),
                                            "errore"))
             return
         cfg = progetto.base(p.nome)

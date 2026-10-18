@@ -10,6 +10,8 @@ import yaml
 from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QFrame, QGridLayout, QPlainTextEdit, QPushButton, \
     QVBoxLayout
 
+from app import lingua
+from app.lingua import N_, _
 from app.motore import RADICE, MotoreClient, percorso_per_motore
 from app.pagine.base import Pagina, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
 
@@ -19,21 +21,21 @@ SOGLIE = ["0.001", "0.005", "0.01", "0.1"]
 LETTURE = ["0", "5", "10", "20", "50"]           # Bracken -t (profiling.bracken_min_reads, contratto v0.3)
 LUNGHEZZE = [100, 150, 250]
 LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_readlen)
-FONTE_CONFIDENZA = ("Consigliato 0 con il database completo (il valore di Kraken 2 se non si cambia nulla) e 0,1 con "
-                    "lo screening rapido: per i database ridotti si consiglia fra 0,05 e 0,30 (Wright, Comeau e "
-                    "Langille 2023).")
-FONTE_SOGLIA = ("0,005 % è la soglia migliore trovata da Edwin et al. 2024 (campioni di suolo: da confermare sui "
-                "salumi). Le specie sotto la soglia restano nel file Excel.")
-FONTE_LETTURE = ("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
-                 "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
-FONTE_LUNGHEZZA = ("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
-                   "read Illumina di oggi.")
+FONTE_CONFIDENZA = N_("Consigliato 0 con il database completo (il valore di Kraken 2 se non si cambia nulla) e 0,1 con "
+                      "lo screening rapido: per i database ridotti si consiglia fra 0,05 e 0,30 (Wright, Comeau e "
+                      "Langille 2023).")
+FONTE_SOGLIA = N_("0,005 % è la soglia migliore trovata da Edwin et al. 2024 (campioni di suolo: da confermare sui "
+                  "salumi). Le specie sotto la soglia restano nel file Excel.")
+FONTE_LETTURE = N_("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
+                   "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
+FONTE_LUNGHEZZA = N_("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
+                     "read Illumina di oggi.")
 # dove si risolve un errore di stima (R8): codice -> (testo del pulsante principale, pagina o None = riprova)
-RIMEDI = {"READ_NON_TROVATE": ("Correggi i campioni", "campioni"),
-          "CONFIG_NON_VALIDA": ("Correggi i campioni", "campioni"),
-          "MOTORE_NON_AVVIATO": ("Apri la pagina Motore", "motore"),
-          "DB_MANCANTE": ("Apri la pagina Motore", "motore"),
-          "ERRORE_INTERNO": ("Apri la pagina Motore", "motore")}
+RIMEDI = {"READ_NON_TROVATE": (N_("Correggi i campioni"), "campioni"),
+          "CONFIG_NON_VALIDA": (N_("Correggi i campioni"), "campioni"),
+          "MOTORE_NON_AVVIATO": (N_("Apri la pagina Motore"), "motore"),
+          "DB_MANCANTE": (N_("Apri la pagina Motore"), "motore"),
+          "ERRORE_INTERNO": (N_("Apri la pagina Motore"), "motore")}
 
 
 def profili_kraken():
@@ -47,26 +49,26 @@ def profili_kraken():
 
 
 def virgola(testo):
-    return str(testo).replace(".", ",")
+    return lingua.virgola(testo)
 
 
 def durata(secondi):
     """Secondi in parole: '45 secondi', '51 minuti', '9,9 ore' (R11: solo formato)."""
     if secondi < 90:
-        return f"{round(secondi)} secondi"
+        return _("{n} secondi", n=round(secondi))
     if secondi < 5400:
-        return f"{round(secondi / 60)} minuti"
-    return f"{numero(secondi / 3600, 1)} ore"
+        return _("{n} minuti", n=round(secondi / 60))
+    return _("{n} ore", n=numero(secondi / 3600, 1))
 
 
 def gb(x):
     """Spazio in parole: '12 GB'; sotto 1 GB 'meno di 1 GB' (non '0 GB', come per il campione d'esempio)."""
-    return "meno di 1 GB" if 0 < x < 0.5 else f"{numero(x, 0)} GB"
+    return _("meno di 1 GB") if 0 < x < 0.5 else f"{numero(x, 0)} GB"
 
 
 class PaginaScelte(Pagina):
-    titolo = "Scelte dell'analisi"
-    testo_principale = "Avvia l'analisi"
+    titolo = N_("Scelte dell'analisi")
+    testo_principale = N_("Avvia l'analisi")
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
@@ -86,43 +88,45 @@ class PaginaScelte(Pagina):
         self.corpo.addLayout(self.zona_avvisi)
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Quanto a fondo cercare le specie rare?", "sottotitolo"))
-        self.corpo.addWidget(etichetta("Vale per il secondo metodo di analisi, il programma Kraken. Il primo "
-                                       "(MetaPhlAn) gira sempre allo stesso modo.", "nota"))
+        self.corpo.addWidget(etichetta(_("Quanto a fondo cercare le specie rare?"), "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Vale per il secondo metodo di analisi, il programma Kraken. Il primo "
+                                         "(MetaPhlAn) gira sempre allo stesso modo."), "nota"))
         self.gruppo_kraken = QButtonGroup(self)
-        self.completo = Scelta("Database completo", "Trova anche le specie poco abbondanti. Più lento.",
+        self.completo = Scelta(_("Database completo"), _("Trova anche le specie poco abbondanti. Più lento."),
                                self.gruppo_kraken, consigliato=True)
-        self.rapido = Scelta("Screening rapido", "Pochi secondi a campione, ma può perdere specie fra 0,1 e 1 %, "
-                             "anche batteri lattici. Utile per una prima occhiata.", self.gruppo_kraken)
+        self.rapido = Scelta(_("Screening rapido"), _("Pochi secondi a campione, ma può perdere specie fra 0,1 e 1 %, "
+                                                      "anche batteri lattici. Utile per una prima occhiata."),
+                             self.gruppo_kraken)
         self.corpo.addLayout(riga_di_scelte(self.completo, self.rapido))
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Che cosa cerco?", "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Che cosa cerco?"), "sottotitolo"))
         sempre = QFrame(objectName="scelta")
         sempre.setProperty("scelto", True)
         s = QVBoxLayout(sempre)
         s.setContentsMargins(18, 14, 18, 14)
-        c = QCheckBox("Batteri, archei e lieviti")
+        c = QCheckBox(_("Batteri, archei e lieviti"))
         c.setChecked(True)
         c.setEnabled(False)
         c.setStyleSheet("font-weight: bold;")
         s.addWidget(c)
-        e = etichetta("Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per stare in 16 GB) e con Kraken.")
+        e = etichetta(_("Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per stare in 16 GB) e con "
+                        "Kraken."))
         e.setContentsMargins(30, 0, 0, 0)
         s.addWidget(e)
         self.corpo.addWidget(sempre)
         self.scheda_virus = QFrame(objectName="scelta")
         s = QVBoxLayout(self.scheda_virus)
         s.setContentsMargins(18, 14, 18, 14)
-        self.virus = QCheckBox("Anche i virus")
+        self.virus = QCheckBox(_("Anche i virus"))
         self.virus.setStyleSheet("font-weight: bold;")
         s.addWidget(self.virus)
-        e = etichetta("Opzione sperimentale: cerca anche i virus nel profilo di MetaPhlAn.")
+        e = etichetta(_("Opzione sperimentale: cerca anche i virus nel profilo di MetaPhlAn."))
         e.setContentsMargins(30, 0, 0, 0)
         s.addWidget(e)
-        s.addWidget(riquadro("Sperimentale, non validata.",
-                             "Con il database diviso in parti, quando due virus quasi identici vanno bene allo stesso "
-                             "modo la scelta può cambiare rispetto all'analisi standard. Il referto lo dichiara.",
+        s.addWidget(riquadro(_("Sperimentale, non validata."),
+                             _("Con il database diviso in parti, quando due virus quasi identici vanno bene allo stesso "
+                               "modo la scelta può cambiare rispetto all'analisi standard. Il referto lo dichiara."),
                              "avviso"))                                                     # R13, D017, D033
         self.corpo.addWidget(self.scheda_virus)
 
@@ -133,8 +137,8 @@ class PaginaScelte(Pagina):
         self.apri_esperti.toggled.connect(self._esperti)
         self.corpo.addWidget(self.apri_esperti)
         self.esperti, s = pannello()
-        s.addWidget(etichetta("Ogni valore consigliato viene dalla letteratura; la fonte è accanto. Quello che scegli "
-                              "finisce nel referto.", "nota"))
+        s.addWidget(etichetta(_("Ogni valore consigliato viene dalla letteratura; la fonte è accanto. Quello che "
+                                "scegli finisce nel referto."), "nota"))
         griglia = QGridLayout()
         griglia.setHorizontalSpacing(20)
         griglia.setVerticalSpacing(12)
@@ -143,10 +147,10 @@ class PaginaScelte(Pagina):
         self.soglia = QComboBox()
         self.lunghezza = QComboBox()
         self.letture = QComboBox()
-        righe = [("Soglia di confidenza di Kraken", self.confidenza, FONTE_CONFIDENZA),
-                 ("Abbondanza minima mostrata", self.soglia, FONTE_SOGLIA),
-                 ("Read minime per specie (Bracken)", self.letture, FONTE_LETTURE),
-                 ("Lunghezza delle read (Bracken)", self.lunghezza, FONTE_LUNGHEZZA)]
+        righe = [(_("Soglia di confidenza di Kraken"), self.confidenza, _(FONTE_CONFIDENZA)),
+                 (_("Abbondanza minima mostrata"), self.soglia, _(FONTE_SOGLIA)),
+                 (_("Read minime per specie (Bracken)"), self.letture, _(FONTE_LETTURE)),
+                 (_("Lunghezza delle read (Bracken)"), self.lunghezza, _(FONTE_LUNGHEZZA))]
         for i, (nome, campo, fonte) in enumerate(righe):
             griglia.addWidget(etichetta(nome, "etichetta_campo"), i, 0)
             campo.setAccessibleName(nome)
@@ -163,14 +167,14 @@ class PaginaScelte(Pagina):
         self.file.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.file.setFixedHeight(260)
         self.file.setStyleSheet("font-family: Consolas, monospace; font-size: 15px;")
-        self.file.setAccessibleName("File del progetto")
+        self.file.setAccessibleName(_("File del progetto"))
         s.addWidget(self.file)
         self.corpo.addWidget(self.esperti)
         self._esperti(False)
         self._file(False)
 
         self.corpo.addSpacing(8)
-        self.corpo.addWidget(etichetta("Prima di partire", "sottotitolo"))
+        self.corpo.addWidget(etichetta(_("Prima di partire"), "sottotitolo"))
         self.stima, self.zona_stima = pannello()
         self.corpo.addWidget(self.stima)
 
@@ -189,17 +193,19 @@ class PaginaScelte(Pagina):
         info = self.contesto.info
         p = self.contesto.progetto
         if info:
-            self.intro.setText(f"Ho già preparato le scelte consigliate per questo computer ({numero(info['ram_gb'])} "
-                               f"GB di memoria, {info['processori']} processori). Puoi partire subito.")
+            self.intro.setText(_("Ho già preparato le scelte consigliate per questo computer ({ram} GB di memoria, "
+                                 "{processori} processori). Puoi partire subito.", ram=numero(info['ram_gb']),
+                                 processori=info['processori']))
             for c in info.get("consigli", []):
                 if c.get("livello") == "avviso":
-                    self.zona_avvisi.addWidget(riquadro("Consiglio del motore", c["messaggio"], "avviso"))
+                    self.zona_avvisi.addWidget(riquadro(_("Consiglio del motore"), c["messaggio"], "avviso"))
         else:
-            self.intro.setText("Ho già preparato le scelte consigliate. Puoi partire subito.")
+            self.intro.setText(_("Ho già preparato le scelte consigliate. Puoi partire subito."))
         if p is None:
-            self.zona_avvisi.addWidget(riquadro("Nessun progetto aperto.", "Apri un progetto o creane uno nuovo "
-                                                "nella pagina I miei progetti.", "avviso"))
-            self._barra("Vai ai miei progetti", "", rimedio=("Vai ai miei progetti", "home"))
+            self.zona_avvisi.addWidget(riquadro(_("Nessun progetto aperto."), _("Apri un progetto o creane uno nuovo "
+                                                                                "nella pagina I miei progetti."),
+                                                "avviso"))
+            self._barra(_("Vai ai miei progetti"), "", rimedio=(_("Vai ai miei progetti"), "home"))
             svuota(self.zona_stima)
             return
         self._carica(p.leggi())
@@ -234,17 +240,17 @@ class PaginaScelte(Pagina):
         self.confidenza.blockSignals(True)
         self.confidenza.clear()
         for v in CONFIDENZE:
-            self.confidenza.addItem(virgola(v) + (" (consigliato)" if v == consigliati["confidenza"] else ""), v)
+            self.confidenza.addItem(virgola(v) + (_(" (consigliato)") if v == consigliati["confidenza"] else ""), v)
         self.confidenza.blockSignals(False)
         for i, v in enumerate(SOGLIE):
-            self.soglia.setItemText(i, f"{virgola(v)} %" + (" (consigliato)" if v == consigliati["soglia"] else ""))
+            self.soglia.setItemText(i, f"{virgola(v)} %" + (_(" (consigliato)") if v == consigliati["soglia"] else ""))
         for i, v in enumerate(LUNGHEZZE):
-            self.lunghezza.setItemText(i, str(v) + (" (consigliato)" if v == LUNGHEZZA_CONSIGLIATA else ""))
+            self.lunghezza.setItemText(i, str(v) + (_(" (consigliato)") if v == LUNGHEZZA_CONSIGLIATA else ""))
         prima_letture = self.letture.currentData()
         self.letture.blockSignals(True)
         self.letture.clear()
         for v in LETTURE:
-            self.letture.addItem(v + (" (consigliato)" if v == consigliati["letture"] else ""), v)
+            self.letture.addItem(v + (_(" (consigliato)") if v == consigliati["letture"] else ""), v)
         self.letture.blockSignals(False)
         self._seleziona(self.letture, prima_letture or "")
         self._seleziona(self.confidenza, prima or "")
@@ -263,7 +269,7 @@ class PaginaScelte(Pagina):
     def _kraken_cambiato(self):
         if self.carico:
             return
-        consigliata_prima = self.confidenza.currentText().endswith("(consigliato)")
+        consigliata_prima = self.confidenza.currentText().endswith(_(" (consigliato)"))
         self.carico = True
         self._confidenze()
         if consigliata_prima:                     # seguiva il consigliato: segue quello del nuovo database
@@ -304,11 +310,11 @@ class PaginaScelte(Pagina):
         self.file.setPlainText(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False))
 
     def _esperti(self, aperto):
-        self.apri_esperti.setText(("▾ " if aperto else "▸ ") + "Parametri per esperti (di solito non servono)")
+        self.apri_esperti.setText(("▾ " if aperto else "▸ ") + _("Parametri per esperti (di solito non servono)"))
         self.esperti.setVisible(aperto)
 
     def _file(self, aperto):
-        self.apri_file.setText(("▾ " if aperto else "▸ ") + "Mostra il file del progetto (per riprodurre l'analisi)")
+        self.apri_file.setText(("▾ " if aperto else "▸ ") + _("Mostra il file del progetto (per riprodurre l'analisi)"))
         self.file.setVisible(aperto)
 
     # ---------------- stima ----------------
@@ -317,14 +323,15 @@ class PaginaScelte(Pagina):
             self.ancora = True
             return
         svuota(self.zona_stima)
-        self.zona_stima.addWidget(etichetta("Chiedo al motore quanto tempo e spazio servono..."))
+        self.zona_stima.addWidget(etichetta(_("Chiedo al motore quanto tempo e spazio servono...")))
         self.avvisi, self.errore_stima = [], None
-        self._barra("Avvia l'analisi", "Calcolo il tempo che serve...")
+        self._barra(_("Avvia l'analisi"), _("Calcolo il tempo che serve..."))
         try:
             percorso = percorso_per_motore(self.contesto.progetto.config)
         except ValueError:
-            self._errore({"codice": "CONFIG_NON_VALIDA", "messaggio": "Il progetto non sta su un disco di questo "
-                          "computer.", "cosa_fare": "Crea il progetto nella cartella Documenti."})
+            self._errore({"codice": "CONFIG_NON_VALIDA", "messaggio": _("Il progetto non sta su un disco di questo "
+                                                                        "computer."),
+                          "cosa_fare": _("Crea il progetto nella cartella Documenti.")})
             return
         self.client.avvia("stima", "--progetto", percorso)
 
@@ -341,7 +348,7 @@ class PaginaScelte(Pagina):
             return
         if fine.get("esito") != "ok":
             self._errore(self.errore_stima or {"messaggio": fine.get("messaggio", ""),
-                                                                 "cosa_fare": "Riprova la stima."})
+                                                                 "cosa_fare": _("Riprova la stima.")})
             self.errore_stima = None
             return
         self._mostra_stima(fine["risultato"], fine.get("messaggio", ""))
@@ -350,12 +357,13 @@ class PaginaScelte(Pagina):
         svuota(self.zona_stima)
         lungo = any(a.get("codice") == "TEMPO_LUNGO" for a in self.avvisi)
         for a in self.avvisi:                                     # gli avvisi prima dei numeri (R9)
-            titolo = "Ci vorrà molto tempo." if a.get("codice") == "TEMPO_LUNGO" else "Attenzione"
+            titolo = _("Ci vorrà molto tempo.") if a.get("codice") == "TEMPO_LUNGO" else _("Attenzione")
             self.zona_stima.addWidget(riquadro(titolo, a["messaggio"], "avviso"))
         tempi = r.get("tempo_s") or {}
         totale = r.get("tempo_totale_s") or sum(v for v in tempi.values() if v)    # v0.3: totale del motore
-        nomi = {"download": "download", "pulizia": "pulizia", "ospite": "ospite", "controllo_qualita": "controlli",
-                "metaphlan": "MetaPhlAn", "kraken": "Kraken", "riepilogo": "tabelle", "referto": "referto"}
+        nomi = {"download": _("download"), "pulizia": _("pulizia"), "ospite": _("ospite"),
+                "controllo_qualita": _("controlli"), "metaphlan": "MetaPhlAn", "kraken": "Kraken",
+                "riepilogo": _("tabelle"), "referto": _("referto")}
         ordine = [k for k in nomi if k in tempi] + [k for k in tempi if k not in nomi]   # i dict arrivano in ordine alfabetico
         # solo i passi da almeno un minuto: quelli brevi (controlli, tabelle, referto) sono nel totale
         dettaglio = ", ".join(f"{nomi.get(k, k)} {durata(tempi[k])}" for k in ordine if (tempi[k] or 0) >= 60)
@@ -366,11 +374,13 @@ class PaginaScelte(Pagina):
         griglia.setVerticalSpacing(6)
         nomi_campioni = r.get("nomi_campioni") or []                            # v0.3: i nomi del motore
         elenco = f": {', '.join(nomi_campioni[:6])}{'...' if len(nomi_campioni) > 6 else ''}" if nomi_campioni else ""
-        righe = [("Campioni", f"{campioni}{elenco} ({numero(coppie / 1e6, 1)} milioni di coppie di read)"),
-                 ("Tempo stimato", f"circa {durata(totale)}" + (f" ({dettaglio})" if dettaglio else "")),
-                 ("Spazio che serve", gb(r.get("spazio_gb", 0))
-                  + (f", ne hai {numero(r['spazio_libero_gb'], 0)} liberi" if r.get("spazio_libero_gb") is not None
-                     else ""))]
+        righe = [(_("Campioni"), _("{campioni}{elenco} ({milioni} milioni di coppie di read)", campioni=campioni,
+                                   elenco=elenco, milioni=numero(coppie / 1e6, 1))),
+                 (_("Tempo stimato"), _("circa {durata}", durata=durata(totale))
+                  + (f" ({dettaglio})" if dettaglio else "")),
+                 (_("Spazio che serve"), gb(r.get("spazio_gb", 0))
+                  + (_(", ne hai {gb} liberi", gb=numero(r['spazio_libero_gb'], 0))
+                     if r.get("spazio_libero_gb") is not None else ""))]
         for i, (nome, valore) in enumerate(righe):
             griglia.addWidget(etichetta(nome, "etichetta_campo"), i, 0)
             griglia.addWidget(etichetta(valore), i, 1)
@@ -379,24 +389,24 @@ class PaginaScelte(Pagina):
         if messaggio:
             self.zona_stima.addWidget(etichetta(messaggio, "nota"))
         if self._profilo() == "completo" and tempi.get("kraken"):
-            self.completo.spiega.setText("Trova anche le specie poco abbondanti. Più lento: per questo progetto "
-                                         f"circa {durata(tempi['kraken'])}.")
-        aiuto = f"Tempo stimato: circa {durata(totale)}. Spazio: {gb(r.get('spazio_gb', 0))}."
+            self.completo.spiega.setText(_("Trova anche le specie poco abbondanti. Più lento: per questo progetto "
+                                           "circa {durata}.", durata=durata(tempi['kraken'])))
+        aiuto = _("Tempo stimato: circa {durata}. Spazio: {gb}.", durata=durata(totale), gb=gb(r.get('spazio_gb', 0)))
         if lungo:
-            aiuto += " Ci vorrà molto: leggi l'avviso qui sopra."
+            aiuto += _(" Ci vorrà molto: leggi l'avviso qui sopra.")
         elif self.avvisi:
-            aiuto += " Leggi l'avviso qui sopra."
-        secondari = [("Passa allo screening rapido", self.passa_al_rapido)] if lungo and self._profilo() == "completo" \
-            else []
-        self._barra("Avvia l'analisi", aiuto, "avviso" if self.avvisi else "", secondari)
+            aiuto += _(" Leggi l'avviso qui sopra.")
+        secondari = [(_("Passa allo screening rapido"), self.passa_al_rapido)] \
+            if lungo and self._profilo() == "completo" else []
+        self._barra(_("Avvia l'analisi"), aiuto, "avviso" if self.avvisi else "", secondari)
 
     def _errore(self, e):
         svuota(self.zona_stima)
-        self.zona_stima.addWidget(riquadro("Non riesco a stimare il tempo. " + e.get("messaggio", ""),
+        self.zona_stima.addWidget(riquadro(_("Non riesco a stimare il tempo. ") + e.get("messaggio", ""),
                                            e.get("cosa_fare", ""), "errore"))
-        testo, pagina = RIMEDI.get(e.get("codice"), ("Riprova la stima", None))
-        self._barra(testo, "Prima di partire va risolto il problema scritto qui sopra.", "avviso",
-                    rimedio=(testo, pagina))
+        testo, pagina = RIMEDI.get(e.get("codice"), (N_("Riprova la stima"), None))
+        self._barra(_(testo), _("Prima di partire va risolto il problema scritto qui sopra."), "avviso",
+                    rimedio=(_(testo), pagina))
 
     def _barra(self, testo, aiuto, livello="", secondari=(), rimedio=None):
         self.testo_principale, self.aiuto, self.aiuto_livello = testo, aiuto, livello
@@ -410,7 +420,7 @@ class PaginaScelte(Pagina):
     # ---------------- avvio ----------------
     def azione_principale(self):
         if self.rimedio:
-            _, pagina = self.rimedio
+            _testo, pagina = self.rimedio
             if pagina:
                 self.vai.emit(pagina)
             else:

@@ -11,6 +11,8 @@ from pathlib import Path
 import yaml
 from PySide6.QtCore import QStandardPaths
 
+from app.lingua import _
+
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
 CODICE_VALIDO = re.compile(r"[SED]RR[0-9]{1,13}")               # come validate_srr (bin/lib/validate.sh)
 # coppie di file delle read come le trova il motore (contratto §3, motore/pmn_motore.py campioni_locali)
@@ -73,11 +75,11 @@ class Progetto:
 def nuovo(nome, radice=None):
     """Crea la cartella di un progetto nuovo. Nome: lettere, numeri, punto, trattino, trattino basso."""
     if not NOME_VALIDO.fullmatch(nome or ""):
-        raise ValueError("Il nome può avere solo lettere senza accenti, numeri, punto, trattino e trattino basso "
-                         "(massimo 60), e deve iniziare con una lettera o un numero.")
+        raise ValueError(_("Il nome può avere solo lettere senza accenti, numeri, punto, trattino e trattino basso "
+                           "(massimo 60), e deve iniziare con una lettera o un numero."))
     cartella = Path(radice or cartella_progetti()) / nome
     if cartella.exists():
-        raise FileExistsError(f"Esiste già un progetto che si chiama {nome}.")
+        raise FileExistsError(_("Esiste già un progetto che si chiama {nome}.", nome=nome))
     cartella.mkdir(parents=True)
     return Progetto(cartella)
 

@@ -10,6 +10,7 @@ from PySide6.QtCore import QDir, Qt
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
+from app import lingua
 from app.finestra import Finestra, movimento_ridotto
 
 CARTELLA = Path(__file__).resolve().parent
@@ -35,6 +36,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("ProfileMetaNanni")
     prepara(app)
+    lingua.imposta(lingua.salvata())     # la lingua scelta l'ultima volta (italiano la prima)
     f = Finestra()
     f.show()
     f.avvia()

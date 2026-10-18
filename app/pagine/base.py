@@ -14,6 +14,9 @@ Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); i
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QRadioButton, QVBoxLayout, QWidget
 
+from app import lingua
+from app.lingua import N_, _
+
 
 class Contesto:
     """Ciò che le pagine condividono: l'ultimo `info` del motore e il progetto aperto (app.progetto.Progetto).
@@ -44,6 +47,7 @@ class Pagina(QWidget):
     def __init__(self, contesto, parent=None):
         super().__init__(parent)
         self.contesto = contesto
+        self.titolo, self.testo_principale = _(self.titolo), _(self.testo_principale)   # lingua di quando si crea
         self.principale_attivo = True
         self.secondari = []
         self.corpo = QVBoxLayout(self)
@@ -62,7 +66,7 @@ class Pagina(QWidget):
 
 
 # D115: Kraken e FSSP portano questa scritta nella prova con le persone, finché K4 e L3 non sono fatte
-PROTOTIPO = "Prototipo, non per decisioni."
+PROTOTIPO = N_("Prototipo, non per decisioni.")
 
 
 def etichetta(testo, nome=None):
@@ -90,9 +94,8 @@ def riquadro(titolo, testo, livello="info"):
 
 
 def numero(x, cifre=1):
-    """Formatta un numero all'italiana (R11: l'interfaccia formatta, non calcola): 15.6 -> '15,6'."""
-    testo = f"{x:,.{cifre}f}"
-    return testo.replace(",", " ").replace(".", ",").replace(" ", ".")
+    """Formatta un numero nella lingua scelta (R11: l'interfaccia formatta, non calcola): 15.6 -> '15,6'."""
+    return lingua.separatori(f"{x:,.{cifre}f}")
 
 
 class Scelta(QFrame):
@@ -109,7 +112,7 @@ class Scelta(QFrame):
         gruppo.addButton(self.pulsante)
         riga.addWidget(self.pulsante)
         if consigliato:
-            riga.addWidget(QLabel("consigliato", objectName="consigliato"))
+            riga.addWidget(QLabel(_("consigliato"), objectName="consigliato"))
         riga.addStretch(1)
         s.addLayout(riga)
         self.spiega = etichetta(spiega)
