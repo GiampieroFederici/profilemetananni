@@ -45,6 +45,16 @@ class Progetto:
         return self.cartella / "risultati"
 
     @property
+    def segno_analisi(self):
+        """B2 (P11): c'è mentre un'analisi gira; se resta (app chiusa, computer spento, analisi fermata o finita male)
+        l'analisi è interrotta e si riprende da dove era."""
+        return self.cartella / "analisi_avviata.txt"
+
+    @property
+    def interrotta(self):
+        return self.segno_analisi.is_file()
+
+    @property
     def codici_campioni(self):
         """Elenco dei codici SRR del progetto (paths.srr_list, un codice per riga)."""
         return self.cartella / "campioni.txt"

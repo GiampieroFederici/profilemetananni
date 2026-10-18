@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("pytestqt")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from PySide6.QtCore import QEvent  # noqa: E402
 from PySide6.QtGui import QDesktopServices  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFrame, QLabel, QPushButton, QTabBar, QTextBrowser  # noqa: E402
 
@@ -127,6 +128,53 @@ def test_ferma_e_riprendi(f, qtbot, tmp_path, monkeypatch):
     b.click()                                                    # esegui è riprendibile: si rilancia
     qtbot.waitUntil(lambda: es.stato == "ok", timeout=ATTESA)
     assert b.text() == "Vedi i risultati"
+
+
+def test_app_chiusa_a_meta_si_riprende(f, qtbot, tmp_path, monkeypatch):
+    """B2 (P11a): app chiusa o PC spento A METÀ, senza Ferma. Alla riapertura il progetto dice che l'analisi si è
+    interrotta e propone Riprendi l'analisi, che riparte (esegui è riprendibile: i passi finiti non si rifanno)."""
+    monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 60")
+    es = f.pagine["esecuzione"]
+    p = apri(f, tmp_path)
+    f.vai("esecuzione")
+    qtbot.waitUntil(lambda: es.messaggio.text().startswith("Campione"), timeout=ATTESA)
+    es.client._p.kill()                                          # come il PC spento: nessun evento fine
+    es.client._p.waitForFinished(5000)
+    f.close()
+    monkeypatch.setattr(progetto, "cartella_progetti", lambda: tmp_path)
+    w = finestra.Finestra(movimento=False)                       # l'app riaperta
+    qtbot.addWidget(w)
+    w.show()
+    w.fuori.setCurrentIndex(1)
+    w.vai("home")
+    assert "Analisi interrotta" in scritte(w.pagine["home"])
+    w.pagine["home"].apri(progetto.Progetto(p.cartella))
+    assert w.attuale == "esecuzione"
+    es2 = w.pagine["esecuzione"]
+    assert "si è interrotta" in es2.invito.text() and "passi già finiti sono salvati" in es2.invito.text()
+    b = un_principale(w)
+    assert b.text() == "Riprendi l'analisi"
+    monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
+    b.click()
+    qtbot.waitUntil(lambda: es2.stato == "ok", timeout=ATTESA)
+    assert not p.interrotta                                      # finita: niente da riprendere
+    w.vai("home")
+    QApplication.sendPostedEvents(None, QEvent.DeferredDelete)   # via le righe vecchie dell'elenco
+    assert "Analisi interrotta" not in scritte(w.pagine["home"]) and "Risultati pronti" in scritte(w.pagine["home"])
+
+
+def test_ferma_dice_che_si_puo_spegnere(f, qtbot, tmp_path, monkeypatch):
+    """B2 (P11b): chi ferma per spegnere il computer deve leggere che può farlo e come riprendere."""
+    from PySide6.QtWidgets import QMessageBox
+    testi = []
+    monkeypatch.setattr(QMessageBox, "exec", lambda m: testi.append(m.informativeText()) or 0)
+    es = f.pagine["esecuzione"]
+    es.conferma()
+    assert "spegnere il computer" in testi[0] and "Riprendi l'analisi" in testi[0]
+    f.vai("esecuzione")
+    es.stato = "annullata"
+    es._mostra()
+    assert "spegnere il computer" in es.aiuto
 
 
 def test_il_tempo_scende_anche_dentro_un_passo_lungo(f, monkeypatch):

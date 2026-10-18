@@ -82,7 +82,6 @@
  "{n} minuti": "{n} minutes",
  "Avvio l'analisi...": "Starting the analysis...",
  "Fermare l'analisi?": "Stop the analysis?",
- "I passi già finiti restano salvati. Quello a metà si rifà quando riparti.": "The finished steps stay saved. The one halfway is redone when you restart.",
  "Ferma l'analisi": "Stop the analysis",
  "Continua l'analisi": "Continue the analysis",
  "Dettagli tecnici": "Technical details",
@@ -103,7 +102,6 @@
  "Vai alle scelte dell'analisi": "Go to the analysis choices",
  "da fare": "to do",
  "Riprendi l'analisi": "Resume the analysis",
- "I passi già finiti sono salvati: riprendo da quello a metà.": "The finished steps are saved: I resume from the one halfway.",
  "Leggi qui sopra che cosa è successo e che cosa fare.": "Read above what happened and what to do.",
  "ferma": "stopped",
  "Da sapere": "Good to know",
@@ -410,5 +408,9 @@
  "Qui le {n} più abbondanti delle {tot} specie trovate. Tutte le altre sono nel referto e nelle tabelle Excel.": "Here the {n} most abundant of the {tot} species found. All the others are in the report and in the Excel tables.",
  "Qui tutti i {n} taxa sopra la soglia.": "Here all the {n} taxa above the threshold.",
  "Qui i {n} più abbondanti dei {tot} taxa sopra la soglia. Tutti gli altri sono nel referto e nelle tabelle Excel.": "Here the {n} most abundant of the {tot} taxa above the threshold. All the others are in the report and in the Excel tables.",
- ". Non sono taxa del prodotto (per esempio avanzi di DNA dell'ospite) o sono virus.": ". They are not taxa of the product (for example leftovers of host DNA) or they are viruses."
+ ". Non sono taxa del prodotto (per esempio avanzi di DNA dell'ospite) o sono virus.": ". They are not taxa of the product (for example leftovers of host DNA) or they are viruses.",
+ "I passi già finiti restano salvati. Quello a metà si rifà quando riparti. Puoi anche chiudere il programma e spegnere il computer: quando riapri il progetto, premi Riprendi l'analisi.": "The finished steps stay saved. The one halfway is redone when you restart. You can also close the program and switch off the computer: when you open the project again, press Resume the analysis.",
+ "L'analisi di questo progetto si è interrotta (programma chiuso o computer spento). I passi già finiti sono salvati: riprendo da quello a metà.": "The analysis of this project was interrupted (program closed or computer switched off). The finished steps are saved: I resume from the one halfway.",
+ "I passi già finiti sono salvati: riprendo da quello a metà. Puoi anche spegnere il computer e riprendere dopo.": "The finished steps are saved: I resume from the one halfway. You can also switch off the computer and resume later.",
+ "Analisi interrotta": "Analysis interrupted"
 }

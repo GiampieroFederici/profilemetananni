@@ -6,6 +6,7 @@ Fra due eventi un orologio locale fa scendere il tempo che manca e avanzare la b
 Kraken dura anche mezz'ora): parte dagli ultimi eta_s e percentuale del motore, non stima nulla da sé.
 """
 import time
+from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget
@@ -135,6 +136,7 @@ class PaginaEsecuzione(Pagina):
         self.stato, self.errore, self.ultimo_passo = "in_corso", None, None
         self.progetto_corsa = self.contesto.progetto
         self.contesto.progetto_in_analisi = self.progetto_corsa      # intanto non se ne apre un altro
+        self.progetto_corsa.segno_analisi.write_text(f"{datetime.now():%d/%m/%Y %H:%M}\n", encoding="utf-8")   # P11
         self.registro.setText("")
         self._svuota_avvisi()
         self._passi(None)
@@ -208,6 +210,8 @@ class PaginaEsecuzione(Pagina):
         self.respira.emit(False)
         self.contesto.progetto_in_analisi = None
         self.stato = {"ok": "ok", "annullata": "annullata"}.get(fine.get("esito"), "errore")
+        if self.stato == "ok" and self.progetto_corsa is not None:
+            self.progetto_corsa.segno_analisi.unlink(missing_ok=True)   # P11: finita, niente da riprendere
         if self.stato == "annullata":         # il passo a metà si rifà quando riparte
             self._passi(self.ultimo_passo, fermo=True)
         self._mostra()
@@ -255,6 +259,10 @@ class PaginaEsecuzione(Pagina):
             if progetto is None:
                 self.invito.setText(_("Nessun progetto aperto. Apri un progetto o creane uno nuovo."))
                 self.testo_principale, self.destinazione = _("Apri i miei progetti"), "home"
+            elif progetto.interrotta:            # B2 (P11): app chiusa o computer spento a metà
+                self.invito.setText(_("L'analisi di questo progetto si è interrotta (programma chiuso o computer "
+                                      "spento). I passi già finiti sono salvati: riprendo da quello a metà."))
+                self.testo_principale = _("Riprendi l'analisi")
             elif leggi_risultati(progetto) is not None:
                 self.invito.setText(_("Nessuna analisi in corso. I risultati dell'ultima analisi sono pronti."))
                 self.testo_principale, self.destinazione = _("Vedi i risultati"), "risultati"
@@ -274,7 +282,8 @@ class PaginaEsecuzione(Pagina):
             self.eta_nota.hide()
         elif s == "annullata":
             self.testo_principale = _("Riprendi l'analisi")
-            self.aiuto = _("I passi già finiti sono salvati: riprendo da quello a metà.")
+            self.aiuto = _("I passi già finiti sono salvati: riprendo da quello a metà. Puoi anche spegnere il "
+                           "computer e riprendere dopo.")
             self.eta.setText("")
             self.eta_nota.hide()
         else:
@@ -296,6 +305,8 @@ class PaginaEsecuzione(Pagina):
                 self._mostra()
         elif self.stato in ("annullata", "errore") and self.destinazione is None:
             self._lancia()
+        elif self.stato == "vuota" and self.contesto.progetto is not None and self.contesto.progetto.interrotta:
+            self._lancia()
         else:
             super().azione_principale()
 
@@ -305,7 +316,9 @@ class PaginaEsecuzione(Pagina):
         m.setWindowTitle(_("Fermare l'analisi?"))
         m.setIcon(QMessageBox.Question)
         m.setText(_("Fermare l'analisi?"))
-        m.setInformativeText(_("I passi già finiti restano salvati. Quello a metà si rifà quando riparti."))
+        m.setInformativeText(_("I passi già finiti restano salvati. Quello a metà si rifà quando riparti. Puoi anche "
+                               "chiudere il programma e spegnere il computer: quando riapri il progetto, premi "
+                               "Riprendi l'analisi."))
         si = m.addButton(_("Ferma l'analisi"), QMessageBox.AcceptRole)
         no = m.addButton(_("Continua l'analisi"), QMessageBox.RejectRole)
         m.setDefaultButton(no)

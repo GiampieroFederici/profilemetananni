@@ -121,8 +121,8 @@ class PaginaHome(Pagina):
             pronto = (pr.risultati / "risultati.json").is_file()
             corsa = self.contesto.progetto_in_analisi
             gira = corsa is not None and pr.cartella.resolve() == corsa.cartella.resolve()
-            griglia.addWidget(etichetta(_("Analisi in corso") if gira else _("Risultati pronti") if pronto else
-                                        _("Da avviare")), riga, 1)
+            griglia.addWidget(etichetta(_("Analisi in corso") if gira else _("Analisi interrotta") if pr.interrotta
+                                        else _("Risultati pronti") if pronto else _("Da avviare")), riga, 1)
             quando = datetime.fromtimestamp(pr.config.stat().st_mtime)
             griglia.addWidget(etichetta(f"{quando:%d/%m/%Y, %H:%M}"), riga, 2)
         griglia.setColumnStretch(3, 1)
@@ -151,7 +151,8 @@ class PaginaHome(Pagina):
             self.vai.emit("esecuzione")
             return
         self.contesto.progetto = pr
-        self.vai.emit("risultati" if (pr.risultati / "risultati.json").is_file() else "campioni")
+        self.vai.emit("esecuzione" if pr.interrotta else "risultati" if (pr.risultati / "risultati.json").is_file()
+                      else "campioni")
 
     def prova_esempio(self):
         """Crea il progetto d'esempio (o lo riapre) e porta alle scelte; con i risultati pronti, ai risultati."""
