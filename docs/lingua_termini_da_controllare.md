@@ -66,6 +66,9 @@
 - **Testi già salvati nei risultati**: le frasi del motore in `risultati.json` (sintesi, motivi del triage, citazioni,
   note FSSP) restano nella lingua della corsa. Se si cambia lingua dopo l'analisi, le pagine sono in inglese ma quelle
   frasi restano in italiano fino a una nuova analisi.
+- **Installatore Windows** (`installer/windows/installa_pmn.ps1` e il messaggio "estrai prima" del `.cmd`): in italiano e
+  in inglese dal 18/10 (B2, P12), lingua presa da Windows (vedi §6). Le righe che arrivano dal motore dentro la sua barra
+  ("Scarico...", "Velocità misurata...") restano in italiano, perché vengono da `installa_motore.sh`.
 - **Installazione del motore** (`installer/installa_motore.sh`, bash) e **nomi dei controlli** della verifica vera
   (`installer/verifica_motore.sh`): ancora solo in italiano. Il finto motore li ha in inglese.
 - **Plurale "1 seconds"**: come in italiano oggi ("1 secondi"), la durata non distingue il singolare.
@@ -77,3 +80,24 @@
   delle migliaia sostituiva anche la virgola prima di "minimo". Corretto in R1: il punto va solo nei numeri
   ("circa 900.000, minimo 1.000.000"); test in `tests/test_system_one.py`, fotografia dell'italiano rifatta (cambiano
   solo queste righe).
+
+## 6. Installatore Windows (B2, P12, 18/10)
+
+I testi stanno in una sola tabella, `$TESTI` in cima a `installer/windows/installa_pmn.ps1` (italiano e inglese uno accanto
+all'altro); il messaggio "estrai prima" sta in `installer/windows/costruisci_pacchetto.py` (`ESTRAI`). Lingua: quella
+di Windows (`Get-UICulture`): italiano se comincia con "it", altrimenti inglese. Con Windows in inglese l'installatore
+imposta anche l'app in inglese, se la persona non ha già scelto.
+
+| Italiano | Inglese (prima stesura) | Da decidere |
+|---|---|---|
+| installazione / riapri l'installazione | installation / open the installation again | "run the installer again"? |
+| componente di Windows (WSL) | component of Windows (WSL) | "Windows feature"? |
+| attivare WSL | turn on WSL | "enable WSL"? |
+| rispondi Sì | answer Yes | |
+| ambiente Linux | Linux environment | |
+| disco interno adatto (NTFS) | suitable internal disk (NTFS) | |
+| Procedo con l'installazione? | Shall I go ahead with the installation? | "Continue with the installation?" |
+| Tutto pronto | All ready | "All set"? |
+| finestra di benvenuto | welcome window | |
+| Estrai tutto... / Estrai (menu di Windows) | Extract All... / Extract | sono i nomi del menu di Windows in inglese |
+| Dettagli tecnici nel file | Technical details in the file | |

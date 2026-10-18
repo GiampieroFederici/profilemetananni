@@ -26,12 +26,16 @@ MOTORE = ["installer", "motore", "bin", "steps", "refs"]     # come prepara_pmn.
 ESCLUSI = {"installer/windows/prova.conf"}                   # solo per le prove con lo specchio locale
 # B2: col doppio clic dentro lo zip Windows estrae solo il .cmd in %TEMP%: l'installatore manca e prima non succedeva
 # nulla. Il messaggio va a PowerShell codificato (UTF-16 in base64), così il .cmd resta ASCII e le lettere accentate restano.
+# P12: italiano o inglese come l'installatore (lingua di Windows: it -> italiano, altro -> inglese).
 ESTRAI = ("Add-Type -AssemblyName System.Windows.Forms; "
+          "$t = if ((Get-UICulture).Name -like 'it*') { \"Il programma è ancora dentro il file zip: da qui non può "
+          "installarsi.`n`nFai così:`n1. premi OK;`n2. fai clic destro sul file zip e scegli 'Estrai tutto...', poi "
+          "'Estrai';`n3. nella cartella che si apre, fai doppio clic su 'Installa profilemetananni'.\" } "
+          "else { \"The program is still inside the zip file: it cannot install from here.`n`nDo this:`n1. press OK;"
+          "`n2. right-click the zip file and choose 'Extract All...', then 'Extract';`n3. in the folder that opens, "
+          "double-click 'Installa profilemetananni'.\" }; "
           "$o = New-Object Windows.Forms.Form -Property @{ TopMost = $true }; "
-          "[void][Windows.Forms.MessageBox]::Show($o, \"Il programma è ancora dentro il file zip: da qui non può installarsi."
-          "`n`nFai così:`n1. premi OK;`n2. fai clic destro sul file zip e scegli 'Estrai tutto...', poi 'Estrai';"
-          "`n3. nella cartella che si apre, fai doppio clic su 'Installa profilemetananni'.\", "
-          "'profilemetananni', 'OK', 'Information')")
+          "[void][Windows.Forms.MessageBox]::Show($o, $t, 'profilemetananni', 'OK', 'Information')")
 LANCIATORE = ('@echo off\r\n'
               'rem Doppio clic per installare profilemetananni: app, ambiente Linux (WSL) e motore.\r\n'
               'if not exist "%~dp0installer\\windows\\installa_pmn.ps1" (start "" conhost.exe --headless powershell.exe '

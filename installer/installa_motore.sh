@@ -39,6 +39,7 @@ done
 PASSO=controllo; FATTO=0; TOTALE=1; ETA=null; ESITO=ok; RISULTATO='{}'
 CORSA=$(date +%Y-%m-%dT%H-%M-%S)
 js() { local t=${1//\\/\\\\}; printf '%s' "${t//\"/\\\"}"; }   # testo dentro una stringa JSON
+mb_s() { awk -v v="$1" 'BEGIN {s = sprintf("%.1f", v / 1e6); sub(/\./, ",", s); print s}'; }   # B2 (P5): byte/s -> "57,2"
 evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
   if [ "$JSON" = 1 ]; then
     local extra=""
@@ -116,9 +117,9 @@ if [ "$DA_SCARICARE" -gt 0 ]; then
   if [ "${v:-0}" -gt 0 ]; then
     min=$(awk -v b="$DA_SCARICARE" -v v="$v" 'BEGIN {printf "%d", b/v/60 + 1}')
     if [ "$min" -eq 1 ]; then t="1 minuto"; elif [ "$min" -lt 60 ]; then t="$min minuti"; else t="$(awk -v m="$min" 'BEGIN {printf "%.1f", m/60}') ore"; fi
-    ETA=$((DA_SCARICARE / v)); evento avanzamento 2 "Velocita' misurata: $(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}') MB/s. Tempo stimato per scaricare tutto: circa $t."
+    ETA=$((DA_SCARICARE / v)); evento avanzamento 2 "Velocità misurata: $(mb_s "$v") MB/s. Tempo stimato per scaricare tutto: circa $t."
   else
-    v=0; evento avviso 2 "Non riesco a misurare la velocita' della rete: proseguo senza stima del tempo." RETE_NON_MISURATA
+    v=0; evento avviso 2 "Non riesco a misurare la velocità della rete: proseguo senza stima del tempo." RETE_NON_MISURATA
   fi
 fi
 if [ "$STIMA" = 1 ]; then
@@ -144,7 +145,7 @@ if ! { [ -x "$MM" ] && echo "$MICROMAMBA_SHA256  $MM" | sha256sum -c --status; }
     "https://github.com/mamba-org/micromamba-releases/releases/download/$MICROMAMBA_VER/micromamba-linux-64" >> "$LOG" 2>&1 \
     || fallisci DOWNLOAD_FALLITO "Non riesco a scaricare micromamba." "Controlla la connessione e rilancia."
   echo "$MICROMAMBA_SHA256  $MM.parziale" | sha256sum -c --status \
-    || { rm -f "$MM.parziale"; fallisci DB_ROVINATO "Il file di micromamba scaricato e' rovinato." "Rilancia l'installazione."; }
+    || { rm -f "$MM.parziale"; fallisci DB_ROVINATO "Il file di micromamba scaricato è rovinato." "Rilancia l'installazione."; }
   chmod +x "$MM.parziale"; mv "$MM.parziale" "$MM"
 fi
 export MAMBA_ROOT_PREFIX=$PMN_HOME/mamba
@@ -184,7 +185,7 @@ scarica() {  # url file byte: riprende i pezzi gia' scaricati; ritenta se la ret
     have=$(stat -c %s "$2" 2>/dev/null || echo 0)
     [ "$have" -ge "$3" ] && return 0
     n=$((n + 1)); [ "$n" -lt 30 ] || return 1
-    evento avviso "$(pct)" "La connessione si e' interrotta: riprovo fra 20 secondi (tentativo $n di 30)." RETE_INTERROTTA
+    evento avviso "$(pct)" "La connessione si è interrotta: riprovo fra 20 secondi (tentativo $n di 30)." RETE_INTERROTTA
     sleep 20
   done
 }
@@ -196,7 +197,7 @@ while IFS=$'\t' read -r g t s p b bf m d; do
     evento avanzamento "$(pct)" "Scarico $g: $(basename "$d") ($(awk -v b="$b" 'BEGIN {printf "%.2f", b/1e9}') GB)..."
     scarica "$url" "$f.parziale" "$b" || fallisci DOWNLOAD_FALLITO "Non riesco a scaricare $(basename "$d")." "Controlla la connessione e rilancia."
     if [ "$(md5sum < "$f.parziale" | cut -d' ' -f1)" != "$m" ]; then
-      rm -f "$f.parziale"; fallisci DB_ROVINATO "Il file $(basename "$d") scaricato e' rovinato (MD5 diverso)." "Rilancia: lo riscarico da capo."
+      rm -f "$f.parziale"; fallisci DB_ROVINATO "Il file $(basename "$d") scaricato è rovinato (MD5 diverso)." "Rilancia: lo riscarico da capo."
     fi
     mv "$f.parziale" "$f"
   else
@@ -204,7 +205,7 @@ while IFS=$'\t' read -r g t s p b bf m d; do
     evento avanzamento "$(pct)" "Scarico $g ($(awk -v b="$b" 'BEGIN {printf "%.1f", b/1e9}') GB, archivio da estrarre)..."
     scarica "$url" "$a" "$b" || fallisci DOWNLOAD_FALLITO "Non riesco a scaricare $(basename "$p")." "Controlla la connessione e rilancia."
     if [ "$(md5sum < "$a" | cut -d' ' -f1)" != "$m" ]; then
-      rm -f "$a"; fallisci DB_ROVINATO "L'archivio $(basename "$p") scaricato e' rovinato (MD5 diverso)." "Rilancia: lo riscarico da capo."
+      rm -f "$a"; fallisci DB_ROVINATO "L'archivio $(basename "$p") scaricato è rovinato (MD5 diverso)." "Rilancia: lo riscarico da capo."
     fi
     ETA=$(eta "$b"); evento avanzamento "$(pct)" "Estraggo e controllo $g..."
     rm -rf "$dir"; mkdir -p "$dir"
@@ -238,7 +239,7 @@ evento avanzamento 93 "Prova finale su un piccolo campione (alcuni minuti)..."
 if PMN_HOME=$PMN_HOME bash "$PMN_ROOT/installer/verifica_motore.sh" >> "$LOG" 2>&1; then
   gruppi=$(tail -n +2 "$CATALOGO" | cut -f1 | awk '!visto[$0]++ {printf "%s\"%s\"", (n++ ? "," : ""), $0}')
   RISULTATO="{\"programmi\":${#ENVS[@]},\"database\":[$gruppi],\"verifica\":\"verde\"}"
-  PASSO=fine; evento fine 100 "VERDE: il motore e' installato e funziona."
+  PASSO=fine; evento fine 100 "VERDE: il motore è installato e funziona."
 else
   fallisci VERIFICA_ROSSA "ROSSO: la prova finale non ha dato il risultato atteso." "Manda a noi il file $LOG."
 fi

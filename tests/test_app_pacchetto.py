@@ -15,8 +15,9 @@ PS1 = RADICE / "installer" / "windows" / "installa_pmn.ps1"
 
 
 def powershell(script):
-    r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
-                       capture_output=True, text=True)
+    r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                        "[Console]::OutputEncoding = [Text.Encoding]::UTF8; " + script],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert r.returncode == 0, r.stderr
     return r.stdout
 
@@ -73,3 +74,122 @@ def test_installazione_lunga_senza_sospensione():
     assert int(powershell(f". '{PS1}'; NienteSospensione; {stato}").strip()) & 0x1    # ES_SYSTEM_REQUIRED attivo
     testo = PS1.read_text(encoding="utf-8")
     assert testo.index("NienteSospensione\n") < testo.index("Riprendi   # se si interrompe")             # chiamata in fase 2
+
+
+def test_attivazione_wsl_con_la_barra():
+    """B2 (P3): WSL si attivava per circa 2 min 30 s senza nessun segno a schermo. Ora c'e' una barra animata e
+    l'attesa non blocca la finestra (un processo atteso con -Wait la farebbe risultare "Non risponde")."""
+    codice = powershell(f". '{PS1}'; $p = Start-Process cmd.exe -ArgumentList '/c', 'ping -n 2 127.0.0.1 >nul & exit 7' "
+                        "-WindowStyle Hidden -PassThru; AttendiProcesso $p").strip()
+    assert codice == "7"
+    testo = PS1.read_text(encoding="utf-8-sig")
+    fase1 = testo[testo.index("if ($Fase -eq 1 -and -not (WslPronta))"):testo.index("# ===================== fase 2")]
+    assert "-Wait" not in fase1
+    i, j, k = (fase1.index(s) for s in ("Start-Process wsl.exe", "MostraBarra", "AttendiProcesso $p"))
+    assert i < j < k                                                             # dopo il Si di Windows, poi si aspetta
+
+
+def test_app_copiata_senza_segno_di_internet(tmp_path):
+    """B2 (P10): estratti da uno zip scaricato, i file portano il segno "da internet" (Zone.Identifier) e Windows
+    chiede conferma anche per l'app. Resta un solo avviso, quello del primo doppio clic: l'app copiata non lo porta."""
+    sorgente = tmp_path / "pacchetto" / "ProfileMetaNanni"
+    (sorgente / "_internal").mkdir(parents=True)
+    for f in (sorgente / "ProfileMetaNanni.exe", sorgente / "_internal" / "libreria.dll"):
+        f.write_bytes(b"x")
+        with open(f"{f}:Zone.Identifier", "w") as z:                               # come dopo "Estrai tutto"
+            z.write("[ZoneTransfer]\nZoneId=3\n")
+    exe = tmp_path / "locale" / "app" / "ProfileMetaNanni.exe"
+    powershell(f". '{PS1}'; InstallaApp '{sorgente}' '{exe}' @('{tmp_path / 'Desktop.lnk'}')")
+    for f in (exe, exe.parent / "_internal" / "libreria.dll"):
+        assert f.is_file() and not os.path.exists(f"{f}:Zone.Identifier")
+
+
+def test_messaggi_con_gli_accenti_veri():
+    """B2 (P5): i messaggi dell'installatore avevano apostrofi al posto degli accenti ("scarichera'", "e'").
+    Si controlla il testo come lo legge PowerShell 5.1 (UTF-8 con BOM, altrimenti le lettere accentate si rompono)."""
+    import re
+    assert PS1.read_bytes().startswith(b"\xef\xbb\xbf")
+    leggi = (f"$a = [System.Management.Automation.Language.Parser]::ParseFile('{PS1}', [ref]$null, [ref]$null); "
+             "$a.FindAll({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -or "
+             "$n -is [System.Management.Automation.Language.ExpandableStringExpressionAst] }, $true) | "
+             "ForEach-Object { $_.Value }")
+    r = subprocess.run(["powershell.exe", "-NoProfile", "-Command", "[Console]::OutputEncoding = [Text.Encoding]::UTF8; " + leggi],
+                       capture_output=True, text=True, encoding="utf-8")
+    testi = r.stdout
+    assert "Tutto pronto: profilemetananni è installato e funziona." in testi
+    assert "Tra poco Windows ti chiederà il permesso: rispondi Sì." in testi
+    rimasti = re.findall(r"\b(?:e|piu|gia|puo|chiedera|scarichera|velocita|cosi|perche)'(?=[\s.,:;)!?]|$)", testi, re.M)
+    assert rimasti == []
+
+
+def test_benvenuto_di_wsl_annunciato_e_chiuso():
+    """B2 (P4): dopo la registrazione di Ubuntu il servizio WSL apre da solo "Benvenuto in WSL" (wslsettings.exe,
+    LxssUserSession.cpp _LaunchOOBEIfNeeded). L'installatore lo annuncia e chiude solo le finestre nate dopo l'inizio."""
+    import time
+    finestra = subprocess.Popen(["powershell.exe", "-NoProfile", "-Command",
+                                 "Add-Type -AssemblyName System.Windows.Forms; "
+                                 "(New-Object Windows.Forms.Form -Property @{ Text = 'prova_B2_benvenuto' }).ShowDialog()"])
+    try:
+        time.sleep(4)                                                            # la finestra si apre
+        powershell(f". '{PS1}'; ChiudiBenvenuto (Get-Process -Id {finestra.pid}).StartTime.AddSeconds(-1) 'powershell' 10")
+        assert finestra.wait(timeout=15) is not None                             # chiusa come con la X
+    finally:
+        if finestra.poll() is None:
+            finestra.kill()
+    testo = PS1.read_text(encoding="utf-8-sig")
+    i = testo.index("--install Ubuntu-24.04")
+    assert "MostraBarra (T 'linux_barra')" in testo[testo.rindex("MostraBarra", 0, i):i]
+    assert all("benvenuto" in s or "welcome" in s for s in _testi_ps1()["linux_barra"])   # annunciato nella barra
+    assert "ChiudiBenvenuto" in testo[i:testo.index("prepara_pmn.sh")]           # chiuso subito dopo
+
+
+def _testi_ps1():
+    """{chiave: [italiano, inglese]} della tabella $TESTI dell'installatore, come la legge PowerShell 5.1."""
+    import json
+    uscita = powershell("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+                        f". '{PS1}'; $TESTI | ConvertTo-Json -Compress")
+    return json.loads(uscita)
+
+
+def test_installatore_in_italiano_e_inglese():
+    """B2 (P12): testi in una sola tabella, ognuno in italiano e in inglese, con gli stessi {0} {1}..."""
+    import re
+    testi = _testi_ps1()
+    assert len(testi) >= 20
+    for chiave, (it, en) in testi.items():
+        assert it and en and it != en, chiave
+        assert sorted(re.findall(r"\{\d\}", it)) == sorted(re.findall(r"\{\d\}", en)), chiave
+        assert "—" not in it + en and "microb" not in (it + en).lower(), chiave
+    sorgente = PS1.read_text(encoding="utf-8-sig")
+    assert not re.findall(r'\b(Avviso|Ferma|Domanda|MostraBarra) "', sorgente)        # niente frasi fuori tabella
+
+
+def test_lingua_dell_installatore_dalla_lingua_di_windows():
+    scelte = powershell(f". '{PS1}'; 'it-IT', 'it-CH', 'en-US', 'de-DE' | ForEach-Object {{ SceltaLingua $_ }}").split()
+    assert scelte == ["it", "it", "en", "en"]
+    it = powershell("[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+                    f". '{PS1}'; $Lingua = 'it'; T 'pronto'").strip()
+    en = powershell(f". '{PS1}'; $Lingua = 'en'; T 'pronto'").strip()
+    assert it == "Tutto pronto: profilemetananni è installato e funziona."       # italiano come prima, con l'accento
+    assert en == "All ready: profilemetananni is installed and works."
+
+
+def test_lingua_dell_app_coerente_con_l_installatore():
+    """Con Windows in inglese l'app si apre in inglese, ma una scelta già fatta dalla persona non si tocca."""
+    chiave = r"HKCU:\Software\ProfileMetaNanni_prova_B2\app"
+    try:
+        powershell(f". '{PS1}'; ImpostaLinguaApp 'en' '{chiave}'")
+        assert powershell(f"(Get-ItemProperty '{chiave}').lingua").strip() == "en"
+        powershell(f"Set-ItemProperty '{chiave}' lingua 'it'; . '{PS1}'; ImpostaLinguaApp 'en' '{chiave}'")
+        assert powershell(f"(Get-ItemProperty '{chiave}').lingua").strip() == "it"
+    finally:
+        powershell(r"Remove-Item -Recurse -Force 'HKCU:\Software\ProfileMetaNanni_prova_B2' -ErrorAction SilentlyContinue")
+
+
+def test_messaggio_estrai_in_due_lingue():
+    import base64
+    sys.path.insert(0, str(RADICE / "installer" / "windows"))
+    import costruisci_pacchetto as c
+    riga = next(r for r in c.LANCIATORE.split("\r\n") if r.startswith("if not exist"))
+    testo = base64.b64decode(riga.split("-EncodedCommand ")[1].split()[0]).decode("utf-16-le")
+    assert "Get-UICulture" in testo and "Estrai tutto" in testo and "Extract All" in testo

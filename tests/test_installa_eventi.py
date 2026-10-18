@@ -105,3 +105,14 @@ def test_interruption_is_annullata(tmp_path):
     resto, _ = p.communicate(timeout=30)
     ev = controlla("".join(righe) + resto, p.returncode, "installa")
     assert p.returncode == 3 and ev[-1]["esito"] == "annullata"
+
+
+def test_messages_with_real_accents_and_decimal_comma():
+    """B2 (P5): the messages shown by the Windows installer had apostrophes for accents ("e'") and "57.2 MB/s"."""
+    import re
+    testo = open(INSTALLA, encoding="utf-8").read()
+    messaggi = [r for r in testo.splitlines() if re.search(r"\b(evento|fallisci)\b", r) and not r.lstrip().startswith("#")]
+    assert not [r for r in messaggi if re.search(r"\b(e|piu|gia|puo|velocita|cosi)'(?=[\s.,:;)!?])", r)]
+    riga = next(r for r in testo.splitlines() if r.startswith("mb_s()"))
+    out = subprocess.run(["bash", "-c", riga + "\nmb_s 57234567"], capture_output=True, text=True).stdout
+    assert out.strip() == "57,2"
