@@ -22,14 +22,14 @@ LETTURE = ["0", "5", "10", "20", "50"]           # Bracken -t (profiling.bracken
 LUNGHEZZE = [100, 150, 250]
 LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_readlen)
 FONTE_CONFIDENZA = N_("Consigliato 0 con il database completo (il valore di Kraken 2 se non si cambia nulla) e 0,1 con "
-                    "lo screening rapido: per i database ridotti si consiglia fra 0,05 e 0,30 (Wright, Comeau e "
-                    "Langille 2023).")
+                      "lo screening rapido: per i database ridotti si consiglia fra 0,05 e 0,30 (Wright, Comeau e "
+                      "Langille 2023).")
 FONTE_SOGLIA = N_("0,005 % è la soglia migliore trovata da Edwin et al. 2024 (campioni di suolo: da confermare sui "
-                "salumi). Le specie sotto la soglia restano nel file Excel.")
+                  "salumi). Le specie sotto la soglia restano nel file Excel.")
 FONTE_LETTURE = N_("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
-                 "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
+                   "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
 FONTE_LUNGHEZZA = N_("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
-                   "read Illumina di oggi.")
+                     "read Illumina di oggi.")
 # dove si risolve un errore di stima (R8): codice -> (testo del pulsante principale, pagina o None = riprova)
 RIMEDI = {"READ_NON_TROVATE": (N_("Correggi i campioni"), "campioni"),
           "CONFIG_NON_VALIDA": (N_("Correggi i campioni"), "campioni"),

@@ -1,0 +1,78 @@
+# Lingua inglese: termini da controllare (dopo L6b)
+
+> Sessione Lingua IT/EN, 18/10/2026, ramo `lingua-it-en`.
+> L'inglese è una **prima stesura**. Questi termini li controlla Giampiero **dopo la prova con 5 persone (L6b)**.
+> Le traduzioni stanno in due file: `app/risorse/lingua_en.json` (app) e `motore/lingua_en.json` (motore, referto, FSSP).
+> Per cambiare una traduzione: si cambia solo il testo inglese a destra, mai la frase italiana a sinistra (è la chiave).
+
+## 1. Termini scientifici
+
+| Italiano | Inglese (prima stesura) | Dove | Da decidere |
+|---|---|---|---|
+| ufc/g | CFU/g | sicurezza alimentare, referto | ok così? |
+| batteri lattici | lactic acid bacteria | app, referto, FSSP | nelle note FSSP resta la sigla LAB |
+| LAB | LAB | note FSSP ("Initial LAB...") | lasciare la sigla o scriverla per intero? |
+| CNS (stafilococchi coagulasi-negativi) | non compare nei testi | nessuno | niente da fare oggi |
+| lattobacilli psicrotolleranti | psychrotolerant lactobacilli | note FSSP, Come citare | |
+| ospite (DNA dell'ospite) | host (host DNA) | tutto | |
+| read, coppie di read | reads, read pairs | tutto | |
+| abbondanza relativa | relative abundance | glossario del referto | |
+| soglia di abbondanza | abundance threshold | scelte, referto | |
+| soglia di confidenza di Kraken | Kraken confidence threshold | scelte, risultati | |
+| read minime per specie (Bracken) | minimum reads per species (Bracken) | scelte, risultati | |
+| % fra i soli microbi / % sul totale assegnato | % among microbes only / % of all assigned | referto, Excel | |
+| segnalati a parte | reported separately | risultati, referto | |
+| fase acquosa (sale nella fase acquosa) | water phase (salt in the water phase) | sicurezza alimentare | "water phase salt" è più comune? |
+| aw (acqua libera) | aw (free water) | sicurezza alimentare | "water activity"? |
+| fenoli del fumo | smoke phenols | sicurezza alimentare | |
+| diacetato | diacetate | sicurezza alimentare | |
+| scenari "e se" | "what if" scenarios | FSSP, referto | |
+| ritardo iniziale (lag) | initial delay (lag) | sicurezza alimentare | "lag phase"? |
+| campo di validità del modello | range of the model | avvisi FUORI_CAMPO | "range of applicability" come in FSSP? |
+| psi (1 o più = non cresce) | psi (1 or more = no growth) | referto | |
+| salume / salume di maiale | cured meat product / pork product | campioni e prodotto | |
+| salame tipo Felino | Felino-type salami | campione d'esempio | |
+| bresaola, carne secca | bresaola, dried meat | campioni e prodotto | |
+
+## 2. Nomi dei passi dell'analisi
+
+| Italiano | Inglese |
+|---|---|
+| Scarico le read | Downloading the reads |
+| Controllo la qualità | Checking the quality |
+| Pulisco le read | Cleaning the reads |
+| Tolgo il DNA dell'ospite | Removing the host DNA |
+| Profilo con MetaPhlAn / con Kraken | Profile with MetaPhlAn / with Kraken |
+| Preparo referto e tabelle | Preparing report and tables |
+| Esito del triage: buono, da controllare, da rifare | good, to check, to redo |
+
+## 3. Parole dell'interfaccia
+
+| Italiano | Inglese | Nota |
+|---|---|---|
+| Motore | Engine | |
+| referto | report | |
+| Database completo / Screening rapido | Full database / Quick screening | |
+| MetaPhlAn a fette (in 6 parti) | MetaPhlAn in slices (in 6 parts) | |
+| Prototipo, non per decisioni. | Prototype, not for decisions. | D115 |
+| VERDE / ROSSO | GREEN / RED | verifica del motore |
+| Migliorato (consigliato) / Come FSSP | Improved (recommended) / As FSSP | modo di calcolo FSSP |
+| Fogli Excel | ReadMe, MetaPhlAn_species, Kraken_microbes, Kraken_separate, Triage, Safety, Parameters, Tools_citations | |
+
+## 4. Limiti noti dell'inglese (da sapere, non errori)
+
+- **Valori del file del progetto**: nel referto inglese i valori `fette`, `completo`, `rapido` restano così (sono le
+  impostazioni di `config.yaml`); accanto c'è la spiegazione in inglese.
+- **Testi già salvati nei risultati**: le frasi del motore in `risultati.json` (sintesi, motivi del triage, citazioni,
+  note FSSP) restano nella lingua della corsa. Se si cambia lingua dopo l'analisi, le pagine sono in inglese ma quelle
+  frasi restano in italiano fino a una nuova analisi.
+- **Installazione del motore** (`installer/installa_motore.sh`, bash) e **nomi dei controlli** della verifica vera
+  (`installer/verifica_motore.sh`): ancora solo in italiano. Il finto motore li ha in inglese.
+- **Plurale "1 seconds"**: come in italiano oggi ("1 secondi"), la durata non distingue il singolare.
+- **Nomi di prova** come `esempio_SF3RAt7` (cartella del progetto d'esempio) restano uguali in tutte le lingue.
+
+## 5. Un difetto già presente (in italiano), non corretto qui
+
+- `motore/system_one.py`, motivo del triage: "poche read dei microbi (circa 900.000**.** minimo 1.000.000)": il punto
+  delle migliaia sostituisce anche la virgola prima di "minimo". In inglese esce giusto. Lasciato identico perché la
+  regola della sessione è "italiano identico a prima"; si corregge in una sessione a parte (una riga, con il suo test).

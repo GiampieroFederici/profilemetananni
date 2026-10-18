@@ -15,8 +15,8 @@ NOMI_DB = {"metaphlan_fette_vJan25_v1": N_("MetaPhlAn, database in 6 parti"),
 NOMI_PROGRAMMI = {"metaphlan": "MetaPhlAn", "kraken2": "Kraken", "bracken": "Bracken", "bowtie2": "Bowtie 2",
                   "fastp": "fastp"}
 NON_AVVIATO = N_("Il motore fa i calcoli in uno spazio Linux dentro Windows (si chiama WSL, il sottosistema Windows per "
-               "Linux). Su questo computer non lo trovo, oppure non parte. Si installa una volta sola con il programma "
-               "di installazione di ProfileMetaNanni (installa_pmn); poi torna qui e premi Controlla il motore.")
+                 "Linux). Su questo computer non lo trovo, oppure non parte. Si installa una volta sola con il programma "
+                 "di installazione di ProfileMetaNanni (installa_pmn); poi torna qui e premi Controlla il motore.")
 DA_INSTALLARE = {"DB_MANCANTE", "DB_ROVINATO", "VERIFICA_ROSSA", "PROGRAMMA_MANCANTE"}   # si risolve con installa (R8)
 COLORI = {"verde": "#1E7A4C", "rosso": "#A8251C", "ambra": "#9A5A00"}
 

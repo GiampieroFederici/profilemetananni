@@ -37,7 +37,7 @@ MENU = [("home", N_("I miei progetti")), ("motore", N_("Motore")), ("crediti", N
 AVVIO_MIN_MS = 2500                  # l'avatar resta almeno 2,5 s (prototipo: 2-3 s)
 AVVIO_LENTO_MS = 5000                # info oltre 5 s: avvio a freddo della WSL, lo si spiega (A2)
 AVVIO_LENTO = N_("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
-               "minuto: è normale, non chiudere la finestra.")
+                 "minuto: è normale, non chiudere la finestra.")
 
 
 def movimento_ridotto():

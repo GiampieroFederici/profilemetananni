@@ -100,6 +100,7 @@ def foto_app(lingua_scelta=None):
     """{caso: [testi]} dell'app con il finto motore. lingua_scelta: None = quella predefinita (l'italiano)."""
     from PySide6.QtWidgets import QApplication, QPushButton
     from app import finestra, main, progetto
+    from app.lingua import _ as tr
     from app.pagine import esecuzione, scelte, sicurezza
     from app.pagine.base import numero
 
@@ -118,11 +119,11 @@ def foto_app(lingua_scelta=None):
     finestre = []
 
     def nuova():
-        w = finestra.Finestra(movimento=False)
-        finestre.append(w)
-        if lingua_scelta:
+        if lingua_scelta:                    # prima di creare le pagine: i testi si scrivono quando nascono
             from app import lingua
             lingua.imposta(lingua_scelta)
+        w = finestra.Finestra(movimento=False)
+        finestre.append(w)
         w.show()
         w.avvia()
         aspetta(lambda: w.attuale == "home")
@@ -391,12 +392,13 @@ def foto_app(lingua_scelta=None):
 
         # 6. campione d'esempio, avvio lento, motore che non parte
         w.vai("home")
-        next(b for b in w.pagine["home"].findChildren(QPushButton) if b.text() and "esempio" in b.text()).click()
+        prova = tr("Prova il campione d'esempio")
+        next(b for b in w.pagine["home"].findChildren(QPushButton) if b.text() == prova).click()
         stima_finita(w)
         scatta("61 esempio scelte", w)
         w.vai("campioni")
         scatta("62 esempio campioni", w)
-        foto["63 avvio"] = [pulisci(w.messaggio_avvio.text(), cartelle), finestra.AVVIO_LENTO]
+        foto["63 avvio"] = [pulisci(w.messaggio_avvio.text(), cartelle), tr(finestra.AVVIO_LENTO)]
         from app import motore as client
         vecchio = client.comando_motore
         client.comando_motore = lambda: (["programma_che_non_esiste_pmn.exe"], [])
@@ -420,6 +422,9 @@ def foto_app(lingua_scelta=None):
             w.close()
             w.deleteLater()
         progetto.cartella_progetti, finestra.AVVIO_MIN_MS = cartella_progetti, avvio_min
+        if lingua_scelta:
+            from app import lingua
+            lingua.imposta("it")
         for k, v in vecchi.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -580,16 +585,18 @@ def foto_motore(lingua_scelta=None):
         import pmn_motore
         import referto as ref
         import system_one
+        tr = lambda t: t  # noqa: E731  (i testi fissi del motore, come li mostra: tradotti con la lingua scelta)
         if L:
             import lingua as lm
             lm.imposta(L)
+            tr = lm._
         try:
             righe = [pmn_motore.messaggio_fine("Messaggio.", "Cosa fare.", p) for p in
                      list(pmn_motore.NOMI_PASSI) + [None, "ignoto"]]
-            righe += [f"{p}: {m}" for p, m in pmn_motore.PASSI]
-            righe += [f"{c}: {m} / {x}" for _, c, m, x in pmn_motore.ERRORI]
-            righe += [c for v in pmn_motore.CITAZIONI.values() for c in v]
-            righe += [pmn_motore.ESEMPIO["frase"]]
+            righe += [f"{p}: {tr(m)}" for p, m in pmn_motore.PASSI]
+            righe += [f"{c}: {tr(m)} / {tr(x)}" for _, c, m, x in pmn_motore.ERRORI]
+            righe += [tr(c) for v in pmn_motore.CITAZIONI.values() for c in v]
+            righe += [tr(pmn_motore.ESEMPIO["frase"])]
             for ram in (4.0, 15.6, 64.0):
                 for kc, kr in ((True, True), (False, True), (False, False)):
                     _, cons = system_one.modo(ram, ram > 40, kc, kr)
@@ -628,6 +635,58 @@ def foto_motore(lingua_scelta=None):
 
 def foto(lingua_scelta=None):
     return {**foto_app(lingua_scelta), **foto_motore(lingua_scelta)}
+
+
+# parole italiane che in un testo inglese non ci devono essere (parole intere, maiuscole o minuscole)
+ITALIANE = set("""il lo la gli di del della dello delle dei degli che non con sono una nel nella nei sul sulla
+alla alle al dal dalla da fra tra anche ma questo questa questi quello quelle ho hai può puoi sei siamo essere
+campione campioni referto motore analisi specie soglia prodotto progetto progetti risultati cartella scegli premi
+apri controlla manca mancano errore avviso pronto pronta finita fermata corso passo passi tempo spazio stima
+microbi batteri funghi archei ospite maiale bovino pecora uomo salume salsiccia previsione modello crescita conta
+giorni ore minuti secondi circa sopra sotto dopo prima ancora già più meno tutte tutti altro altri nessuno qui
+profilo sicurezza alimentare lettura letture coppie valore fonte parametri strumenti""".split())
+# testi che restano uguali in tutte le lingue (nomi propri, valori del file del progetto): non sono frasi italiane
+AMMESSE = ("[file] ", "Felino", "fette", "rapido", "completo")
+# messaggi che questa fotografia fa arrivare da sé alle pagine (dati di prova, non testi dell'app)
+DI_PROVA = ("Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.", "Poca RAM.", "Messaggio.",
+            "Cosa fare.", "manca il PDF", "ALTRO")
+# negli eventi del motore (JSON) l'utente vede solo questi campi; gli altri sono chiavi del contratto (passo, esito...)
+VISIBILI = {"messaggio", "cosa_fare", "frase", "perche", "note", "profilo_usato", "citazione", "citazioni", "scenario",
+            "motivi", "nome"}
+
+
+def da_mostrare(testo):
+    """I testi per l'utente dentro una riga della fotografia: la riga stessa, o i campi VISIBILI se è un evento JSON."""
+    try:
+        d = json.loads(testo)
+    except ValueError:
+        return [testo]
+    out = []
+
+    def giro(x, chiave=None):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                giro(v, k)
+        elif isinstance(x, list):
+            for v in x:
+                giro(v, chiave)
+        elif isinstance(x, str) and chiave in VISIBILI:
+            out.append(x)
+    giro(d)
+    return out
+
+
+def italiane(testo):
+    """Le parole italiane di un testo (vuoto se non ce ne sono). Non contano: i nomi con _ o / (progetti di prova,
+    file, chiavi), i segnaposto come <CARTELLA>, i nomi propri e i valori di AMMESSE, i messaggi DI_PROVA."""
+    if testo.startswith(AMMESSE[0]):
+        return []
+    for x in DI_PROVA + AMMESSE[1:]:
+        testo = testo.replace(x, "")
+    testo = re.sub(r"<[A-Z]+>|\S*[_/]\S*|et al\.|Le Marc|Command \w+", " ", testo)   # Command info: nome del comando
+    testo = re.sub(r"^(?:ospite|inizio|avanzamento|avviso|errore|fine): ", "", testo)       # chiave del contratto: testo
+    parole = re.findall(r"[A-Za-zÀ-ÿ'-]+", testo)
+    return [p for p in parole if p.lower().strip("'") in ITALIANE or re.search(r"[àèéìòù]", p.lower())]
 
 
 if __name__ == "__main__":

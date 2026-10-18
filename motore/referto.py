@@ -44,7 +44,7 @@ NOMI_PRODOTTO = {"temperatura": N_("temperatura {} °C"), "sale_fase_acquosa": N
                  "aw": "aw {}", "ph": "pH {}", "fenoli": N_("fenoli del fumo {} ppm"), "co2": "CO2 {} %",
                  "nitrito": N_("nitrito {} ppm")}
 POSTILLA_VIRUS = N_("Virus: opzione sperimentale, non validata con il database diviso in 6 parti. Nei pareggi fra copie "
-                  "virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).")
+                    "virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).")
 GLOSSARIO = [
     (N_("Read (lettura)"), N_("un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento è "
                               "letto dai due lati.")),
@@ -299,9 +299,9 @@ def tabella(intestazione, righe, allinea_destra=(), larghezze=None):
 
 # D115: nella prova con le persone Kraken e FSSP sono prototipi, finché K4 e L3 non sono fatte
 PROTOTIPO_KRAKEN = N_("<b>Prototipo, non per decisioni.</b> Le impostazioni di Kraken sono ancora in prova su comunità di "
-                    "composizione nota: guarda questi numeri come un confronto, non usarli per decidere.")
+                      "composizione nota: guarda questi numeri come un confronto, non usarli per decidere.")
 PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le specie trovate e i modelli FSSP è "
-                  "ancora in prova: le previsioni non dicono se un prodotto è sicuro.")
+                    "ancora in prova: le previsioni non dicono se un prodotto è sicuro.")
 
 
 def riquadro(testo, colore="#fff4d6"):

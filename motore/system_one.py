@@ -16,17 +16,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 RAM_STANDARD_GB = 40.0
 FONTE_RAM_STANDARD = N_("MetaPhlAn standard: picco 25,5 GB con il catalogo in swap (S2.1, macchina da 30 GB); "
-                      "non entra nei 31,4 GB del PC di prova (13/10). Soglia 40 GB come run.sh 'auto' (D051)")
+                        "non entra nei 31,4 GB del PC di prova (13/10). Soglia 40 GB come run.sh 'auto' (D051)")
 RAM_MINIMA_GB = 7.5
 FONTE_RAM_MINIMA = N_("MetaPhlAn a fette provato con WSL a 8 GB (circa 7,7 GB visibili): SF3RAt7 e C03_1, RAM 7,9 GB "
-                    "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificato'). Sotto non è provato")
+                      "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificato'). Sotto non è provato")
 TEMPO_LUNGO_S = 4 * 3600
 FONTE_TEMPO = N_("D023: oltre 4 ore si propone lo screening rapido (PlusPF-8) o il cloud")
 MARGINE_SPAZIO = 1.15
 FONTE_SPAZIO = N_("stessa regola di steps/05_estimate_size.py: spazio stimato x 1,15 di margine")
 FONTE_DB = N_("installazione del motore (installazione.env): database presenti sul disco")
 FONTE_TRIAGE = N_("steps/17_triage_report.py: soglie host {host:g} %, {reads:,.0f} frammenti non ospite, "
-                "Q30 {q30:g} % (triage.* del progetto); zona grigia +-20 %")
+                  "Q30 {q30:g} % (triage.* del progetto); zona grigia +-20 %")
 TRIAGE_ESITO = {"pass": "buono", "review": "da controllare", "exclude": "da rifare"}   # chiavi del contratto §5.3
 TRIAGE_PREDEFINITE = {"max_host_pct": 95.0, "min_nonhost_reads": 1_000_000.0, "min_q30_pct": 70.0}
 # prodotto -> (ospiti da togliere oltre all'uomo: chiavi di hosts: in config.yaml, frase, perché, livello).
@@ -45,7 +45,7 @@ PRODOTTI = [
 ]
 GENOMI = {"sus_scrofa": "Sscrofa11.1", "bos_taurus": "ARS-UCD1.2", "ovis_aries": "ARS-UI_Ramb_v2.0"}
 FONTE_OSPITE = N_("D021: gli stessi genomi dell'ospite dei profili pubblicati (maiale Sscrofa11.1, bovino ARS-UCD1.2, "
-                "pecora ARS-UI_Ramb_v2.0); il DNA umano (GRCh38) si toglie sempre. D074: i 4 prodotti dell'app")
+                  "pecora ARS-UI_Ramb_v2.0); il DNA umano (GRCh38) si toglie sempre. D074: i 4 prodotti dell'app")
 
 _spec = importlib.util.spec_from_file_location("triage_report", ROOT / "steps" / "17_triage_report.py")
 _triage = importlib.util.module_from_spec(_spec)

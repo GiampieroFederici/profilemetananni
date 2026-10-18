@@ -577,7 +577,7 @@ class Motore:
         parametri = {}
         if (res / "parameters.tsv").is_file():
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:
-                k, _, v = riga.partition("\t")
+                k, _tab, v = riga.partition("\t")   # non "_": qui sotto _() traduce
                 parametri[k] = v
         ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
         strumento = sezione(cfg, "profiling").get("tool", "both")

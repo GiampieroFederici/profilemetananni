@@ -58,7 +58,7 @@ def catalogo(nome):
 
 def segnaposto(testo):
     """I {campi} di str.format in un testo: devono essere gli stessi in italiano e in inglese."""
-    return sorted(re.findall(r"(?<!\{)\{([a-z_]*)\}(?!\})", testo))
+    return sorted(re.findall(r"\{([^{}]*)\}", testo))
 
 
 if __name__ == "__main__":

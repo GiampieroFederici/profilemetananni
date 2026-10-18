@@ -83,7 +83,7 @@ class PaginaHome(Pagina):
             self.nome.setText(self._nome_proposto())
 
     def _nome_proposto(self):
-        oggi = f"progetto_{date.today().isoformat()}"
+        oggi = f"{_('progetto')}_{date.today().isoformat()}"   # nome di cartella proposto: project_... con l'inglese
         esistenti = {p.cartella.name for p in self._progetti()}
         radice = progetto.cartella_progetti()
         nome, n = oggi, 2
