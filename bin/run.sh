@@ -593,7 +593,7 @@ fi
 # Kruskal-Wallis + Dunn (BH) on alpha diversity across groups.
 if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   DIV_ARGS=()
-  # Abundance floor for diversity: convert the percent threshold to a relative fraction in [0,1)
+  # Abundance floor for diversity, Kraken only (MetaPhlAn is never filtered): percent threshold -> fraction in [0,1)
   # (e.g. 0.001% -> 1e-5). 41_diversity.R drops per-sample taxa below this BEFORE richness/CLR/PCA.
   MINABUND="$(awk -v p="$PMN_THRESHOLD" 'BEGIN{printf "%.10g", p/100}')"
   if [ -n "$PMN_METADATA" ]; then
@@ -604,7 +604,7 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   fi
   if [ -n "$MPA_MERGED" ]; then
     do_step pmn_reports_py mpa_matrix -- python "$PMN_ROOT/steps/34_metaphlan_matrix.py" --in "$MPA_MERGED" --out "$RES_DIR/metaphlan_matrix.tsv"
-    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance 0 ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
   if [ -n "$KRK_MATRIX" ]; then
     do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}

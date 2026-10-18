@@ -28,11 +28,11 @@ TRIAGE_ESITO = {"pass": "buono", "review": "da controllare", "exclude": "da rifa
 TRIAGE_PREDEFINITE = {"max_host_pct": 95.0, "min_nonhost_reads": 1_000_000.0, "min_q30_pct": 70.0}
 # prodotto -> (ospiti da togliere oltre all'uomo: chiavi di hosts: in config.yaml, frase, perché, livello).
 # L'uomo (GRCh38) si toglie sempre. Testi presi dalla pagina Campioni dell'app (S5b), che li mostra così come sono.
-_CARNE = ("Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+_CARNE = ("Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
           "Il DNA umano si toglie sempre.")
 PRODOTTI = [
     ("maiale", ["sus_scrofa"], "Toglierò il DNA del maiale e quello umano.",
-     "Sono la gran parte delle read di un salume e non dicono nulla dei microbi. Il DNA umano si toglie sempre.", "info"),
+     "Sono la gran parte delle read di un salume e non dicono nulla dei taxa del prodotto. Il DNA umano si toglie sempre.", "info"),
     ("bovino", ["bos_taurus"], "Toglierò il DNA del bovino e quello umano.", _CARNE, "info"),
     ("pecora", ["ovis_aries"], "Toglierò il DNA della pecora e quello umano.", _CARNE, "info"),
     ("altro", [], "Toglierò solo il DNA umano.",
@@ -132,7 +132,7 @@ def triage(tsv, soglie=None):
                 if _triage.ramp(100.0 - host, 100.0 - s["max_host_pct"]) < 0.75:
                     motivi.append(f"troppo DNA dell'ospite ({host:.0f} %, massimo {s['max_host_pct']:g} %)")
                 if _triage.ramp(reads, s["min_nonhost_reads"]) < 0.75:
-                    motivi.append(f"poche read dei microbi (circa {reads:,.0f}, minimo {s['min_nonhost_reads']:,.0f})"
+                    motivi.append(f"poche read senza l'ospite (circa {reads:,.0f}, minimo {s['min_nonhost_reads']:,.0f})"
                                   .replace(",", "."))
                 if _triage.ramp(q30, s["min_q30_pct"]) < 0.75:
                     motivi.append(f"qualità delle read bassa ({q30:.0f} % di basi buone, minimo {s['min_q30_pct']:g} %)")

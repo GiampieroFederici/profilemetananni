@@ -41,12 +41,13 @@ POSTILLA_VIRUS = ("Virus: opzione sperimentale, non validata con il database div
                   "virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).")
 GLOSSARIO = [
     ("Read (lettura)", "un pezzetto di DNA letto dal sequenziatore. Con le coppie (read pairs) ogni frammento è letto dai due lati."),
-    ("Ospite", "l'animale da cui viene il prodotto (es. maiale) e l'uomo: il loro DNA si toglie prima di cercare i microbi."),
+    ("Ospite", "l'animale da cui viene il prodotto (es. maiale) e l'uomo: il loro DNA si toglie prima di cercare i taxa."),
     ("Abbondanza relativa", "la percentuale di DNA di una specie rispetto al totale: non è il numero di cellule vive per grammo."),
     ("MetaPhlAn", "riconosce le specie da geni caratteristici di ognuna (marcatori): preciso sulle specie note."),
     ("Kraken + Bracken", "confronta ogni read con interi genomi di riferimento, poi stima le abbondanze: vede più specie, "
                          "anche funghi, ma con più rumore. Per questo i due risultati stanno in tabelle separate."),
-    ("Soglia di abbondanza", "sotto questa percentuale una specie non si mostra nelle tabelle del referto (resta nell'Excel)."),
+    ("Soglia di abbondanza (solo Kraken)", "sotto questa percentuale un taxon di Kraken non si mostra nelle tabelle del "
+                                          "referto (resta nell'Excel). MetaPhlAn non ha soglia: si mostrano tutte le specie."),
 ]
 
 
@@ -153,22 +154,22 @@ def elenca(nomi_pct, base):
 
 def sintesi(d, soglia):
     """Sintesi di un campione per risultati.json e per "In breve" (l'interfaccia mostra, non calcola: D006).
-    MetaPhlAn e Kraken restano separati; le specie contano solo sopra la soglia di abbondanza."""
+    MetaPhlAn e Kraken restano separati. MetaPhlAn: tutte le specie, nessuna soglia; Kraken: solo sopra la soglia."""
     out = {}
     if d.get("metaphlan") is not None:
-        sopra = [(n, v) for n, v in d["metaphlan"] if v >= soglia]
+        specie = d["metaphlan"]
         nc = d.get("non_classificato") or 0.0
-        frase = (f"MetaPhlAn: {len(sopra)} specie sopra la soglia" +
-                 (f"; dominano {elenca(sopra[:3], ' delle read')}." if sopra else ".") +
+        frase = (f"MetaPhlAn: {len(specie)} specie trovate" +
+                 (f"; dominano {elenca(specie[:3], ' delle read')}." if specie else ".") +
                  f" Il {pct(nc, 1)} % delle read non è assegnato a specie note.")
-        out["metaphlan"] = {"specie": len(sopra), "dominanti": [{"nome": n, "pct": v} for n, v in sopra[:DOMINANTI]],
+        out["metaphlan"] = {"specie": len(specie), "dominanti": [{"nome": n, "pct": v} for n, v in specie[:DOMINANTI]],
                             "non_assegnata_pct": nc, "frase": frase}
     if d.get("kraken") is not None:
         micro = [r for r in d["kraken"] if r["categoria"] in MICROBI and r["pct"] >= soglia]
         altri = [r for r in d["kraken"] if r["categoria"] not in MICROBI]
-        frase = (f"Kraken: {len(micro)} microbi sopra la soglia" +
-                 (f"; dominano {elenca([(r['nome'], r['pct_microbi']) for r in micro[:3]], ' fra i microbi')}." if micro else ".") +
-                 (" Segnalati a parte (non microbi o virus): " +
+        frase = (f"Kraken: {len(micro)} taxa sopra la soglia" +
+                 (f"; dominano {elenca([(r['nome'], r['pct_microbi']) for r in micro[:3]], ' fra i taxa')}." if micro else ".") +
+                 (" Segnalati a parte (non del prodotto, o virus): " +
                   ", ".join(f"{r['nome']} {pct(r['pct'], 3)} %" for r in altri) + "." if altri else ""))
         out["kraken"] = {"microbi": len(micro),
                          "dominanti": [{"nome": r["nome"], "pct_microbi": r["pct_microbi"]} for r in micro[:DOMINANTI]],
@@ -230,8 +231,8 @@ def righe_parametri(d):
                "quanto Kraken deve essere sicuro per assegnare una read (0 = accetta tutte)")
     da_profilo("bracken_min_reads", "min_reads", "Letture minime di Bracken (-t)",
                "sotto questo numero di read una specie non si stima")
-    da_profilo("abundance_threshold_pct", "soglia", "Soglia di abbondanza (%)",
-               "sotto questa percentuale una specie non compare nelle tabelle del referto")
+    da_profilo("abundance_threshold_pct", "soglia", "Soglia di abbondanza di Kraken (%)",
+               "sotto questa percentuale un taxon di Kraken non compare nelle tabelle del referto; MetaPhlAn non ha soglia")
     if p.get("bracken_readlen"):
         out.append(("Lunghezza delle read per Bracken (-r)", p["bracken_readlen"], "lunghezza tipica delle read",
                     "impostazione della pipeline"))
@@ -313,7 +314,7 @@ def html_referto(d):
     for c in d["campioni"]:
         h.append(f"<h3>Campione {e(c['nome'])}</h3><ul>")
         if c["coppie"]:
-            h.append(f"<li>Coppie di read dei microbi (dopo aver tolto l'ospite): <b>{c['coppie']:,}</b></li>".replace(",", "."))
+            h.append(f"<li>Coppie di read dopo aver tolto l'ospite: <b>{c['coppie']:,}</b></li>".replace(",", "."))
         if c["nome"] in esiti:
             t = esiti[c["nome"]]
             h.append(f"<li>Controllo iniziale (triage): <b>{e(t['esito'])}</b>"
@@ -328,14 +329,14 @@ def html_referto(d):
         if not c["metaphlan"]:
             continue
         somma = sum(v for _, v in c["metaphlan"]) or 1.0
-        sopra = [(n, v) for n, v in c["metaphlan"] if v >= s]
         h.append(f"<h3>Campione {e(c['nome'])}</h3>")
         h.append(f'<p class="piccolo">Read non assegnate a specie note (UNCLASSIFIED): {pct(c["non_classificato"], 1)} %. '
-                 f"Specie mostrate: {len(sopra)} su {len(c['metaphlan'])} (soglia {pct(s, 3)} %).</p>")
+                 f"{len(c['metaphlan'])} specie trovate, tutte qui sotto.</p>")
         h.append(tabella(["Specie", "% sul totale delle read", "% fra le specie trovate"],
-                         [[f"<i>{e(n)}</i>", pct(v, 3), pct(100 * v / somma, 2)] for n, v in sopra], (1, 2), [50, 25, 25]))
+                         [[f"<i>{e(n)}</i>", pct(v, 3), pct(100 * v / somma, 2)] for n, v in c["metaphlan"]], (1, 2),
+                         [50, 25, 25]))
     # Kraken
-    h.append("<h2>3. Microbi trovati con Kraken + Bracken</h2>")
+    h.append("<h2>3. Taxa trovati con Kraken + Bracken</h2>")
     h.append(riquadro(PROTOTIPO_KRAKEN))
     h.append('<p class="piccolo">Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, che il '
              "database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non contiene il genoma del maiale, "
@@ -346,13 +347,13 @@ def html_referto(d):
         micro = [r for r in c["kraken"] if r["categoria"] in MICROBI]
         sopra = [r for r in micro if r["pct"] >= s]
         h.append(f"<h3>Campione {e(c['nome'])}</h3>")
-        h.append(f'<p class="piccolo">Microbi mostrati: {len(sopra)} su {len(micro)} (soglia {pct(s, 3)} %).</p>')
-        h.append(tabella(["Specie", "Gruppo", "% fra i soli microbi", "% sul totale assegnato"],
+        h.append(f'<p class="piccolo">Taxa mostrati: {len(sopra)} su {len(micro)} (soglia di Kraken {pct(s, 3)} %).</p>')
+        h.append(tabella(["Specie", "Gruppo", "% fra i taxa", "% sul totale assegnato"],
                          [[f"<i>{e(r['nome'])}</i>", e(r["categoria"]), pct(r["pct_microbi"], 2), pct(r["pct"], 3)]
                           for r in sopra], (2, 3), [44, 16, 20, 20]))
         altri = [r for r in c["kraken"] if r["categoria"] not in MICROBI]
         if altri:
-            h.append(f"<p><b>Segnalati a parte (non microbi, o non validati)</b>, campione {e(c['nome'])}:</p>")
+            h.append(f"<p><b>Segnalati a parte (non del prodotto, o non validati)</b>, campione {e(c['nome'])}:</p>")
             h.append(tabella(["Nome", "Gruppo", "% sul totale assegnato", "Letture stimate"],
                              [[f"<i>{e(r['nome'])}</i>", e(r["categoria"]), pct(r["pct"], 3), f"{r['letture']:,}".replace(",", ".")]
                               for r in altri], (2, 3), [46, 18, 18, 18]))
@@ -431,15 +432,16 @@ def excel(d, percorso):
     for r in [[f"Referto dell'analisi: {d['progetto']}"], [f"Corsa {d['corsa']}, motore {d['motore']}"], [],
               ["MetaPhlAn e Kraken sono metodi diversi: stanno in fogli separati e non vanno sommati."],
               ["Le percentuali sono DNA relativo, non cellule vive per grammo."],
-              [f"Soglia di abbondanza delle tabelle del referto: {d['soglia']} % (qui ci sono anche le specie sotto soglia)."],
+              [f"Soglia di abbondanza (solo Kraken): {d['soglia']} % (qui ci sono anche i taxa sotto soglia). "
+               "MetaPhlAn non ha soglia."],
               [POSTILLA_VIRUS]]:
         leggimi.append(r)
     leggimi.column_dimensions["A"].width = 110
-    foglio("MetaPhlAn_specie", ["Campione", "Specie", "% sul totale delle read", "% fra le specie trovate", "Sopra soglia"],
-           [[c["nome"], n, v, 100 * v / (sum(x for _, x in c["metaphlan"]) or 1), "si" if v >= d["soglia"] else "no"]
+    foglio("MetaPhlAn_specie", ["Campione", "Specie", "% sul totale delle read", "% fra le specie trovate"],
+           [[c["nome"], n, v, 100 * v / (sum(x for _, x in c["metaphlan"]) or 1)]
             for c in d["campioni"] if c["metaphlan"] for n, v in c["metaphlan"]])
-    foglio("Kraken_microbi", ["Campione", "Specie", "Gruppo", "TaxID NCBI", "Letture stimate", "% sul totale assegnato",
-                              "% fra i soli microbi", "Sopra soglia"],
+    foglio("Kraken_taxa", ["Campione", "Specie", "Gruppo", "TaxID NCBI", "Letture stimate", "% sul totale assegnato",
+                           "% fra i taxa", "Sopra soglia"],
            [[c["nome"], r["nome"], r["categoria"], r["taxid"], r["letture"], r["pct"], r["pct_microbi"],
              "si" if r["pct"] >= d["soglia"] else "no"]
             for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] in MICROBI])

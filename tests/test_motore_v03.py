@@ -156,7 +156,7 @@ def test_6_dominanti_fino_a_15(tmp_path):
     ev, rc = finto(tmp_path, "esegui", "--progetto", str(cfg))
     s = ev[-1]["risultato"]["campioni"][0]["sintesi"]
     m, k = s["metaphlan"]["dominanti"], s["kraken"]["dominanti"]
-    assert rc == 0 and len(m) == 15 and len(k) == 15                    # 27 specie e 48 microbi sopra la soglia
+    assert rc == 0 and len(m) == 15 and len(k) == 15                    # 27 specie MetaPhlAn (nessuna soglia) e 48 taxa Kraken sopra la soglia
     assert [x["pct"] for x in m] == sorted((x["pct"] for x in m), reverse=True)
     assert m[0]["nome"] == "Latilactobacillus sakei" and k[0]["nome"] == "Latilactobacillus sakei"
     assert "dominano Latilactobacillus sakei" in s["metaphlan"]["frase"]
@@ -167,9 +167,10 @@ def test_6_dominanti_fino_a_15(tmp_path):
     assert referto.sintesi(d, 0.005) == s
 
 
-def test_6_pochi_sopra_soglia_meno_di_15():
+def test_6_metaphlan_senza_soglia():
+    """18/10: la soglia vale solo per Kraken; MetaPhlAn tiene anche la specie allo 0,001 %."""
     d = {"metaphlan": [("Specie a", 60.0), ("Specie b", 0.001)], "non_classificato": 40.0, "kraken": None}
-    assert [x["nome"] for x in referto.sintesi(d, 0.005)["metaphlan"]["dominanti"]] == ["Specie a"]
+    assert [x["nome"] for x in referto.sintesi(d, 0.005)["metaphlan"]["dominanti"]] == ["Specie a", "Specie b"]
 
 
 # ---------------- 7. valore finale in ufc/g ----------------

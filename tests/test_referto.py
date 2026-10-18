@@ -72,22 +72,22 @@ def test_r2_numeri_fedeli(referto):
     assert mpa["Latilactobacillus sakei"]["% sul totale delle read"] == grezzo == 21.617793
     assert "21,618" in html
     assert sum(r["% fra le specie trovate"] for r in mpa.values()) == pytest.approx(100.0)
-    micro = {r["Specie"]: r for r in righe(wb["Kraken_microbi"])}
+    micro = {r["Specie"]: r for r in righe(wb["Kraken_taxa"])}
     with open(os.path.join(DATI, "SRR4875279.bracken"), encoding="utf-8") as f:
         bracken = {r["name"]: float(r["fraction_total_reads"]) * 100 for r in csv.DictReader(f, delimiter="\t")}
     assert micro["Latilactobacillus sakei"]["% sul totale assegnato"] == pytest.approx(bracken["Latilactobacillus sakei"])
     somma_microbi = sum(bracken[n] for n in micro)
-    assert micro["Latilactobacillus sakei"]["% fra i soli microbi"] == pytest.approx(
+    assert micro["Latilactobacillus sakei"]["% fra i taxa"] == pytest.approx(
         100 * bracken["Latilactobacillus sakei"] / somma_microbi)
-    assert sum(r["% fra i soli microbi"] for r in micro.values()) == pytest.approx(100.0)
+    assert sum(r["% fra i taxa"] for r in micro.values()) == pytest.approx(100.0)
     assert micro["Debaryomyces hansenii"]["Gruppo"] == "funghi"
 
 
 def test_r3_metaphlan_e_kraken_mai_insieme(referto):
     _, _, wb, html = referto
-    assert {"MetaPhlAn_specie", "Kraken_microbi", "Kraken_a_parte"} <= set(wb.sheetnames)
-    sez_mpa = html.split("2. Specie trovate con MetaPhlAn")[1].split("3. Microbi trovati con Kraken")[0]
-    sez_krk = html.split("3. Microbi trovati con Kraken")[1].split("4. Virus")[0]
+    assert {"MetaPhlAn_specie", "Kraken_taxa", "Kraken_a_parte"} <= set(wb.sheetnames)
+    sez_mpa = html.split("2. Specie trovate con MetaPhlAn")[1].split("3. Taxa trovati con Kraken")[0]
+    sez_krk = html.split("3. Taxa trovati con Kraken")[1].split("4. Virus")[0]
     assert "Proteus vulgaris" not in sez_mpa and "Proteus vulgaris" in sez_krk          # solo Kraken
     assert "Candida parapsilosis" in sez_mpa and "Candida parapsilosis" not in sez_krk  # solo MetaPhlAn
     assert not any(r["Specie"] == "Proteus vulgaris" for r in righe(wb["MetaPhlAn_specie"]))
@@ -95,7 +95,7 @@ def test_r3_metaphlan_e_kraken_mai_insieme(referto):
 
 def test_r4_homo_e_leishmania_a_parte(referto):
     _, _, wb, _ = referto
-    micro = {r["Specie"] for r in righe(wb["Kraken_microbi"])}
+    micro = {r["Specie"] for r in righe(wb["Kraken_taxa"])}
     parte = {r["Nome"]: r for r in righe(wb["Kraken_a_parte"])}
     assert not micro & {"Homo sapiens", "Leishmania mexicana"}
     assert parte["Homo sapiens"]["% sul totale assegnato"] == pytest.approx(0.054)
@@ -108,7 +108,7 @@ def test_r5_parametri_fonti_citazioni_virus(referto):
     par = {r["Parametro"]: r for r in righe(wb["Parametri"])}
     with open(os.path.join(ROOT, "refs", "kraken_profili.tsv"), encoding="utf-8") as f:
         fonte = next(r.split("\t")[4] for r in f.read().splitlines() if r.startswith("rapido\t"))
-    for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)", "Soglia di abbondanza (%)"):
+    for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)", "Soglia di abbondanza di Kraken (%)"):
         assert par[k]["Fonte"] == fonte
     assert all(r["Fonte"] for r in par.values())
     assert "Strumenti e database usati" in html and "Wright, Comeau &amp; Langille 2023" in html

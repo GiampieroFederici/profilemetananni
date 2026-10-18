@@ -25,14 +25,15 @@ def main() -> int:
     ap.add_argument("--metaphlan", default="", help="merged MetaPhlAn table (optional)")
     ap.add_argument("--kraken", default="", help="Kraken/Bracken matrix TSV (optional)")
     ap.add_argument("--out", required=True, help="output .xlsx")
-    ap.add_argument("--threshold-pct", type=float, default=0.001, help="abundance threshold in %% (default 0.001)")
+    ap.add_argument("--threshold-pct", type=float, default=0.001,
+                    help="abundance threshold in %% for Kraken only (default 0.001); MetaPhlAn is never filtered")
     a = ap.parse_args()
 
     if not a.metaphlan and not a.kraken:
         print("[FAIL] provide at least one of --metaphlan / --kraken", file=sys.stderr)
         return 1
 
-    mpa = load_metaphlan_species(a.metaphlan, a.threshold_pct) if a.metaphlan else {}
+    mpa = load_metaphlan_species(a.metaphlan) if a.metaphlan else {}   # MetaPhlAn: no abundance threshold
     krk = load_kraken_matrix(a.kraken, a.threshold_pct) if a.kraken else {}
 
     sm, sk = set(mpa), set(krk)
@@ -44,7 +45,7 @@ def main() -> int:
 
     summary = pd.DataFrame(
         [
-            ("threshold_pct", a.threshold_pct),
+            ("threshold_pct_kraken", a.threshold_pct),
             ("species_metaphlan", len(sm)),
             ("species_kraken", len(sk)),
             ("shared", len(shared)),

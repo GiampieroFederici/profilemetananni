@@ -20,15 +20,15 @@ from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro,
 PRODOTTI = {
     "maiale": ("Salume di maiale (salame, salsiccia, prosciutto...)", ["sus_scrofa"],
                "Toglierò il DNA del maiale e quello umano.",
-               "Sono la gran parte delle read di un salume e non dicono nulla dei microbi. "
+               "Sono la gran parte delle read di un salume e non dicono nulla dei taxa del prodotto. "
                "Il DNA umano si toglie sempre.", "info"),
     "bovino": ("Prodotto di bovino (bresaola, carne secca...)", ["bos_taurus"],
                "Toglierò il DNA del bovino e quello umano.",
-               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
                "Il DNA umano si toglie sempre.", "info"),
     "pecora": ("Prodotto di pecora o agnello", ["ovis_aries"],
                "Toglierò il DNA della pecora e quello umano.",
-               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. "
+               "Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei taxa del prodotto. "
                "Il DNA umano si toglie sempre.", "info"),
     "altro": ("Altro o misto", [],
               "Toglierò solo il DNA umano.",

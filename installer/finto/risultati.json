@@ -76,7 +76,7 @@
       }
      ],
      "non_assegnata_pct": 53.651104,
-     "frase": "MetaPhlAn: 27 specie sopra la soglia; dominano Latilactobacillus sakei (21,6 % delle read), Latilactobacillus curvatus (11,4 % delle read) e Leuconostoc gasicomitatum (4,4 % delle read). Il 53,7 % delle read non è assegnato a specie note."
+     "frase": "MetaPhlAn: 27 specie trovate; dominano Latilactobacillus sakei (21,6 % delle read), Latilactobacillus curvatus (11,4 % delle read) e Leuconostoc gasicomitatum (4,4 % delle read). Il 53,7 % delle read non è assegnato a specie note."
     },
     "kraken": {
      "microbi": 48,
@@ -162,7 +162,7 @@
        "letture": 26
       }
      ],
-     "frase": "Kraken: 48 microbi sopra la soglia; dominano Latilactobacillus sakei (37,2 % fra i microbi), Latilactobacillus curvatus (31,4 % fra i microbi) e Leuconostoc carnosum (5,7 % fra i microbi). Segnalati a parte (non microbi o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, Bottigliavirus pozzuoliense 0,019 %."
+     "frase": "Kraken: 48 taxa sopra la soglia; dominano Latilactobacillus sakei (37,2 % fra i taxa), Latilactobacillus curvatus (31,4 % fra i taxa) e Leuconostoc carnosum (5,7 % fra i taxa). Segnalati a parte (non del prodotto, o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, Bottigliavirus pozzuoliense 0,019 %."
     }
    }
   }

@@ -251,7 +251,7 @@ class Motore:
         risultati = json.loads((DATI / "risultati.json").read_text(encoding="utf-8"))
         risultati["corsa"] = self.corsa
         if self.a.scenario == "CAMPIONE_DA_CONTROLLARE":
-            motivo = "poche read dei microbi (circa 900.000, minimo 1.000.000)"
+            motivo = "poche read senza l'ospite (circa 900.000, minimo 1.000.000)"
             risultati["triage"] = [{"campione": CAMPIONE, "esito": "da controllare", "motivi": [motivo], "punteggio": 0.45}]
             c = system_one.consiglio("CAMPIONE_DA_CONTROLLARE", f"Campione {CAMPIONE}: da controllare ({motivo}).",
                                      "steps/17_triage_report.py (scenario del finto motore)")

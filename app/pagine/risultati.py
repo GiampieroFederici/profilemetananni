@@ -209,14 +209,14 @@ class PaginaRisultati(Pagina):
                 s.addWidget(etichetta("Profilo MetaPhlAn non disponibile per questo campione.", "nota"))
                 continue
             e = etichetta(f"Percentuale sul totale delle read del campione. Il <b>{numero(m['non_assegnata_pct'])} %</b> "
-                          "non è assegnato a nessuna specie del database: è normale (microbi non ancora nel database "
-                          "e DNA non microbico rimasto).")
+                          "non è assegnato a nessuna specie del database: è normale (taxa non ancora nel database "
+                          "e DNA dell'ospite rimasto).")
             e.setTextFormat(Qt.RichText)
             s.addWidget(e)
             dom = m.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct"]) for x in dom], "#1E7A4C"))
-            s.addWidget(etichetta(f"Qui tutte le {len(dom)} specie sopra la soglia." if len(dom) >= m["specie"] else
-                                  f"Qui le {len(dom)} più abbondanti delle {m['specie']} specie sopra la soglia. "
+            s.addWidget(etichetta(f"Qui tutte le {len(dom)} specie trovate." if len(dom) >= m["specie"] else
+                                  f"Qui le {len(dom)} più abbondanti delle {m['specie']} specie trovate. "
                                   "Tutte le altre sono nel referto e nelle tabelle Excel.", "nota"))
         return w
 
@@ -233,19 +233,19 @@ class PaginaRisultati(Pagina):
             if not k:
                 s.addWidget(etichetta("Profilo Kraken non disponibile per questo campione.", "nota"))
                 continue
-            s.addWidget(etichetta("Percentuale fra i soli microbi (batteri, archei, funghi), dopo la "
+            s.addWidget(etichetta("Percentuale fra i soli taxa del prodotto (batteri, archei, funghi), dopo la "
                                   "ridistribuzione di Bracken (il programma che stima le abbondanze)."))
             dom = k.get("dominanti", [])
             s.addWidget(self._barre([(x["nome"], x["pct_microbi"]) for x in dom], "#2F5D7C"))
-            s.addWidget(etichetta(f"Qui tutti i {len(dom)} microbi sopra la soglia." if len(dom) >= k["microbi"] else
-                                  f"Qui i {len(dom)} più abbondanti dei {k['microbi']} microbi sopra la soglia. "
+            s.addWidget(etichetta(f"Qui tutti i {len(dom)} taxa sopra la soglia." if len(dom) >= k["microbi"] else
+                                  f"Qui i {len(dom)} più abbondanti dei {k['microbi']} taxa sopra la soglia. "
                                   "Tutti gli altri sono nel referto e nelle tabelle Excel.", "nota"))
             nm = k.get("non_microbi", [])
             if nm:
                 elenco = ", ".join(f"<i>{html.escape(x['nome'])}</i> ({html.escape(x['gruppo'])}, {numero(x['pct'], 3)} %)"
                                    for x in nm)
                 r = riquadro("Segnalati a parte, fuori dal profilo", "", "info")
-                e = etichetta(f"{elenco}. Non sono microbi del prodotto (per esempio avanzi di DNA dell'ospite) "
+                e = etichetta(f"{elenco}. Non sono taxa del prodotto (per esempio avanzi di DNA dell'ospite) "
                               "o sono virus.")
                 e.setTextFormat(Qt.RichText)
                 r.layout().addWidget(e)

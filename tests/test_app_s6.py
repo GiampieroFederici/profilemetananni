@@ -213,7 +213,7 @@ def test_campione_da_controllare(f, qtbot, tmp_path, monkeypatch):
     un_principale(f).click()
     ris = f.pagine["risultati"]
     gialli = [r for r in riquadri(ris, "avviso") if "da controllare" in scritte(r)]
-    assert len(gialli) == 1 and "poche read dei microbi" in scritte(gialli[0])
+    assert len(gialli) == 1 and "poche read senza l'ospite" in scritte(gialli[0])
 
 
 # ---------------- Risultati ----------------
@@ -222,7 +222,7 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     f.vai("risultati")
     ris = f.pagine["risultati"]
     sintesi = scritte(ris.contenuto)
-    assert "Il 53,7 % delle read non è assegnato" in sintesi and "48 microbi sopra la soglia" in sintesi
+    assert "Il 53,7 % delle read non è assegnato" in sintesi and "48 taxa sopra la soglia" in sintesi
     linguette = ris.findChild(QTabBar)
     assert [linguette.tabText(i) for i in range(3)] == ["Specie trovate con MetaPhlAn", "Specie trovate con Kraken",
                                                         "Come è stata fatta l'analisi"]
@@ -351,10 +351,10 @@ def test_sicurezza_usa_le_ufc_del_motore(f):
 
 
 def test_poche_specie_tutte_mostrate(f):
-    """Mini-campione d'esempio: 6 specie sopra la soglia, tutte nelle barre: non "le 6 più abbondanti delle 6"."""
+    """Mini-campione d'esempio: 6 specie, tutte nelle barre: non "le 6 più abbondanti delle 6"."""
     ris = f.pagine["risultati"]
     dom = [{"nome": "Latilactobacillus sakei", "pct": 24.5, "pct_microbi": 40.4}]
     c = [{"nome": "mini", "sintesi": {"metaphlan": {"non_assegnata_pct": 56.2, "specie": 1, "dominanti": dom},
                                       "kraken": {"microbi": 1, "dominanti": dom}}}]
-    assert "Qui tutte le 1 specie sopra la soglia." in scritte(ris._scheda_metaphlan(c))
-    assert "Qui tutti i 1 microbi sopra la soglia." in scritte(ris._scheda_kraken(c))
+    assert "Qui tutte le 1 specie trovate." in scritte(ris._scheda_metaphlan(c))
+    assert "Qui tutti i 1 taxa sopra la soglia." in scritte(ris._scheda_kraken(c))
