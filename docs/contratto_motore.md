@@ -310,6 +310,13 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   `Sicurezza`, `Parametri`, `Strumenti_citazioni` (gli ultimi tre fissi, `Triage` e `Sicurezza` solo se ci sono).
   **[lingua]** Con l'inglese: `ReadMe`, `MetaPhlAn_species`, `Kraken_taxa`, `Kraken_separate`, `Triage`, `Safety`,
   `Parameters`, `Tools_citations`; numeri con il punto per i decimali e la virgola per le migliaia; `<html lang="en">`.
+- **[R1, 18/10]** Sezione **"4. Diversità alfa"** (poi virus = 5): ricchezza, Shannon, Simpson **a profondità uguale**
+  (quella del campione più povero; rarefazione, Schloss 2024), con l'avviso che la ricchezza dipende dalle read e, con un
+  solo campione, che si confronta solo con campioni della stessa profondità. MetaPhlAn e Kraken in due tabelle e due
+  fogli Excel separati (`Diversità_MetaPhlAn`, `Diversità_Kraken`; con l'inglese `Diversity_MetaPhlAn`,
+  `Diversity_Kraken`). Kraken: taxa del prodotto sopra la soglia, valore atteso esatto della rarefazione delle letture di
+  Bracken. MetaPhlAn: nessuna soglia; i profili rifatti a profondità uguale stanno in `risultati/metaphlan_pari/`
+  (copiati da `results/alpha_metaphlan_pari/`, steps/42); tabelle anche in `risultati/tabelle/alpha_diversity_*.tsv`.
 
 ### 5.4 `sicurezza` [v0.2]
 
@@ -396,6 +403,15 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
   Il finto e il vero non danno più due stime diverse per lo stesso progetto (prima 51 min contro 1,7 ore).
 - `tests/test_finto_motore.py` controlla ogni comando e scenario contro il §4; **[v0.2]** anche `tests/test_sicurezza.py`,
   `tests/test_referto.py`, `tests/test_system_one.py`, `tests/test_stima_gruppi.py`.
+
+## 6b. Server MCP [R1, 18/10, D130]
+
+- `pmn_mcp/server.py` (SDK ufficiale `mcp` 2.3.0, ambiente `pmn_mcp/.venv`): gli stessi comandi (`info`, `stima`,
+  `esegui`, `annulla`, `referto`, `sicurezza`) per gli assistenti compatibili MCP, con gli stessi eventi di questo
+  contratto (restituiti in `eventi`; `avanzamento` anche come "progress" MCP). Aiuti in più che non toccano il motore:
+  `progetti`, `stato`. Solo stdio (nessuna porta); `esegui` solo con la conferma della persona; progetto = `config.yaml`
+  dentro la cartella dei progetti. Lancia il motore come l'app (`wsl.exe -d pmn -u pmn -- pmn-motore`), o il finto con
+  `PMN_MOTORE=finto`. Istruzioni per i client in `pmn_mcp/LEGGIMI.md`; test `tests/test_mcp.py`.
 
 ## 7. Cosa NON fa l'interfaccia
 

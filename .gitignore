@@ -54,6 +54,8 @@ implementazione/
 
 # Ambiente Python dell'app su Windows (S5a): si ricrea con app/requirements.txt
 app/.venv/
+# Ambiente Python del server MCP (R1): si ricrea con pmn_mcp/requirements.txt
+pmn_mcp/.venv/
 
 # B1: pacchetto costruito da installer/windows/costruisci_pacchetto.py
 /build/
