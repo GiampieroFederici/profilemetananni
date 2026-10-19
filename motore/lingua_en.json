@@ -130,7 +130,7 @@
  "Referto profilemetananni": "profilemetananni report",
  "manca {file}: nel motore non c'è il modulo che lo scrive ({modulo})": "{file} is missing: the engine lacks the module that writes it ({modulo})",
  "manca {file}: il file è aperto in un altro programma o la cartella non si può scrivere": "{file} is missing: the file is open in another program or the folder cannot be written",
- " Il {pct} % delle read non è assegnato a specie note.": " {pct} % of the reads is not assigned to known species.",
+ " {art}{pct} % delle read non è assegnato a specie note.": " {art}{pct} % of the reads is not assigned to known species.",
  "scelto nel progetto (consigliato per '{profilo}': {consigliato})": "chosen in the project (recommended for '{profilo}': {consigliato})",
  "{giorni} giorni a {t} °C": "{giorni} days at {t} °C",
  "Referto dell'analisi: {progetto}": "Analysis report: {progetto}",

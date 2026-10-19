@@ -170,6 +170,16 @@ def elenca(nomi_pct, base):
     return _(" e ").join(testo) if len(testo) <= 2 else ", ".join(testo[:-1]) + _(" e ") + testo[-1]
 
 
+def articolo(numero_scritto):
+    """Articolo italiano davanti a una percentuale, come si legge: "Lo 0,0", "L'8,1", "L'11", "Il 53,7"."""
+    if lingua.attuale() != "it":
+        return ""
+    intero = numero_scritto.split(",")[0].split(".")[0]
+    if intero == "0":
+        return "Lo "
+    return "L'" if intero in ("1", "11") or intero.startswith("8") else "Il "
+
+
 def sintesi(d, soglia):
     """Sintesi di un campione per risultati.json e per "In breve" (l'interfaccia mostra, non calcola: D006).
     MetaPhlAn e Kraken restano separati. MetaPhlAn: tutte le specie, nessuna soglia; Kraken: solo sopra la soglia."""
@@ -179,7 +189,7 @@ def sintesi(d, soglia):
         nc = d.get("non_classificato") or 0.0
         frase = (_("MetaPhlAn: {n} specie trovate", n=len(specie)) +
                  (_("; dominano {specie}.", specie=elenca(specie[:3], _(" delle read"))) if specie else ".") +
-                 _(" Il {pct} % delle read non è assegnato a specie note.", pct=pct(nc, 1)))
+                 _(" {art}{pct} % delle read non è assegnato a specie note.", art=articolo(pct(nc, 1)), pct=pct(nc, 1)))
         out["metaphlan"] = {"specie": len(specie), "dominanti": [{"nome": n, "pct": v} for n, v in specie[:DOMINANTI]],
                             "non_assegnata_pct": nc, "frase": frase}
     if d.get("kraken") is not None:

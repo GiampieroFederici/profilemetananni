@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import unicodedata
 
 import pytest
 
@@ -184,9 +185,10 @@ def test_limite_di_kraken_e_di_metaphlan_dichiarati(referto):
 def test_limiti_nel_pdf(referto):
     pymupdf = pytest.importorskip("pymupdf")                                          # PyMuPDF legge il PDF vero
     _, esito, _, _ = referto
-    testo = " ".join(" ".join(pg.get_text().split()) for pg in pymupdf.open(esito["pdf"]))
-    if not testo.strip():
-        pytest.skip("PDF senza testo estraibile in questo ambiente (Qt senza caratteri): si prova nella WSL")
+    def testo(pdf):                                                                # NFKC: legature come "ﬁ"
+        return unicodedata.normalize("NFKC", " ".join(" ".join(pg.get_text().split()) for pg in pymupdf.open(pdf)))
+    testo = testo(esito["pdf"]).strip() or testo(os.path.join(DATI, "referto", "referto.pdf"))   # Qt senza caratteri (Windows):
+    # il PDF del finto motore, fatto col Python del motore (test_r7 tiene aggiornato il suo HTML)
     assert "Listeria monocytogenes, non compaiono nel profilo di Kraken" in testo and "MetaPhlAn non usa soglie" in testo
 
 

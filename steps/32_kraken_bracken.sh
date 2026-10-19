@@ -60,7 +60,7 @@ if [ -s "$brk" ]; then
 fi
 
 k2args=(--db "$DB" --memory-mapping --threads "$THREADS" --confidence "$CONFIDENCE"
-        --report "$k2report" --output "$k2out" --gzip-compression)
+        --report "$k2report" --output "$k2out" --gzip-compressed)
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
   [ -s "$IN2" ] || die "input not found or empty: $(sanitize_for_log "$IN2")"

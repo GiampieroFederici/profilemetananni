@@ -188,7 +188,7 @@ Ask the user the following, one topic at a time, and write the answers into
   not tested by K4; Bracken `-t 10`. A taxon is shown if its abundance is at least the threshold.
 - **MetaPhlAn has no abundance threshold** (D128): every species it reports is shown.
 - **MetaPhlAn**: this tool keeps MetaPhlAn's own internal defaults (e.g. `--stat_q 0.2`,
-  `--very-sensitive`, SGB presence `--perc_nonzero 0.33` of markers) and does NOT override them
+  `--very-sensitive`, an SGB counts only if more than 33% of its markers have reads, `--perc_nonzero 0.33`) and does NOT override them
   (Blanco-Míguez 2023; Beghini et al., 2021, *eLife*, DOI 10.7554/eLife.65088).
 
 ### Diversity & statistics

@@ -68,4 +68,13 @@ def test_kraken_riceve_solo_opzioni_che_conosce():
     script = open(os.path.join(RADICE, "steps", "32_kraken_bracken.sh"), encoding="utf-8").read()
     blocco = script.split("k2args=(")[1].split("if [ -n")[0]
     for opzione in re.findall(r"(--[a-z][a-z-]+)", blocco):
-        assert opzione in aiuto, opzione
+        assert re.search(r"(?<![\w-])" + re.escape(opzione) + r"(?![\w-])", aiuto), opzione
+
+
+@pytest.mark.parametrize("nc, attesa", [(0.0, " Lo 0,0 %"), (0.04, " Lo 0,0 %"), (8.1, " L'8,1 %"), (1.2, " L'1,2 %"),
+                                        (11.0, " L'11,0 %"), (83.0, " L'83,0 %"), (18.0, " Il 18,0 %"),
+                                        (53.7, " Il 53,7 %"), (100.0, " Il 100,0 %")])
+def test_articolo_davanti_alla_percentuale(nc, attesa):
+    """D3: "Il 0,0 % delle read" si scrive "Lo 0,0 %"; e "l'8,1 %", "l'11 %" (si legge otto, undici)."""
+    s = referto.sintesi({"metaphlan": [("Latilactobacillus sakei", 50.0)], "non_classificato": nc, "kraken": None}, 0.1)
+    assert attesa + " delle read non è assegnato a specie note." in s["metaphlan"]["frase"]
