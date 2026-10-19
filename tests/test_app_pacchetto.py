@@ -57,7 +57,7 @@ def test_doppio_clic_dentro_lo_zip_spiega_come_estrarre():
     sys.path.insert(0, str(RADICE / "installer" / "windows"))
     import costruisci_pacchetto as c
     righe = c.LANCIATORE.split("\r\n")
-    controllo = next(i for i, r in enumerate(righe) if r.startswith('if not exist "%~dp0installer\windows\installa_pmn.ps1"'))
+    controllo = next(i for i, r in enumerate(righe) if r.startswith(r'if not exist "%~dp0installer\windows\installa_pmn.ps1"'))
     avvio = next(i for i, r in enumerate(righe) if "-File" in r)
     assert controllo < avvio                                                     # prima controlla, poi installa
     codice = righe[controllo].split("-EncodedCommand ")[1].split()[0].rstrip(")")
