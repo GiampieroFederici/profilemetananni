@@ -28,7 +28,7 @@
   in `~/.pmn/bin/pmn-motore`.
   **Esiste dal 16/10/2026** (`motore/pmn-motore` + `motore/pmn_motore.py`, D053): stessi comandi ed eventi del
   finto motore; `installa` passa all'installatore, `esegui` lancia `bin/run.sh`, `verifica` lancia `installer/verifica_motore.sh`.
-- Da Windows: `wsl.exe -d <distro> -- ~/.pmn/bin/pmn-motore <comando> ...`.
+- Da Windows: `wsl.exe -d pmn -u pmn -- /home/pmn/.pmn/bin/pmn-motore <comando> ...` (utente `pmn` e percorso assoluto, come `app/motore.py`).
 - Da Linux: direttamente.
 - **[lingua]** `--lingua it|en` vale per ogni comando (predefinita `it`; anche la variabile `PMN_LINGUA`). L'app la passa
   solo quando l'utente ha scelto l'inglese, quindi con l'italiano i comandi sono identici a prima. Il motore la passa a

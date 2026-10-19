@@ -44,7 +44,7 @@ bash installer/installa_motore.sh
 | `windows/installa_pmn.cmd` | doppio clic per installare su Windows (avvia `installa_pmn.ps1` senza finestre nere) |
 | `windows/installa_pmn.ps1` | parte Windows: attiva WSL, riavvio e ripresa da sola, controllo dello spazio vero sul disco interno con più spazio, WSL `pmn`, motore con barra di avanzamento (S3-W, 15/10/2026: provato da Windows 11 pulito in una VM Hyper-V, un doppio clic → 1 riavvio → ripresa da sola → VERDE in 17 min; anche con risposta "No" al riavvio e riavvio a mano) |
 | `finto_motore.py`, `finto/` | **finto motore** per costruire l'interfaccia (S4-S6): stessi comandi ed eventi del contratto, tempi accorciati, risultati di una corsa vera di SF3RAt7; non si installa per gli utenti |
-| `windows/prepara_pmn.sh` | dentro la WSL `pmn`: crea l'utente Linux e copia `installer/` e `motore/` |
+| `windows/prepara_pmn.sh` | dentro la WSL `pmn`: crea l'utente Linux e copia `installer/`, `motore/`, `bin/`, `steps/` e `refs/` (tutto quello che serve al motore) |
 
 ## Fonti dei dati e dei programmi
 
