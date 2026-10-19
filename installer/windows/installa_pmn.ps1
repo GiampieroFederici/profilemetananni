@@ -52,8 +52,8 @@ $TESTI = [ordered]@{
     rete_barra = @("Misuro la velocità della rete...", "Measuring the speed of the network...")
     cosa_fare = @("{0}`n`nCosa fare: {1}", "{0}`n`nWhat to do: {1}")
     preparazione_ferma = @("La preparazione si è fermata (codice {0}).", "The preparation stopped (code {0}).")
-    domanda_scarico = @("profilemetananni scaricherà circa {0} GB di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1}: circa {2} GB (liberi: {3} GB).`n{4}`n`nProcedo con l'installazione?",
-                        "profilemetananni will download about {0} GB of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1}: about {2} GB (free: {3} GB).`n{4}`n`nShall I go ahead with the installation?")
+    domanda_scarico = @("profilemetananni scaricherà circa {0} GB di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1} circa {2} GB (liberi: {3} GB).`n{4}`n`nProcedo con l'installazione?",
+                        "profilemetananni will download about {0} GB of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1} about {2} GB (free: {3} GB).`n{4}`n`nShall I go ahead with the installation?")
     niente_scaricato = @("Va bene: non ho scaricato nulla. Riapri l'installazione quando vuoi.",
                          "All right: I have not downloaded anything. Open the installation again when you like.")
     inizio_barra = @("Inizio l'installazione...", "Starting the installation...")

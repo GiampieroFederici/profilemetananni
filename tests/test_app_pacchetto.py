@@ -231,3 +231,10 @@ def test_installatore_passa_la_lingua_al_motore():
     testo = PS1.read_text(encoding="utf-8-sig")
     assert "if ($Lingua -ne 'it') { $motore += \" --lingua $Lingua\" }" in testo
     assert "Da scaricare: circa" not in testo and "da_scaricare_gb" in testo
+
+
+def test_disco_scritto_una_volta_sola():
+    """B2 (L6a sulla VM del 19/10): "sul disco C:: circa 40 GB": la lettera del disco ha già i suoi due punti."""
+    for lingua in ("it", "en"):
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; (T 'domanda_scarico') -f 26, 'C:', 40, 146, 'x'")
+        assert "C::" not in t and "C: " in t, t
