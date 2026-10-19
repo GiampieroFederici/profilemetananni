@@ -269,13 +269,16 @@ def test_esperti_chiusi_consigliati_e_fonti(qtbot, f):
     s = vai_alle_scelte(qtbot, f)
     assert not s.esperti.isVisible()                          # R6: chiusi
     profili = scelte.profili_kraken()
-    assert s.confidenza.currentData() == profili["completo"]["confidenza"] == "0"
-    assert s.confidenza.currentText() == "0 (consigliato)" and s.soglia.currentText() == "0,005 % (consigliato)"
+    assert s.confidenza.currentData() == profili["completo"]["confidenza"] == "0.5"          # K4 (D142)
+    assert s.confidenza.currentText() == "0,5 (consigliato)" and s.soglia.currentText() == "0,1 % (consigliato)"
     s.apri_esperti.click()
     assert s.esperti.isVisible() and "Wright, Comeau e Langille 2023" in scritte(s) and "Edwin et al. 2024" in scritte(s)
+    assert "K4" in scritte(s) and "Consigliato 0 con" not in scritte(s)
     s.rapido.pulsante.setChecked(True)                       # segue il consigliato del nuovo database
     assert s.confidenza.currentData() == profili["rapido"]["confidenza"] == "0.1"
     assert f.contesto.progetto.leggi()["profiling"]["kraken_confidence"] == ""
+    assert s.soglia.currentText() == "0,005 % (consigliato)"                     # anche la soglia segue il database
+    assert f.contesto.progetto.leggi()["profiling"]["abundance_threshold_pct"] == ""
     assert s.letture.currentText() == "10 (consigliato)" and "Lu et al. 2017" in scritte(s)   # Bracken -t (v0.3)
     s.confidenza.setCurrentIndex(s.confidenza.findData("0.2"))
     s.lunghezza.setCurrentIndex(s.lunghezza.findData(100))

@@ -183,11 +183,12 @@ Ask the user the following, one topic at a time, and write the answers into
 
 ### Thresholds (project defaults)
 - **Kraken2 `--confidence` and abundance threshold: a profile per database** (`refs/kraken_profili.tsv`):
-  PlusPF full 0 + 0.005% (Edwin et al., 2024); PlusPF-8 0.1 (Wright et al., 2023) + 0.005%;
-  Bracken `-t 10`. Provisional until tested on communities of known composition.
-- **Relative-abundance threshold for MetaPhlAn alone = 0.001%**.
+  PlusPF full 0.5 + 0.1% (K4 calibration on 12 simulated cured-meat communities, L3, confirmed on
+  the ZymoBIOMICS D6300 sample, L4); PlusPF-8 0.1 (Wright et al., 2023) + 0.005% (Edwin et al., 2024),
+  not tested by K4; Bracken `-t 10`. A taxon is shown if its abundance is at least the threshold.
+- **MetaPhlAn has no abundance threshold** (D128): every species it reports is shown.
 - **MetaPhlAn**: this tool keeps MetaPhlAn's own internal defaults (e.g. `--stat_q 0.2`,
-  `--very-sensitive`, SGB presence ≥20% of markers) and does NOT override them
+  `--very-sensitive`, an SGB counts only if more than 33% of its markers have reads, `--perc_nonzero 0.33`) and does NOT override them
   (Blanco-Míguez 2023; Beghini et al., 2021, *eLife*, DOI 10.7554/eLife.65088).
 
 ### Diversity & statistics

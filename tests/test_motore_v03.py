@@ -147,7 +147,7 @@ def test_5_fonti_kraken_in_italiano():
     for fonte in fonti:
         assert not re.search(r"\b(threshold|within|full|quick|not stated|reduced|as completo)\b", fonte), fonte
         assert "soglia" in fonte and re.search(r"\d,\d", fonte)          # parole e numeri all'italiana
-    assert "Wright, Comeau & Langille 2023" in fonti[1] and "Edwin et al. 2024" in fonti[0]
+    assert "Wright, Comeau & Langille 2023" in fonti[1] and "Edwin et al. 2024" in fonti[1] and "K4" in fonti[0]
 
 
 # ---------------- 6. dominanti piu' lunghi ----------------

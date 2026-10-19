@@ -280,7 +280,7 @@ Copy `config.example.yaml` → `config.yaml` and edit. Every value is validated 
 | `profiling.kraken_custom_genomes` | NCBI accession list for a custom DB | `""` |
 | `profiling.kraken_confidence` | Kraken2 `--confidence` (0–1); empty = recommended for the database (`refs/kraken_profili.tsv`) | `""` |
 | `profiling.bracken_readlen` | Bracken read length (must match the DB) | `150` |
-| `profiling.abundance_threshold_pct` | abundance threshold (%) for reports; empty = 0.005 with Kraken, 0.001 MetaPhlAn alone | `""` |
+| `profiling.abundance_threshold_pct` | Kraken abundance threshold (%); empty = recommended for the database (`refs/kraken_profili.tsv`); MetaPhlAn is never filtered | `""` |
 | `analysis.report` | write the overview Excel report | `true` |
 | `analysis.diversity` | compute alpha/beta diversity | `true` |
 | `analysis.metadata` | optional TSV (`sample` + group column) → coloured PCA + group tests | `""` |
@@ -850,7 +850,7 @@ Copia `config.example.yaml` → `config.yaml` e modifica. Ogni valore è validat
 | `profiling.kraken_custom_genomes` | lista accession NCBI per un DB custom | `""` |
 | `profiling.kraken_confidence` | `--confidence` di Kraken2 (0–1); vuoto = consigliato per il database (`refs/kraken_profili.tsv`) | `""` |
 | `profiling.bracken_readlen` | read length di Bracken (deve combaciare col DB) | `150` |
-| `profiling.abundance_threshold_pct` | soglia di abbondanza (%) per i report; vuoto = 0,005 con Kraken, 0,001 solo MetaPhlAn | `""` |
+| `profiling.abundance_threshold_pct` | soglia di abbondanza (%) solo per Kraken; vuoto = consigliata per il database (`refs/kraken_profili.tsv`); MetaPhlAn non si filtra mai | `""` |
 | `analysis.report` | scrivi il report Excel panoramico | `true` |
 | `analysis.diversity` | calcola la diversità alpha/beta | `true` |
 | `analysis.metadata` | TSV facoltativo (`sample` + colonna gruppo) → PCA colorata + test gruppi | `""` |

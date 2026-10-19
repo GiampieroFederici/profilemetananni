@@ -130,7 +130,7 @@
  "Referto profilemetananni": "profilemetananni report",
  "manca {file}: nel motore non c'è il modulo che lo scrive ({modulo})": "{file} is missing: the engine lacks the module that writes it ({modulo})",
  "manca {file}: il file è aperto in un altro programma o la cartella non si può scrivere": "{file} is missing: the file is open in another program or the folder cannot be written",
- " Il {pct} % delle read non è assegnato a specie note.": " {pct} % of the reads is not assigned to known species.",
+ " {art}{pct} % delle read non è assegnato a specie note.": " {art}{pct} % of the reads is not assigned to known species.",
  "scelto nel progetto (consigliato per '{profilo}': {consigliato})": "chosen in the project (recommended for '{profilo}': {consigliato})",
  "{giorni} giorni a {t} °C": "{giorni} days at {t} °C",
  "Referto dell'analisi: {progetto}": "Analysis report: {progetto}",
@@ -331,8 +331,8 @@
  "Non trovo le read del campione {nome} su NCBI.": "I cannot find the reads of the sample {nome} on NCBI.",
  "allineo sulla parte {n} di 6 del database": "aligning on part {n} of 6 of the database",
  "calcolo il profilo delle specie": "calculating the species profile",
- "PlusPF completo: soglia 0,005 % da Edwin et al. 2024; confidence 0 = valore predefinito di Kraken2 (Edwin non lo indica); Bracken -t 10": "full PlusPF: threshold 0.005 % from Edwin et al. 2024; confidence 0 = Kraken2 default (Edwin does not give it); Bracken -t 10",
- "PlusPF-8 (screening rapido): confidence 0,1, dentro l'intervallo 0,05-0,30 per i database ridotti (Wright, Comeau & Langille 2023); soglia come il completo; Bracken -t 10": "PlusPF-8 (quick screening): confidence 0.1, within the 0.05-0.30 range for reduced databases (Wright, Comeau & Langille 2023); threshold as the full one; Bracken -t 10",
+ "PlusPF completo: confidence 0,5 e soglia 0,1 % dalla taratura K4 (12 comunità simulate di salume L3, confermata sul campione Zymo L4); Bracken -t 10": "full PlusPF: confidence 0.5 and threshold 0.1 % from the K4 calibration (12 simulated cured-meat communities L3, confirmed on the Zymo sample L4); Bracken -t 10",
+ "PlusPF-8 (screening rapido): confidence 0,1, dentro l'intervallo 0,05-0,30 per i database ridotti (Wright, Comeau & Langille 2023); soglia 0,005 % da Edwin et al. 2024; Bracken -t 10": "PlusPF-8 (quick screening): confidence 0.1, within the 0.05-0.30 range for reduced databases (Wright, Comeau & Langille 2023); threshold 0.005 % from Edwin et al. 2024; Bracken -t 10",
  "l'animale da cui viene il prodotto (es. maiale) e l'uomo: il loro DNA si toglie prima di cercare i taxa.": "the animal the product comes from (e.g. pig) and humans: their DNA is removed before looking for the taxa.",
  "Soglia di abbondanza (solo Kraken)": "Abundance threshold (Kraken only)",
  "sotto questa percentuale un taxon di Kraken non si mostra nelle tabelle del referto (resta nell'Excel). MetaPhlAn non ha soglia: si mostrano tutte le specie.": "below this percentage a Kraken taxon is not shown in the report tables (it stays in the Excel file). MetaPhlAn has no threshold: all the species are shown.",
@@ -383,5 +383,7 @@
  "<b>Ricchezza</b> (N. specie, N. taxa): quanti taxa diversi. <b>Shannon</b>: cresce con il numero di taxa e con quanto sono distribuiti in modo uniforme (0 = un solo taxon). <b>Simpson</b> (da 0 a 1): la probabilità che due read prese a caso vengano da taxa diversi.": "<b>Richness</b> (No. of species, No. of taxa): how many different taxa. <b>Shannon</b>: grows with the number of taxa and with how evenly they are spread (0 = a single taxon). <b>Simpson</b> (from 0 to 1): the probability that two reads taken at random come from different taxa.",
  "N. specie": "No. of species",
  "N. taxa": "No. of taxa",
- "{usate} su {tutte}": "{usate} of {tutte}"
+ "{usate} su {tutte}": "{usate} of {tutte}",
+ "Kraken mostra solo i taxa con almeno lo {soglia} % delle read (confidence {confidence}). Con i valori consigliati (0,5 e 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono da 196 a 64 su 12 campioni, e nel campione di controllo Zymo da 10 a 0. I taxa sotto la soglia, compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la <i>Listeria</i> serve un'analisi mirata.": "Kraken shows only taxa with at least {soglia} % of the reads (confidence {confidence}). With the recommended settings (0.5 and 0.1 %), in the simulated communities the false species above 0.1 % drop from 196 to 64 across 12 samples, and in the Zymo control sample from 10 to 0. Taxa below the threshold, including <i>Listeria monocytogenes</i>, do not appear in the Kraken profile: <i>Listeria</i> needs a targeted test.",
+ "MetaPhlAn non usa soglie, ma con molto DNA dell'ospite restano poche read dei taxa e i taxa rari possono mancare. Nelle comunità simulate, <i>Listeria monocytogenes</i> allo 0,1 % è stata trovata con circa 1.800 coppie di read sue e persa con circa 900; con il 95 % di ospite (circa 150.000 coppie di taxa) mancavano batteri fino allo 0,4 %.": "MetaPhlAn uses no threshold, but with a lot of host DNA few reads of the taxa are left and rare taxa can be missed. In the simulated communities, <i>Listeria monocytogenes</i> at 0.1 % was found with about 1,800 of its read pairs and missed with about 900; with 95 % host (about 150,000 read pairs of taxa) bacteria up to 0.4 % were missing."
 }
