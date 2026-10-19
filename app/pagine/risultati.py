@@ -234,9 +234,9 @@ class PaginaRisultati(Pagina):
 
     def _scheda_kraken(self, campioni):
         w, s = self._scheda()
-        s.addWidget(riquadro(_(PROTOTIPO), _("Le impostazioni di Kraken sono ancora in prova su comunità di "
-                                             "composizione nota. Guarda questi numeri come un confronto, non usarli "
-                                             "per decidere."), "avviso"))
+        s.addWidget(riquadro(_(PROTOTIPO), _("Le impostazioni di Kraken sono tarate su comunità simulate e su un "
+                                             "campione di controllo (Zymo), non ancora su salumi veri. Guarda questi "
+                                             "numeri come un confronto, non usarli per decidere."), "avviso"))
         s.addWidget(riquadro(_("Metodo diverso da MetaPhlAn"),
                              _("Kraken confronta ogni read con genomi interi: i suoi numeri non si sommano e non si "
                                "confrontano uno a uno con quelli di MetaPhlAn."), "info"))

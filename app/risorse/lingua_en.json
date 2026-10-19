@@ -237,7 +237,7 @@
  "Apri il referto": "Open the report",
  "Apri il referto in PDF": "Open the report as PDF",
  "Apri le tabelle in Excel": "Open the tables in Excel",
- "Le impostazioni di Kraken sono ancora in prova su comunità di composizione nota. Guarda questi numeri come un confronto, non usarli per decidere.": "The Kraken settings are still being tested on communities of known composition. Look at these numbers as a comparison, do not use them to decide.",
+ "Le impostazioni di Kraken sono tarate su comunità simulate e su un campione di controllo (Zymo), non ancora su salumi veri. Guarda questi numeri come un confronto, non usarli per decidere.": "The Kraken settings are calibrated on simulated communities and on a control sample (Zymo), not yet on real cured meats. Look at these numbers as a comparison, do not use them to decide.",
  "Metodo diverso da MetaPhlAn": "A different method from MetaPhlAn",
  "Kraken confronta ogni read con genomi interi: i suoi numeri non si sommano e non si confrontano uno a uno con quelli di MetaPhlAn.": "Kraken compares each read with whole genomes: its numbers are not added to, nor compared one by one with, those of MetaPhlAn.",
  "DNA dell'ospite tolto": "Host DNA removed",

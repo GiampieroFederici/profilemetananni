@@ -281,6 +281,8 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     assert "gelidum" in mpa and "Debaryomyces" not in mpa and "53,7 %" in mpa       # R12: mai fusi
     assert "Debaryomyces" in krk and "gelidum" not in krk and "Metodo diverso" in krk
     assert PROTOTIPO in krk and PROTOTIPO not in mpa and "Kraken è un prototipo" in sintesi    # D115
+    assert "tarate su comunità simulate e su un campione di controllo (Zymo), non ancora su salumi veri" in krk
+    assert "ancora in prova" not in krk                                          # K4 fatta (Giampiero 19/10)
     assert "Qui le 15 più abbondanti delle 27 specie" in mpa and "Qui i 15 più abbondanti dei 48" in krk   # v0.3
     assert "Homo sapiens" in krk and "Homo sapiens" not in mpa                         # non microbi a parte
     assert "uomo (GRCh38)" in come and "1.507.887" in come

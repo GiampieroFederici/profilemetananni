@@ -177,6 +177,7 @@ def test_limite_di_kraken_e_di_metaphlan_dichiarati(referto):
     assert "da 196 a 64 su 12 campioni" in sez_krk and "da 10 a 0" in sez_krk
     assert "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken" in sez_krk
     assert "MetaPhlAn non usa soglie" in sez_mpa and "circa 1.800 coppie" in sez_mpa and "fino allo 0,4 %" in sez_mpa
+    assert "tarate su comunità simulate e su un campione di controllo (Zymo), non ancora su salumi veri" in sez_krk
     leggimi = " ".join(str(r[0]) for r in wb["Leggimi"].values if r and r[0])
     assert "Kraken mostra solo i taxa con almeno lo 0,005 %" in leggimi and "MetaPhlAn non usa soglie" in leggimi
     assert "<i>" not in leggimi                                                   # niente HTML nell'Excel
@@ -205,6 +206,8 @@ def test_prototipo_nei_fogli_kraken_e_sicurezza(tmp_path):
     for nome in ("Kraken_taxa", "Kraken_a_parte", "Diversità_Kraken", "Sicurezza"):
         prima = wb[nome]["A1"].value
         assert prima.startswith("Prototipo, non per decisioni.") and "<b>" not in prima, nome
+        if nome != "Sicurezza":                                                   # K4 fatta: testo nuovo
+            assert "non ancora su salumi veri" in prima and "ancora in prova" not in prima, nome
         assert righe(wb[nome]) and "Campione" in righe(wb[nome])[0], nome     # le colonne restano sotto
     for nome in ("MetaPhlAn_specie", "Diversità_MetaPhlAn", "Parametri"):
         assert not str(wb[nome]["A1"].value).startswith("Prototipo"), nome
