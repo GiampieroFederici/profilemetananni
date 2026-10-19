@@ -54,6 +54,8 @@ def referto(tmp_path_factory):
 
 def righe(ws):
     v = list(ws.values)
+    if len(v) > 1 and str(v[0][0]).startswith("Prototipo"):   # riga della scritta "prototipo" sopra le colonne
+        v = v[1:]
     return [dict(zip(v[0], r)) for r in v[1:]]
 
 
@@ -87,7 +89,7 @@ def test_r3_metaphlan_e_kraken_mai_insieme(referto):
     _, _, wb, html = referto
     assert {"MetaPhlAn_specie", "Kraken_taxa", "Kraken_a_parte"} <= set(wb.sheetnames)
     sez_mpa = html.split("2. Specie trovate con MetaPhlAn")[1].split("3. Taxa trovati con Kraken")[0]
-    sez_krk = html.split("3. Taxa trovati con Kraken")[1].split("4. Virus")[0]
+    sez_krk = html.split("3. Taxa trovati con Kraken")[1].split("5. Virus")[0]
     assert "Proteus vulgaris" not in sez_mpa and "Proteus vulgaris" in sez_krk          # solo Kraken
     assert "Candida parapsilosis" in sez_mpa and "Candida parapsilosis" not in sez_krk  # solo MetaPhlAn
     assert not any(r["Specie"] == "Proteus vulgaris" for r in righe(wb["MetaPhlAn_specie"]))
@@ -162,3 +164,45 @@ def test_r7_finto_esegui_e_referto(tmp_path):
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     ev = controlla(r.stdout, r.returncode, "referto")
     assert r.returncode == 0 and not [e for e in ev if e["tipo"] == "avviso"]
+
+# ---------------- 20/10: limiti dichiarati (D141, D142) e "prototipo" nell'Excel (D115) ----------------
+def test_limite_di_kraken_e_di_metaphlan_dichiarati(referto):
+    """Due frasi: la soglia di Kraken coi valori VERI della corsa (qui rapido: 0,1 e 0,005 %) e il limite di
+    rilevamento di MetaPhlAn con molto ospite (numeri di L3). Nell'HTML (e quindi nel PDF) e nel foglio Leggimi."""
+    _, _, wb, html = referto
+    sez_mpa = html.split("2. Specie trovate con MetaPhlAn")[1].split("3. Taxa trovati con Kraken")[0]
+    sez_krk = html.split("3. Taxa trovati con Kraken")[1].split("4. ")[0]
+    assert "Kraken mostra solo i taxa con almeno lo 0,005 % delle read (confidence 0,1)." in sez_krk
+    assert "da 196 a 64 su 12 campioni" in sez_krk and "da 10 a 0" in sez_krk
+    assert "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken" in sez_krk
+    assert "MetaPhlAn non usa soglie" in sez_mpa and "circa 1.800 coppie" in sez_mpa and "fino allo 0,4 %" in sez_mpa
+    leggimi = " ".join(str(r[0]) for r in wb["Leggimi"].values if r and r[0])
+    assert "Kraken mostra solo i taxa con almeno lo 0,005 %" in leggimi and "MetaPhlAn non usa soglie" in leggimi
+    assert "<i>" not in leggimi                                                   # niente HTML nell'Excel
+
+
+def test_limiti_nel_pdf(referto):
+    pymupdf = pytest.importorskip("pymupdf")                                          # PyMuPDF legge il PDF vero
+    _, esito, _, _ = referto
+    testo = " ".join(" ".join(pg.get_text().split()) for pg in pymupdf.open(esito["pdf"]))
+    if not testo.strip():
+        pytest.skip("PDF senza testo estraibile in questo ambiente (Qt senza caratteri): si prova nella WSL")
+    assert "Listeria monocytogenes, non compaiono nel profilo di Kraken" in testo and "MetaPhlAn non usa soglie" in testo
+
+
+def test_prototipo_nei_fogli_kraken_e_sicurezza(tmp_path):
+    p = prepara(tmp_path)
+    richiesta = tmp_path / "r.json"
+    richiesta.write_text(json.dumps({"prodotto": {"sale_fase_acquosa": 3.0, "ph": 5.4, "nitrito": 60}, "giorni": 30}),
+                         encoding="utf-8")
+    r = subprocess.run([sys.executable, FINTO, "sicurezza", "--ingresso", str(richiesta), "--progetto",
+                        str(p / "config.yaml"), "--velocita", "0"], capture_output=True, text=True, encoding="utf-8")
+    controlla(r.stdout, r.returncode, "sicurezza")
+    fai_referto(p)
+    wb = openpyxl.load_workbook(p / "risultati" / "referto" / "referto.xlsx")
+    for nome in ("Kraken_taxa", "Kraken_a_parte", "Diversità_Kraken", "Sicurezza"):
+        prima = wb[nome]["A1"].value
+        assert prima.startswith("Prototipo, non per decisioni.") and "<b>" not in prima, nome
+        assert righe(wb[nome]) and "Campione" in righe(wb[nome])[0], nome     # le colonne restano sotto
+    for nome in ("MetaPhlAn_specie", "Diversità_MetaPhlAn", "Parametri"):
+        assert not str(wb[nome]["A1"].value).startswith("Prototipo"), nome

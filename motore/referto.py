@@ -380,6 +380,27 @@ PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le
                     "ancora in prova: le previsioni non dicono se un prodotto è sicuro.")
 
 
+# D141, D142 (20/10): i limiti si dichiarano con i numeri di L3 e K4. La prima frase usa i valori veri della corsa
+LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read (confidence {confidence}). Con i "
+                   "valori consigliati (0,5 e 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
+                   "da 196 a 64 su 12 campioni, e nel campione di controllo Zymo da 10 a 0. I taxa sotto la soglia, "
+                   "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la "
+                   "<i>Listeria</i> serve un'analisi mirata.")
+LIMITE_METAPHLAN = N_("MetaPhlAn non usa soglie, ma con molto DNA dell'ospite restano poche read dei taxa e i taxa rari "
+                      "possono mancare. Nelle comunità simulate, <i>Listeria monocytogenes</i> allo 0,1 % è stata "
+                      "trovata con circa 1.800 coppie di read sue e persa con circa 900; con il 95 % di ospite (circa "
+                      "150.000 coppie di taxa) mancavano batteri fino allo 0,4 %.")
+
+
+def limite_kraken(d):
+    return _(LIMITE_KRAKEN, soglia=lingua.virgola(f"{d['soglia']:g}"),
+             confidence=lingua.virgola(d["parametri"].get("kraken_confidence", "")))
+
+
+def senza_html(testo):
+    return re.sub(r"<[^>]+>", "", testo)
+
+
 def riquadro(testo, colore="#fff4d6"):
     return f'<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="{colore}">{testo}</td></tr></table>'
 
@@ -418,6 +439,8 @@ def html_referto(d):
         h.append("</ul>")
     # MetaPhlAn
     h.append(f"<h2>2. {_('Specie trovate con MetaPhlAn')}</h2>")
+    if any(c["metaphlan"] for c in d["campioni"]):
+        h.append("<p>" + _(LIMITE_METAPHLAN) + "</p>")
     for c in d["campioni"]:
         if not c["metaphlan"]:
             continue
@@ -432,6 +455,8 @@ def html_referto(d):
     # Kraken
     h.append(f"<h2>3. {_('Taxa trovati con Kraken + Bracken')}</h2>")
     h.append(riquadro(_(PROTOTIPO_KRAKEN)))
+    if any(c["kraken"] for c in d["campioni"]):
+        h.append("<p>" + limite_kraken(d) + "</p>")
     h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, "
                                        "che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non "
                                        "contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte "
@@ -518,14 +543,17 @@ def excel(d, percorso):
     wb = Workbook()
     fogli = []
 
-    def foglio(nome, intest, righe):
+    def foglio(nome, intest, righe, nota=None):
         ws = wb.create_sheet(nome)
+        if nota:                                   # D115: la scritta "prototipo" sopra le colonne
+            ws.append([nota])
+            ws["A1"].font = Font(bold=True, color="9C5700")
         ws.append(intest)
-        for c in ws[1]:
+        for c in ws[ws.max_row]:
             c.font = Font(bold=True)
         for r in righe:
             ws.append([cella(v) for v in r])
-        ws.freeze_panes = "A2"
+        ws.freeze_panes = "A3" if nota else "A2"
         for i, h in enumerate(intest):
             ws.column_dimensions[ws.cell(1, i + 1).column_letter].width = max(12, min(60, len(h) + 4))
         fogli.append(nome)
@@ -537,10 +565,12 @@ def excel(d, percorso):
               [_("Le percentuali sono DNA relativo, non cellule vive per grammo.")],
               [_("Soglia di abbondanza (solo Kraken): {soglia} % (qui ci sono anche i taxa sotto soglia). "
                  "MetaPhlAn non ha soglia.", soglia=d['soglia'])],
+              [senza_html(limite_kraken(d))], [senza_html(_(LIMITE_METAPHLAN))],
               [_(POSTILLA_VIRUS)]]:
         leggimi.append(r)
     leggimi.column_dimensions["A"].width = 110
     si, no = _("si"), _("no")
+    proto_k = senza_html(_(PROTOTIPO_KRAKEN))
     foglio(_("MetaPhlAn_specie"), [_("Campione"), _("Specie"), _("% sul totale delle read"),
                                    _("% fra le specie trovate")],
            [[c["nome"], n, v, 100 * v / (sum(x for _x, x in c["metaphlan"]) or 1)]
@@ -549,18 +579,19 @@ def excel(d, percorso):
                               _("% sul totale assegnato"), _("% fra i taxa"), _("Sopra soglia")],
            [[c["nome"], r["nome"], _(r["categoria"]), r["taxid"], r["letture"], r["pct"], r["pct_microbi"],
              si if r["pct"] >= d["soglia"] else no]
-            for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] in MICROBI])
+            for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] in MICROBI], proto_k)
     foglio(_("Kraken_a_parte"), [_("Campione"), _("Nome"), _("Gruppo"), _("TaxID NCBI"), _("Letture stimate"),
                                  _("% sul totale assegnato")],
            [[c["nome"], r["nome"], _(r["categoria"]), r["taxid"], r["letture"], r["pct"]]
-            for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] not in MICROBI])
+            for c in d["campioni"] if c["kraken"] for r in c["kraken"] if r["categoria"] not in MICROBI], proto_k)
     for metodo, nome, colonne in (("metaphlan", _("Diversità_MetaPhlAn"), [_("Read del campione"), _("Read usate")]),
                                   ("kraken", _("Diversità_Kraken"), [_("Letture dei taxa"), _("Letture usate")])):
         if d["diversita"][metodo]:
             foglio(nome, [_("Campione"), *colonne, _("Stato"),
                           _("Specie (ricchezza)") if metodo == "metaphlan" else _("Taxa (ricchezza)"), "Shannon", "Simpson"],
                    [[r["campione"], r["letture"], r["letture_usate"], _(STATO_DIVERSITA[r["stato"]]), r["ricchezza"],
-                     r["shannon"], r["simpson"]] for r in d["diversita"][metodo]])
+                     r["shannon"], r["simpson"]] for r in d["diversita"][metodo]],
+                   proto_k if metodo == "kraken" else None)
     if d["triage"]:
         foglio("Triage", [_("Campione"), _("Esito"), _("Motivi"), _("Punteggio")],
                [[t["campione"], _(t["esito"]), "; ".join(t["motivi"]), t["punteggio"]] for t in d["triage"]])
@@ -570,7 +601,7 @@ def excel(d, percorso):
                [[r.get("campione") or _("prodotto"), _(r.get("modalita")) if r.get("modalita") else r.get("modalita"),
                  p["scenario"], p["modello"], si if p["listeria_puo_crescere"] else no, p.get("psi_listeria"),
                  p.get("cento_volte_listeria_giorni"), p.get("cento_volte_lab_giorni")]
-                for r in d["sicurezza"] for p in r["previsioni"]])
+                for r in d["sicurezza"] for p in r["previsioni"]], senza_html(_(PROTOTIPO_FSSP)))
     foglio(_("Parametri"), [_("Parametro"), _("Valore"), _("Cosa vuol dire"), _("Fonte")], righe_parametri(d))
     citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]]
     foglio(_("Strumenti_citazioni"), [_("Strumento o database"), _("Versione")],

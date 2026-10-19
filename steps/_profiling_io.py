@@ -87,7 +87,7 @@ def load_kraken_matrix(path: str, threshold_pct: float = 0.0) -> dict:
     out: dict = {}
     for name, val in mx.items():
         v = float(val)
-        if v > threshold_pct:
+        if v > 0 and v >= threshold_pct:      # same rule as the report: shown if at least the threshold
             key = normalize(name)
             out[key] = max(out.get(key, 0.0), v)
     return out
