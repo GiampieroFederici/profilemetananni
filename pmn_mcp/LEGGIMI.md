@@ -57,10 +57,24 @@ progetti), `PMN_MOTORE=finto` (il finto motore, per provare senza WSL).
 ### Claude Code
 
 ```bat
-claude mcp add profilemetananni -- PYTHON SERVER
+claude mcp add -s user profilemetananni -- PYTHON SERVER
+claude mcp get profilemetananni
 ```
 
-Poi, dentro Claude Code: `/mcp` mostra il server e i suoi strumenti.
+`-s user` = vale in tutti i progetti; `get` deve dire `Status: ✔ Connected`.
+
+Permesso sempre prima di un'analisi (anche in modalità automatica): in `%USERPROFILE%\.claude\settings.json`, dentro
+`"permissions"`, aggiungi (o completa) il blocco:
+
+```json
+"ask": [
+  "mcp__profilemetananni__esegui"
+]
+```
+
+Poi riapri Claude Code: `/mcp` mostra il server e i suoi 8 strumenti. Provato su questo PC il 20/10/2026: con la regola,
+una sessione senza interfaccia (`claude -p`) si ferma con "Claude requested permissions to use
+mcp__profilemetananni__esegui" e il motore non parte.
 
 ### Codex (OpenAI)
 
