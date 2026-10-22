@@ -112,3 +112,42 @@ def test_p10_motore_non_si_controlla_durante_un_analisi(qtbot, monkeypatch):
     assert p.principale_attivo
     p.verifica()
     assert lanciati == ["verifica"]
+
+
+# ---------------- P19: i pulsanti del referto aprono solo pdf, xlsx e html ----------------
+def referto_con(p, referto, qc=None):
+    indice = json.loads((p.risultati / "risultati.json").read_text(encoding="utf-8"))
+    indice["referto"] = referto
+    if qc:
+        indice["qc"] = {"multiqc": qc}
+    for nome in list(referto.values()) + ([qc] if qc else []):
+        (p.risultati / nome).parent.mkdir(parents=True, exist_ok=True)
+        (p.risultati / nome).write_text("x", encoding="utf-8")
+    (p.risultati / "risultati.json").write_text(json.dumps(indice), encoding="utf-8")
+
+
+def pulsante(pagina, testo):
+    from PySide6.QtWidgets import QPushButton
+    return [b for b in pagina.findChildren(QPushButton) if b.text() == testo][0]
+
+
+@pytest.mark.parametrize("buoni", [False, True])
+def test_p19_referto_solo_con_l_estensione_attesa(f, tmp_path, monkeypatch, buoni):
+    """Un risultati.json preparato apposta ("referto.pdf.bat", ".lnk", ".cmd") non deve arrivare a ShellExecute
+    dietro i pulsanti "PDF", "Excel" e "controllo qualità"; i file veri si aprono come prima."""
+    from PySide6.QtGui import QDesktopServices
+    p = progetto_con_campioni(tmp_path, ["A"])
+    if buoni:
+        referto_con(p, {"pdf": "referto/referto.pdf", "xlsx": "referto/tabelle.xlsx"}, "qc/x_multiqc_report.html")
+    else:
+        referto_con(p, {"pdf": "referto/referto.pdf.bat", "xlsx": "referto/tabelle.lnk"}, "qc/x.cmd")
+    aperti = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda u: aperti.append(Path(u.toLocalFile()).name))
+    f.contesto.progetto = p
+    f.vai("risultati")
+    ris = f.pagine["risultati"]
+    testi = ("Apri il referto in PDF", "Apri le tabelle in Excel", "Apri il controllo qualità")
+    assert [pulsante(ris, t).isEnabled() for t in testi] == [buoni] * 3
+    for t in testi:
+        pulsante(ris, t).click()
+    assert aperti == (["referto.pdf", "tabelle.xlsx", "x_multiqc_report.html"] if buoni else [])

@@ -152,10 +152,12 @@ class PaginaRisultati(Pagina):
             self.lista.addWidget(etichetta(f"{i}. {c}", "nota"))
 
     def _referto(self, progetto, d):
-        r = d.get("referto") or {}
-        self.file = {k: (dentro(progetto, progetto.risultati / r[k]) if r.get(k) else None) for k in ("html", "pdf", "xlsx")}
-        multiqc = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
-        self.file["qc"] = dentro(progetto, progetto.risultati / multiqc) if multiqc else None
+        r = dict(d.get("referto") or {})
+        r["qc"] = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
+        # P19: solo l'estensione attesa, perché PDF, Excel e QC si aprono col programma di Windows (un .bat partirebbe)
+        attesa = {"html": ".html", "pdf": ".pdf", "xlsx": ".xlsx", "qc": ".html"}
+        self.file = {k: (dentro(progetto, progetto.risultati / r[k])
+                         if r.get(k) and str(r[k]).lower().endswith(attesa[k]) else None) for k in attesa}
         riga = QHBoxLayout()
         riga.setSpacing(12)
         pulsanti = [(_("Apri il referto"), "html", self.apri_referto),
