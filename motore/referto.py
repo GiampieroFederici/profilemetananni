@@ -640,7 +640,7 @@ def excel(d, percorso):
               [_(POSTILLA_VIRUS)]]:
         leggimi.append(r)
     leggimi.column_dimensions["A"].width = 110
-    si, no = _("si"), _("no")
+    si, no = _("sì"), _("no")
     proto_k = senza_html(_(PROTOTIPO_KRAKEN))
     foglio(_("MetaPhlAn_specie"), [_("Campione"), _("Specie"), _("% sul totale delle read"),
                                    _("% fra le specie trovate")],

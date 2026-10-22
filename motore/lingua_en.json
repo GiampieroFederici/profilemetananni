@@ -122,7 +122,6 @@
  "sotto questo numero di read una specie non si stima": "below this number of reads a species is not estimated",
  "acido {acido} {ppm} ppm": "{acido} acid {ppm} ppm",
  "<p>Corsa <b>{corsa}</b> &middot; motore profilemetananni {motore} &middot; {campioni}</p>": "<p>Run <b>{corsa}</b> &middot; profilemetananni engine {motore} &middot; {campioni}</p>",
- "si": "yes",
  "no": "no",
  "MetaPhlAn_specie": "MetaPhlAn_species",
  "Kraken_a_parte": "Kraken_separate",

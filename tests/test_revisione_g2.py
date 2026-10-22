@@ -463,3 +463,33 @@ def test_p33_conte_all_italiana_senza_notazione_esponenziale():
         assert "1,000,000 ufc/g" in referto.dati_prodotto({"prodotto": {}, "conte": {"lab_ufc_g": 1e6}})
     finally:
         lingua.imposta("it")
+
+
+def catalogo_en(dove):
+    import json
+    return json.loads((RADICE / dove / "lingua_en.json").read_text(encoding="utf-8"))
+
+
+def test_p34_excel_si_con_l_accento(tmp_path):
+    """Le colonne sì/no dell'Excel ("Sopra soglia", "Listeria può crescere") scrivevano "si"; HTML e PDF "sì"."""
+    openpyxl = pytest.importorskip("openpyxl")
+    pytest.importorskip("PySide6.QtGui")
+    dati, p = RADICE / "installer" / "finto", tmp_path / "P"
+    for sotto in ("metaphlan", "kraken", "tabelle"):
+        (p / "risultati" / sotto).mkdir(parents=True)
+    shutil.copy(dati / "SRR4875279_profile.txt", p / "risultati" / "metaphlan")
+    for est in ("bracken", "k2report"):
+        shutil.copy(dati / f"SRR4875279.{est}", p / "risultati" / "kraken")
+    for f in ("parameters.tsv", "kraken_matrix.tsv", "metaphlan_merged.tsv"):
+        shutil.copy(dati / f, p / "risultati" / "tabelle")
+    shutil.copy(dati / "risultati.json", p / "risultati")
+    (p / "config.yaml").write_text("project_name: P\n", encoding="utf-8")
+    r = subprocess.run([sys.executable, str(RADICE / "motore" / "referto.py"), "--risultati", str(p / "risultati"),
+                        "--progetto", str(p / "config.yaml")], capture_output=True, text=True, encoding="utf-8",
+                       timeout=120, env={**os.environ, "PMN_LINGUA": "it"})
+    assert r.returncode == 0, r.stdout + r.stderr
+    v = list(openpyxl.load_workbook(p / "risultati" / "referto" / "referto.xlsx")["Kraken_taxa"].values)[1:]
+    col = v[0].index("Sopra soglia")                                    # riga 1: la scritta "prototipo"
+    valori = {x[col] for x in v[1:]}
+    assert valori and valori <= {"sì", "no"}
+    assert "si" not in catalogo_en("motore")                           # chiave rimasta senza usi
