@@ -138,3 +138,60 @@ def test_p04_senza_elenco_leggibile_restano_tutti(tmp_path, finti):
     (prog / "campioni.txt").unlink()
     out = m._risultati(prog / "config.yaml", cfg)
     assert [c["nome"] for c in out["campioni"]] == ["SRRA", "SRRB"]
+
+
+# ---------------- P07: tabella unita e MultiQC rifatte se i campioni cambiano ----------------
+MERGE = """#!/usr/bin/env bash
+printf '#mpa_vJan25_CHOCOPhlAnSGB_202503\\nclade_name'
+for f in "$@"; do b=$(basename "$f"); printf '\\t%s' "${b%_profile.txt}"; done
+printf '\\n'
+"""
+MULTIQC = """#!/usr/bin/env bash
+while [ $# -gt 0 ]; do case "$1" in --outdir) o="$2"; shift 2 ;; *) shift ;; esac; done
+echo corsa >> "$o/prova_multiqc_report.html"
+"""
+
+
+def passo(script, bin_dir, *arg):
+    r = subprocess.run(["bash", str(RADICE / "steps" / script), *map(str, arg)], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "NO_COLOR": "1"})
+    assert r.returncode == 0, r.stdout + r.stderr
+    return r.stdout + r.stderr
+
+
+@linux
+def test_p07_tabella_unita_rifatta_con_un_profilo_nuovo(tmp_path):
+    eseguibile(tmp_path / "bin", "merge_metaphlan_tables.py", MERGE)
+    mpa, uscita = tmp_path / "mpa", tmp_path / "res" / "metaphlan_merged.tsv"
+    mpa.mkdir()
+    for n in ("A", "B"):
+        (mpa / f"{n}_profile.txt").write_text("x", encoding="utf-8")
+    passo("31_merge_metaphlan.sh", tmp_path / "bin", "--in", mpa, "--out", uscita)
+    assert uscita.read_text().splitlines()[1] == "clade_name\tA\tB"
+    (mpa / "C_profile.txt").write_text("x", encoding="utf-8")      # campione aggiunto al progetto
+    passo("31_merge_metaphlan.sh", tmp_path / "bin", "--in", mpa, "--out", uscita)
+    assert uscita.read_text().splitlines()[1] == "clade_name\tA\tB\tC"
+
+
+@linux
+def test_p07_multiqc_rifatto_solo_con_un_file_qc_nuovo(tmp_path):
+    eseguibile(tmp_path / "bin", "multiqc", MULTIQC)
+    w = tmp_path / "w"
+    (w / "trim").mkdir(parents=True)
+    (w / "trim" / "S1_fastp.json").write_text("{}", encoding="utf-8")
+    rapporto = w / "multiqc" / "prova_multiqc_report.html"
+    args = ("--in", w, "--out", w / "multiqc", "--title", "prova")
+    passo("22_multiqc.sh", tmp_path / "bin", *args)
+    passo("22_multiqc.sh", tmp_path / "bin", *args)                 # niente di nuovo: salto (ripresa)
+    assert rapporto.read_text().splitlines() == ["corsa"]
+    dopo = rapporto.stat().st_mtime + 10
+    for f in ("results/parameters.tsv", "trim/S2.triage_qc.json"):   # file nuovi che non sono del QC: salto
+        (w / f).parent.mkdir(exist_ok=True)
+        (w / f).write_text("x", encoding="utf-8")
+        os.utime(w / f, (dopo, dopo))
+    passo("22_multiqc.sh", tmp_path / "bin", *args)
+    assert rapporto.read_text().splitlines() == ["corsa"]
+    (w / "trim" / "S2_fastp.json").write_text("{}", encoding="utf-8")   # campione aggiunto: MultiQC si rifà
+    os.utime(w / "trim" / "S2_fastp.json", (dopo, dopo))
+    passo("22_multiqc.sh", tmp_path / "bin", *args)
+    assert rapporto.read_text().splitlines() == ["corsa", "corsa"]

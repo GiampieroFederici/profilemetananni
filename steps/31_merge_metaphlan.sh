@@ -30,10 +30,8 @@ profiles=("$IN"/*_profile.txt)
 shopt -u nullglob
 [ "${#profiles[@]}" -gt 0 ] || die "no *_profile.txt found in $IN"
 
-if [ -s "$OUT" ]; then
-  ok "$(say "Merged table already exists -> skip" "Tabella unita già presente -> salto")"
-  exit 0
-fi
+# Always redone (P07): a few seconds, same result for the same profiles; a skip kept the old samples after
+# the project changed, while the Kraken matrix (step 33) is always rebuilt.
 mkdir -p "$(dirname "$OUT")" || die "cannot create output dir"
 info "$(say "Merging ${#profiles[@]} MetaPhlAn profiles ..." "Unisco ${#profiles[@]} profili MetaPhlAn ...")"
 merge_metaphlan_tables.py "${profiles[@]}" > "$OUT" || die "merge_metaphlan_tables.py failed"
