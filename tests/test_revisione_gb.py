@@ -151,3 +151,46 @@ def test_p19_referto_solo_con_l_estensione_attesa(f, tmp_path, monkeypatch, buon
     for t in testi:
         pulsante(ris, t).click()
     assert aperti == (["referto.pdf", "tabelle.xlsx", "x_multiqc_report.html"] if buoni else [])
+
+
+# ---------------- P25: Risultati non si rifà se nulla è cambiato ----------------
+def come_si_vede(pagina):
+    """Testi, pulsanti (acceso o spento), scheda scelta e schede visibili: quello che l'utente vede."""
+    from PySide6.QtWidgets import QLabel, QPushButton
+    c = pagina.contenuto
+    return ([e.text() for e in c.findChildren(QLabel)], [(b.text(), b.isEnabled()) for b in c.findChildren(QPushButton)],
+            pagina.linguette.currentIndex(), [not w.isHidden() for w in pagina.schede],
+            pagina.testo_principale, pagina.destinazione, pagina.aiuto)
+
+
+def test_p25_risultati_non_si_rifanno_se_nulla_cambia(f, tmp_path):
+    from app.pagine.risultati import PaginaRisultati
+    p = progetto_con_campioni(tmp_path, ["A", "B"])
+    referto_con(p, {"html": "referto/referto.html"})
+    f.contesto.progetto = p
+    f.vai("risultati")
+    ris = f.pagine["risultati"]
+    primo = ris.contenuto
+    ris.linguette.setCurrentIndex(1)
+    f.vai("home")
+    f.vai("risultati")
+    assert ris.contenuto is primo                                   # stessa pagina, niente da rifare
+    nuova = PaginaRisultati(f.contesto)                             # risultato identico a una pagina rifatta da capo
+    nuova.mostrata()
+    assert come_si_vede(ris) == come_si_vede(nuova) and ris.linguette.currentIndex() == 0
+    (p.risultati / "referto" / "referto.pdf").write_text("x", encoding="utf-8")   # il PDF arriva dopo: si rifà
+    indice = json.loads((p.risultati / "risultati.json").read_text(encoding="utf-8"))
+    indice["referto"]["pdf"] = "referto/referto.pdf"
+    (p.risultati / "risultati.json").write_text(json.dumps(indice), encoding="utf-8")
+    f.vai("home")
+    f.vai("risultati")
+    assert ris.contenuto is not primo and pulsante(ris, "Apri il referto in PDF").isEnabled()
+    (p.risultati / "referto" / "referto.pdf").unlink()             # file sparito, risultati.json uguale: si rifà
+    secondo = ris.contenuto
+    f.vai("home")
+    f.vai("risultati")
+    assert ris.contenuto is not secondo and not pulsante(ris, "Apri il referto in PDF").isEnabled()
+    assert f.principale.text() == "Prevedi la sicurezza alimentare"
+    f.contesto.progetto = None
+    f.vai("risultati")
+    assert f.principale.text() == "Apri i miei progetti"
