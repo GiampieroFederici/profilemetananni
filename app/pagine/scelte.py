@@ -141,7 +141,7 @@ class PaginaScelte(Pagina):
         self.apri_esperti.toggled.connect(self._esperti)
         self.corpo.addWidget(self.apri_esperti)
         self.esperti, s = pannello()
-        s.addWidget(etichetta(_("Ogni valore consigliato viene dalla letteratura; la fonte è accanto. Quello che "
+        s.addWidget(etichetta(_("Ogni valore consigliato ha la fonte accanto (letteratura o taratura K4). Quello che "
                                 "scegli finisce nel referto."), "nota"))
         griglia = QGridLayout()
         griglia.setHorizontalSpacing(20)

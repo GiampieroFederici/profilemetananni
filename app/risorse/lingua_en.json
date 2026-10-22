@@ -298,7 +298,7 @@
  "Che cosa cerco?": "What do I look for?",
  "Sperimentale, non validata.": "Experimental, not validated.",
  "Con il database diviso in parti, quando due virus quasi identici vanno bene allo stesso modo la scelta può cambiare rispetto all'analisi standard. Il referto lo dichiara.": "With the database split into parts, when two almost identical viruses fit equally well the choice can change compared to the standard analysis. The report states it.",
- "Ogni valore consigliato viene dalla letteratura; la fonte è accanto. Quello che scegli finisce nel referto.": "Every recommended value comes from the literature; the source is next to it. What you choose goes into the report.",
+ "Ogni valore consigliato ha la fonte accanto (letteratura o taratura K4). Quello che scegli finisce nel referto.": "Every recommended value has its source next to it (literature or the K4 calibration). What you choose goes into the report.",
  "Lunghezza delle read (Bracken)": "Read length (Bracken)",
  "Prima di partire": "Before starting",
  "Ho già preparato le scelte consigliate per questo computer ({ram} GB di memoria, {processori} processori). Puoi partire subito.": "I have already prepared the recommended choices for this computer ({ram} GB of memory, {processori} processors). You can start right away.",

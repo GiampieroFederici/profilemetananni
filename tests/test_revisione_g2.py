@@ -551,3 +551,10 @@ def test_p35_la_soglia_di_abbondanza_e_solo_di_kraken(request):
     t = etichette_qt(pag._scheda_come({"parametri": {"abundance_threshold_pct": "0.1", "kraken_confidence": "0.5"},
                                       "versioni": {"metaphlan": "4.2.4"}}))
     assert t[t.index("0,1 %") - 1] == "Soglia di abbondanza di Kraken"
+
+
+def test_p36_intestazione_esperti_non_dice_tutto_dalla_letteratura():
+    """Con il database completo 0,5 e 0,1 % vengono dalla taratura K4, non dalla letteratura."""
+    testo = (RADICE / "app" / "pagine" / "scelte.py").read_text(encoding="utf-8")
+    assert "taratura K4" in testo and "viene dalla letteratura" not in testo
+    assert "Ogni valore consigliato ha la fonte accanto (letteratura o taratura K4)." in testo
