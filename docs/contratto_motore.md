@@ -52,6 +52,9 @@
 
 - Un solo `esegui` alla volta (un campione alla volta, D016): un secondo `esegui` risponde con l'errore `GIA_IN_CORSO`.
 - `installa` ed `esegui` sono **riprendibili**: rilanciati con gli stessi ingressi, saltano ciò che è già fatto e verificato.
+  **[22/10]** Con parametri diversi (ospite, database o confidence di Kraken, modalità o indice di MetaPhlAn) `esegui`
+  rifà le uscite fatte con quelli vecchi (timbro dei parametri accanto alle uscite, P01 della revisione): il referto
+  dichiara sempre i parametri che hanno prodotto i numeri. Una cartella senza timbro (corse di prima) si rifà.
 - **[v0.2]** `esegui` prepara da solo il referto alla fine; `sicurezza` con `--progetto` salva il risultato in
   `risultati/sicurezza/`, poi l'interfaccia lancia `referto` per averlo anche nel referto.
 
