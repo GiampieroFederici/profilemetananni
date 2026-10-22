@@ -491,8 +491,9 @@ class PaginaSicurezza(Pagina):
                         f" border-left: {BORDI[classe]}; }} QFrame#scenario QLabel {{ background: transparent; }}")
         s = QVBoxLayout(f)
         s.setContentsMargins(20, 14, 20, 14)
-        t = etichetta(_("Se all'inizio ci fosse {n} ufc/g di {listeria}", n=due_cifre(p['n0_listeria_ufc_g']),
-                        listeria=LISTERIA))
+        n = due_cifre(p['n0_listeria_ufc_g'])
+        t = etichetta(_("Se all'inizio ci fosse {n} ufc/g di {listeria}", n=n, listeria=LISTERIA) if n == "1" else
+                      _("Se all'inizio ci fossero {n} ufc/g di {listeria}", n=n, listeria=LISTERIA))
         t.setTextFormat(Qt.RichText)
         t.setStyleSheet("font-weight: bold; font-size: 20px;")
         e = etichetta(frase)
@@ -514,7 +515,9 @@ class PaginaSicurezza(Pagina):
         righe.append(_("Batteri lattici del modello trovati: {lab}.", lab=lab or _("nessuno")))
         nc = pn.get("specie_non_coperte", [])
         if nc:
-            righe.append(_("{n} specie del profilo non hanno un modello in FSSP: la loro crescita non si prevede.",
+            righe.append(_("1 specie del profilo non ha un modello in FSSP: la sua crescita non si prevede.")
+                         if len(nc) == 1 else
+                         _("{n} specie del profilo non hanno un modello in FSSP: la loro crescita non si prevede.",
                            n=len(nc)))
         for testo in righe:
             e = etichetta(f"• {testo}")

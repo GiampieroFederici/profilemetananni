@@ -558,3 +558,24 @@ def test_p36_intestazione_esperti_non_dice_tutto_dalla_letteratura():
     testo = (RADICE / "app" / "pagine" / "scelte.py").read_text(encoding="utf-8")
     assert "taratura K4" in testo and "viene dalla letteratura" not in testo
     assert "Ogni valore consigliato ha la fonte accanto (letteratura o taratura K4)." in testo
+
+
+def test_p37_singolare_e_plurale_nelle_schede_della_sicurezza(request):
+    """ "Se all'inizio ci fosse 100 ufc/g" e "1 specie del profilo non hanno": il numero decide il verbo."""
+    pytest.importorskip("pytestqt")
+    request.getfixturevalue("qapp")
+    sys.path.insert(0, str(RADICE))
+    from app.pagine.sicurezza import PaginaSicurezza
+    pag = PaginaSicurezza.__new__(PaginaSicurezza)                     # i due metodi non usano lo stato
+    p = {"n0_listeria_ufc_g": 100.0, "listeria_puo_crescere": False,
+         "curva": {"giorni": [0, 30], "log_listeria": [2.0, 2.0]}}
+    f = pag._scheda(p, False)
+    t = " ".join(etichette_qt(f))
+    assert "ci fossero 100 ufc/g" in t and "ci fosse 100" not in t
+    f1 = pag._scheda(dict(p, n0_listeria_ufc_g=1.0), False)
+    assert "ci fosse 1 ufc/g" in " ".join(etichette_qt(f1))
+    f2 = pag._ponte({"ponte": {"specie_non_coperte": ["staphylococcus xylosus"], "lab_trovati": []}})
+    t = " ".join(etichette_qt(f2))
+    assert "1 specie del profilo non ha un modello in FSSP" in t and "non hanno" not in t
+    f3 = pag._ponte({"ponte": {"specie_non_coperte": ["a", "b"], "lab_trovati": []}})
+    assert "2 specie del profilo non hanno un modello in FSSP" in " ".join(etichette_qt(f3))
