@@ -138,7 +138,7 @@ Struttura fissa di ogni pagina: **testata** (avatar, nome del progetto, menu "I 
 ## 5. Collegamento al motore: schermata → comando → eventi
 
 Ogni pulsante corrisponde a un comando di `pmn-motore` (contratto `docs/contratto_motore.md`); da Windows:
-`wsl.exe -d pmn -u pmn -- /home/pmn/.pmn/bin/pmn-motore <comando>` (come `app/motore.py`). La GUI legge **solo** stdout (JSON Lines).
+`wsl.exe -d pmn -u pmn -e /home/pmn/.pmn/bin/pmn-motore <comando>` (come `app/motore.py`). La GUI legge **solo** stdout (JSON Lines).
 
 | Schermata / azione | Comando | Eventi usati | Che cosa mostra | Provato col finto motore |
 |---|---|---|---|---|

@@ -401,3 +401,12 @@ def test_p18_credenziale_scritta_solo_dopo_aver_stretto_i_permessi(tmp_path, mon
     assert durante == [0o600]
     assert f.stat().st_mode & 0o777 == 0o600
     assert f.read_text(encoding="utf-8") == "ALTRA=1\nPMN_CHIAVE=segreta\n"
+
+
+# ---------------- P14 (secondo giro): i documenti mostrano la riga wsl.exe dell'app ----------------
+def test_p14_documenti_con_la_riga_wsl_senza_shell():
+    """app/motore.py lancia wsl.exe con "-e" (senza bash -c); docs/interfaccia_S4.md mostrava ancora "--"."""
+    import re
+    for doc in ("docs/interfaccia_S4.md", "docs/contratto_motore.md"):
+        righe = re.findall(r"`wsl\.exe -d [^`]*`", (RADICE / doc).read_text(encoding="utf-8"))
+        assert righe and all(" -e " in r and " -- " not in r for r in righe), (doc, righe)
