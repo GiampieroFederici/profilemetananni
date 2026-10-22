@@ -77,6 +77,7 @@ class PaginaMotore(Pagina):
     # ---------------- stato da info ----------------
     def mostrata(self):
         self._disegna()
+        self._barra_azioni()                    # un'analisi può essere partita o finita da quando la pagina è nata
         if self.contesto.info is None:
             self._aggiorna()                    # per sapere perché non risponde (per esempio MOTORE_NON_AVVIATO)
 
@@ -152,7 +153,8 @@ class PaginaMotore(Pagina):
         self._avvia("installa")
 
     def _avvia(self, comando):
-        if self.client.in_corso():
+        # verifica e installa fanno girare MetaPhlAn sul mini-campione: mai insieme a un'analisi (P10, memoria)
+        if self.client.in_corso() or self.contesto.progetto_in_analisi is not None:
             return
         svuota(self.zona_esito)
         self._in_fondo = False
@@ -228,12 +230,16 @@ class PaginaMotore(Pagina):
 
     def _barra_azioni(self):
         lavora = self.client.in_corso() and self.client.comando in ("verifica", "installa")
-        self.principale_attivo = not lavora
+        analisi = self.contesto.progetto_in_analisi is not None
+        self.principale_attivo = not lavora and not analisi
         self.testo_principale = _("Installa o completa") if self.da_installare and not lavora else \
             _("Controlla il motore")
         if lavora and self.client.comando == "installa":
             self.secondari = [(_("Ferma l'installazione"), self.ferma)]
             self.aiuto = _("L'installazione può durare a lungo: puoi usare il computer per altro.")
+        elif analisi:
+            self.secondari = []
+            self.aiuto = _("C'è un'analisi in corso: controlla o installa il motore quando è finita.")
         elif lavora:
             self.secondari = []
             self.aiuto = _("Controllo in corso: qualche minuto.")

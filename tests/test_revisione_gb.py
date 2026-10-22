@@ -82,3 +82,33 @@ def test_p40_un_solo_campione_richiesta_come_prima(f, tmp_path):
     assert sic.campione.isHidden()
     scrivi_prodotto(sic)
     assert "campione" not in sic.richiesta()
+
+
+# ---------------- P10: Motore fermo durante un'analisi ----------------
+def test_p10_motore_non_si_controlla_durante_un_analisi(qtbot, monkeypatch):
+    """verifica e installa fanno girare MetaPhlAn sul mini-campione: durante esegui sarebbe un secondo MetaPhlAn
+    (oltre i 16 GB). Durante l'analisi la pagina non li lancia; finita l'analisi tornano."""
+    from app.motore import MotoreClient
+    from app.pagine.base import Contesto
+    from app.pagine.motore import PaginaMotore
+    lanciati = []
+    monkeypatch.setattr(MotoreClient, "avvia", lambda self, comando, *a, **k: lanciati.append(comando))
+    monkeypatch.setattr(MotoreClient, "in_corso", lambda self: False)
+    c = Contesto()
+    c.info = {"database": [], "programmi": {}, "spazio_libero_gb": 100, "ram_gb": 16, "processori": 8,
+              "finto": True}
+    p = PaginaMotore(c)
+    qtbot.addWidget(p)
+    c.progetto_in_analisi = "progetto_X"
+    p.mostrata()
+    assert not p.principale_attivo
+    assert all(funzione not in (p.verifica, p.installa) for _testo, funzione in p.secondari)
+    p.azione_principale()
+    p.verifica()
+    p.installa()
+    assert lanciati == []
+    c.progetto_in_analisi = None                          # analisi finita: si controlla di nuovo
+    p.mostrata()
+    assert p.principale_attivo
+    p.verifica()
+    assert lanciati == ["verifica"]

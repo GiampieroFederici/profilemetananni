@@ -415,5 +415,6 @@
  "Analisi interrotta": "Analysis interrupted",
  "Apri il controllo qualità": "Open the quality check",
  "il controllo qualità": "the quality check",
- "Campione (profilo MetaPhlAn)": "Sample (MetaPhlAn profile)"
+ "Campione (profilo MetaPhlAn)": "Sample (MetaPhlAn profile)",
+ "C'è un'analisi in corso: controlla o installa il motore quando è finita.": "An analysis is running: check or install the engine when it has finished."
 }
