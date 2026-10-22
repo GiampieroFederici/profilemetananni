@@ -72,3 +72,87 @@ def test_p09_migliaia_con_un_solo_punto_in_italiano(monkeypatch):
         [100000.0, 1000.0, 2500.0, 3.5, 0.97, 0.97, 6.0, 1000.5, 1000000.0, 3.5]
     monkeypatch.setattr(lingua, "_attuale", "en")       # l'inglese non cambia
     assert [lingua.leggi_numero(x) for x in ("100.000", "2.500", "1,000", "3.5")] == [100.0, 2.5, 1000.0, 3.5]
+
+
+# ---------------- server MCP: progetti, client e analisi finte ----------------
+@pytest.fixture
+def progetti_mcp(tmp_path, monkeypatch):
+    """Come la fixture `progetti` di tests/test_mcp.py; in più PMN_PROGETTI e il finto per le prove dirette."""
+    radice = tmp_path / "ProfileMetaNanni"
+    (radice / "Salame_prova").mkdir(parents=True)
+    (radice / "Salame_prova" / "config.yaml").write_text("project_name: Salame_prova\n", encoding="utf-8")
+    (tmp_path / "temp").mkdir()
+    monkeypatch.setenv("PMN_PROGETTI", str(radice))
+    monkeypatch.setenv("PMN_MOTORE", "finto")
+    return radice
+
+
+def client_mcp():
+    """con_client, dati e COTTO di tests/test_mcp.py (client MCP vero, server in un processo figlio)."""
+    pytest.importorskip("mcp")
+    import test_mcp
+    return test_mcp
+
+
+class CtxConferma:
+    """Il Context di un client che sa chiedere la conferma (elicitation), e la persona dice sì."""
+    client_capabilities = type("Caps", (), {"elicitation": object()})()
+
+    async def elicit(self, messaggio, schema):
+        return type("R", (), {"action": "accept", "data": type("D", (), {"avvia": True})()})()
+
+
+def motore_che_stampa(s, monkeypatch, codice):
+    """Il motore di esegui sostituito da un python con questo codice (e la stima da una risposta fissa)."""
+    async def stima(*a, **k):
+        return {"esito": "ok", "messaggio": "", "risultato": {"campioni": 1, "tempo_totale_s": 60, "spazio_gb": 1,
+                                                             "spazio_libero_gb": 9}}
+    monkeypatch.setattr(s, "lancia", stima)
+    monkeypatch.setattr(s, "comando", lambda nome, *a: [sys.executable, "-c", "import json, time\n" + codice])
+
+
+INIZIO = 'print(json.dumps({"tipo": "inizio", "corsa": "2026-10-22T10-00-00", "comando": "esegui"}), flush=True)\n'
+
+
+def esegui_e_aspetta(s, progetto="Salame_prova"):
+    import asyncio
+
+    async def lavoro():
+        r = await s.esegui(progetto, CtxConferma())
+        await asyncio.wait([s.Stato.analisi.compito], timeout=30)
+        return r
+    return asyncio.run(lavoro())
+
+
+# ---------------- P12: righe JSON oltre 64 KiB ----------------
+def test_p12_sicurezza_curva_lunga_oltre_64kib(progetti_mcp):
+    """90 giorni di stagionatura: il 'fine' del motore supera i 64 KiB su una riga."""
+    import json
+    t = client_mcp()
+    ingresso = {"prodotto": t.COTTO["prodotto"], "profilo_temperatura": [[12, 2160]]}
+
+    async def lavoro(s):
+        return t.dati(await s.call_tool("sicurezza", {"ingresso": ingresso}))
+    d = t.con_client(progetti_mcp, lavoro)
+    assert d["esito"] == "ok" and len(json.dumps(d["risultato"])) > 65536
+
+
+def test_p12_esegui_con_fine_lunga_non_resta_in_corso(progetti_mcp, monkeypatch):
+    s = server_mcp()
+    motore_che_stampa(s, monkeypatch, INIZIO + 'print(json.dumps({"tipo": "fine", "esito": "ok", "messaggio": "ok", '
+                                               '"risultato": {"x": "a" * 100_000}}))')
+    esegui_e_aspetta(s)
+    a = s.Stato.analisi
+    assert not a.in_corso() and a.esito["esito"] == "ok" and len(a.esito["risultato"]["x"]) == 100_000
+
+
+def test_p12_errore_di_lettura_non_lascia_l_analisi_in_corso(progetti_mcp, monkeypatch):
+    s = server_mcp()
+    motore_che_stampa(s, monkeypatch, "")
+
+    async def rotto(*a, **k):
+        raise ValueError("Separator is not found, and chunk exceed the limit")
+    monkeypatch.setattr(s, "raccogli", rotto)
+    esegui_e_aspetta(s)
+    a = s.Stato.analisi
+    assert not a.in_corso() and a.esito["esito"] == "errore" and a.esito["risultato"]["codice"] == "ERRORE_INTERNO"

@@ -36,6 +36,7 @@ NOME = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")                 # nome di un 
 CORSA = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}")          # id della corsa del motore (evento inizio)
 CONFERMA_S = 600                                                    # il codice di conferma vale 10 minuti
 MAX_INGRESSO = 64_000                                               # byte della richiesta di sicurezza
+MAX_RIGA = 64 * 1024 * 1024        # byte di una riga JSON del motore (il 'fine' porta il risultato intero)
 
 
 # ---------------- motore ----------------
@@ -69,7 +70,7 @@ async def lancia(nome, *argomenti, eventi=None):
     chiamato a ogni evento JSON, appena arriva. Su stdout del motore ci sono solo eventi (contratto §4)."""
     p = await asyncio.create_subprocess_exec(*comando(nome, *argomenti), stdin=asyncio.subprocess.DEVNULL,
                                              stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                                             env={**os.environ, "WSL_UTF8": "1"})
+                                             env={**os.environ, "WSL_UTF8": "1"}, limit=MAX_RIGA)
     return await raccogli(p, eventi)
 
 
@@ -256,10 +257,15 @@ async def esegui(progetto: str, ctx: Context, codice_conferma: str | None = None
     a = Analisi(cfg)
     a.processo = await asyncio.create_subprocess_exec(*comando("esegui", "--progetto", per_motore(cfg)),
                                                       stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-                                                      stderr=asyncio.subprocess.PIPE, env={**os.environ, "WSL_UTF8": "1"})
+                                                      stderr=asyncio.subprocess.PIPE, env={**os.environ, "WSL_UTF8": "1"},
+                                                      limit=MAX_RIGA)
 
-    async def segui():
-        a.esito = await raccogli(a.processo, tutti=a.eventi)
+    async def segui():   # un'eccezione qualsiasi non deve lasciare l'analisi "in corso" per sempre
+        try:
+            a.esito = await raccogli(a.processo, tutti=a.eventi)
+        except Exception as ex:
+            a.esito = {"esito": "errore", "messaggio": f"Non riesco a leggere il motore: {ex}",
+                       "risultato": {"codice": "ERRORE_INTERNO"}, "eventi": a.eventi}
     a.compito = asyncio.create_task(segui())
     Stato.analisi = a
     fine = time.monotonic() + 30
