@@ -551,11 +551,16 @@ class Motore:
                 fatti.add(chiave)
             return 100 * (totale - resta) / totale, round(resta) if camp else None, round(questo) if camp else None
         visti, ultimo = {}, 0.0
+        annulla = STATO / f"{self.corsa}.annulla"
+        if annulla.exists():   # annulla arrivato mentre si chiedevano le dimensioni (pgid ancora None): run.sh non parte
+            raise Annullata
         p = subprocess.Popen(["bash", RUN_SH, "--config", str(progetto), "--skip-preflight"], cwd=progetto.parent,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                              errors="replace", env={**os.environ, "PMN_HOME": str(PMN_HOME), "NO_COLOR": "1"},
                              start_new_session=True)
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": p.pid}), encoding="utf-8")
+        if annulla.exists():   # arrivato fra il Popen e il lock col pgid: lo si ferma qui, poi p.wait() alza Annullata
+            os.killpg(p.pid, signal.SIGTERM)
         coda = []
         for riga in p.stdout:
             riga = riga.rstrip()
@@ -722,14 +727,23 @@ class Motore:
 
     # ---------------- annulla ----------------
     def annulla(self):
-        blocco = STATO / "esegui.lock"
-        try:
-            dati = json.loads(blocco.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            dati = {}
-        if not dati or dati.get("corsa") != self.a.corsa:
+        for nome in ("esegui.lock", "installa.lock"):   # P41: anche l'installazione si ferma
+            try:
+                dati = json.loads((STATO / nome).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                dati = {}
+            if dati and dati.get("corsa") == self.a.corsa:
+                break
+        else:
             return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
-        (STATO / f"{self.a.corsa}.annulla").touch()
+        if nome == "esegui.lock":
+            (STATO / f"{self.a.corsa}.annulla").touch()
+        else:
+            try:   # lock rimasto da un'installazione chiusa male: il suo pgid può essere già di altri, non si manda nulla
+                os.kill(dati["pid"], 0)
+            except (ProcessLookupError, PermissionError, KeyError, TypeError):   # PermissionError: pid già di altri
+                (STATO / nome).unlink(missing_ok=True)
+                return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
         if dati.get("pgid"):
             for segnale, attesa in ((signal.SIGTERM, 10), (signal.SIGKILL, 5)):
                 try:
@@ -746,6 +760,8 @@ class Motore:
                 else:
                     continue
                 break
+        if nome == "installa.lock":
+            return "ok", {"annullata": True}, _("Ho fermato l'installazione.")
         return "ok", {"annullata": True}, _("Ho fermato l'analisi.")
 
 
