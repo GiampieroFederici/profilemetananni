@@ -579,3 +579,38 @@ def test_p37_singolare_e_plurale_nelle_schede_della_sicurezza(request):
     assert "1 specie del profilo non ha un modello in FSSP" in t and "non hanno" not in t
     f3 = pag._ponte({"ponte": {"specie_non_coperte": ["a", "b"], "lab_trovati": []}})
     assert "2 specie del profilo non hanno un modello in FSSP" in " ".join(etichette_qt(f3))
+
+
+# ---------------- P24: il .k2out per read non serve al programma (scelta di Giampiero, 22/10) ----------------
+def kraken_finto(tmp_path, **env):
+    """32_kraken_bracken.sh con kraken2 e bracken finti: kraken2 scrive i suoi argomenti in argomenti.txt."""
+    b = tmp_path / "bin"
+    b.mkdir()
+    (b / "kraken2").write_text('#!/bin/bash\nprintf "%s\n" "$@" > "$ARGOMENTI"\n'
+                               'while [ $# -gt 0 ]; do [ "$1" = --report ] && : > "$2"; shift; done\n', encoding="utf-8")
+    (b / "bracken").write_text('#!/bin/bash\nwhile [ $# -gt 0 ]; do [ "$1" = -o ] && echo fatto > "$2"; shift; done\n',
+                               encoding="utf-8")
+    for p in b.iterdir():
+        p.chmod(0o755)
+    (tmp_path / "db").mkdir()
+    (tmp_path / "r1.fq.gz").write_bytes(gzip.compress(b"@r\nACGT\n+\nIIII\n"))
+    argomenti = tmp_path / "argomenti.txt"
+    r = subprocess.run(["bash", str(RADICE / "steps" / "32_kraken_bracken.sh"), "--sample", "S1",
+                        "--in1", str(tmp_path / "r1.fq.gz"), "--db", str(tmp_path / "db"), "--out", str(tmp_path / "out"),
+                        "--confidence", "0.5"], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{b}:{os.environ['PATH']}", "NO_COLOR": "1", "PMN_LANG": "en",
+                            "ARGOMENTI": str(argomenti), **env})
+    assert r.returncode == 0, r.stdout + r.stderr
+    a = argomenti.read_text(encoding="utf-8").split("\n")
+    return a[a.index("--output") + 1]
+
+
+@linux
+def test_p24_kraken_non_scrive_il_k2out(tmp_path):
+    assert kraken_finto(tmp_path) == "-"
+    assert not (tmp_path / "out" / "S1.k2out").exists()
+
+
+@linux
+def test_p24_k2out_solo_per_le_prove_di_validazione(tmp_path):
+    assert kraken_finto(tmp_path, PMN_KEEP_K2OUT="1") == str(tmp_path / "out" / "S1.k2out")

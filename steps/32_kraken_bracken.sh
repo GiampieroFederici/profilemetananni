@@ -52,7 +52,10 @@ fi
 mkdir -p "$OUT" || die "cannot create $OUT"
 
 k2report="$OUT/${SAMPLE}.k2report"
-k2out="$OUT/${SAMPLE}.k2out"
+# Per-read output: unused by the pipeline (Bracken reads the report), up to hundreds of MB per sample.
+# "-" suppresses it; PMN_KEEP_K2OUT=1 keeps it for the validation runs (D037 point 5, C4, L4, K4 grid).
+k2out="-"
+[ "${PMN_KEEP_K2OUT:-0}" = "1" ] && k2out="$OUT/${SAMPLE}.k2out"
 brk="$OUT/${SAMPLE}.bracken"
 if [ -s "$brk" ]; then
   ok "$(say "$SAMPLE already profiled (Bracken) -> skip" "$SAMPLE già profilato (Bracken) -> salto")"
