@@ -203,3 +203,51 @@ def test_foglio_qc_dell_excel(tmp_path):
     assert intest[5] == "% duplicati (read grezze)" and intest[7] == "% ospite e uomo tolti"
     assert riga[:3] == ("S1", 2000000, 1900000) and riga[-1] == 570000
     assert riga[3] == pytest.approx(91.2345) and riga[7] == pytest.approx(70.0)
+
+
+# ---------------- 22/10: numeri lunghi interi su una riga nel PDF ----------------
+def test_numeri_a_8_cifre_su_una_riga_nel_pdf(tmp_path):
+    """Salame_esempio (b8ef83a): nel PDF "1.507.887" andava a capo ("1.507.88" e sotto "7"; letto con PyMuPDF sul PDF
+    vero). Il referto intero, con coppie a 8 cifre come C03_1 (34 milioni), impaginato come fa referto.pdf():
+    QTextDocument.print_() impagina in punti (72 per pollice: 510 di pagina utile su A4 con 15 mm di margine; a questa
+    larghezza Qt spezza "1.507.887" come nel PDF vero), quindi qui si impagina così e si contano le righe di ogni numero."""
+    QtGui = pytest.importorskip("PySide6.QtGui")
+    from PySide6.QtCore import QMarginsF, QSizeF
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QtGui.QGuiApplication.instance() or QtGui.QGuiApplication(["test"])  # noqa: F841
+    if not QtGui.QFontDatabase.families():
+        pytest.skip("Qt senza caratteri qui (Windows col Python misto): gira con il Python del motore")
+    r = tmp_path / "risultati"
+    dati = RADICE / "installer" / "finto"
+    for sotto, f in (("metaphlan", "SRR4875279_profile.txt"), ("kraken", "SRR4875279.bracken"),
+                     ("kraken", "SRR4875279.k2report"), ("tabelle", "parameters.tsv")):
+        (r / sotto).mkdir(parents=True, exist_ok=True)
+        shutil.copy(dati / f, r / sotto)
+    indice = json.loads((dati / "risultati.json").read_text(encoding="utf-8"))
+    numeri = {"coppie_prima": 34_000_000, "coppie_dopo": 33_123_456, "coppie_profili": 12_345_678}
+    indice["qc"] = {"multiqc": "qc/x_multiqc_report.html", "fastp": [], "fastqc": [], "campioni": [
+        {"nome": "SRR4875279", "a_coppie": True, "q30_prima_pct": 94.95, "q30_dopo_pct": 95.46, "duplicati_pct": 3.25,
+         "lunghezza_media": 140.0, "ospite_pct": 53.09, **numeri}]}
+    (r / "risultati.json").write_text(json.dumps(indice), encoding="utf-8")
+    html = referto.html_referto(referto.raccogli(r, {"project_name": "prova"}))
+    doc = QtGui.QTextDocument()
+    doc.setHtml(html)
+    w = QtGui.QPdfWriter(str(tmp_path / "r.pdf"))                      # stessa pagina di referto.pdf()
+    w.setPageSize(QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A4))
+    w.setPageMargins(QMarginsF(15, 15, 15, 15), QtGui.QPageLayout.Unit.Millimeter)
+    punti = w.pageLayout().paintRect(QtGui.QPageLayout.Unit.Point).width()   # 510: come nel PDF vero (PyMuPDF, 22/10)
+    doc.setPageSize(QSizeF(punti, 100_000))
+    doc.documentLayout().documentSize()
+    righe, spezzate, qc, b = {}, [], False, doc.begin()
+    while b.isValid():
+        t = b.text()
+        qc = (qc or t.startswith("Pulizia delle read")) and not t.startswith("Come leggerle")
+        if t.strip() in {referto.lingua.migliaia(f"{n:,}") for n in numeri.values()}:
+            righe[t.strip()] = b.layout().lineCount()
+        for i in range(b.layout().lineCount() - 1 if qc else 0):   # intestazioni e celle: a capo solo fra parole
+            fine = b.layout().lineAt(i).textStart() + b.layout().lineAt(i).textLength()
+            if not (t[fine - 1].isspace() or t[fine].isspace()):
+                spezzate.append(f"{t[:fine]}|{t[fine:]}")
+        b = b.next()
+    assert len(righe) == 3 and set(righe.values()) == {1}, (righe, round(punti))
+    assert not spezzate, spezzate

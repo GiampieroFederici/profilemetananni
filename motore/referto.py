@@ -317,13 +317,15 @@ def html_qc(d, n):
     h.append("<p>" + _("Prima dei profili le read passano da fastp, che toglie le parti di bassa qualità e gli "
                        "adattatori, e poi da Bowtie 2, che toglie il DNA dell'ospite e dell'uomo.") + "</p>")
     righe = [[e(c["nome"])] + valori_qc(c) for c in qc["campioni"]]
+    # Larghezze (22/10): nel PDF (510 punti di pagina) un numero non va a capo a metà fino a 8 cifre (34.000.000 coppie,
+    # come C03_1; con 7 cifre "1.507.887" andava a capo). Le colonne Q30 e ospite hanno valori corti e cedono spazio
     h.append("<h3>" + _("Pulizia delle read (fastp)") + "</h3>")
     h.append(tabella([_("Campione"), _("Coppie prima"), _("Coppie dopo"), _("Basi ≥ Q30 prima (%)"),
-                      _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [24, 19, 19, 19, 19]))
+                      _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [24, 23, 23, 15, 15]))
     h.append("<h3>" + _("Duplicati, lunghezza e ospite") + "</h3>")
     h.append(tabella([_("Campione"), _("Duplicati, read grezze (%)"), _("Lunghezza media (basi)"),
-                      _("Ospite e uomo tolti (%)"), _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe], (1, 2, 3, 4),
-                     [24, 20, 22, 17, 17]))   # nel PDF "Duplicati,", "Lunghezza" e il campione interi su una riga
+                      _("Ospite e uomo tolti (%)"), _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe],
+                     (1, 2, 3, 4), [23, 20, 21, 14, 22]))   # "Duplicati,", "Lunghezza" e il campione interi
     if singole:
         h.append('<p class="piccolo">' + _("Per i campioni a lettura singola le \"coppie\" sono read singole.")
                  + "</p>")
