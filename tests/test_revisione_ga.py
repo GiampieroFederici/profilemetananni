@@ -156,3 +156,16 @@ def test_p12_errore_di_lettura_non_lascia_l_analisi_in_corso(progetti_mcp, monke
     esegui_e_aspetta(s)
     a = s.Stato.analisi
     assert not a.in_corso() and a.esito["esito"] == "errore" and a.esito["risultato"]["codice"] == "ERRORE_INTERNO"
+
+
+# ---------------- P13: esegui rifiutato dal motore ----------------
+@pytest.mark.parametrize("opzioni, codice", [("--scenario GIA_IN_CORSO --velocita 0", "GIA_IN_CORSO"),
+                                             ("--scenario inesistente", "ERRORE_INTERNO")])
+def test_p13_esegui_rifiutato_dal_motore_non_dice_avviata(progetti_mcp, opzioni, codice):
+    t = client_mcp()
+
+    async def lavoro(s):
+        r1 = t.dati(await s.call_tool("esegui", {"progetto": "Salame_prova"}))
+        return t.dati(await s.call_tool("esegui", {"progetto": "Salame_prova", "codice_conferma": r1["codice_conferma"]}))
+    r2 = t.con_client(progetti_mcp, lavoro, opzioni=opzioni)
+    assert r2["avviata"] is False and r2["codice"] == codice and r2["motivo"]

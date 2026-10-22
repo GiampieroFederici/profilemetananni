@@ -271,6 +271,12 @@ async def esegui(progetto: str, ctx: Context, codice_conferma: str | None = None
     fine = time.monotonic() + 30
     while a.corsa is None and a.in_corso() and time.monotonic() < fine:   # aspetta l'evento inizio (il codice)
         await asyncio.sleep(0.1)
+    fine = time.monotonic() + 3   # i rifiuti del motore (DB_MANCANTE, CONFIG_NON_VALIDA, GIA_IN_CORSO) arrivano subito dopo inizio
+    while a.in_corso() and time.monotonic() < fine:
+        await asyncio.sleep(0.1)
+    if not a.in_corso() and a.esito.get("esito") != "ok":
+        return {"avviata": False, "corsa": a.corsa, "progetto": cfg.parent.name,
+                "codice": (a.esito.get("risultato") or {}).get("codice"), "motivo": a.esito.get("messaggio")}
     return {"avviata": True, "corsa": a.corsa, "progetto": cfg.parent.name,
             "messaggio": "Analisi avviata. Seguila con stato; per fermarla usa annulla con questo codice."}
 
