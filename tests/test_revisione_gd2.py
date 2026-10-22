@@ -212,3 +212,60 @@ def test_p08_profilo_fatto_si_salta(tmp_path):
     r = p()
     assert r.returncode == 0 and not (tmp_path / "chiamato").exists()
     assert (out / "S1.bowtie2.bz2").read_bytes() == b"mapout intero"
+
+
+# ---------------- P22: rifilatura, gzip -t su R1 e R2 uno dopo l'altro e anche quando fastp si salta ----------------
+# gzip finto: registra inizio e fine di ogni controllo e dorme 1 s; esce con 1 sul file di nome $GZ_ROTTO
+GZIP_LENTO = r"""#!/usr/bin/env bash
+f="$(basename "${@: -1}")"
+echo "inizio $f $(date +%s.%N)" >> "$REGISTRO_GZ"
+sleep 1
+echo "fine $f $(date +%s.%N)" >> "$REGISTRO_GZ"
+[ "$f" != "${GZ_ROTTO:-}" ]
+"""
+# fastp finto: copia gli ingressi nelle uscite
+FASTP = r"""#!/usr/bin/env bash
+I2=""
+while [ $# -gt 0 ]; do
+  case "$1" in -i) I1="$2"; shift 2;; -I) I2="$2"; shift 2;; -o) O1="$2"; shift 2;; -O) O2="$2"; shift 2;;
+    --json|--html) echo '{}' > "$2"; shift 2;; *) shift;; esac
+done
+cp "$I1" "$O1"; [ -z "$I2" ] || cp "$I2" "$O2"
+"""
+
+
+def trim_gz(tmp_path, gia_rifilato=False, rotto=""):
+    b = finti(tmp_path, gzip=GZIP_LENTO, fastp=FASTP, fastqc=FASTQC)
+    r1, r2 = gz_fastq(tmp_path / "R1.fastq.gz", mate=1), gz_fastq(tmp_path / "R2.fastq.gz", mate=2)
+    trim = tmp_path / "trim"
+    if gia_rifilato:
+        gz_fastq(trim / "C1_trim_1.fastq.gz", mate=1)
+        gz_fastq(trim / "C1_trim_2.fastq.gz", mate=2)
+    reg = tmp_path / "gz.log"
+    p = lancia("steps/20_trim.sh", ["--sample", "C1", "--in1", r1, "--in2", r2, "--out", trim, "--threads", "1"], b,
+               REGISTRO_GZ=str(reg), GZ_ROTTO=rotto)
+    eventi = {(r.split()[0], r.split()[1]): float(r.split()[2]) for r in reg.read_text().splitlines()} \
+        if reg.exists() else {}
+    return p, eventi
+
+
+@linux
+def test_p22_gzip_non_lanciato_se_gia_rifilato(tmp_path):
+    p, eventi = trim_gz(tmp_path, gia_rifilato=True)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert eventi == {}                                               # fastp si salta: niente da controllare
+
+
+@linux
+def test_p22_gzip_r1_r2_in_parallelo(tmp_path):
+    p, eventi = trim_gz(tmp_path)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert eventi[("inizio", "R2.fastq.gz")] < eventi[("fine", "R1.fastq.gz")]
+
+
+@linux
+@pytest.mark.parametrize("rotto", ["R1.fastq.gz", "R2.fastq.gz"])
+def test_p22_gzip_rotto_fallisce(tmp_path, rotto):
+    p, _ = trim_gz(tmp_path, rotto=rotto)
+    assert p.returncode != 0 and "corrupt gzip" in p.stdout + p.stderr and rotto in p.stdout + p.stderr
+    assert not (tmp_path / "trim" / "C1_trim_1.fastq.gz").exists()

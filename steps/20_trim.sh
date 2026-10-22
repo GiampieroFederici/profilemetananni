@@ -31,7 +31,6 @@ validate_path_safe "$IN1"   || die "Unsafe input path (in1)"
 validate_path_safe "$OUT"   || die "Unsafe output path"
 validate_uint "$THREADS"    || die "threads must be a non-negative integer"
 [ -s "$IN1" ] || die "input not found or empty: $(sanitize_for_log "$IN1")"
-gzip -t "$IN1" 2>/dev/null  || die "corrupt gzip: $(sanitize_for_log "$IN1")"
 mkdir -p "$OUT" || die "cannot create $OUT"
 
 out1="$OUT/${SAMPLE}_trim_1.fastq.gz"
@@ -42,12 +41,16 @@ html="$OUT/${SAMPLE}_fastp.html"
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
   [ -s "$IN2" ] || die "input not found or empty: $(sanitize_for_log "$IN2")"
-  gzip -t "$IN2" 2>/dev/null || die "corrupt gzip: $(sanitize_for_log "$IN2")"
 fi
 
 if [ -s "$out1" ]; then
   ok "$(say "$SAMPLE already trimmed -> skip fastp" "$SAMPLE già rifilato -> salto fastp")"
 else
+  # gzip integrity only when fastp really runs (a rerun skips it), R1 and R2 at the same time
+  gzip -t "$IN1" 2>/dev/null & g1=$!
+  g2=""; if [ -n "$IN2" ]; then gzip -t "$IN2" 2>/dev/null & g2=$!; fi
+  wait "$g1" || die "corrupt gzip: $(sanitize_for_log "$IN1")"
+  [ -z "$g2" ] || wait "$g2" || die "corrupt gzip: $(sanitize_for_log "$IN2")"
   # fastp writes hidden .part files next to the outputs, renamed (same folder = atomic) only when it has finished:
   # a run stopped half-way leaves no _trim_1, so the skip above never takes truncated reads. _trim_1 goes last.
   # The names end in .fastq.gz: fastp compresses only an output named *.gz.
