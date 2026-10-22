@@ -47,6 +47,16 @@ def dentro(progetto, percorso):
     return None
 
 
+def file_referto(progetto, d):
+    """{html, pdf, xlsx, qc: percorso o None} dei file del referto nominati in risultati.json."""
+    r = dict(d.get("referto") or {})
+    r["qc"] = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
+    # P19: solo l'estensione attesa, perché PDF, Excel e QC si aprono col programma di Windows (un .bat partirebbe)
+    attesa = {"html": ".html", "pdf": ".pdf", "xlsx": ".xlsx", "qc": ".html"}
+    return {k: (dentro(progetto, progetto.risultati / r[k])
+                if r.get(k) and str(r[k]).lower().endswith(attesa[k]) else None) for k in attesa}
+
+
 def corsivo(testo, nomi):
     """Testo del motore in HTML sicuro, con i nomi delle specie in corsivo."""
     testo = html.escape(testo)
@@ -68,13 +78,23 @@ class PaginaRisultati(Pagina):
         super().__init__(contesto, parent)
         self.contenuto = None
         self.dati = None
+        self._chiave = None
 
     def mostrata(self):
+        # P25: la pagina dipende solo dal progetto, da risultati.json e dai file del referto che ci sono; se nulla è
+        # cambiato non si rifà (con 30 campioni costava circa 1 s) e torna solo alla prima scheda, come una nuova
+        progetto = self.contesto.progetto
+        dati = leggi_risultati(progetto)
+        chiave = None if dati is None else (str(progetto.cartella), dati, file_referto(progetto, dati))
+        if chiave is not None and chiave == self._chiave and self.contenuto is not None:
+            self.linguette.setCurrentIndex(0)
+            self.azioni_cambiate.emit()
+            return
+        self._chiave = chiave
         if self.contenuto is not None:
             self.contenuto.setParent(None)
             self.contenuto.deleteLater()
-        progetto = self.contesto.progetto
-        self.dati = leggi_risultati(progetto)
+        self.dati = dati
         self.contenuto = QWidget()
         self.lista = QVBoxLayout(self.contenuto)
         self.lista.setContentsMargins(0, 0, 0, 0)
@@ -152,10 +172,7 @@ class PaginaRisultati(Pagina):
             self.lista.addWidget(etichetta(f"{i}. {c}", "nota"))
 
     def _referto(self, progetto, d):
-        r = d.get("referto") or {}
-        self.file = {k: (dentro(progetto, progetto.risultati / r[k]) if r.get(k) else None) for k in ("html", "pdf", "xlsx")}
-        multiqc = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
-        self.file["qc"] = dentro(progetto, progetto.risultati / multiqc) if multiqc else None
+        self.file = file_referto(progetto, d)
         riga = QHBoxLayout()
         riga.setSpacing(12)
         pulsanti = [(_("Apri il referto"), "html", self.apri_referto),
