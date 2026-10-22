@@ -24,8 +24,9 @@ LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_
 FONTE_CONFIDENZA = N_("Consigliato 0,5 con il database completo (taratura K4 su comunità simulate di salume, "
                       "confermata sul campione Zymo) e 0,1 con lo screening rapido: per i database ridotti si "
                       "consiglia fra 0,05 e 0,30 (Wright, Comeau e Langille 2023).")
-FONTE_SOGLIA = N_("Consigliato 0,1 % con il database completo (taratura K4) e 0,005 % con lo screening rapido "
-                  "(Edwin et al. 2024, campioni di suolo). Le specie sotto la soglia restano nel file Excel.")
+FONTE_SOGLIA = N_("Vale solo per Kraken: MetaPhlAn non ha soglia e mostra tutte le specie. Consigliato 0,1 % con il "
+                  "database completo (taratura K4) e 0,005 % con lo screening rapido (Edwin et al. 2024, campioni "
+                  "di suolo). Le specie sotto la soglia restano nel file Excel.")
 FONTE_LETTURE = N_("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
                    "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
 FONTE_LUNGHEZZA = N_("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
@@ -151,7 +152,7 @@ class PaginaScelte(Pagina):
         self.lunghezza = QComboBox()
         self.letture = QComboBox()
         righe = [(_("Soglia di confidenza di Kraken"), self.confidenza, _(FONTE_CONFIDENZA)),
-                 (_("Abbondanza minima mostrata"), self.soglia, _(FONTE_SOGLIA)),
+                 (_("Soglia di abbondanza di Kraken"), self.soglia, _(FONTE_SOGLIA)),
                  (_("Read minime per specie (Bracken)"), self.letture, _(FONTE_LETTURE)),
                  (_("Lunghezza delle read (Bracken)"), self.lunghezza, _(FONTE_LUNGHEZZA))]
         for i, (nome, campo, fonte) in enumerate(righe):

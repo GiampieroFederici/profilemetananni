@@ -320,7 +320,7 @@ class PaginaRisultati(Pagina):
                   + {"rapido": _(" (screening rapido)"), "completo": _(" (completo)")}.get(profilo, "")),
                  (_("Soglia di confidenza di Kraken"), lingua.virgola(p.get("kraken_confidence", ""))),
                  (_("Read minime per specie (Bracken)"), str(p.get("bracken_min_reads", ""))),
-                 (_("Abbondanza minima mostrata"), lingua.virgola(p.get("abundance_threshold_pct", "")) + " %")]
+                 (_("Soglia di abbondanza di Kraken"), lingua.virgola(p.get("abundance_threshold_pct", "")) + " %")]
         tab = QWidget()
         g = QGridLayout(tab)
         g.setContentsMargins(0, 0, 0, 0)

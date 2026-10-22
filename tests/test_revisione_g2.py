@@ -536,3 +536,18 @@ def test_p32_articolo_davanti_alla_quota_non_assegnata(request, valore, atteso):
     w = pag._scheda_metaphlan([{"nome": "S1", "sintesi": {"metaphlan": {
         "specie": 1, "dominanti": [{"nome": "X", "pct": 50.0}], "non_assegnata_pct": valore, "frase": ""}}}])
     assert any(t.startswith(f"Percentuale sul totale delle read del campione. {atteso} non è") for t in etichette_qt(w))
+
+
+def test_p35_la_soglia_di_abbondanza_e_solo_di_kraken(request):
+    """App: "Abbondanza minima mostrata" accanto alla riga MetaPhlAn faceva pensare a una soglia anche lì."""
+    pytest.importorskip("pytestqt")
+    request.getfixturevalue("qapp")
+    sys.path.insert(0, str(RADICE))
+    from app.pagine import risultati, scelte
+    assert "Vale solo per Kraken: MetaPhlAn non ha soglia" in scelte.FONTE_SOGLIA
+    for modulo in (risultati, scelte):
+        assert "Abbondanza minima mostrata" not in Path(modulo.__file__).read_text(encoding="utf-8")
+    pag = risultati.PaginaRisultati.__new__(risultati.PaginaRisultati)
+    t = etichette_qt(pag._scheda_come({"parametri": {"abundance_threshold_pct": "0.1", "kraken_confidence": "0.5"},
+                                      "versioni": {"metaphlan": "4.2.4"}}))
+    assert t[t.index("0,1 %") - 1] == "Soglia di abbondanza di Kraken"
