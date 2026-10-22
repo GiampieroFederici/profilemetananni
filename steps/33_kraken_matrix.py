@@ -4,12 +4,20 @@
 # Conda env: pmn_reports_py (pandas).
 #
 # Usage: 33_kraken_matrix.py --in DIR --out MATRIX.tsv [--value percent|fraction]
+#                             [--taxa-out MATRIX_TAXA.tsv --threshold-pct P]
+# --taxa-out (22/10): the same taxa as the Kraken profile of the report (D023, D128): only bacteria, archaea and fungi
+# (tree of <sample>.k2report next to the .bracken), cells below P % of the total assigned set to 0. Used for the
+# Kraken beta diversity, so Homo, Leishmania and viruses never enter it.
 import argparse
 import glob
 import os
 import sys
+from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motore"))
+import referto  # noqa: E402  (categorie_kraken, MICROBI: one rule for report and diversity)
 
 
 def main() -> int:
@@ -17,6 +25,8 @@ def main() -> int:
     ap.add_argument("--in", dest="indir", required=True, help="directory with *.bracken files")
     ap.add_argument("--out", dest="out", required=True, help="output TSV (taxa x samples)")
     ap.add_argument("--value", choices=["percent", "fraction"], default="percent")
+    ap.add_argument("--taxa-out", help="output TSV with the product taxa only (bacteria, archaea, fungi)")
+    ap.add_argument("--threshold-pct", type=float, default=0.0, help="Kraken abundance threshold in %% (with --taxa-out)")
     a = ap.parse_args()
 
     if not os.path.isdir(a.indir):
@@ -25,7 +35,7 @@ def main() -> int:
     if not files:
         sys.exit(f"no *.bracken files in {a.indir}")
 
-    columns = {}
+    columns, prodotto = {}, {}
     for f in files:
         sample = os.path.basename(f)[: -len(".bracken")]
         try:
@@ -36,6 +46,13 @@ def main() -> int:
         if "name" not in df.columns or "fraction_total_reads" not in df.columns:
             sys.exit(f"unexpected Bracken format (missing columns) in: {f}")
         series = df.set_index("name")["fraction_total_reads"].astype(float)
+        if a.taxa_out:
+            rep = f[: -len(".bracken")] + ".k2report"
+            cat = referto.categorie_kraken(rep) if os.path.isfile(rep) else {}
+            tieni = df["taxonomy_id"].astype(str).map(lambda t: cat.get(t, "altro") in referto.MICROBI).to_numpy()
+            sopra = (series * 100.0 >= a.threshold_pct).to_numpy()
+            p = series[tieni & sopra] * (100.0 if a.value == "percent" else 1.0)
+            prodotto[sample] = p.groupby(level=0).sum()
         if a.value == "percent":
             series = series * 100.0
         # collapse possible duplicate taxon names by summing
@@ -54,6 +71,11 @@ def main() -> int:
     os.makedirs(os.path.dirname(out_abs), exist_ok=True)
     matrix.to_csv(out_abs, sep="\t", float_format="%.6f")
     print(f"[OK] matrix {matrix.shape[0]} taxa x {matrix.shape[1]} samples -> {a.out}")
+    if a.taxa_out:
+        taxa = pd.DataFrame(prodotto, columns=list(columns)).fillna(0.0)
+        taxa.index.name = "species"
+        taxa.sort_index().to_csv(os.path.abspath(a.taxa_out), sep="\t",float_format="%.6f")
+        print(f"[OK] product taxa {taxa.shape[0]} x {taxa.shape[1]} samples -> {a.taxa_out}")
     return 0
 
 

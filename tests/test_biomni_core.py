@@ -18,6 +18,7 @@ k__Bacteria|s__Rare_bug\t0.0005\t0.0
 KRK = """taxon\tS1\tS2
 Latilactobacillus sakei\t35.0\t12.0
 Brochothrix thermosphacta\t2.0\t1.0
+Rare kraken\t0.0005\t0.0
 """
 
 
@@ -45,10 +46,12 @@ def test_union_marks_shared_taxa(tables):
     assert got["Brochothrix thermosphacta"] == "kraken"
 
 
-def test_threshold_drops_rare_taxa(tables):
-    m, _ = tables
-    got = dict(core.select_taxa(m, "", threshold_pct=0.001, max_taxa=50))
-    assert "Rare bug" not in got
+def test_threshold_only_for_kraken(tables):
+    """D128 (22/10): the threshold drops rare Kraken taxa only; MetaPhlAn is never filtered."""
+    m, k = tables
+    got = dict(core.select_taxa(m, k, threshold_pct=0.001, max_taxa=50))
+    assert got["Rare bug"] == "metaphlan"
+    assert "Rare kraken" not in got
 
 
 def test_max_taxa_is_a_hard_cap(tables):
