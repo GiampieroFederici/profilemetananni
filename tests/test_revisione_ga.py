@@ -169,3 +169,24 @@ def test_p13_esegui_rifiutato_dal_motore_non_dice_avviata(progetti_mcp, opzioni,
         return t.dati(await s.call_tool("esegui", {"progetto": "Salame_prova", "codice_conferma": r1["codice_conferma"]}))
     r2 = t.con_client(progetti_mcp, lavoro, opzioni=opzioni)
     assert r2["avviata"] is False and r2["codice"] == codice and r2["motivo"]
+
+
+# ---------------- P11: avvio con wsl.exe appeso ----------------
+@solo_qt
+def test_p11_avvio_con_motore_appeso_non_resta_bloccato(qtbot, monkeypatch):
+    """wsl.exe che non risponde: dopo AVVIO_MAX_MS l'app chiude info e va a I miei progetti con MOTORE_NON_AVVIATO."""
+    from app import finestra, motore
+    from test_app_scheletro import pagine_finte
+    python = getattr(sys, "_base_executable", sys.executable)     # non il lanciatore del venv: kill() chiude tutto
+    monkeypatch.setattr(motore, "comando_motore", lambda: ([python, "-c", "import time; time.sleep(3600)"], []))
+    monkeypatch.setattr(finestra, "AVVIO_MIN_MS", 0)
+    monkeypatch.setattr(finestra, "AVVIO_MAX_MS", 1500)
+    monkeypatch.setattr(finestra, "PAGINE", pagine_finte())
+    f = finestra.Finestra(movimento=False)
+    qtbot.addWidget(f)
+    eventi = []
+    f.avvia()
+    f.client_info.evento.connect(eventi.append)
+    qtbot.waitUntil(lambda: f.fuori.currentIndex() == 1, timeout=10000)
+    assert not f.client_info.in_corso() and f.contesto.info is None
+    assert [e.get("codice") for e in eventi if e["tipo"] == "errore"] == ["MOTORE_NON_AVVIATO"]
