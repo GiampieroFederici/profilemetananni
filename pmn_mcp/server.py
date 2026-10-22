@@ -220,8 +220,10 @@ def riassunto(s):
     r = s.get("risultato") or {}
     if s.get("esito") != "ok":
         return f"Stima non riuscita: {s.get('messaggio')}"
+    def it(x):   # la frase è sempre in italiano: virgola per i decimali
+        return str(x).replace(".", ",")
     return (f"{r.get('campioni')} campioni, circa {round((r.get('tempo_totale_s') or 0) / 60)} minuti, "
-            f"{r.get('spazio_gb')} GB di spazio (liberi {r.get('spazio_libero_gb')} GB).")
+            f"{it(r.get('spazio_gb'))} GB di spazio (liberi {it(r.get('spazio_libero_gb'))} GB).")
 
 
 @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False,
