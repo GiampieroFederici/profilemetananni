@@ -282,9 +282,10 @@ async def esegui(progetto: str, ctx: Context, codice_conferma: str | None = None
 
 
 @server.tool(annotations=SOLO_LETTURA)
-async def stato() -> dict:
-    """Come va l'analisi avviata da qui con esegui: ultimo avanzamento, tempo che resta, e alla fine il risultato.
-    Restituisce tutti gli eventi del motore arrivati finora (gli stessi che vede l'app)."""
+async def stato(dal: int = 0) -> dict:
+    """Come va l'analisi avviata da qui con esegui: ultimo avanzamento, tempo che resta, e alla fine il risultato
+    (in `fine`). `eventi`: gli eventi del motore (gli stessi che vede l'app) dalla posizione `dal` in poi, senza il
+    risultato; passa `prossimo` come `dal` alla chiamata dopo per ricevere solo quelli nuovi."""
     a = Stato.analisi
     if a is None:
         return {"analisi": None, "messaggio": "Nessuna analisi avviata da questo server."}
@@ -292,7 +293,8 @@ async def stato() -> dict:
     return {"corsa": a.corsa, "progetto": a.progetto.parent.name, "in_corso": a.in_corso(),
             "percentuale": ultimo.get("percentuale"), "messaggio": ultimo.get("messaggio"), "eta_s": ultimo.get("eta_s"),
             "fine": None if a.in_corso() else {k: a.esito[k] for k in ("esito", "messaggio", "risultato")},
-            "eventi": list(a.eventi)}
+            "eventi": [{k: v for k, v in e.items() if k != "risultato"} for e in a.eventi[max(dal, 0):]],
+            "prossimo": len(a.eventi)}
 
 
 @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False))

@@ -230,3 +230,21 @@ def test_p17_controprova_cartella_senza_simboli(monkeypatch, tmp_path):
     from app import progetto
     p = progetto.nuovo("prova1", radice=tmp_path / "Documenti" / "ProfileMetaNanni")
     assert p.cartella.is_dir() and progetto.percorso_sicuro(p.codici_campioni)
+
+
+# ---------------- P26: stato senza il risultato doppio, solo gli eventi nuovi ----------------
+def test_p26_stato_senza_risultato_doppio_e_solo_eventi_nuovi(progetti_mcp, monkeypatch):
+    import asyncio
+    s = server_mcp()
+    a = s.Analisi(progetti_mcp / "Salame_prova" / "config.yaml")
+    a.eventi += [{"tipo": "inizio", "corsa": "2026-10-22T10-00-00"}] + \
+        [{"tipo": "avanzamento", "percentuale": p, "messaggio": "m", "eta_s": 1} for p in (10, 50, 90)] + \
+        [{"tipo": "fine", "esito": "ok", "messaggio": "ok", "risultato": {"x": 1}}]
+    a.esito = {"esito": "ok", "messaggio": "ok", "risultato": {"x": 1}, "eventi": a.eventi}
+    monkeypatch.setattr(s.Stato, "analisi", a)
+    st = asyncio.run(s.stato())
+    assert st["fine"]["risultato"] == {"x": 1} and st["eventi"][-1]["tipo"] == "fine"
+    assert "risultato" not in st["eventi"][-1] and st["prossimo"] == 5 and len(st["eventi"]) == 5
+    assert asyncio.run(s.stato(dal=st["prossimo"]))["eventi"] == []
+    assert [e["tipo"] for e in asyncio.run(s.stato(dal=4))["eventi"]] == ["fine"]
+    assert "risultato" in a.eventi[-1]                           # gli eventi dell'analisi restano interi
