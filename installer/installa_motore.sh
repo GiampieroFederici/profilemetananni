@@ -119,7 +119,7 @@ evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
 }
 fallisci() {  # codice messaggio cosa_fare
   evento errore null "$2" "$1" "$3"
-  PASSO=fine; ESITO=errore; RISULTATO="{\"codice\":\"$1\"}"
+  RISULTATO="{\"codice\":\"$1\",\"passo\":\"$PASSO\"}"; PASSO=fine; ESITO=errore   # contratto v0.3: {"codice", "passo"}
   evento fine null "$(T 'Installazione non completata. Rilanciala quando hai risolto: riprende da qui.')"
   exit 2
 }
@@ -157,9 +157,19 @@ read -r DA_SCARICARE SERVONO < <(
     if fatto "$d" "$m"; then continue; fi
     echo "$t $b $bf"
   done | awk '{s+=$2; f+=$3; if ($1=="tar" && $2>a) a=$2} END {printf "%d %d\n", s, f+a}')
-GB() { awk -v b="$1" 'BEGIN {printf "%.0f", b/1e9}'; }
+GIB=1073741824   # 22/10: GB mostrati come Esplora file e installa_pmn.ps1 (1.024^3 byte)
+GB() { awk -v b="$1" -v g="$GIB" 'BEGIN {printf "%.0f", b/g}'; }
 LIBERI=$(( $(df -Pk "$PMN_HOME" | awk 'NR==2 {print $4}') * 1024 ))
-SERVONO=$(( SERVONO + GB_PROGRAMMI * 1000000000 ))
+export MAMBA_ROOT_PREFIX=$PMN_HOME/mamba
+uguale_al_blocco() {  # env: i pacchetti installati sono esattamente quelli del file di blocco?
+  local d=$MAMBA_ROOT_PREFIX/envs/$1
+  [ -d "$d/conda-meta" ] || return 1
+  diff -q <(grep '^https://' "$PMN_ROOT/installer/lock/$1.txt" | sed 's|.*/||; s|#.*||; s|\.conda$||; s|\.tar\.bz2$||' | sort) \
+          <(cd "$d/conda-meta" && ls -- *.json | sed 's|\.json$||' | sort) > /dev/null
+}
+for e in "${ENVS[@]}"; do   # 22/10: lo spazio dei programmi serve solo se un ambiente manca o va rifatto
+  if ! uguale_al_blocco "$e"; then SERVONO=$(( SERVONO + GB_PROGRAMMI * 1000000000 )); break; fi
+done
 evento avanzamento 1 "$(T 'Da scaricare: circa %s GB. Spazio necessario: %s GB. Spazio libero: %s GB.' "$(GB "$DA_SCARICARE")" "$(GB "$SERVONO")" "$(GB "$LIBERI")")"
 [ "$LIBERI" -gt "$SERVONO" ] \
   || fallisci SPAZIO_INSUFFICIENTE "$(T 'Lo spazio libero non basta: servono %s GB, ce ne sono %s.' "$(GB "$SERVONO")" "$(GB "$LIBERI")")" "$(T 'Libera spazio sul disco e rilancia.')"
@@ -169,8 +179,9 @@ v=0
 if [ "$DA_SCARICARE" -gt 0 ]; then
   primo=$(tail -n +2 "$CATALOGO" | while IFS=$'\t' read -r g t s p b bf m d; do
     if ! fatto "$d" "$m"; then echo "$s $p"; break; fi; done) || true
-  v=$(curl -fsL -r 0-16777215 -o /dev/null -w '%{speed_download}' "$(url_di ${primo% *} ${primo#* })" || echo 0)
-  v=${v%.*}
+  # 22/10: al massimo 60 s; se scade, curl dice lo stesso la velocita' misurata fin li'
+  v=$(curl -fsL --max-time 60 -r 0-16777215 -o /dev/null -w '%{speed_download}' "$(url_di ${primo% *} ${primo#* })") || true
+  v=${v%.*}; v=${v:-0}
   if [ "${v:-0}" -gt 0 ]; then
     min=$(awk -v b="$DA_SCARICARE" -v v="$v" 'BEGIN {printf "%d", b/v/60 + 1}')
     if [ "$min" -eq 1 ]; then t=$(T '1 minuto'); elif [ "$min" -lt 60 ]; then t=$(T '%s minuti' "$min"); else t=$(T '%s ore' "$(num "$min" 60 1)"); fi
@@ -180,7 +191,7 @@ if [ "$DA_SCARICARE" -gt 0 ]; then
   fi
 fi
 if [ "$STIMA" = 1 ]; then
-  GB1() { awk -v b="$1" 'BEGIN {printf "%.1f", b/1e9}'; }
+  GB1() { awk -v b="$1" -v g="$GIB" 'BEGIN {printf "%.1f", b/g}'; }
   if [ "$v" -gt 0 ]; then vel=$(awk -v v="$v" 'BEGIN {printf "%.1f", v/1e6}'); tempo=$((DA_SCARICARE / v))
   elif [ "$DA_SCARICARE" = 0 ]; then vel=null; tempo=0
   else vel=null; tempo=null; fi
@@ -205,13 +216,6 @@ if ! { [ -x "$MM" ] && echo "$MICROMAMBA_SHA256  $MM" | sha256sum -c --status; }
     || { rm -f "$MM.parziale"; fallisci DB_ROVINATO "$(T 'Il file di micromamba scaricato è rovinato.')" "$(T "Rilancia l'installazione.")"; }
   chmod +x "$MM.parziale"; mv "$MM.parziale" "$MM"
 fi
-export MAMBA_ROOT_PREFIX=$PMN_HOME/mamba
-uguale_al_blocco() {  # env: i pacchetti installati sono esattamente quelli del file di blocco?
-  local d=$MAMBA_ROOT_PREFIX/envs/$1
-  [ -d "$d/conda-meta" ] || return 1
-  diff -q <(grep '^https://' "$PMN_ROOT/installer/lock/$1.txt" | sed 's|.*/||; s|#.*||; s|\.conda$||; s|\.tar\.bz2$||' | sort) \
-          <(cd "$d/conda-meta" && ls -- *.json | sed 's|\.json$||' | sort) > /dev/null
-}
 i=0
 for e in "${ENVS[@]}"; do
   i=$((i + 1))
@@ -251,7 +255,7 @@ while IFS=$'\t' read -r g t s p b bf m d; do
   url=$(url_di "$s" "$p"); ETA=$(eta)
   if [ "$t" = file ]; then
     f=$PMN_HOME/db/$d; mkdir -p "$(dirname "$f")"
-    evento avanzamento "$(pct)" "$(T 'Scarico %s: %s (%s GB)...' "$g" "$(basename "$d")" "$(num "$b" 1e9 2)")"
+    evento avanzamento "$(pct)" "$(T 'Scarico %s: %s (%s GB)...' "$g" "$(basename "$d")" "$(num "$b" "$GIB" 2)")"
     scarica "$url" "$f.parziale" "$b" || fallisci DOWNLOAD_FALLITO "$(T 'Non riesco a scaricare %s.' "$(basename "$d")")" "$(T 'Controlla la connessione e rilancia.')"
     if [ "$(md5sum < "$f.parziale" | cut -d' ' -f1)" != "$m" ]; then
       rm -f "$f.parziale"; fallisci DB_ROVINATO "$(T 'Il file %s scaricato è rovinato (MD5 diverso).' "$(basename "$d")")" "$(T 'Rilancia: lo riscarico da capo.')"
@@ -259,7 +263,7 @@ while IFS=$'\t' read -r g t s p b bf m d; do
     mv "$f.parziale" "$f"
   else
     a=$PMN_HOME/tmp/$(basename "$p").parziale; dir=$PMN_HOME/db/$d
-    evento avanzamento "$(pct)" "$(T 'Scarico %s (%s GB, archivio da estrarre)...' "$g" "$(num "$b" 1e9 1)")"
+    evento avanzamento "$(pct)" "$(T 'Scarico %s (%s GB, archivio da estrarre)...' "$g" "$(num "$b" "$GIB" 1)")"
     scarica "$url" "$a" "$b" || fallisci DOWNLOAD_FALLITO "$(T 'Non riesco a scaricare %s.' "$(basename "$p")")" "$(T 'Controlla la connessione e rilancia.')"
     if [ "$(md5sum < "$a" | cut -d' ' -f1)" != "$m" ]; then
       rm -f "$a"; fallisci DB_ROVINATO "$(T "L'archivio %s scaricato è rovinato (MD5 diverso)." "$(basename "$p")")" "$(T 'Rilancia: lo riscarico da capo.')"

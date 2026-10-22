@@ -36,8 +36,8 @@ def controlla(stdout, codice_uscita, comando):
             assert e["eta_s"] is None or e["eta_s"] >= 0
         if e["tipo"] in ("avviso", "errore"):
             assert e["codice"] in CODICI
-        if e["tipo"] == "errore" and "passo" in e:      # v0.2: dove si e' fermato (null = prima di iniziare)
-            assert e["passo"] is None or e["passo"] in PASSI
+        if e["tipo"] == "errore":      # v0.2: dove si e' fermato (null = prima di iniziare); D068: anche l'installatore
+            assert "passo" in e and (e["passo"] is None or e["passo"] in PASSI)
     assert ev[0]["tipo"] == "inizio" and ev[0]["comando"] == comando
     fini = [e for e in ev if e["tipo"] == "fine"]
     assert len(fini) == 1 and ev[-1]["tipo"] == "fine"
@@ -46,6 +46,7 @@ def controlla(stdout, codice_uscita, comando):
     if esito == "errore":
         assert any(e["tipo"] == "errore" for e in ev)
         assert codice_uscita in (1, 2, 4)
+        assert {"codice", "passo"} <= set(fini[0]["risultato"])      # v0.3; l'installatore dal 22/10
     else:
         assert codice_uscita == USCITA[esito]
     return ev
