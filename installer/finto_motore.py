@@ -172,8 +172,7 @@ class Motore:
                  ("programmi", 2, 300, N_("Installo i programmi (8 ambienti)...")),
                  ("database", 22, 3600, N_("Scarico i database e controllo che siano integri...")),
                  ("verifica", 93, 300, N_("Prova finale su un piccolo campione (alcuni minuti)..."))]
-        blocco = STATO / "installa.lock"   # P41: come il vero, annulla --corsa ferma anche l'installazione
-        blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid()}), encoding="utf-8")
+        blocco = STATO / "installa.lock"   # P41: come il vero, annulla ferma anche l'installazione (scritto in main)
         try:
             for passo, pct, sec, msg in passi:
                 self.evento("avanzamento", _(msg), passo=passo, campione=None, fatto=0, totale=1, percentuale=pct,
@@ -379,6 +378,8 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")   # JSON Lines in UTF-8 anche su Windows (pipe = cp1252)
     STATO.mkdir(exist_ok=True)
     m = Motore(a)
+    if a.comando == "installa":   # come installa_motore.sh: il lucchetto c'è già quando esce l'evento inizio
+        (STATO / "installa.lock").write_text(json.dumps({"corsa": m.corsa, "pid": os.getpid()}), encoding="utf-8")
     m.evento("inizio", _("Comando {comando} avviato (motore finto).", comando=a.comando), comando=a.comando,
              corsa=m.corsa, log=str(m.log))
     try:

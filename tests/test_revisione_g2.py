@@ -329,3 +329,52 @@ def test_motore_si_riaccende_quando_l_analisi_finisce(request, monkeypatch, tmp_
     f.pagine["esecuzione"].client.finito.emit(0, {"tipo": "fine", "esito": "ok"})   # l'analisi finisce
     assert f.contesto.progetto_in_analisi is None
     assert f.principale.isEnabled() and f.pagine["motore"].principale_attivo
+
+
+# ---------------- P41/P02 (secondo giro): ordine di lucchetti e segni di annulla ----------------
+def test_finto_installa_ha_il_lucchetto_gia_all_evento_inizio(tmp_path, monkeypatch, capsys):
+    """installa_motore.sh scrive installa.lock prima dell'evento inizio: chi legge la corsa dall'evento inizio e
+    chiama subito annulla la trova. Il finto lo scriveva dopo, dentro installa()."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("finto_motore_g2", RADICE / "installer" / "finto_motore.py")
+    fm = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fm)
+    monkeypatch.setattr(fm, "STATO", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["finto_motore.py", "installa", "--velocita", "0"])
+    visti = []
+    monkeypatch.setattr(fm.Motore, "evento", lambda self, tipo, *a, **k: visti.append(
+        (tipo, (tmp_path / "installa.lock").exists())))
+    assert fm.main() == 0
+    assert visti[0] == ("inizio", True)
+    assert not (tmp_path / "installa.lock").exists()                    # tolto alla fine, come prima
+
+
+def test_annulla_crea_il_segno_prima_di_leggere_il_lucchetto(tmp_path, monkeypatch):
+    """Gara di P02: annulla leggeva esegui.lock (pgid ancora None), esegui intanto guardava .annulla (non c'era
+    ancora), lanciava run.sh e riscriveva il lucchetto col pgid; poi annulla creava .annulla ma, col pgid letto
+    prima, non fermava nulla: l'analisi andava fino in fondo. Con il segno creato prima, esegui lo vede sempre."""
+    from types import SimpleNamespace
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore as pm
+    monkeypatch.setattr(pm, "STATO", tmp_path)
+    corsa = "2026-10-22T10-00-00"
+    (tmp_path / "esegui.lock").write_text(f'{{"corsa": "{corsa}", "pid": {os.getpid()}, "pgid": null}}',
+                                          encoding="utf-8")
+    segno_al_momento = []
+    leggi = Path.read_text
+
+    def read_text(self, *a, **k):
+        if self.name == "esegui.lock":
+            segno_al_momento.append((tmp_path / f"{corsa}.annulla").exists())
+        return leggi(self, *a, **k)
+    monkeypatch.setattr(Path, "read_text", read_text)
+    m = pm.Motore(SimpleNamespace(comando="annulla", corsa=corsa))
+    m.log = tmp_path / "x.log"
+    assert m.annulla()[1] == {"annullata": True}
+    assert segno_al_momento == [True]
+    # corsa che non c'è, o con un percorso dentro: nessun segno rimasto, niente scritto fuori da STATO
+    for altra in ("2026-10-22T11-00-00", "../fuori"):
+        m.a.corsa = altra
+        assert m.annulla()[1] == {"annullata": False}
+    assert {p.name for p in tmp_path.iterdir()} - {"x.log"} == {"esegui.lock", f"{corsa}.annulla"}
+    assert not (tmp_path.parent / "fuori.annulla").exists()

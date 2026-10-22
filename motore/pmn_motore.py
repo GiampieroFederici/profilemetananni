@@ -769,6 +769,13 @@ class Motore:
 
     # ---------------- annulla ----------------
     def annulla(self):
+        # P02: il segno si crea PRIMA di leggere esegui.lock. Se esegui lancia run.sh e riscrive il lucchetto col pgid
+        # dopo la nostra lettura (pgid ancora None), lo vede comunque al controllo dopo il Popen e ferma run.sh.
+        nessuna = "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
+        if not (re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}", self.a.corsa) and STATO.is_dir()):
+            return nessuna   # i lucchetti hanno sempre una corsa così: niente percorsi fuori da STATO
+        segno = STATO / f"{self.a.corsa}.annulla"
+        segno.touch()
         for nome in ("esegui.lock", "installa.lock"):   # P41: anche l'installazione si ferma
             try:
                 dati = json.loads((STATO / nome).read_text(encoding="utf-8"))
@@ -777,15 +784,15 @@ class Motore:
             if dati and dati.get("corsa") == self.a.corsa:
                 break
         else:
-            return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
-        if nome == "esegui.lock":
-            (STATO / f"{self.a.corsa}.annulla").touch()
-        else:
+            segno.unlink(missing_ok=True)
+            return nessuna
+        if nome == "installa.lock":
+            segno.unlink(missing_ok=True)   # installa_motore.sh non lo guarda: si ferma col segnale
             try:   # lock rimasto da un'installazione chiusa male: il suo pgid può essere già di altri, non si manda nulla
                 os.kill(dati["pid"], 0)
             except (ProcessLookupError, PermissionError, KeyError, TypeError):   # PermissionError: pid già di altri
                 (STATO / nome).unlink(missing_ok=True)
-                return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
+                return nessuna
         if dati.get("pgid"):
             for segnale, attesa in ((signal.SIGTERM, 10), (signal.SIGKILL, 5)):
                 try:
