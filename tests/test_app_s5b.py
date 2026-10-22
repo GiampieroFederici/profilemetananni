@@ -15,7 +15,7 @@ RADICE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RADICE))
 
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
-from PySide6.QtWidgets import QLabel, QPushButton  # noqa: E402
+from PySide6.QtWidgets import QCheckBox, QLabel, QPushButton  # noqa: E402
 
 from app import finestra, motore, progetto  # noqa: E402
 from app.pagine import crediti, scelte  # noqa: E402
@@ -301,11 +301,13 @@ def test_tempo_totale_dal_motore(qtbot, f):
     assert f.aiuto.text() == "Tempo stimato: circa 6 minuti. Spazio: meno di 1 GB."        # campione d'esempio
 
 
-def test_virus_sempre_con_riquadro_ambra(qtbot, f):
+def test_virus_nascosto_finche_non_arriva_al_motore(qtbot, f):
+    """22/10, Giampiero: "Anche i virus" non arriva a bin/run.sh, quindi non si mostra; il progetto scrive false."""
     s = vai_alle_scelte(qtbot, f)
-    assert "Sperimentale, non validata." in scritte(s)        # R13
-    s.virus.setChecked(True)
-    assert f.contesto.progetto.leggi()["motore"]["virus"] is True
+    assert not s.scheda_virus.isVisibleTo(s) and not s.virus.isVisibleTo(s)
+    assert "Anche i virus" not in [b.text() for b in s.findChildren(QCheckBox) if b.isVisibleTo(s)]
+    assert "Sperimentale, non validata." not in scritte(s)
+    assert f.contesto.progetto.leggi()["motore"]["virus"] is False
 
 
 def test_stima_con_errore_porta_dove_si_risolve(qtbot, f, monkeypatch):
