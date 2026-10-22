@@ -194,3 +194,24 @@ def test_p25_risultati_non_si_rifanno_se_nulla_cambia(f, tmp_path):
     f.contesto.progetto = None
     f.vai("risultati")
     assert f.principale.text() == "Apri i miei progetti"
+
+
+# ---------------- P42: nomi dei database del motore vero ----------------
+def test_p42_database_del_motore_vero_in_italiano(qtbot, monkeypatch):
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore
+    from app.pagine import motore as pagina
+    from app.pagine.base import Contesto
+    from PySide6.QtWidgets import QLabel
+    nomi = [d["nome"] for d in pmn_motore.elenco_database({})]
+    assert [n for n in nomi if n not in pagina.NOMI_DB] == []
+    monkeypatch.setattr(pagina, "spazio_windows_gb", lambda: None)
+    c = Contesto()
+    c.info = {"database": [{"nome": n, "installato": True} for n in nomi], "programmi": {},
+              "spazio_libero_gb": 100, "ram_gb": 16, "processori": 8, "finto": False}
+    m = pagina.PaginaMotore(c)
+    qtbot.addWidget(m)
+    m._disegna()
+    testi = [m.griglia.itemAt(i).widget().text() for i in range(m.griglia.count())
+             if isinstance(m.griglia.itemAt(i).widget(), QLabel)]
+    assert "DNA da togliere: maiale" in testi and not any("Altro database" in t for t in testi)

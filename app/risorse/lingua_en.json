@@ -416,5 +416,10 @@
  "Apri il controllo qualità": "Open the quality check",
  "il controllo qualità": "the quality check",
  "Campione (profilo MetaPhlAn)": "Sample (MetaPhlAn profile)",
- "C'è un'analisi in corso: controlla o installa il motore quando è finita.": "An analysis is running: check or install the engine when it has finished."
+ "C'è un'analisi in corso: controlla o installa il motore quando è finita.": "An analysis is running: check or install the engine when it has finished.",
+ "MetaPhlAn, database intero": "MetaPhlAn, full database",
+ "DNA da togliere: maiale": "DNA to remove: pig",
+ "DNA da togliere: bovino": "DNA to remove: cattle",
+ "DNA da togliere: pecora": "DNA to remove: sheep",
+ "DNA da togliere: uomo": "DNA to remove: human"
 }

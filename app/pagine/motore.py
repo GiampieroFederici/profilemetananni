@@ -11,7 +11,13 @@ from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro, svuot
 NOMI_DB = {"metaphlan_fette_vJan25_v1": N_("MetaPhlAn, database in 6 parti"),
            "kraken_pluspf_20260626": N_("Kraken, database completo"),
            "kraken_pluspf_08gb_20260626": N_("Kraken, screening rapido"),
-           "ospite_maiale_bovino_pecora_uomo": N_("DNA da togliere: maiale, bovino, pecora, uomo")}
+           "ospite_maiale_bovino_pecora_uomo": N_("DNA da togliere: maiale, bovino, pecora, uomo"),   # finto motore
+           # P42: i nomi del motore vero (pmn_motore.elenco_database)
+           "metaphlan_pkl_vJan25": N_("MetaPhlAn, database intero"),
+           "ospite_sus_scrofa": N_("DNA da togliere: maiale"),
+           "ospite_bos_taurus": N_("DNA da togliere: bovino"),
+           "ospite_ovis_aries": N_("DNA da togliere: pecora"),
+           "ospite_homo_sapiens": N_("DNA da togliere: uomo")}
 NOMI_PROGRAMMI = {"metaphlan": "MetaPhlAn", "kraken2": "Kraken", "bracken": "Bracken", "bowtie2": "Bowtie 2",
                   "fastp": "fastp"}
 NON_AVVIATO = N_("Il motore fa i calcoli in uno spazio Linux dentro Windows (si chiama WSL, il sottosistema Windows per "
