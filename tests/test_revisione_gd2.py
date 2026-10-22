@@ -315,3 +315,20 @@ def test_p28_confronto_solo_batteri_archei_funghi(tmp_path):
     s, taxa = confronto("kraken_matrix_taxa")                         # la matrice che passa run.sh dopo P28
     assert (s["species_kraken"], s["only_kraken"], s["jaccard"], s["kraken_confirmed_by_metaphlan_pct"]) == (1, 0, 1, 100)
     assert list(taxa["species"]) == ["latilactobacillus sakei"]
+
+
+# ---------------- P23: fasterq-dump mette i suoi temporanei nella cartella corrente (Documenti, su /mnt/c) ----------------
+@linux
+def test_p23_temporanei_di_fasterq_dump_nella_cartella_temporanea(tmp_path):
+    b = finti(tmp_path, prefetch=PREFETCH, **{"fasterq-dump": FASTERQ, "pigz": '#!/usr/bin/env bash\nexec gzip -c "${@: -1}"\n'})
+    (tmp_path / "t").mkdir()
+    progetti = tmp_path / "progetti"                                  # la cartella corrente del motore
+    progetti.mkdir()
+    raw = tmp_path / "raw"
+    p = lancia("steps/10_download_sra.sh", ["--srr", "SRR000001", "--out", raw, "--threads", "1"], b, cwd=progetti,
+               TMPDIR=str(tmp_path / "t"), REGISTRO_FQD=str(tmp_path / "fqd.log"))
+    assert p.returncode == 0, p.stdout + p.stderr
+    args = (tmp_path / "fqd.log").read_text().split()
+    assert "-t" in args and args[args.index("-t") + 1].startswith(str(tmp_path / "t"))
+    assert list(progetti.iterdir()) == []
+    assert [righe_gz(raw / f"SRR000001_{i}.fastq.gz") for i in (1, 2)] == [400, 400]

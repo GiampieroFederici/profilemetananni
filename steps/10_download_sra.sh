@@ -42,8 +42,9 @@ info "$(say "Prefetching $SRR ..." "Prefetch di $SRR ...")"
 prefetch --max-size u -O "$tmp" "$SRR" || die "prefetch failed for $SRR"
 
 info "$(say "Converting to FASTQ ..." "Converto in FASTQ ...")"
-if ! fasterq-dump --split-files --threads "$THREADS" -O "$tmp" "$tmp/$SRR/$SRR.sra" 2>/dev/null; then
-  fasterq-dump --split-files --threads "$THREADS" -O "$tmp" "$SRR" || die "fasterq-dump failed for $SRR"
+# -t: fasterq-dump's temporaries in $tmp too, not in the current folder (the projects in Documenti, on /mnt/c)
+if ! fasterq-dump --split-files --threads "$THREADS" -t "$tmp" -O "$tmp" "$tmp/$SRR/$SRR.sra" 2>/dev/null; then
+  fasterq-dump --split-files --threads "$THREADS" -t "$tmp" -O "$tmp" "$SRR" || die "fasterq-dump failed for $SRR"
 fi
 
 # Compress whatever was produced (paired _1/_2 or single) into hidden .part files next to the outputs, then rename
