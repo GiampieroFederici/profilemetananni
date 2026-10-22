@@ -614,3 +614,18 @@ def test_p24_kraken_non_scrive_il_k2out(tmp_path):
 @linux
 def test_p24_k2out_solo_per_le_prove_di_validazione(tmp_path):
     assert kraken_finto(tmp_path, PMN_KEEP_K2OUT="1") == str(tmp_path / "out" / "S1.k2out")
+
+
+# ---------------- P39: i consigli del motore scrivevano la RAM col punto anche in italiano ("5.8 GB") ----------------
+@pytest.mark.parametrize("codice, atteso", [("it", "5,8 GB"), ("en", "5.8 GB")])
+def test_p39_ram_con_la_virgola_in_italiano(codice, atteso):
+    sys.path.insert(0, str(RADICE / "motore"))
+    import lingua
+    import system_one
+    prima = lingua.attuale()
+    lingua.imposta(codice)
+    try:
+        testi = [c["messaggio"] for c in system_one.modo(5.83, False, True, True)[1]]
+    finally:
+        lingua.imposta(prima)
+    assert len(testi) == 2 and all(atteso in t for t in testi), testi

@@ -61,11 +61,12 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
     c = []
     mpa = "standard" if ram_gb >= RAM_STANDARD_GB and indice_intero else "fette"
     c.append(consiglio("MODO_METAPHLAN", _("MetaPhlAn: modalità consigliata '{modo}' ({ram} GB di memoria per il "
-                                           "motore).", modo=mpa, ram=f"{ram_gb:.1f}"), _(FONTE_RAM_STANDARD), "info"))
+                                           "motore).", modo=mpa, ram=lingua.virgola(f"{ram_gb:.1f}")),
+                         _(FONTE_RAM_STANDARD), "info"))
     if 0 < ram_gb < RAM_MINIMA_GB:
         c.append(consiglio("RAM_INSUFFICIENTE", _("Il motore vede solo {ram} GB di memoria: l'analisi potrebbe "
                                                   "fermarsi. Chiudi gli altri programmi o usa un PC con almeno 16 GB.",
-                                                  ram=f"{ram_gb:.1f}"), _(FONTE_RAM_MINIMA)))
+                                                  ram=lingua.virgola(f"{ram_gb:.1f}")), _(FONTE_RAM_MINIMA)))
     kraken = "rapido" if kraken_rapido and not kraken_completo else "completo"
     if not kraken_completo and not kraken_rapido:
         c.append(consiglio("DB_MANCANTE", _("Manca il database di Kraken."), _(FONTE_DB)))
