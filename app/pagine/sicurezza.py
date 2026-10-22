@@ -12,7 +12,7 @@ import math
 
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygonF
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLineEdit, QPushButton,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame, QHBoxLayout, QLineEdit, QPushButton,
                                QRadioButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from app import lingua
@@ -229,6 +229,14 @@ class PaginaSicurezza(Pagina):
             ("▾" if aperto else "▸") + " " + _("Altri ingredienti e opzioni"))))
         s.addWidget(self.altro_box)
 
+        # contratto §5.4: con più campioni il motore vuole sapere quale profilo usare (P40); il testo si scrive solo
+        # quando serve, così con un campione la pagina resta com'era
+        self.campione_etichetta = etichetta("")
+        self.campione = QComboBox()
+        for w in (self.campione_etichetta, self.campione):
+            w.hide()
+            s.addWidget(w)
+
         self.calcola = QPushButton(_("Calcola la previsione"), objectName="secondario")
         self.calcola.clicked.connect(self.avvia_calcolo)
         s.addSpacing(6)
@@ -269,6 +277,8 @@ class PaginaSicurezza(Pagina):
             r["conte"] = {"lab_ufc_g": lab}
         if self.lag.isChecked():
             r["lag"] = True
+        if not self.campione.isHidden() and self.campione.currentText():
+            r["campione"] = self.campione.currentText()
         return r
 
     def _compila(self, r):
@@ -293,6 +303,7 @@ class PaginaSicurezza(Pagina):
     def mostrata(self):
         progetto = self.contesto.progetto
         dati = leggi_risultati(progetto)
+        self._campioni(dati)
         self.zona.setVisible(dati is not None)
         self.invito.setVisible(dati is None)
         if progetto is not self.progetto_visto:
@@ -312,6 +323,23 @@ class PaginaSicurezza(Pagina):
                                   "progetto."))
         self._azioni()
 
+    def _campioni(self, dati):
+        """Il campo del campione: i campioni con il profilo MetaPhlAn, visibile solo se sono più di uno."""
+        nomi = [c["nome"] for c in (dati or {}).get("campioni", []) if c.get("file", {}).get("metaphlan")]
+        scelto = self.campione.currentText()
+        self.campione.clear()
+        piu = len(nomi) > 1
+        if piu:
+            self.campione.addItems(nomi)
+            self.campione.setCurrentIndex(max(0, self.campione.findText(scelto)))
+            self.campione_etichetta.setText(_("Campione (profilo MetaPhlAn)"))
+            self.campione.setAccessibleName(_("Campione (profilo MetaPhlAn)"))
+        else:
+            self.campione_etichetta.setText("")
+            self.campione.setAccessibleName("")
+        self.campione_etichetta.setVisible(piu)
+        self.campione.setVisible(piu)
+
     def _ultima_salvata(self, progetto):
         """Se il progetto ha già una previsione (risultati/sicurezza/), la rimostra con i suoi dati."""
         salvate = sorted((progetto.risultati / "sicurezza").glob("*.json"), key=lambda f: f.stat().st_mtime)
@@ -321,6 +349,8 @@ class PaginaSicurezza(Pagina):
             r = None
         if r and r.get("previsioni"):
             self._compila(r.get("richiesta", {}))
+            if self.campione.findText(r.get("campione") or "") >= 0:     # il motore lo salva fuori da "richiesta"
+                self.campione.setCurrentIndex(self.campione.findText(r["campione"]))
             self.risultato = r
             self._mostra_uscita(r)
 
