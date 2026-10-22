@@ -80,9 +80,10 @@ def vivo(pid):
     return True
 
 
-def lucchetto():
-    """Dati del lucchetto di esegui se la corsa che l'ha messo è viva; un lucchetto rimasto si toglie (come il vero)."""
-    blocco = STATO / "esegui.lock"
+def lucchetto(comando="esegui"):
+    """Dati del lucchetto di esegui (o di installa, P41) se la corsa che l'ha messo è viva; un lucchetto rimasto si
+    toglie (come il vero)."""
+    blocco = STATO / f"{comando}.lock"
     try:
         dati = json.loads(blocco.read_text(encoding="utf-8"))
         if vivo(dati["pid"]):
@@ -171,12 +172,18 @@ class Motore:
                  ("programmi", 2, 300, N_("Installo i programmi (8 ambienti)...")),
                  ("database", 22, 3600, N_("Scarico i database e controllo che siano integri...")),
                  ("verifica", 93, 300, N_("Prova finale su un piccolo campione (alcuni minuti)..."))]
-        for passo, pct, sec, msg in passi:
-            self.evento("avanzamento", _(msg), passo=passo, campione=None, fatto=0, totale=1, percentuale=pct,
-                        eta_s=None)
-            if self.a.scenario == "annullata" and passo == "database":
-                raise Annullata
-            self.attendi(sec)
+        blocco = STATO / "installa.lock"   # P41: come il vero, annulla --corsa ferma anche l'installazione
+        blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid()}), encoding="utf-8")
+        try:
+            for passo, pct, sec, msg in passi:
+                self.evento("avanzamento", _(msg), passo=passo, campione=None, fatto=0, totale=1, percentuale=pct,
+                            eta_s=None)
+                if self.a.scenario == "annullata" and passo == "database":
+                    raise Annullata
+                self.attendi(sec)
+        finally:
+            blocco.unlink(missing_ok=True)
+            (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
         return "ok", {"installati": ["programmi", "metaphlan", "kraken_completo", "kraken_rapido", "ospite", "prova"]}, \
             _("VERDE: il motore è installato e funziona.")
 
@@ -346,10 +353,12 @@ class Motore:
         return "ok", {"cartella": str(r), "referto": file}, _("Referto pronto.")
 
     def annulla(self):
-        dati = lucchetto()
-        if dati and dati.get("corsa") == self.a.corsa:
-            (STATO / f"{self.a.corsa}.annulla").touch()
-            return "ok", {"annullata": True}, _("Chiesto di fermare l'analisi.")
+        for comando, testo in (("esegui", N_("Chiesto di fermare l'analisi.")),
+                               ("installa", N_("Chiesto di fermare l'installazione."))):
+            dati = lucchetto(comando)
+            if dati and dati.get("corsa") == self.a.corsa:
+                (STATO / f"{self.a.corsa}.annulla").touch()
+                return "ok", {"annullata": True}, _(testo)
         return "ok", {"annullata": False}, _("Nessuna analisi in corso con questo codice.")
 
 

@@ -75,3 +75,78 @@ def test_p03_campione_senza_specie_non_ha_simpson_massimo():
         {"vuoto": ([], 1000), "pieno": ([("X", 50.0), ("Y", 30.0)], 1000)}, {})}
     assert t["vuoto"]["ricchezza"] == 0 and t["vuoto"]["simpson"] == 0.0
     assert t["pieno"]["simpson"] == pytest.approx(0.46875)       # with taxa: same value as before
+
+
+# ---------------- P41: annulla stops installa too ----------------
+FINTO = os.path.join(ROOT, "installer", "finto_motore.py")
+
+
+def test_p41_annulla_ferma_installa_finto():
+    """'Ferma l'installazione' calls annulla with the run of installa: the fake engine must stop it (code 3)."""
+    p = subprocess.Popen([sys.executable, FINTO, "installa", "--velocita", "50"], stdout=subprocess.PIPE, text=True,
+                         encoding="utf-8")
+    try:
+        righe = [p.stdout.readline()]
+        corsa = json.loads(righe[0])["corsa"]
+        while json.loads(righe[-1]).get("passo") != "programmi":
+            righe.append(p.stdout.readline())
+        r = subprocess.run([sys.executable, FINTO, "annulla", "--corsa", corsa, "--velocita", "0"], capture_output=True,
+                           text=True, encoding="utf-8", timeout=60)
+        assert controlla(r.stdout, r.returncode, "annulla")[-1]["risultato"] == {"annullata": True}
+        resto, _ = p.communicate(timeout=30)
+    finally:
+        if p.poll() is None:
+            p.kill()
+    ev = controlla("".join(righe) + resto, p.returncode, "installa")
+    assert p.returncode == 3 and ev[-1]["esito"] == "annullata"
+
+
+@linux
+def test_p41_annulla_motore_vero_ferma_installa():
+    """Real chain: installa_motore.sh --json (as pmn-motore installa runs it) writes installa.lock with its run and
+    its own process group; pmn_motore.py annulla --corsa stops it (fine annullata, code 3) and the lock goes away."""
+    import shutil
+    import tempfile
+    from pathlib import Path
+    from test_installa_eventi import INSTALLA, SPECCHIO, catalogo
+    d = Path(tempfile.mkdtemp(prefix="pmn_test_", dir=Path.home()))   # on disk, as in test_installa_eventi
+    try:
+        home, c = catalogo(d)
+        env = {**os.environ, "PMN_HOME": str(home)}
+        p = subprocess.Popen(["bash", INSTALLA, "--json", "--catalogo", str(c), *SPECCHIO], stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8", env=env)
+        try:
+            righe = [p.stdout.readline(), p.stdout.readline()]   # inizio, then the space check: now it asks s/n
+            corsa = json.loads(righe[0])["corsa"]
+            blocco = home / "stato" / "installa.lock"
+            assert json.loads(blocco.read_text(encoding="utf-8")) == {"corsa": corsa, "pid": p.pid, "pgid": p.pid}
+            assert os.getpgid(p.pid) == p.pid != os.getpgid(0)    # its own group: annulla does not hit the caller
+            attesa = threading.Thread(target=p.wait)              # reaped at once, as the WSL does
+            attesa.start()
+            ev, codice = lancia(env, "annulla", "--corsa", corsa)
+            assert codice == 0 and ev[-1]["risultato"] == {"annullata": True}
+            attesa.join(30)
+            resto = p.stdout.read()
+        finally:
+            if p.poll() is None:
+                p.kill()
+            p.stdin.close()
+        ev = controlla("".join(righe) + resto, p.returncode, "installa")
+        assert p.returncode == 3 and ev[-1]["esito"] == "annullata"
+        assert not blocco.exists()
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+@linux
+def test_p41_lock_di_installa_rimasto(ambiente):
+    """installa.lock left by an installation that died (SIGKILL, power off): no signal to a pgid maybe reused."""
+    env, progetto = ambiente
+    stato = progetto.parent.parent / "pmn" / "stato"
+    morto = subprocess.Popen(["true"])
+    morto.wait()
+    (stato / "installa.lock").write_text(json.dumps({"corsa": "X", "pid": morto.pid, "pgid": morto.pid}),
+                                         encoding="utf-8")
+    ev, codice = lancia(env, "annulla", "--corsa", "X")
+    assert codice == 0 and ev[-1]["risultato"] == {"annullata": False}
+    assert not (stato / "installa.lock").exists()

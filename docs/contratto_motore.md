@@ -46,7 +46,7 @@
 | `verifica` | MD5 dei database + mini-campione di regressione (D032) | nessuno | `{"esito": "verde" \| "rosso", "controlli": [...]}` |
 | `stima` | tempo e spazio previsti, prima di partire (D023, D034) | `--progetto <config.yaml>` | §5.2 |
 | `esegui` | analisi completa del progetto | `--progetto <config.yaml>` | §5.3 |
-| `annulla` | ferma una corsa in modo pulito | `--corsa <id>` | `{"annullata": true}` |
+| `annulla` | ferma una corsa in modo pulito, di `esegui` o di `installa` (il codice `corsa` dell'evento `inizio`) | `--corsa <id>` | `{"annullata": true}` |
 | `sicurezza` **[v0.2]** | previsioni di crescita (FSSP: *Listeria*, LAB) per un prodotto | `--ingresso <richiesta.json>` [`--progetto <config.yaml>`] | §5.4 |
 | `referto` **[v0.2]** | rifà il referto di un progetto già analizzato (per esempio dopo `sicurezza`) | `--progetto <config.yaml>` | `{"cartella", "referto": {"html", "pdf", "xlsx"}}` |
 

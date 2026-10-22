@@ -24,6 +24,7 @@ URL_PMN=${PMN_URL_PACCHETTI:-}
 ENVS=(pmn_download pmn_qc pmn_trim pmn_hostfilter pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py)
 GB_PROGRAMMI=16   # ambienti installati + cache dei pacchetti durante l'installazione (misurati: ~11 GB + margine)
 
+ARGOMENTI=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --si) SI=1; shift ;;
@@ -35,6 +36,11 @@ while [ $# -gt 0 ]; do
     *) echo "Opzione sconosciuta: $1" >&2; exit 1 ;;
   esac
 done
+# P41: con l'interfaccia (--json) in un gruppo di processi suo (bash, curl, tar), così "annulla --corsa" li ferma tutti
+# con un solo segnale. Da un terminale lo script è già capo del suo gruppo: resta com'è (Ctrl+C funziona)
+if [ "$JSON" = 1 ] && [ "$(cut -d' ' -f5 /proc/$$/stat 2> /dev/null)" != "$$" ] && command -v setsid > /dev/null; then
+  exec setsid bash "$0" "${ARGOMENTI[@]}"   # stesso pid: chi ci ha lanciato ci aspetta come prima
+fi
 
 # --- B2 (P12): testi per la persona in italiano o in inglese. Come _() dell'app e del motore: la frase italiana e' la
 #     chiave (%s al posto dei valori) e le traduzioni stanno tutte qui (termini: docs/lingua_termini_da_controllare.md).
@@ -126,6 +132,11 @@ fallisci() {  # codice messaggio cosa_fare
 trap 'PASSO=fine; ESITO=annullata; evento fine null "$(T "Installazione interrotta. Rilancia lo stesso comando: riprende da dove era rimasta.")"; exit 3' INT TERM
 
 mkdir -p "$PMN_HOME"/{bin,db,stato,tmp,log}
+# P41: corsa e gruppo per annulla (pmn_motore.py lo legge), solo se il gruppo è nostro; tolto alla fine
+if [ "$JSON" = 1 ] && [ "$STIMA" = 0 ] && [ "$(cut -d' ' -f5 /proc/$$/stat 2> /dev/null)" = "$$" ]; then
+  printf '{"corsa":"%s","pid":%s,"pgid":%s}\n' "$CORSA" "$$" "$$" > "$PMN_HOME/stato/installa.lock"
+  trap 'rm -f "$PMN_HOME/stato/installa.lock"' EXIT
+fi
 export TMPDIR=$PMN_HOME/tmp   # /tmp di WSL sta in RAM: download ed estrazioni su disco
 LOG=$PMN_HOME/log/installazione_$(date +%Y%m%d_%H%M%S).log
 evento inizio 0 "$(T 'Installazione del motore di profilemetananni. Dettagli tecnici in %s' "$LOG")"
