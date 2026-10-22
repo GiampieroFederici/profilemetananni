@@ -28,7 +28,7 @@
   in `~/.pmn/bin/pmn-motore`.
   **Esiste dal 16/10/2026** (`motore/pmn-motore` + `motore/pmn_motore.py`, D053): stessi comandi ed eventi del
   finto motore; `installa` passa all'installatore, `esegui` lancia `bin/run.sh`, `verifica` lancia `installer/verifica_motore.sh`.
-- Da Windows: `wsl.exe -d pmn -u pmn -- /home/pmn/.pmn/bin/pmn-motore <comando> ...` (utente `pmn` e percorso assoluto, come `app/motore.py`).
+- Da Windows: `wsl.exe -d pmn -u pmn -e /home/pmn/.pmn/bin/pmn-motore <comando> ...` (utente `pmn` e percorso assoluto, come `app/motore.py`).
 - Da Linux: direttamente.
 - **[lingua]** `--lingua it|en` vale per ogni comando (predefinita `it`; anche la variabile `PMN_LINGUA`). L'app la passa
   solo quando l'utente ha scelto l'inglese, quindi con l'italiano i comandi sono identici a prima. Il motore la passa a
@@ -435,7 +435,7 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
   `esegui`, `annulla`, `referto`, `sicurezza`) per gli assistenti compatibili MCP, con gli stessi eventi di questo
   contratto (restituiti in `eventi`; `avanzamento` anche come "progress" MCP). Aiuti in più che non toccano il motore:
   `progetti`, `stato`. Solo stdio (nessuna porta); `esegui` solo con la conferma della persona; progetto = `config.yaml`
-  dentro la cartella dei progetti. Lancia il motore come l'app (`wsl.exe -d pmn -u pmn -- pmn-motore`), o il finto con
+  dentro la cartella dei progetti. Lancia il motore come l'app (`wsl.exe -d pmn -u pmn -e pmn-motore`), o il finto con
   `PMN_MOTORE=finto`. Istruzioni per i client in `pmn_mcp/LEGGIMI.md`; test `tests/test_mcp.py`.
 
 ## 7. Cosa NON fa l'interfaccia

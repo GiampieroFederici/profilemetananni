@@ -49,7 +49,7 @@ def comando(nome, *argomenti):
         programma = [sys.executable, str(RADICE / "installer" / "finto_motore.py")]
         opzioni = shlex.split(os.environ.get("PMN_FINTO_OPZIONI", ""))
     else:
-        programma, opzioni = ["wsl.exe", "-d", DISTRO, "-u", "pmn", "--", MOTORE_WSL], []
+        programma, opzioni = ["wsl.exe", "-d", DISTRO, "-u", "pmn", "-e", MOTORE_WSL], []   # -e: senza bash -c
     lingua = ["--lingua", "en"] if os.environ.get("PMN_LINGUA") == "en" else []
     return programma + [nome, *argomenti] + opzioni + lingua
 
