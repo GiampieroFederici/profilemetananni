@@ -235,6 +235,39 @@ if [ -z "$PMN_ENVS" ] && [ -z "${TMPDIR:-}" ]; then
   TMPDIR="$(cd "$PMN_WORK_DIR/tmp" && pwd)"; export TMPDIR
 fi
 
+# Outputs made with other parameters are redone, not reused (D022, P01 of 22/10): the steps skip a sample when its
+# output exists, whatever produced it. One stamp per folder with the parameters of its files; the host stamp is part
+# of the profile stamps (other hosts = other reads). Only for the phases and methods that run (a MetaPhlAn-only run
+# keeps the Kraken stamp); the threshold needs nothing (Phase B tables are always redone). Never in a dry run.
+if [ "$DRY" -eq 0 ]; then
+  if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
+    pmn_rifai_se_cambiati "$NONHOST_DIR/.parametri" \
+        "$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")" \
+        "$NONHOST_DIR/*_nonhost*.fastq.gz" "$HF_LOG_DIR/*.bowtie2.log" "$PMN_WORK_DIR/triage/*.triage_host.tsv" \
+      && warn "$(say "Host removal parameters changed (or not recorded): host removal, MetaPhlAn and Kraken are redone" \
+                     "Parametri della rimozione dell'ospite cambiati (o non registrati): rifaccio ospite, MetaPhlAn e Kraken")"
+  fi
+  if [ "$PHASE" = "all" ] || [ "$PHASE" = "b" ]; then
+    ospite_timbro="$(cat "$NONHOST_DIR/.parametri" 2> /dev/null || true)"
+    if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
+      pmn_rifai_se_cambiati "$MPA_DIR/.parametri" \
+          "$(printf '%s\nmetaphlan_mode=%s\nmetaphlan_index=%s' "$ospite_timbro" "$PMN_MPA_MODO" "$PMN_MPA_INDEX")" \
+          "$MPA_DIR/*_profile.txt" "$MPA_DIR/*.bowtie2.bz2" "$MPA_DIR/*.sam.bz2" "$MPA_DIR/*.mapout" "$RES_DIR/alpha_metaphlan_pari" \
+        && warn "$(say "MetaPhlAn parameters changed (or not recorded): the MetaPhlAn profiles are redone" \
+                       "Parametri di MetaPhlAn cambiati (o non registrati): rifaccio i profili di MetaPhlAn")"
+    fi
+    if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
+      # the database by its real path (a trailing slash or a symlink is the same database)
+      pmn_rifai_se_cambiati "$KRK_DIR/.parametri" \
+          "$(printf '%s\nkraken_db=%s\nkraken_confidence=%s\nbracken_min_reads=%s\nbracken_readlen=%s' "$ospite_timbro" \
+             "${PMN_KRK_DB:+$(realpath -m -- "$PMN_KRK_DB")}" "$PMN_KRK_CONF" "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN")" \
+          "$KRK_DIR/*.bracken" "$KRK_DIR/*.k2report" "$KRK_DIR/*.k2out" \
+        && warn "$(say "Kraken parameters changed (or not recorded): the Kraken profiles are redone" \
+                       "Parametri di Kraken cambiati (o non registrati): rifaccio i profili di Kraken")"
+    fi
+  fi
+fi
+
 # The parameters actually used, next to the results (D022: the report says what produced the numbers).
 # Only those of the methods that run (22/10): no Kraken threshold or database with MetaPhlAn alone.
 {

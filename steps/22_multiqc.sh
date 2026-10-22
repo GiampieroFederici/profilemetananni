@@ -28,7 +28,11 @@ validate_name "$TITLE"     || die "Invalid title: $(sanitize_for_log "$TITLE")"
 [ -d "$IN" ] || die "input directory not found: $(sanitize_for_log "$IN")"
 mkdir -p "$OUT" || die "cannot create $OUT"
 
-if ls "$OUT"/*multiqc_report.html >/dev/null 2>&1; then
+# Skip only if no QC file (fastp, FastQC, Bowtie2 logs; triage excluded) is newer than the report (P07): a sample
+# added to the project redoes it. Other new files in work_dir (results, logs) do not.
+rep="$(ls "$OUT"/*multiqc_report.html 2>/dev/null | head -n1)"
+if [ -n "$rep" ] && [ -z "$(find "$IN" -type f \( -name '*_fastp.json' -o -name '*_fastqc.zip' -o -name '*.bowtie2.log' \) \
+                             ! -name '*.triage_*' -newer "$rep" -print -quit)" ]; then
   ok "$(say "MultiQC report already exists -> skip (delete it to refresh)" "Report MultiQC già presente -> salto (cancellalo per rigenerarlo)")"
   exit 0
 fi

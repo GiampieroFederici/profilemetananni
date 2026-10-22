@@ -100,3 +100,20 @@ conda_env_exists() {
   local name="$1"
   conda env list 2>/dev/null | awk '{print $1}' | grep -qxF "$name"
 }
+
+# --- outputs made with other parameters are redone (D022: the report says what produced the numbers) ---
+# pmn_rifai_se_cambiati <stamp file> <stamp> <glob>...
+# If the stamp on disk differs from <stamp> (or is missing while outputs are there), delete what the globs match and
+# return 0 (the steps redo it); else return 1. The new stamp is always written. Each glob is one word (spaces allowed).
+pmn_rifai_se_cambiati() {
+  local file="$1" timbro="$2" vecchio="" g f tolti=1
+  shift 2
+  [ -f "$file" ] && vecchio="$(cat "$file")"
+  if [ "$vecchio" != "$timbro" ]; then
+    for g in "$@"; do
+      while IFS= read -r f; do rm -rf -- "$f"; tolti=0; done < <(compgen -G "$g")
+    done
+  fi
+  mkdir -p "$(dirname "$file")" && printf '%s\n' "$timbro" > "$file" || die "cannot write $file"
+  return "$tolti"
+}
