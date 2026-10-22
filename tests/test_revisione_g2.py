@@ -94,3 +94,54 @@ def test_p01_nonhost_condivisa_la_ripresa_non_tocca_i_file_dell_altro_progetto(t
     corsa_custom(home, *a, condivisa, "[sus_scrofa]")
     assert byte(condivisa, "A1") == prima_a
     assert not (condivisa / ".parametri").exists()         # il timbro sta nella cartella di lavoro del progetto
+
+
+# ---------------- P01 (D2 di GD1): barra e tempo restante dopo un cambio di parametri ----------------
+def test_p01_gia_fatti_non_conta_le_uscite_che_run_sh_rifa(tmp_path, monkeypatch):
+    """Kraken completo già fatto con l'ospite maiale (80 % delle coppie), poi rilancio con l'ospite bovino: run.sh,
+    prima del primo passo, cancella profili e log dell'ospite fatti coi parametri vecchi (timbri .parametri) e li
+    rifà. Barra e tempo restante non devono dare per fatto Kraken né usare la quota dell'ospite vecchio."""
+    from types import SimpleNamespace
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore as pm
+    prog = tmp_path / "p"
+    lavoro = prog / "w"
+    vecchi = [lavoro / "kraken" / "S1.bracken", lavoro / "hostfilter_logs" / "S1.sus_scrofa.bowtie2.log"]
+    for f in vecchi:
+        f.parent.mkdir(parents=True)
+    vecchi[0].write_text("Kraken completo, ospite maiale\n", encoding="utf-8")
+    vecchi[1].write_text("1000000 reads; of these:\n  1000000 (100.00%) were paired; of these:\n"
+                         "    200000 (20.00%) aligned concordantly 0 times\n", encoding="utf-8")
+    (prog / "campioni.txt").write_text("S1\n", encoding="utf-8")
+    cfg = {"data_source": "ncbi", "hosts": ["bos_taurus"], "profiling": {"tool": "kraken"},
+           "motore": {"kraken_db": "completo"}, "paths": {"work_dir": "./w", "srr_list": str(prog / "campioni.txt")}}
+
+    class RunShFinto:   # come bin/run.sh: il blocco dei timbri gira prima di qualsiasi passo
+        pid = 0
+
+        def __init__(self, *a, **k):
+            self.stdout = self.righe()
+
+        @staticmethod
+        def righe():
+            for f in vecchi:
+                f.unlink()
+            yield "[WARN] Parametri della rimozione dell'ospite cambiati: rifaccio ospite, MetaPhlAn e Kraken\n"
+            for e in ("size", "trim_S1", "hf_S1", "multiqc", "krk_S1", "kmatrix"):
+                yield f"[INFO] [locale] {e}\n"
+
+        def wait(self):
+            return 0
+    monkeypatch.setattr(pm.subprocess, "Popen", RunShFinto)
+    monkeypatch.setattr(pm, "STATO", tmp_path / "stato")
+    (tmp_path / "stato").mkdir()
+    m = pm.Motore(SimpleNamespace(comando="esegui", progetto=str(prog / "config.yaml")))
+    m.log = tmp_path / "x.log"
+    av = []
+    monkeypatch.setattr(m, "avanza", lambda passo, *a, **k: av.append({"passo": passo, **k}))
+    camp = [("S1", 3_000_000, 0)]
+    m._run_sh(prog / "config.yaml", cfg, tmp_path / "stato" / "esegui.lock", camp)
+    sec = {e: s for e, _, _, s in pm.piano(camp, cfg)}            # quota dell'ospite ancora da misurare
+    assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1            # niente è fatto
+    kraken = next(e for e in av if e["passo"] == "kraken")
+    assert kraken["passo_s"] == round(sec["krk_S1"])               # Kraken si rifà intero

@@ -236,7 +236,8 @@ USCITE = {"dl": ("raw/{}_1.fastq.gz", "raw/{}.fastq.gz"), "mpa": ("metaphlan/{}_
 
 
 def gia_fatti(lavoro, etichette):
-    """Etichette del piano con l'uscita già sul disco: in una corsa ripresa non si contano più."""
+    """Etichette del piano con l'uscita già sul disco: in una corsa ripresa non si contano più. Va chiamata dopo il
+    blocco dei timbri di run.sh, che cancella le uscite fatte con altri parametri (P01)."""
     fatti = set()
     for e in etichette:
         tipo, _, nome = e.partition("_")
@@ -536,8 +537,8 @@ class Motore:
         unita = piano(campioni, cfg, quote())
         secondi, gruppo = {e: s for e, _, _, s in unita}, {e: g for e, _, g, _ in unita}
         totale = sum(secondi.values()) or 1
-        fatti = gia_fatti(lavoro, secondi)   # corsa ripresa: i passi già finiti non si contano
-        riletto = 0                          # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
+        fatti = None   # corsa ripresa: i passi già finiti non si contano (gia_fatti al primo passo, vedi sotto)
+        riletto = 0    # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
 
         def eta(etichetta, passo):
             """(percentuale, secondi che restano, secondi previsti per questo passo): questo passo intero + quelli
@@ -572,6 +573,12 @@ class Motore:
             for regola, passo in ETICHETTE:
                 mm = re.fullmatch(regola, m.group(1))
                 if mm:
+                    if fatti is None:
+                        # al primo passo run.sh ha già cancellato le uscite fatte con altri parametri (timbri
+                        # .parametri, P01): prima ci sono ancora, e Kraken o l'ospite vecchi sembrerebbero fatti
+                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
+                        totale = sum(secondi.values()) or 1
+                        fatti = gia_fatti(lavoro, secondi)
                     campione = next((g for g in mm.groups() if g), None) if mm.groups() else None
                     i = visti.setdefault(passo, set())
                     if campione:
