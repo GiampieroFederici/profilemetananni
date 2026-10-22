@@ -441,3 +441,25 @@ def test_p15_installa_finto_con_la_forma_del_contratto(tmp_path):
     gruppi = [r.split("\t")[0] for r in (RADICE / "installer" / "catalogo.tsv").read_text(encoding="utf-8")
               .splitlines()[1:] if r.strip()]
     assert ev[-1]["risultato"] == {"programmi": 8, "database": list(dict.fromkeys(gruppi)), "verifica": "verde"}
+
+
+# ---------------- Testi (secondo giro): P27, P30-P37 ----------------
+def motore_referto():
+    sys.path.insert(0, str(RADICE / "motore"))
+    import lingua
+    import referto
+    lingua.imposta("it")
+    return referto, lingua
+
+
+def test_p33_conte_all_italiana_senza_notazione_esponenziale():
+    """Le conte da 10^6 in su uscivano "1e+06 ufc/g" o "2.5e+07 ufc/g", accanto a "pH 5,4"."""
+    referto, lingua = motore_referto()
+    t = referto.dati_prodotto({"prodotto": {"ph": 5.4}, "giorni": 21, "conte": {"lab_ufc_g": 25000000.0}})
+    assert "conta dei batteri lattici 25.000.000 ufc/g" in t and "e+" not in t
+    assert "1.234.567 ufc/g" in referto.dati_prodotto({"prodotto": {}, "conte": {"lab_ufc_g": 1234567.0}})
+    lingua.imposta("en")
+    try:
+        assert "1,000,000 ufc/g" in referto.dati_prodotto({"prodotto": {}, "conte": {"lab_ufc_g": 1e6}})
+    finally:
+        lingua.imposta("it")

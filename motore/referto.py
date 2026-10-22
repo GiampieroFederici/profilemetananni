@@ -411,7 +411,8 @@ def dati_prodotto(richiesta):
         parti.append(_("{giorni} giorni a {t} °C", giorni=num(richiesta.get('giorni', 30)),
                        t=num(prod.get('temperatura', 5))))
     for k, v in richiesta.get("conte", {}).items():
-        parti.append(f"{_('conta dei batteri lattici') if k == 'lab_ufc_g' else _('conta totale')} {v:g} ufc/g")
+        parti.append(f"{_('conta dei batteri lattici') if k == 'lab_ufc_g' else _('conta totale')} "
+                     f"{lingua.migliaia(f'{v:,.0f}')} ufc/g")
     return ", ".join(parti)
 
 
