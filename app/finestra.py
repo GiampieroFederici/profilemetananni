@@ -181,8 +181,7 @@ class Finestra(QMainWindow):
             scorre.setWidgetResizable(True)
             scorre.setWidget(p)
             self.pila.addWidget(scorre)
-        # analisi finita con la pagina Motore aperta: "Controlla il motore" si riaccende subito
-        self.pagine["esecuzione"].analisi_finita.connect(self.pagine["motore"]._barra_azioni)
+        self.pagine["esecuzione"].analisi_finita.connect(self._analisi_finita)
         g.addWidget(self.pila, 1, 1)
         g.addWidget(self._barra(), 2, 0, 1, 2)
         g.setColumnStretch(1, 1)
@@ -270,6 +269,12 @@ class Finestra(QMainWindow):
         progetto = self.contesto.progetto
         self.nome_progetto.setText(f"· {progetto.nome}" if progetto else "")
         self._azioni()
+
+    def _analisi_finita(self):
+        """Analisi finita con la pagina Motore aperta: si ridisegna come a un nuovo ingresso, così "Controlla il
+        motore" si riaccende subito (prima restava spento finché non si cambiava pagina)."""
+        if self.attuale == "motore":
+            self.pagine["motore"].mostrata()
 
     def _passi_fatti(self):
         """I passi del percorso già fatti nel progetto aperto (letti dal progetto, non dalla pagina attuale)."""

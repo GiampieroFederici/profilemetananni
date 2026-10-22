@@ -36,6 +36,7 @@ class Pagina(QWidget):
     azioni_cambiate = Signal()      # la barra delle azioni va ridisegnata
     respira = Signal(bool)          # l'avatar "respira" durante un lavoro lungo (D046)
     info_cambiata = Signal()        # contesto.info è cambiato (per esempio dopo `installa`)
+    analisi_finita = Signal()       # la corsa di esegui è finita (la manda "Analisi in corso")
 
     titolo = ""
     testo_principale = ""

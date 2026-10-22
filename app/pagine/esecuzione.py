@@ -8,7 +8,7 @@ Kraken dura anche mezz'ora): parte dagli ultimi eta_s e percentuale del motore, 
 import time
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
 from app.lingua import N_, _
@@ -47,7 +47,6 @@ def durata(secondi):
 
 class PaginaEsecuzione(Pagina):
     titolo = N_("Analisi in corso")
-    analisi_finita = Signal()       # la corsa è finita (ok, fermata o errore): le altre pagine possono ripartire
 
     def __init__(self, contesto, parent=None):
         super().__init__(contesto, parent)
