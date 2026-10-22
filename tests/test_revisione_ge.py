@@ -39,6 +39,18 @@ def test_p00_primo_tratto_oltre_il_limite():
         assert p["listeria_puo_crescere"] is True
 
 
+
+def test_p00_verdetto_col_modello_listeria_lab():
+    """Con i batteri lattici nel profilo e una conta totale lo step 45 usa il modello Listeria + LAB: anche lì il
+    verdetto guarda tutto il profilo (2 °C poi 10 °C), non solo lo psi alla prima temperatura."""
+    r = step45.esegui({"prodotto": PRODOTTO, "profilo_temperatura": [[2, 120], [10, 480]],
+                       "profilo_specie": {"s__Latilactobacillus_sakei": 20.0}, "conte": {"totale_ufc_g": 1e6}}, 1.0)
+    assert r["ponte"]["lab_trovati"] and r["previsioni"]
+    for p in r["previsioni"]:
+        assert p["modello"] == "listeria_lab" and p["n0_lab_ufc_g"] == pytest.approx(2e5)
+        assert p["psi_listeria"] > 1.0                          # psi iniziale, invariato
+        assert p["listeria_puo_crescere"] is True
+
 @pytest.mark.parametrize("temperatura, atteso", [(10.0, True), (2.0, False)])
 def test_p00_temperatura_costante_come_prima(temperatura, atteso):
     """A temperatura costante (l'app manda solo questa) il verdetto resta psi iniziale < 1."""
