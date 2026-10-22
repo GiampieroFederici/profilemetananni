@@ -752,3 +752,118 @@ def test_r6_profili_pari_dell_altro_progetto_restano(tmp_path):
                    capture_output=True, text=True, timeout=120, cwd=cfg.parent,
                    env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
     assert sorted(f.name for f in (risultati / "alpha_metaphlan_pari").iterdir()) == ["B1_profile.txt"]
+
+
+# ---------------- quarto giro: difetti del revisore cieco del terzo giro (22/10) ----------------
+@linux
+def test_q1_results_condivisa_toglie_anche_il_sottocampione_mapout(tmp_path):
+    """results_dir personalizzata: col profilo pari si toglie anche il suo .mapout, che il passo 42 riuserebbe con i
+    parametri vecchi; quelli dell'altro progetto restano."""
+    home = installazione_finta(tmp_path)
+    condivisa, risultati = tmp_path / "nonhost_condivisa", tmp_path / "risultati_condivisi"
+    condivisa.mkdir()
+    pari = risultati / "alpha_metaphlan_pari"
+    pari.mkdir(parents=True)
+    for f in ("A1_profile.txt", "A1.mapout", "B1_profile.txt", "B1.mapout"):
+        (pari / f).write_text(f, encoding="utf-8")
+    cfg, letture = progetto_custom(tmp_path, "salame", ["A1"], condivisa)
+    cfg.write_text(f"project_name: salame\ndata_source: local\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"paths:\n  layout: custom\n  work_dir: {cfg.parent / 'lavoro'}\n  local_reads_dir: {letture}\n"
+                   f"  nonhost_dir: {condivisa}\n  results_dir: {risultati}\nprofiling:\n  tool: metaphlan\n",
+                   encoding="utf-8")
+    subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--phase", "b"],
+                   capture_output=True, text=True, timeout=120, cwd=cfg.parent,
+                   env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    assert sorted(f.name for f in pari.iterdir()) == ["B1.mapout", "B1_profile.txt"]
+
+
+@linux
+def test_q2_read_rifatte_rifanno_anche_i_profili_del_campione(tmp_path):
+    """Cartella nonhost condivisa: quando un campione si rifà (read dell'altro ospite, o dati di prima), via anche i
+    suoi profili MetaPhlAn e Kraken del progetto, che possono essere stati fatti con le read sbagliate."""
+    home = installazione_finta(tmp_path)
+    condivisa = tmp_path / "nonhost_condivisa"
+    condivisa.mkdir()
+    a = progetto_custom(tmp_path, "salame", ["A1", "A2"], condivisa)
+    lavoro = a[0].parent / "lavoro"
+    for d, f in (("metaphlan", "A1_profile.txt"), ("kraken", "A1.bracken"), ("metaphlan", "A2_profile.txt")):
+        (lavoro / d).mkdir(parents=True, exist_ok=True)
+        (lavoro / d / f).write_text("profilo vecchio", encoding="utf-8")
+    nonhost_finiti(condivisa, "A1", b"read di prima")       # dati di prima dell'aggiornamento: nessun timbro
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")
+    assert byte(condivisa, "A1") == {}
+    assert not (lavoro / "metaphlan" / "A1_profile.txt").exists() and not (lavoro / "kraken" / "A1.bracken").exists()
+
+
+@linux
+def test_q2_fase_b_non_profila_read_fatte_con_l_altro_ospite(tmp_path):
+    """--phase b da sola non passa dai timbri della Fase A: se l'altro progetto ha rifatto le read del campione con
+    il suo ospite, il campione non si profila (si dovrebbe rifare la Fase A)."""
+    home = installazione_finta(tmp_path)
+    condivisa = tmp_path / "nonhost_condivisa"
+    condivisa.mkdir()
+    a = progetto_custom(tmp_path, "salame", ["A1", "A2"], condivisa)
+    b = progetto_custom(tmp_path, "bresaola", ["A1", "B2"], condivisa)
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")
+    corsa_custom(home, *b, condivisa, "[bos_taurus]")       # la bresaola rifà A1 col bovino
+    nonhost_finiti(condivisa, "A1", b"bovino")
+    cfg = a[0]                                              # (il config del salame è quello della sua ultima corsa)
+    (tmp_path / "db_mpa").mkdir()                           # un database qualsiasi: la Fase B arriva ai campioni
+    testo_cfg = cfg.read_text(encoding="utf-8")
+    cfg.write_text(testo_cfg.replace("profiling:\n", f"profiling:\n  metaphlan_db: {tmp_path / 'db_mpa'}\n"),
+                   encoding="utf-8")
+    r = subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--phase", "b"],
+                       capture_output=True, text=True, timeout=120, cwd=cfg.parent,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1", "PMN_LANG": "en"})
+    testo = r.stdout + r.stderr
+    assert "A1: its host-free reads were made with other host parameters" in testo, testo
+    assert "mpa_A1" not in testo, testo
+
+
+@linux
+def test_q3_elenco_incompleto_non_toglie_i_profili(tmp_path):
+    """data_source both con la cartella delle read locali non montata: l'elenco ha solo i codici SRR, e i profili dei
+    campioni locali sparivano dalla cartella di lavoro. Con l'elenco incompleto non si toglie nulla."""
+    home = installazione_finta(tmp_path)
+    prog = tmp_path / "salame"
+    (prog / "lavoro" / "metaphlan").mkdir(parents=True)
+    for s in ("SRR100", "L1"):
+        (prog / "lavoro" / "metaphlan" / f"{s}_profile.txt").write_text(s, encoding="utf-8")
+    (prog / "srr.txt").write_text("SRR100\n", encoding="utf-8")
+    cfg = prog / "config.yaml"
+    cfg.write_text(f"project_name: salame\ndata_source: both\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"paths:\n  work_dir: {prog / 'lavoro'}\n  srr_list: {prog / 'srr.txt'}\n"
+                   f"  local_reads_dir: {tmp_path / 'disco_non_montato'}\nprofiling:\n  tool: metaphlan\n"
+                   f"  metaphlan_db: {prog}\n",   # un database qualsiasi: la Fase B arriva ai campioni
+                   encoding="utf-8")
+    for _ in range(2):   # la prima corsa registra i parametri (timbro assente = si rifà tutto), la seconda riprende
+        for s in ("SRR100", "L1"):
+            (prog / "lavoro" / "metaphlan" / f"{s}_profile.txt").write_text(s, encoding="utf-8")
+        subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--phase", "b"],
+                       capture_output=True, text=True, timeout=120, cwd=prog,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    assert (prog / "lavoro" / "metaphlan" / "L1_profile.txt").is_file()
+
+
+@linux
+def test_q4_raw_condivisa_fase_a_solo_sui_campioni_del_progetto(tmp_path):
+    """raw_dir personalizzata condivisa: la Fase A rifilava e filtrava anche le read degli altri progetti (senza il
+    loro timbro). Ora solo i campioni dell'elenco."""
+    home = installazione_finta(tmp_path)
+    prog, raw = tmp_path / "salame", tmp_path / "raw_condivisa"
+    prog.mkdir()
+    raw.mkdir()
+    for s in ("SRR100", "SRR200"):
+        for m in (1, 2):
+            with gzip.open(raw / f"{s}_{m}.fastq.gz", "wt") as g:
+                g.write(f"@{s}\nACGT\n+\nIIII\n")
+    (prog / "srr.txt").write_text("SRR100\n", encoding="utf-8")
+    cfg = prog / "config.yaml"
+    cfg.write_text(f"project_name: salame\ndata_source: ncbi\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"paths:\n  layout: custom\n  work_dir: {prog / 'lavoro'}\n  srr_list: {prog / 'srr.txt'}\n"
+                   f"  raw_dir: {raw}\nprofiling:\n  tool: metaphlan\n", encoding="utf-8")
+    r = subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--dry-run",
+                        "--phase", "a"], capture_output=True, text=True, timeout=120, cwd=prog,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    testo = r.stdout + r.stderr
+    assert "trim_SRR100" in testo and "trim_SRR200" not in testo, testo
