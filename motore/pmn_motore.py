@@ -621,16 +621,25 @@ class Motore:
         mpa = sorted((lavoro / "metaphlan").glob("*_profile.txt")) if strumento in ("metaphlan", "both") else []
         krk = sorted((lavoro / "kraken").glob("*.bracken")) + sorted((lavoro / "kraken").glob("*.k2report")) \
             if strumento in ("kraken", "both") else []
+        # solo i campioni del progetto: quelli tolti restano in pmn_work (P04); elenco illeggibile = tutti, come prima
+        nomi = set(self._nomi(cfg))
+        tieni = lambda n: not nomi or n in nomi   # noqa: E731
         for f in mpa:
+            if not tieni(f.name[:-len("_profile.txt")]):
+                continue
             shutil.copy(f, r / "metaphlan")
             campioni.setdefault(f.name[:-len("_profile.txt")], {})["metaphlan"] = f"metaphlan/{f.name}"
         for f in krk:
+            if not tieni(f.stem):
+                continue
             shutil.copy(f, r / "kraken")
             if f.suffix == ".bracken":
                 campioni.setdefault(f.stem, {})["kraken"] = f"kraken/{f.name}"
         for f in sorted(res.glob("*.tsv")) + sorted(res.glob("*.xlsx")):
             shutil.copy(f, r / "tabelle")
         for f in sorted((res / "alpha_metaphlan_pari").glob("*_profile.txt")):   # MetaPhlAn a profondità uguale (R1)
+            if not tieni(f.name[:-len("_profile.txt")]):
+                continue
             (r / "metaphlan_pari").mkdir(exist_ok=True)
             shutil.copy(f, r / "metaphlan_pari")
         trim = Path(paths["trim_dir"]) if paths.get("layout") == "custom" and paths.get("trim_dir") else lavoro / "trim"

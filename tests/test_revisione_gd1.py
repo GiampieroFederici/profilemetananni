@@ -121,3 +121,20 @@ def test_p01_referto_solo_coi_profili_del_metodo_che_gira(tmp_path, finti, strum
     out = m._risultati(prog / "config.yaml", cfg)
     assert [list(c["file"]) for c in out["campioni"]] == [[resta]]
     assert not list((prog / "risultati" / manca).iterdir())
+
+
+# ---------------- P04: risultati.json e referto solo coi campioni del progetto ----------------
+def test_p04_risultati_solo_campioni_del_progetto(tmp_path, finti):
+    m, prog, cfg = motore(tmp_path)
+    out = m._risultati(prog / "config.yaml", cfg)
+    assert [c["nome"] for c in out["campioni"]] == ["SRRA"]
+    assert not (prog / "risultati" / "metaphlan" / "SRRB_profile.txt").exists()
+    assert not (prog / "risultati" / "kraken" / "SRRB.bracken").exists()
+
+
+def test_p04_senza_elenco_leggibile_restano_tutti(tmp_path, finti):
+    """Ripiego: se l'elenco dei campioni non si legge, come prima (tutti quelli in pmn_work)."""
+    m, prog, cfg = motore(tmp_path)
+    (prog / "campioni.txt").unlink()
+    out = m._risultati(prog / "config.yaml", cfg)
+    assert [c["nome"] for c in out["campioni"]] == ["SRRA", "SRRB"]
