@@ -121,3 +121,50 @@ def test_p05_rifilatura_interrotta_si_rifa(tmp_path):
     assert "already trimmed" not in p.stdout + p.stderr
     assert righe_gz(trim / "C1_trim_1.fastq.gz") == righe_gz(trim / "C1_trim_2.fastq.gz") == 800
     assert list(trim.glob(".*")) == []
+
+
+# ---------------- P06: filtro dell'ospite, il mate 1 pubblicato prima del mate 2 ----------------
+# bowtie2 finto: scrive le read "non host" (copia degli ingressi) dove dice --un-conc-gz
+BOWTIE2 = r"""#!/usr/bin/env bash
+while [ $# -gt 0 ]; do
+  case "$1" in -1) I1="$2"; shift 2;; -2) I2="$2"; shift 2;; --un-conc-gz) U="$2"; shift 2;; *) shift;; esac
+done
+cp "$I1" "${U/\%/1}"; cp "$I2" "${U/\%/2}"
+"""
+# mv finto: alla chiamata numero $MV_UCCIDI ferma lo script (Annulla durante la pubblicazione), altrimenti il vero mv
+MV = r"""#!/usr/bin/env bash
+n=$(( $(cat "$MV_CONTA" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$MV_CONTA"
+if [ "$n" -eq "$MV_UCCIDI" ]; then kill -TERM "$PPID"; exit 143; fi
+exec /bin/mv "$@"
+"""
+
+
+def hostfilter_fermato(tmp_path, uccidi):
+    b = finti(tmp_path, bowtie2=BOWTIE2, mv=MV)
+    r1, r2 = gz_fastq(tmp_path / "R1.fastq.gz", mate=1), gz_fastq(tmp_path / "R2.fastq.gz", mate=2)
+    (tmp_path / "idx.1.bt2").write_text("x")
+    (tmp_path / "t").mkdir()
+    out = tmp_path / "nonhost"
+    p = lancia("steps/21_hostfilter.sh", ["--sample", "S", "--in1", r1, "--in2", r2, "--index", tmp_path / "idx",
+                                          "--out", out, "--threads", "1"], b,
+               TMPDIR=str(tmp_path / "t"), MV_CONTA=str(tmp_path / "conta"), MV_UCCIDI=str(uccidi))
+    return p, out
+
+
+@linux
+@pytest.mark.parametrize("uccidi", [1, 2, 3, 4])
+def test_p06_hostfilter_fermato_mai_mate1_senza_mate2(tmp_path, uccidi):
+    """run.sh riprende guardando solo nonhost_1: se c'è il mate 1 deve esserci, intero, anche il mate 2."""
+    p, out = hostfilter_fermato(tmp_path, uccidi)
+    m1, m2 = out / "S_nonhost_1.fastq.gz", out / "S_nonhost_2.fastq.gz"
+    if m1.exists():
+        assert m2.exists() and righe_gz(m2) == 800
+    assert [f.name for f in out.iterdir() if f.name.endswith(".part")] == []
+
+
+@linux
+def test_p06_hostfilter_intero(tmp_path):
+    p, out = hostfilter_fermato(tmp_path, 99)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert sorted(f.name for f in out.glob("*.gz*")) == ["S_nonhost_1.fastq.gz", "S_nonhost_2.fastq.gz"]
+    assert righe_gz(out / "S_nonhost_1.fastq.gz") == righe_gz(out / "S_nonhost_2.fastq.gz") == 800

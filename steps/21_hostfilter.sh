@@ -131,10 +131,13 @@ for index in "${INDEXES[@]}"; do
   fi
 done
 
-# Publish the final non-host reads.
-mv -f "$cur1" "$final1" || die "cannot write $final1"
+# Publish the final non-host reads: copy next to the target under a temporary name, then rename
+# (same filesystem = atomic; $tmp is on another disk, where mv copies onto the final name).
+# Mate 1 last: run.sh resumes by looking at nonhost_1 only.
+trap 'rm -rf "$tmp"; rm -f "$final1.part" ${final2:+"$final2.part"}' EXIT INT TERM
 if [ "$paired" -eq 1 ]; then
-  mv -f "$cur2" "$final2" || die "cannot write non-host R2"
+  mv -f "$cur2" "$final2.part" && mv -f "$final2.part" "$final2" || die "cannot write non-host R2"
 fi
+mv -f "$cur1" "$final1.part" && mv -f "$final1.part" "$final1" || die "cannot write $final1"
 
 ok "$(say "$SAMPLE host-filtered (${#INDEXES[@]} host pass(es))." "$SAMPLE filtrato dall'host (${#INDEXES[@]} passi).")"
