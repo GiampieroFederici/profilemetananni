@@ -173,7 +173,7 @@ def test_sezione_qc_del_referto(tmp_path):
     w = lavoro_finto(tmp_path)
     qc = pmn_motore.controllo_qualita(w, w / "trim", tmp_path / "risultati")
     h = "\n".join(referto.html_qc({"qc": qc}, 7))
-    assert h.startswith("<h2>7. Controllo qualità delle read</h2>")
+    assert h.startswith('<h2 style="page-break-before: always">7. Controllo qualità delle read</h2>')   # pagina nuova
     tabelle = h.split("<table")[1:]
     assert len(tabelle) == 2
     for t in tabelle:
@@ -205,12 +205,17 @@ def test_foglio_qc_dell_excel(tmp_path):
     assert riga[3] == pytest.approx(91.2345) and riga[7] == pytest.approx(70.0)
 
 
-# ---------------- 22/10: numeri lunghi interi su una riga nel PDF ----------------
-def test_numeri_a_8_cifre_su_una_riga_nel_pdf(tmp_path):
-    """Salame_esempio (b8ef83a): nel PDF "1.507.887" andava a capo ("1.507.88" e sotto "7"; letto con PyMuPDF sul PDF
-    vero). Il referto intero, con coppie a 8 cifre come C03_1 (34 milioni), impaginato come fa referto.pdf():
-    QTextDocument.print_() impagina in punti (72 per pollice: 510 di pagina utile su A4 con 15 mm di margine; a questa
-    larghezza Qt spezza "1.507.887" come nel PDF vero), quindi qui si impagina così e si contano le righe di ogni numero."""
+# ---------------- 22/10: tabelle QC leggibili nel PDF (numeri interi, intestazioni, salti di pagina) ----------------
+NUMERI_8 = {"coppie_prima": 34_000_000, "coppie_dopo": 33_123_456, "coppie_profili": 12_345_678}
+INTESTAZIONI_QC = ("Coppie prima", "Coppie dopo", "Basi ≥ Q30 prima (%)", "Basi ≥ Q30 dopo (%)", "Duplicati, read grezze (%)",
+                   "Lunghezza media (basi)", "Ospite e uomo tolti (%)", "Coppie per i profili")
+
+
+def impagina_qc(tmp_path, n):
+    """Il referto intero con n campioni QC a 8 cifre (come C03_1, 34 milioni di coppie), impaginato come referto.pdf().
+    QTextDocument.print_() impagina in punti: 510 x 757 per pagina su A4 con 15 mm di margine (a questa larghezza Qt
+    spezzava "1.507.887" come nel PDF vero di Salame_esempio, letto con PyMuPDF).
+    [(testo, pagina, righe, [a capo a metà parola])], un elemento per blocco di testo."""
     QtGui = pytest.importorskip("PySide6.QtGui")
     from PySide6.QtCore import QMarginsF, QSizeF
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -224,30 +229,50 @@ def test_numeri_a_8_cifre_su_una_riga_nel_pdf(tmp_path):
         (r / sotto).mkdir(parents=True, exist_ok=True)
         shutil.copy(dati / f, r / sotto)
     indice = json.loads((dati / "risultati.json").read_text(encoding="utf-8"))
-    numeri = {"coppie_prima": 34_000_000, "coppie_dopo": 33_123_456, "coppie_profili": 12_345_678}
     indice["qc"] = {"multiqc": "qc/x_multiqc_report.html", "fastp": [], "fastqc": [], "campioni": [
-        {"nome": "SRR4875279", "a_coppie": True, "q30_prima_pct": 94.95, "q30_dopo_pct": 95.46, "duplicati_pct": 3.25,
-         "lunghezza_media": 140.0, "ospite_pct": 53.09, **numeri}]}
+        {"nome": f"SRR48752{i:02d}", "a_coppie": True, "q30_prima_pct": 94.95, "q30_dopo_pct": 95.46,
+         "duplicati_pct": 3.25, "lunghezza_media": 140.0, "ospite_pct": 53.09, **NUMERI_8} for i in range(n)]}
     (r / "risultati.json").write_text(json.dumps(indice), encoding="utf-8")
-    html = referto.html_referto(referto.raccogli(r, {"project_name": "prova"}))
     doc = QtGui.QTextDocument()
-    doc.setHtml(html)
+    doc.setHtml(referto.html_referto(referto.raccogli(r, {"project_name": "prova"})))
     w = QtGui.QPdfWriter(str(tmp_path / "r.pdf"))                      # stessa pagina di referto.pdf()
     w.setPageSize(QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A4))
     w.setPageMargins(QMarginsF(15, 15, 15, 15), QtGui.QPageLayout.Unit.Millimeter)
-    punti = w.pageLayout().paintRect(QtGui.QPageLayout.Unit.Point).width()   # 510: come nel PDF vero (PyMuPDF, 22/10)
-    doc.setPageSize(QSizeF(punti, 100_000))
-    doc.documentLayout().documentSize()
-    righe, spezzate, qc, b = {}, [], False, doc.begin()
-    while b.isValid():
-        t = b.text()
-        qc = (qc or t.startswith("Pulizia delle read")) and not t.startswith("Come leggerle")
-        if t.strip() in {referto.lingua.migliaia(f"{n:,}") for n in numeri.values()}:
-            righe[t.strip()] = b.layout().lineCount()
-        for i in range(b.layout().lineCount() - 1 if qc else 0):   # intestazioni e celle: a capo solo fra parole
-            fine = b.layout().lineAt(i).textStart() + b.layout().lineAt(i).textLength()
-            if not (t[fine - 1].isspace() or t[fine].isspace()):
-                spezzate.append(f"{t[:fine]}|{t[fine:]}")
+    pagina = w.pageLayout().paintRect(QtGui.QPageLayout.Unit.Point)
+    doc.setPageSize(QSizeF(pagina.width(), pagina.height()))
+    lay = doc.documentLayout()
+    lay.documentSize()
+    out, b = [], doc.begin()
+    while b.isValid():   # (i blocchi non si tengono: muoiono col documento) testo, pagina, righe, a capo fuori parola
+        t, lin = b.text(), b.layout()
+        fini = [lin.lineAt(i).textStart() + lin.lineAt(i).textLength() for i in range(lin.lineCount() - 1)]
+        spezzate = [f"{t[:f]}|{t[f:]}" for f in fini if not (t[f - 1].isspace() or t[f].isspace())]
+        out.append((t.strip(), int(lay.blockBoundingRect(b).top() // pagina.height()), lin.lineCount(), spezzate))
         b = b.next()
-    assert len(righe) == 3 and set(righe.values()) == {1}, (righe, round(punti))
+    return out
+
+
+@pytest.mark.parametrize("n", [1, 6, referto.QC_UNA_PAGINA, referto.QC_UNA_PAGINA + 1, 40])
+def test_tabelle_qc_leggibili_nel_pdf(tmp_path, n):
+    """Salame_esempio nel PDF: "1.507.887" spezzato in "1.507.88" e "7" (b8ef83a); poi (89e4f14) intestazione della
+    seconda tabella in fondo a pagina 5 e la riga del campione da sola a pagina 6, "Ospite e uomo tolti (%)" su 4 righe.
+    Qui: ogni numero e nome su una riga, nessuna parola spezzata nelle celle, intestazioni al massimo su 3 righe
+    ("Ospite e uomo tolti (%)" su 2), titolo, intestazione e prima riga di ogni tabella QC nella stessa pagina; fino a
+    QC_UNA_PAGINA campioni la sezione intera (titolo e "Come leggerle") in una pagina sola."""
+    bl = impagina_qc(tmp_path, n)
+    inizio = next(i for i, x in enumerate(bl) if x[0].endswith("Controllo qualità delle read"))
+    fine = next(i for i, x in enumerate(bl) if x[0].startswith("Come leggerle"))
+    qc = bl[inizio:fine + 1]
+    valori = {referto.lingua.migliaia(f"{v:,}") for v in NUMERI_8.values()}
+    assert {r for t, _, r, _ in qc if t in valori or t.startswith("SRR48752")} == {1}
+    spezzate = [s for _, _, _, sp in qc[:-1] for s in sp]               # a capo solo fra parole
     assert not spezzate, spezzate
+    righe = {t: r for t, _, r, _ in qc if t in INTESTAZIONI_QC}
+    assert len(righe) == len(INTESTAZIONI_QC) and max(righe.values()) <= 3 and righe["Ospite e uomo tolti (%)"] <= 2, righe
+    for titolo in ("Pulizia delle read (fastp)", "Duplicati, lunghezza e ospite"):
+        i = next(k for k, x in enumerate(qc) if x[0] == titolo)
+        intest = qc[i + 1]
+        prima = next(x for x in qc[i + 1:] if x[0].startswith("SRR48752"))
+        assert qc[i][1] == intest[1] == prima[1], (titolo, qc[i][1], intest[1], prima[1])
+    if n <= referto.QC_UNA_PAGINA:
+        assert qc[0][1] == qc[-1][1], (n, qc[0][1], qc[-1][1])

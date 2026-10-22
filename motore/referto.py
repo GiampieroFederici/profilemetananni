@@ -302,6 +302,9 @@ def html_diversita(d):
     return h
 
 
+QC_UNA_PAGINA = 8    # campioni: fino a 8 la sezione QC sta intera in una pagina del PDF (misurato 22/10, test_qc.py)
+
+
 def valori_qc(c):
     """[coppie prima, coppie dopo, Q30 prima, Q30 dopo, duplicati, lunghezza, ospite, coppie per i profili] di un
     campione di risultati.json "qc" (v0.4), già scritti per le persone; vuoto se il numero manca."""
@@ -315,22 +318,31 @@ def html_qc(d, n):
     """Sezione "Controllo qualità delle read" (v0.4): due tabelle di 5 colonne (il PDF di Qt rende male le tabelle
     larghe), una frase su come leggerle e il collegamento al report MultiQC."""
     qc = d["qc"]
-    h = [f"<h2>{n}. {_('Controllo qualità delle read')}</h2>"]
+    titolo = f"{n}. {_('Controllo qualità delle read')}"
     if not qc.get("campioni"):
-        return h + ["<p>" + _("Controllo qualità non disponibile per questa analisi.") + "</p>"]
+        return [f"<h2>{titolo}</h2>", "<p>" + _("Controllo qualità non disponibile per questa analisi.") + "</p>"]
+    # 22/10: nel PDF Qt spezza le tabelle fra le pagine (intestazione in fondo a una, riga del campione sull'altra) e non
+    # rispetta né <thead> né una tabella esterna: rispetta solo il salto di pagina. La sezione parte su una pagina nuova
+    # (fino a QC_UNA_PAGINA campioni ci sta intera); con più campioni anche la seconda tabella parte su una pagina nuova
+    h = [f'<h2 style="page-break-before: always">{titolo}</h2>']
     singole = any(not c.get("a_coppie", True) for c in qc["campioni"])
     h.append("<p>" + _("Prima dei profili le read passano da fastp, che toglie le parti di bassa qualità e gli "
                        "adattatori, e poi da Bowtie 2, che toglie il DNA dell'ospite e dell'uomo.") + "</p>")
     righe = [[e(c["nome"])] + valori_qc(c) for c in qc["campioni"]]
     # Larghezze (22/10): nel PDF (510 punti di pagina) un numero non va a capo a metà fino a 8 cifre (34.000.000 coppie,
-    # come C03_1; con 7 cifre "1.507.887" andava a capo). Le colonne Q30 e ospite hanno valori corti e cedono spazio
+    # come C03_1; con 7 cifre "1.507.887" andava a capo) e ogni intestazione sta al massimo su 3 righe, "Ospite e uomo
+    # tolti (%)" su 2: intestazioni a 8,5 punti e celle a 9 (dentro la cella: lo stile su <th> e <td> Qt lo ignora)
+    def piccole(t):
+        return re.sub(r"(<t([hd]) [^>]*>)(.*?)(</t[hd]>)",
+                      lambda m: f'{m[1]}<span style="font-size:{"8.5" if m[2] == "h" else "9"}pt">{m[3]}</span>{m[4]}', t)
     h.append("<h3>" + _("Pulizia delle read (fastp)") + "</h3>")
-    h.append(tabella([_("Campione"), _("Coppie prima"), _("Coppie dopo"), _("Basi ≥ Q30 prima (%)"),
-                      _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [24, 23, 23, 15, 15]))
-    h.append("<h3>" + _("Duplicati, lunghezza e ospite") + "</h3>")
-    h.append(tabella([_("Campione"), _("Duplicati, read grezze (%)"), _("Lunghezza media (basi)"),
-                      _("Ospite e uomo tolti (%)"), _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe],
-                     (1, 2, 3, 4), [23, 20, 21, 14, 22]))   # "Duplicati,", "Lunghezza" e il campione interi
+    h.append(piccole(tabella([_("Campione"), _("Coppie prima"), _("Coppie dopo"), _("Basi ≥ Q30 prima (%)"),
+                              _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [22, 20, 20, 19, 19])))
+    salto = ' style="page-break-before: always"' if len(righe) > QC_UNA_PAGINA else ""
+    h.append(f"<h3{salto}>" + _("Duplicati, lunghezza e ospite") + "</h3>")
+    h.append(piccole(tabella([_("Campione"), _("Duplicati, read grezze (%)"), _("Lunghezza media (basi)"),
+                              _("Ospite e uomo tolti (%)"), _("Coppie per i profili")],
+                             [[r[0]] + r[5:] for r in righe], (1, 2, 3, 4), [21, 18, 18, 24, 19])))
     if singole:
         h.append('<p class="piccolo">' + _("Per i campioni a lettura singola le \"coppie\" sono read singole.")
                  + "</p>")
