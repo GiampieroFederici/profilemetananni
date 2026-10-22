@@ -120,7 +120,7 @@ def test_cm3_esegui_senza_elicitation_vuole_il_codice(progetti):
                                                      "codice_conferma": primo["codice_conferma"]}))   # una volta sola
         return primo, sbagliato, partito_prima, avvio, fine, di_nuovo
     primo, sbagliato, partito_prima, avvio, fine, di_nuovo = con_client(progetti, lavoro)
-    assert primo["avviata"] is False and primo["serve_conferma"] and "1 campioni" in primo["stima"]
+    assert primo["avviata"] is False and primo["serve_conferma"] and "1 campione," in primo["stima"]
     assert sbagliato["avviata"] is False and not partito_prima
     assert avvio["avviata"] is True and re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}", avvio["corsa"])
     assert fine["fine"]["esito"] == "ok" and fine["eventi"][0]["tipo"] == "inizio" and fine["eventi"][-1]["tipo"] == "fine"

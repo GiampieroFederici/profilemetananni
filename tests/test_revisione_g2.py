@@ -261,3 +261,19 @@ def test_p29_referto_usa_le_read_intere_come_la_beta(tmp_path):
     assert r.returncode == 0, r.stderr
     beta = pd.read_csv(tmp_path / "t.tsv", sep="\t", index_col=0)["S1"]
     assert set(beta[beta > 0].index) == {n for n, x in righe.items() if x["pct"] >= 0.005}
+
+
+# ---------------- P38 (secondo giro): singolare e plurale nella conferma di esegui ----------------
+def test_p38_riassunto_singolare_e_plurale():
+    """Con un campione e un minuto la frase diceva "1 campioni" e "circa 1 minuti"."""
+    pytest.importorskip("mcp")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pmn_mcp_server_g2", RADICE / "pmn_mcp" / "server.py")
+    s = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(s)
+    assert s.riassunto({"esito": "ok", "risultato": {"campioni": 1, "tempo_totale_s": 60, "spazio_gb": 12,
+                                                     "spazio_libero_gb": 643}}) == \
+        "1 campione, circa 1 minuto, 12 GB di spazio (liberi 643 GB)."
+    assert s.riassunto({"esito": "ok", "risultato": {"campioni": 2, "tempo_totale_s": 2280, "spazio_gb": 3.2,
+                                                     "spazio_libero_gb": 412.5}}) == \
+        "2 campioni, circa 38 minuti, 3,2 GB di spazio (liberi 412,5 GB)."

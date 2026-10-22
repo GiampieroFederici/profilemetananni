@@ -252,11 +252,11 @@ def test_p26_stato_senza_risultato_doppio_e_solo_eventi_nuovi(progetti_mcp, monk
 
 # ---------------- P38: conferma di esegui con i numeri all'italiana ----------------
 def test_p38_riassunto_con_la_virgola_dei_decimali():
-    """La frase è sempre in italiano: virgola per i decimali. Il plurale "1 campioni" resta (lo fissa test_mcp.py)."""
+    """La frase è sempre in italiano: virgola per i decimali, singolare con 1 campione e 1 minuto."""
     s = server_mcp()
     t = s.riassunto({"esito": "ok", "risultato": {"campioni": 2, "tempo_totale_s": 2280, "spazio_gb": 3.2,
                                                   "spazio_libero_gb": 412.5}})
     assert t == "2 campioni, circa 38 minuti, 3,2 GB di spazio (liberi 412,5 GB)."
     assert s.riassunto({"esito": "ok", "risultato": {"campioni": 1, "tempo_totale_s": 60, "spazio_gb": 12,
                                                      "spazio_libero_gb": 643}}) == \
-        "1 campioni, circa 1 minuti, 12 GB di spazio (liberi 643 GB)."
+        "1 campione, circa 1 minuto, 12 GB di spazio (liberi 643 GB)."

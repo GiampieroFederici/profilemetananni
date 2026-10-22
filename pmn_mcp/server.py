@@ -222,7 +222,8 @@ def riassunto(s):
         return f"Stima non riuscita: {s.get('messaggio')}"
     def it(x):   # la frase è sempre in italiano: virgola per i decimali
         return str(x).replace(".", ",")
-    return (f"{r.get('campioni')} campioni, circa {round((r.get('tempo_totale_s') or 0) / 60)} minuti, "
+    n, minuti = r.get("campioni"), round((r.get("tempo_totale_s") or 0) / 60)
+    return (f"{n} {'campione' if n == 1 else 'campioni'}, circa {minuti} {'minuto' if minuti == 1 else 'minuti'}, "
             f"{it(r.get('spazio_gb'))} GB di spazio (liberi {it(r.get('spazio_libero_gb'))} GB).")
 
 
