@@ -119,6 +119,8 @@ def store_credential(path, env_var: str, value: str) -> str:
     lines.append(f"{env_var}={value}")
     # P18: il file nasce già 0600 (con write_text era 0644 fino al chmod); il chmod stringe un file vecchio più largo
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    if os.name == "posix":   # file che c'era già, più largo: si stringe PRIMA di scriverci la chiave
+        os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     if os.name == "posix":

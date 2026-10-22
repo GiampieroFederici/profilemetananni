@@ -378,3 +378,26 @@ def test_annulla_crea_il_segno_prima_di_leggere_il_lucchetto(tmp_path, monkeypat
         assert m.annulla()[1] == {"annullata": False}
     assert {p.name for p in tmp_path.iterdir()} - {"x.log"} == {"esegui.lock", f"{corsa}.annulla"}
     assert not (tmp_path.parent / "fuori.annulla").exists()
+
+
+# ---------------- P18 (secondo giro): credentials già esistente con permessi larghi ----------------
+@pytest.mark.skipif(os.name != "posix", reason="permessi POSIX (0600): Linux/WSL")
+def test_p18_credenziale_scritta_solo_dopo_aver_stretto_i_permessi(tmp_path, monkeypatch):
+    """os.open con O_CREAT|O_TRUNC non cambia i permessi di un file che c'è già: con un credentials 0644 la chiave
+    nuova veniva scritta in un file leggibile da tutti, e solo dopo il chmod lo stringeva."""
+    sys.path.insert(0, str(RADICE / "steps"))
+    import _biomni_consent as cs
+    f = tmp_path / "credentials"
+    f.write_text("ALTRA=1\n", encoding="utf-8")
+    f.chmod(0o644)
+    durante = []
+    apri = os.fdopen
+
+    def fdopen(fd, *a, **k):
+        durante.append(os.fstat(fd).st_mode & 0o777)
+        return apri(fd, *a, **k)
+    monkeypatch.setattr(cs.os, "fdopen", fdopen)
+    assert cs.store_credential(f, "PMN_CHIAVE", "segreta") == ""
+    assert durante == [0o600]
+    assert f.stat().st_mode & 0o777 == 0o600
+    assert f.read_text(encoding="utf-8") == "ALTRA=1\nPMN_CHIAVE=segreta\n"
