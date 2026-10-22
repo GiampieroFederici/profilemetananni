@@ -321,16 +321,17 @@ def html_qc(d, n):
     h.append(tabella([_("Campione"), _("Coppie prima"), _("Coppie dopo"), _("Basi ≥ Q30 prima (%)"),
                       _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [24, 19, 19, 19, 19]))
     h.append("<h3>" + _("Duplicati, lunghezza e ospite") + "</h3>")
-    h.append(tabella([_("Campione"), _("Duplicati (%)"), _("Lunghezza media (basi)"), _("Ospite tolto (%)"),
-                      _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe], (1, 2, 3, 4),
-                     [24, 17, 22, 17, 20]))   # nel PDF "Lunghezza" e il nome del campione interi su una riga
+    h.append(tabella([_("Campione"), _("Duplicati, read grezze (%)"), _("Lunghezza media (basi)"),
+                      _("Ospite e uomo tolti (%)"), _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe], (1, 2, 3, 4),
+                     [24, 20, 22, 17, 17]))   # nel PDF "Duplicati,", "Lunghezza" e il campione interi su una riga
     if singole:
         h.append('<p class="piccolo">' + _("Per i campioni a lettura singola le \"coppie\" sono read singole.")
                  + "</p>")
     h.append('<p class="piccolo">' + _("<b>Come leggerle.</b> Q30 vuol dire al massimo 1 errore ogni 1.000 basi: più "
                                        "alta è la percentuale, migliori sono le read, e dopo fastp sale perché le "
                                        "parti peggiori sono state tolte. Molti duplicati vogliono dire molte copie "
-                                       "della stessa molecola (poco DNA di partenza o molta PCR). La lunghezza media "
+                                       "della stessa molecola (poco DNA di partenza o molta PCR). I duplicati sono "
+                                       "misurati sulle read grezze. La lunghezza media "
                                        "è quella dopo fastp. Più DNA dell'ospite si toglie, meno coppie restano per i "
                                        "profili: con poche coppie i taxa rari possono mancare (sezione 2).") + "</p>")
     if qc.get("multiqc"):
@@ -666,8 +667,8 @@ def excel(d, percorso):
                 for r in d["sicurezza"] for p in r["previsioni"]], senza_html(_(PROTOTIPO_FSSP)))
     if d["qc"].get("campioni"):
         foglio("QC", [_("Campione"), _("Coppie prima di fastp"), _("Coppie dopo fastp"), _("% basi ≥ Q30 prima"),
-                      _("% basi ≥ Q30 dopo"), _("% duplicati"), _("Lunghezza media dopo fastp (basi)"),
-                      _("% ospite tolto"), _("Coppie per i profili")],
+                      _("% basi ≥ Q30 dopo"), _("% duplicati (read grezze)"), _("Lunghezza media dopo fastp (basi)"),
+                      _("% ospite e uomo tolti"), _("Coppie per i profili")],
                [[c["nome"], c.get("coppie_prima"), c.get("coppie_dopo"), c.get("q30_prima_pct"), c.get("q30_dopo_pct"),
                  c.get("duplicati_pct"), c.get("lunghezza_media"), c.get("ospite_pct"), c.get("coppie_profili")]
                 for c in d["qc"]["campioni"]])

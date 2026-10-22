@@ -181,6 +181,9 @@ def test_sezione_qc_del_referto(tmp_path):
     assert "2.000.000" in tabelle[0] and "1.900.000" in tabelle[0] and "91,2" in tabelle[0] and "95,4" in tabelle[0]
     assert "7,3" in tabelle[1] and ">145,0<" in tabelle[1] and "70,0" in tabelle[1] and "570.000" in tabelle[1]
     assert "Come leggerle" in h and "1 errore ogni 1.000 basi" in h
+    # 22/10: fastp misura i duplicati sulle read grezze; l'ospite tolto è maiale (o altro) più uomo
+    assert "Duplicati, read grezze (%)" in tabelle[1] and "Ospite e uomo tolti (%)" in tabelle[1]
+    assert "I duplicati sono misurati sulle read grezze." in h
     assert '<a href="../qc/prova_multiqc_report.html">' in h
     vuota = "\n".join(referto.html_qc({"qc": {}}, 7))
     assert "non disponibile" in vuota and "<table" not in vuota
@@ -197,5 +200,6 @@ def test_foglio_qc_dell_excel(tmp_path):
     ws = openpyxl.load_workbook(tmp_path / "r.xlsx")["QC"]
     intest, riga = list(ws.values)[:2]
     assert intest[0] == "Campione" and len(intest) == 9
+    assert intest[5] == "% duplicati (read grezze)" and intest[7] == "% ospite e uomo tolti"
     assert riga[:3] == ("S1", 2000000, 1900000) and riga[-1] == 570000
     assert riga[3] == pytest.approx(91.2345) and riga[7] == pytest.approx(70.0)
