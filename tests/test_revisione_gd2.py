@@ -269,3 +269,49 @@ def test_p22_gzip_rotto_fallisce(tmp_path, rotto):
     p, _ = trim_gz(tmp_path, rotto=rotto)
     assert p.returncode != 0 and "corrupt gzip" in p.stdout + p.stderr and rotto in p.stdout + p.stderr
     assert not (tmp_path / "trim" / "C1_trim_1.fastq.gz").exists()
+
+
+# ---------------- P28: il confronto MetaPhlAn/Kraken conta anche Homo, Leishmania e virus ----------------
+def test_p28_run_sh_confronto_con_i_soli_taxa_del_referto():
+    righe = (RADICE / "bin" / "run.sh").read_text(encoding="utf-8").splitlines()
+    kraken = [r for r in righe if "a+=(--kraken" in r]
+    assert len(kraken) == 1 and '--kraken "$RES_DIR/kraken_matrix_taxa.tsv"' in kraken[0]
+
+
+def test_p28_confronto_solo_batteri_archei_funghi(tmp_path):
+    pd = pytest.importorskip("pandas")
+    pytest.importorskip("openpyxl")
+    import sys
+    krk = tmp_path / "kraken"
+    krk.mkdir()
+    # albero del report di Kraken (rientro di 2 spazi per livello) e Bracken: L. sakei 50 %, Homo e Leishmania
+    # 0,17 %, un virus 0,2 %: tutti sopra la soglia di 0,1 %, ma solo L. sakei è un taxon del prodotto
+    albero = [(0, "R", 1, "root"), (1, "R1", 131567, "cellular organisms"), (2, "D", 2, "Bacteria"),
+              (3, "S", 1599, "Latilactobacillus sakei"), (2, "D", 2759, "Eukaryota"), (3, "S", 9606, "Homo sapiens"),
+              (3, "S", 5664, "Leishmania major"), (1, "D", 10239, "Viruses"), (2, "S", 99999, "Virus finto")]
+    (krk / "S1.k2report").write_text("".join(f"1.00\t10\t10\t{r}\t{t}\t{'  ' * l}{n}\n" for l, r, t, n in albero),
+                                     encoding="utf-8")
+    specie = [("Latilactobacillus sakei", 1599, 0.5), ("Homo sapiens", 9606, 0.0017),
+              ("Leishmania major", 5664, 0.0017), ("Virus finto", 99999, 0.002)]
+    (krk / "S1.bracken").write_text(
+        "name\ttaxonomy_id\ttaxonomy_lvl\tkraken_assigned_reads\tadded_reads\tnew_est_reads\tfraction_total_reads\n"
+        + "".join(f"{n}\t{t}\tS\t10\t0\t10\t{f}\n" for n, t, f in specie), encoding="utf-8")
+    mpa = tmp_path / "metaphlan_merged.tsv"
+    mpa.write_text("clade_name\tS1\nk__Bacteria|p__Bacillota|s__Latilactobacillus_sakei\t100.0\n", encoding="utf-8")
+    subprocess.run([sys.executable, str(RADICE / "steps" / "33_kraken_matrix.py"), "--in", str(krk),
+                    "--out", str(tmp_path / "kraken_matrix.tsv"), "--taxa-out", str(tmp_path / "kraken_matrix_taxa.tsv"),
+                    "--threshold-pct", "0.1"], check=True, capture_output=True)
+
+    def confronto(matrice):
+        out = tmp_path / f"{matrice}.xlsx"
+        subprocess.run([sys.executable, str(RADICE / "steps" / "40_compare_report.py"), "--metaphlan", str(mpa),
+                        "--kraken", str(tmp_path / f"{matrice}.tsv"), "--out", str(out), "--threshold-pct", "0.1"],
+                       check=True, capture_output=True)
+        s = pd.read_excel(out, sheet_name="summary").set_index("metric")["value"]
+        return s, pd.read_excel(out, sheet_name="all_taxa")
+
+    s, taxa = confronto("kraken_matrix")                              # matrice intera: Homo, Leishmania, virus contati
+    assert s["species_kraken"] == 4 and s["only_kraken"] == 3
+    s, taxa = confronto("kraken_matrix_taxa")                         # la matrice che passa run.sh dopo P28
+    assert (s["species_kraken"], s["only_kraken"], s["jaccard"], s["kraken_confirmed_by_metaphlan_pct"]) == (1, 0, 1, 100)
+    assert list(taxa["species"]) == ["latilactobacillus sakei"]
