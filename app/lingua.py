@@ -59,15 +59,16 @@ def virgola(testo):
 
 
 def leggi_numero(testo):
-    """Il testo di un campo in un numero (float): '3,5' o '3.5'; con l'italiano '1.000.000', con l'inglese
-    '1,000,000'. Vuoto -> None; ValueError se non è un numero."""
+    """Il testo di un campo in un numero (float): '3,5' o '3.5'; con l'italiano '1.000.000' e '100.000' (un punto
+    seguito da 3 cifre, parte intera da 1 a 999 = migliaia), con l'inglese '1,000,000'. Vuoto -> None; ValueError
+    se non è un numero."""
     t = testo.strip().replace(" ", "")
     if not t:
         return None
     if _attuale == "it" or not re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d*)?", t):
         if "," in t:
             t = t.replace(".", "").replace(",", ".")
-        elif t.count(".") > 1:
+        elif t.count(".") > 1 or (_attuale == "it" and re.fullmatch(r"[1-9]\d{0,2}\.\d{3}", t)):
             t = t.replace(".", "")
     else:
         t = t.replace(",", "")

@@ -61,3 +61,14 @@ def test_p14_percorsi_con_apostrofo_e_comandi_arrivano_intatti(monkeypatch):
     prog[prog.index("-u") + 1] = "root"
     r = subprocess.run(prog, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0 and "/mnt/c/Users/D'Angelo/x$(id)" in r.stdout, (r.returncode, r.stdout, r.stderr)
+
+
+# ---------------- P09: '100.000' con l'italiano ----------------
+def test_p09_migliaia_con_un_solo_punto_in_italiano(monkeypatch):
+    from app import lingua
+    monkeypatch.setattr(lingua, "_attuale", "it")
+    assert [lingua.leggi_numero(x) for x in ("100.000", "1.000", "2.500", "3.5", "0.97", "0.970", "6.0", "1.000,5",
+                                             "1.000.000", "3,5")] == \
+        [100000.0, 1000.0, 2500.0, 3.5, 0.97, 0.97, 6.0, 1000.5, 1000000.0, 3.5]
+    monkeypatch.setattr(lingua, "_attuale", "en")       # l'inglese non cambia
+    assert [lingua.leggi_numero(x) for x in ("100.000", "2.500", "1,000", "3.5")] == [100.0, 2.5, 1000.0, 3.5]
