@@ -52,6 +52,13 @@ if [ -s "$profile" ]; then
   ok "$(say "$SAMPLE already profiled (MetaPhlAn) -> skip" "$SAMPLE già profilato (MetaPhlAn) -> salto")"
   exit 0
 fi
+# A run killed half-way (PBS walltime, Annulla) leaves the mapout without the profile, and
+# MetaPhlAn 4.2 refuses to start when --mapout already exists: remove the partial file first.
+if [ -e "$b2out" ]; then
+  warn "$(say "$SAMPLE: removing the mapout of an interrupted run ($b2out)" \
+             "$SAMPLE: tolgo il mapout di una corsa interrotta ($b2out)")"
+  rm -f "$b2out" || die "cannot remove $b2out"
+fi
 
 # MetaPhlAn accepts comma-joined paired reads.
 reads="$IN1"

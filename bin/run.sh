@@ -624,7 +624,8 @@ fi
 if [ "$PMN_DO_REPORT" = "yes" ]; then
   a=(--out "$RES_DIR/report_overview.xlsx" --threshold-pct "$PMN_THRESHOLD")
   [ -n "$MPA_MERGED" ] && a+=(--metaphlan "$MPA_MERGED")
-  [ -n "$KRK_MATRIX" ] && a+=(--kraken "$KRK_MATRIX")
+  # Kraken: the product taxa only (bacteria, archaea, fungi), as in the report and the beta diversity (P28)
+  [ -n "$KRK_MATRIX" ] && a+=(--kraken "$RES_DIR/kraken_matrix_taxa.tsv")
   do_step pmn_reports_py report -- python "$PMN_ROOT/steps/40_compare_report.py" "${a[@]}"
 fi
 

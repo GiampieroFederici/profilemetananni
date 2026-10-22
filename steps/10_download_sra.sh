@@ -27,6 +27,7 @@ validate_srr "$SRR"        || die "Invalid SRA accession: $(sanitize_for_log "$S
 validate_path_safe "$OUT"  || die "Unsafe output path: $(sanitize_for_log "$OUT")"
 validate_uint "$THREADS"   || die "threads must be a non-negative integer"
 mkdir -p "$OUT" || die "cannot create $OUT"
+rm -f "$OUT/.${SRR}"*.part   # left by a run stopped half-way (Annulla, PC switched off)
 
 # Idempotency: single- or paired-end output already present.
 if [ -s "$OUT/${SRR}_1.fastq.gz" ] || [ -s "$OUT/${SRR}.fastq.gz" ]; then
@@ -41,18 +42,27 @@ info "$(say "Prefetching $SRR ..." "Prefetch di $SRR ...")"
 prefetch --max-size u -O "$tmp" "$SRR" || die "prefetch failed for $SRR"
 
 info "$(say "Converting to FASTQ ..." "Converto in FASTQ ...")"
-if ! fasterq-dump --split-files --threads "$THREADS" -O "$tmp" "$tmp/$SRR/$SRR.sra" 2>/dev/null; then
-  fasterq-dump --split-files --threads "$THREADS" -O "$tmp" "$SRR" || die "fasterq-dump failed for $SRR"
+# -t: fasterq-dump's temporaries in $tmp too, not in the current folder (the projects in Documenti, on /mnt/c)
+if ! fasterq-dump --split-files --threads "$THREADS" -t "$tmp" -O "$tmp" "$tmp/$SRR/$SRR.sra" 2>/dev/null; then
+  fasterq-dump --split-files --threads "$THREADS" -t "$tmp" -O "$tmp" "$SRR" || die "fasterq-dump failed for $SRR"
 fi
 
-# Compress whatever was produced (paired _1/_2 or single).
+# Compress whatever was produced (paired _1/_2 or single) into hidden .part files next to the outputs, then rename
+# them (same folder = atomic). _1 goes last: the skip above and run.sh take a present _1 as a finished download.
 shopt -s nullglob
 produced=0
 for f in "$tmp/${SRR}"*.fastq; do
-  pigz -p "$THREADS" -c "$f" > "$OUT/$(basename "$f").gz" || die "pigz failed on $f"
+  pigz -p "$THREADS" -c "$f" > "$OUT/.$(basename "$f").gz.part" || die "pigz failed on $f"
   produced=1
 done
+for p in "$OUT/.${SRR}"*.fastq.gz.part; do
+  b="$(basename "$p")"; b="${b#.}"; b="${b%.part}"
+  [ "$b" = "${SRR}_1.fastq.gz" ] || mv -f "$p" "$OUT/$b" || die "cannot write $OUT/$b"
+done
 shopt -u nullglob
+if [ -f "$OUT/.${SRR}_1.fastq.gz.part" ]; then
+  mv -f "$OUT/.${SRR}_1.fastq.gz.part" "$OUT/${SRR}_1.fastq.gz" || die "cannot write $OUT/${SRR}_1.fastq.gz"
+fi
 [ "$produced" -eq 1 ] || die "no FASTQ produced for $SRR"
 
 ok "$(say "$SRR downloaded." "$SRR scaricato.")"

@@ -31,7 +31,6 @@ validate_path_safe "$IN1"   || die "Unsafe input path (in1)"
 validate_path_safe "$OUT"   || die "Unsafe output path"
 validate_uint "$THREADS"    || die "threads must be a non-negative integer"
 [ -s "$IN1" ] || die "input not found or empty: $(sanitize_for_log "$IN1")"
-gzip -t "$IN1" 2>/dev/null  || die "corrupt gzip: $(sanitize_for_log "$IN1")"
 mkdir -p "$OUT" || die "cannot create $OUT"
 
 out1="$OUT/${SAMPLE}_trim_1.fastq.gz"
@@ -42,20 +41,31 @@ html="$OUT/${SAMPLE}_fastp.html"
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
   [ -s "$IN2" ] || die "input not found or empty: $(sanitize_for_log "$IN2")"
-  gzip -t "$IN2" 2>/dev/null || die "corrupt gzip: $(sanitize_for_log "$IN2")"
 fi
 
 if [ -s "$out1" ]; then
   ok "$(say "$SAMPLE already trimmed -> skip fastp" "$SAMPLE già rifilato -> salto fastp")"
 else
+  # gzip integrity only when fastp really runs (a rerun skips it), R1 and R2 at the same time
+  gzip -t "$IN1" 2>/dev/null & g1=$!
+  g2=""; if [ -n "$IN2" ]; then gzip -t "$IN2" 2>/dev/null & g2=$!; fi
+  wait "$g1" || die "corrupt gzip: $(sanitize_for_log "$IN1")"
+  [ -z "$g2" ] || wait "$g2" || die "corrupt gzip: $(sanitize_for_log "$IN2")"
+  # fastp writes hidden .part files next to the outputs, renamed (same folder = atomic) only when it has finished:
+  # a run stopped half-way leaves no _trim_1, so the skip above never takes truncated reads. _trim_1 goes last.
+  # The names end in .fastq.gz: fastp compresses only an output named *.gz.
+  p1="$OUT/.${SAMPLE}_trim_1.part.fastq.gz"; p2="$OUT/.${SAMPLE}_trim_2.part.fastq.gz"
+  rm -f "$p1" "$p2"
   args=(--thread "$THREADS" --json "$json" --html "$html")
   if [ -n "$IN2" ]; then
-    args=(-i "$IN1" -I "$IN2" -o "$out1" -O "$out2" "${args[@]}")
+    args=(-i "$IN1" -I "$IN2" -o "$p1" -O "$p2" "${args[@]}")
   else
-    args=(-i "$IN1" -o "$out1" "${args[@]}")
+    args=(-i "$IN1" -o "$p1" "${args[@]}")
   fi
   info "$(say "Trimming $SAMPLE with fastp ..." "Rifilo $SAMPLE con fastp ...")"
   fastp "${args[@]}" || die "fastp failed for $SAMPLE"
+  if [ -n "$IN2" ]; then mv -f "$p2" "$out2" || die "cannot write $out2"; fi
+  mv -f "$p1" "$out1" || die "cannot write $out1"
 fi
 
 # FastQC on raw + trimmed reads (reports aggregated later by MultiQC, and copied into the results).
