@@ -867,3 +867,69 @@ def test_q4_raw_condivisa_fase_a_solo_sui_campioni_del_progetto(tmp_path):
                        env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
     testo = r.stdout + r.stderr
     assert "trim_SRR100" in testo and "trim_SRR200" not in testo, testo
+
+
+# ---------------- controllo cieco finale (22/10): elenco dei campioni ----------------
+def raw_condivisa(tmp_path, srr_list, triage=False):
+    """Progetto ncbi con raw_dir personalizzata che ha SRR100 e SRR200; config e cartella del progetto."""
+    prog, raw = tmp_path / "salame", tmp_path / "raw_condivisa"
+    prog.mkdir()
+    raw.mkdir()
+    for s in ("SRR100", "SRR200"):
+        for m in (1, 2):
+            with gzip.open(raw / f"{s}_{m}.fastq.gz", "wt") as g:
+                g.write(f"@{s}\nACGT\n+\nIIII\n")
+    (prog / "srr.txt").write_text(srr_list, encoding="utf-8")
+    cfg = prog / "config.yaml"
+    cfg.write_text(f"project_name: salame\ndata_source: ncbi\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"triage:\n  enabled: {'true' if triage else 'false'}\n"
+                   f"paths:\n  layout: custom\n  work_dir: {prog / 'lavoro'}\n  srr_list: {prog / 'srr.txt'}\n"
+                   f"  raw_dir: {raw}\nprofiling:\n  tool: metaphlan\n", encoding="utf-8")
+    return prog, cfg
+
+
+def a_secco_fase_a(home, prog, cfg):
+    r = subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--dry-run",
+                        "--phase", "a"], capture_output=True, text=True, timeout=120, cwd=prog,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    return r.stdout + r.stderr
+
+
+@linux
+def test_f1_srr_list_senza_a_capo_finale(tmp_path):
+    """srr_list scritta a mano senza l'a capo finale: l'ultimo SRR si perdeva (e con l'elenco dei campioni del
+    progetto non si sarebbe più nemmeno rifilato)."""
+    home = installazione_finta(tmp_path)
+    testo = a_secco_fase_a(home, *raw_condivisa(tmp_path, "SRR100\nSRR200"))
+    assert "trim_SRR100" in testo and "trim_SRR200" in testo, testo
+
+
+@linux
+def test_f2_both_con_la_cartella_locale_vuota_l_elenco_non_e_completo(tmp_path):
+    """data_source both e cartella delle read locali vuota (disco non montato su una cartella che esiste): l'elenco
+    con i soli SRR non è completo, i profili dei campioni locali restano."""
+    home = installazione_finta(tmp_path)
+    prog = tmp_path / "salame"
+    (prog / "lavoro" / "metaphlan").mkdir(parents=True)
+    (tmp_path / "locali_vuota").mkdir()
+    (prog / "srr.txt").write_text("SRR100\n", encoding="utf-8")
+    cfg = prog / "config.yaml"
+    cfg.write_text(f"project_name: salame\ndata_source: both\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"paths:\n  work_dir: {prog / 'lavoro'}\n  srr_list: {prog / 'srr.txt'}\n"
+                   f"  local_reads_dir: {tmp_path / 'locali_vuota'}\nprofiling:\n  tool: metaphlan\n"
+                   f"  metaphlan_db: {prog}\n", encoding="utf-8")
+    for _ in range(2):   # la prima corsa registra i parametri, la seconda riprende
+        for s in ("SRR100", "L1"):
+            (prog / "lavoro" / "metaphlan" / f"{s}_profile.txt").write_text(s, encoding="utf-8")
+        subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--phase", "b"],
+                       capture_output=True, text=True, timeout=120, cwd=prog,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    assert (prog / "lavoro" / "metaphlan" / "L1_profile.txt").is_file()
+
+
+@linux
+def test_f3_triage_solo_sui_campioni_del_progetto(tmp_path):
+    """raw_dir condivisa col triage acceso: il triage girava anche sulle read degli altri progetti."""
+    home = installazione_finta(tmp_path)
+    testo = a_secco_fase_a(home, *raw_condivisa(tmp_path, "SRR100\n", triage=True))
+    assert "tq_SRR100" in testo and "tq_SRR200" not in testo, testo

@@ -289,15 +289,13 @@ for_each_sample() {  # for_each_sample <dir> <callback>
 # modello che trova "nonhost2". MetaPhlAn e Kraken sono sempre sotto work_dir.
 NONHOST_TIMBRO="$NONHOST_DIR/.parametri"
 [ "$NONHOST_DIR" = "$PMN_WORK_DIR/nonhost" ] || NONHOST_TIMBRO="$PMN_WORK_DIR/.parametri_nonhost"
-stampa_campione() { printf '%s
-' "$1"; }
+stampa_campione() { printf '%s\n' "$1"; }
 campioni_del_progetto() {
   local srr
   if [ "$PMN_DATA_SOURCE" != local ] && [ -f "$PMN_SRR_LIST" ]; then
-    while IFS= read -r srr; do
+    while IFS= read -r srr || [ -n "$srr" ]; do   # anche l'ultima riga senza a capo
       srr="${srr%%[[:space:]]*}"
-      if validate_srr "$srr"; then printf '%s
-' "$srr"; fi
+      if validate_srr "$srr"; then printf '%s\n' "$srr"; fi
     done < "$PMN_SRR_LIST"
   fi
   if [ "$PMN_DATA_SOURCE" != ncbi ] && [ -d "$PMN_LOCAL_READS" ]; then for_each_sample "$PMN_LOCAL_READS" stampa_campione; fi
@@ -309,6 +307,10 @@ PMN_ELENCO_COMPLETO=1
 { [ "$PMN_DATA_SOURCE" = local ] || [ -f "$PMN_SRR_LIST" ]; } || PMN_ELENCO_COMPLETO=0
 { [ "$PMN_DATA_SOURCE" = ncbi ] || [ -d "$PMN_LOCAL_READS" ]; } || PMN_ELENCO_COMPLETO=0
 [ "${#PMN_CAMPIONI[@]}" -gt 0 ] || PMN_ELENCO_COMPLETO=0
+# both: una cartella locale vuota (disco non montato su una cartella che esiste) non è una fonte letta
+if [ "$PMN_DATA_SOURCE" = both ] && [ -z "$(for_each_sample "$PMN_LOCAL_READS" stampa_campione 2> /dev/null)" ]; then
+  PMN_ELENCO_COMPLETO=0
+fi
 del_progetto() { local c; for c in ${PMN_CAMPIONI[@]+"${PMN_CAMPIONI[@]}"}; do [ "$c" = "$1" ] && return 0; done; return 1; }
 QW="$(pmn_glob_quote "$PMN_WORK_DIR")"; QN="$(pmn_glob_quote "$NONHOST_DIR")"; QH="$(pmn_glob_quote "$HF_LOG_DIR")"
 QM="$(pmn_glob_quote "$MPA_DIR")"; QK="$(pmn_glob_quote "$KRK_DIR")"; QR="$(pmn_glob_quote "$RES_DIR")"
@@ -425,7 +427,7 @@ if [ "$PMN_DATA_SOURCE" = "ncbi" ] || [ "$PMN_DATA_SOURCE" = "both" ]; then
       --srr-list "$PMN_SRR_LIST" --out "$PMN_WORK_DIR/size" --work-dir "$PMN_WORK_DIR" \
     || die "size gate failed (not enough space, or unresolved accessions). Nothing was downloaded."
 
-  while IFS= read -r srr; do
+  while IFS= read -r srr || [ -n "$srr" ]; do   # anche l'ultima riga senza a capo
     srr="${srr%%[[:space:]]*}"
     [ -n "$srr" ] || continue
     case "$srr" in \#*) continue ;; esac
@@ -514,6 +516,7 @@ TRIAGE_DIR="$PMN_WORK_DIR/triage"
 TRIAGE_TSV="$RES_DIR/triage.tsv"
 triage_sample() {  # triage_sample <sample> <r1> <r2|"">
   local s="$1" r1="$2" r2="$3" idx
+  [ "$PMN_ELENCO_COMPLETO" -eq 1 ] && ! del_progetto "$s" && return 0   # raw_dir condivisa: non i campioni altrui
   # already host-filtered = already past the point where triage could save work
   if [ -n "$r2" ]; then [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ] && return 0
   else [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ] && return 0; fi
