@@ -235,20 +235,86 @@ if [ -z "$PMN_ENVS" ] && [ -z "${TMPDIR:-}" ]; then
   TMPDIR="$(cd "$PMN_WORK_DIR/tmp" && pwd)"; export TMPDIR
 fi
 
+# Call <callback> <sample> <r1> <r2|""> for every sample found in <dir>.
+for_each_sample() {  # for_each_sample <dir> <callback>
+  local d="$1" cb="$2" f s mate pair r1suf r2suf
+  [ -d "$d" ] || { warn "reads dir not found (yet): $d"; return 0; }
+  shopt -s nullglob
+  # --- Paired-end (EN): recognise the common R1/R2 naming conventions, not just _1/_2.
+  #     (IT): riconosci le convenzioni R1/R2 piu' comuni, non solo _1/_2.
+  # Each entry is "R1-suffix|R2-suffix". The sample name is the FILENAME with the
+  # R1-suffix stripped; the mate is the same path with the R1-suffix swapped for R2.
+  # The default NCBI form (_1/_2.fastq.gz) stays first so existing batches behave identically.
+  # Suffixes are distinct (e.g. *_R1.fastq.gz never also matches *_R1_001.fastq.gz),
+  # so no file is picked up by two patterns.
+  local PAIR_SUFFIXES=(
+    "_1.fastq.gz|_2.fastq.gz"
+    "_R1.fastq.gz|_R2.fastq.gz"
+    "_R1_001.fastq.gz|_R2_001.fastq.gz"
+    "_1.fq.gz|_2.fq.gz"
+    "_R1.fq.gz|_R2.fq.gz"
+  )
+  for pair in "${PAIR_SUFFIXES[@]}"; do
+    r1suf="${pair%%|*}"; r2suf="${pair##*|}"
+    for f in "$d"/*"$r1suf"; do
+      # derive mate + sample by stripping/swapping the R1 token in the FILENAME
+      s="$(basename "${f%"$r1suf"}")"; mate="${f%"$r1suf"}$r2suf"
+      validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
+      [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
+      "$cb" "$s" "$f" "$mate"
+    done
+  done
+  # --- Single-end (EN): any *.fastq.gz / *.fq.gz that is NOT one of the paired mates above.
+  #     (IT): qualsiasi *.fastq.gz / *.fq.gz che NON sia un mate di una coppia gia' gestita.
+  for f in "$d"/*.fastq.gz "$d"/*.fq.gz; do
+    # exclude EVERY paired R1/R2 variant we recognise, so a paired file is never re-processed as single-end
+    case "$f" in
+      *_1.fastq.gz|*_2.fastq.gz|*_R1.fastq.gz|*_R2.fastq.gz|*_R1_001.fastq.gz|*_R2_001.fastq.gz|*_1.fq.gz|*_2.fq.gz|*_R1.fq.gz|*_R2.fq.gz) continue ;;
+    esac
+    s="$(basename "$f")"; s="${s%.fastq.gz}"; s="${s%.fq.gz}"
+    validate_name "$s" || continue
+    "$cb" "$s" "$f" ""
+  done
+  shopt -u nullglob
+}
+
 # Outputs made with other parameters are redone, not reused (D022, P01 of 22/10): the steps skip a sample when its
 # output exists, whatever produced it. One stamp per folder with the parameters of its files; the host stamp is part
 # of the profile stamps (other hosts = other reads). Only for the phases and methods that run (a MetaPhlAn-only run
 # keeps the Kraken stamp); the threshold needs nothing (Phase B tables are always redone). Never in a dry run.
+# Con layout custom NONHOST_DIR è scelta dall'utente e può servire a più progetti (D3 della revisione del 22/10):
+# il timbro dell'ospite sta nella cartella di lavoro del progetto e si cancellano solo le uscite dei suoi campioni
+# (quelli che la Fase A rifà: codici di srr_list e read locali). MetaPhlAn e Kraken sono sempre sotto work_dir.
+NONHOST_TIMBRO="$NONHOST_DIR/.parametri"
+[ "$NONHOST_DIR" = "$PMN_WORK_DIR/nonhost" ] || NONHOST_TIMBRO="$PMN_WORK_DIR/.parametri_nonhost"
+stampa_campione() { printf '%s\n' "$1"; }
+campioni_del_progetto() {
+  local srr
+  if [ "$PMN_DATA_SOURCE" != local ] && [ -f "$PMN_SRR_LIST" ]; then
+    while IFS= read -r srr; do
+      srr="${srr%%[[:space:]]*}"
+      if validate_srr "$srr"; then printf '%s\n' "$srr"; fi
+    done < "$PMN_SRR_LIST"
+  fi
+  if [ "$PMN_DATA_SOURCE" != ncbi ] && [ -d "$PMN_LOCAL_READS" ]; then for_each_sample "$PMN_LOCAL_READS" stampa_campione; fi
+}
 if [ "$DRY" -eq 0 ]; then
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
-    pmn_rifai_se_cambiati "$NONHOST_DIR/.parametri" \
+    if [ "$NONHOST_TIMBRO" = "$NONHOST_DIR/.parametri" ]; then nonhost_uscite=("$NONHOST_DIR/*_nonhost*.fastq.gz")
+    else
+      nonhost_uscite=()
+      while IFS= read -r s; do
+        nonhost_uscite+=("$NONHOST_DIR/${s}_nonhost_1.fastq.gz" "$NONHOST_DIR/${s}_nonhost_2.fastq.gz" "$NONHOST_DIR/${s}_nonhost.fastq.gz")
+      done < <(campioni_del_progetto 2> /dev/null)   # gli avvisi sui nomi delle read li dà la Fase A
+    fi
+    pmn_rifai_se_cambiati "$NONHOST_TIMBRO" \
         "$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")" \
-        "$NONHOST_DIR/*_nonhost*.fastq.gz" "$HF_LOG_DIR/*.bowtie2.log" "$PMN_WORK_DIR/triage/*.triage_host.tsv" \
+        ${nonhost_uscite[@]+"${nonhost_uscite[@]}"} "$HF_LOG_DIR/*.bowtie2.log" "$PMN_WORK_DIR/triage/*.triage_host.tsv" \
       && warn "$(say "Host removal parameters changed (or not recorded): host removal, MetaPhlAn and Kraken are redone" \
                      "Parametri della rimozione dell'ospite cambiati (o non registrati): rifaccio ospite, MetaPhlAn e Kraken")"
   fi
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "b" ]; then
-    ospite_timbro="$(cat "$NONHOST_DIR/.parametri" 2> /dev/null || true)"
+    ospite_timbro="$(cat "$NONHOST_TIMBRO" 2> /dev/null || true)"
     if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
       pmn_rifai_se_cambiati "$MPA_DIR/.parametri" \
           "$(printf '%s\nmetaphlan_mode=%s\nmetaphlan_index=%s' "$ospite_timbro" "$PMN_MPA_MODO" "$PMN_MPA_INDEX")" \
@@ -452,49 +518,6 @@ trim_and_filter_sample() {  # trim_and_filter_sample <sample> <r1> <r2|"">
       --sample "$s" --in1 "$r1" --out "$TRIM_DIR" --threads "$PMN_THREADS"
     hostfilter_sample "$s" "$TRIM_DIR/${s}_trim_1.fastq.gz" ""
   fi
-}
-
-# Call <callback> <sample> <r1> <r2|""> for every sample found in <dir>.
-for_each_sample() {  # for_each_sample <dir> <callback>
-  local d="$1" cb="$2" f s mate pair r1suf r2suf
-  [ -d "$d" ] || { warn "reads dir not found (yet): $d"; return 0; }
-  shopt -s nullglob
-  # --- Paired-end (EN): recognise the common R1/R2 naming conventions, not just _1/_2.
-  #     (IT): riconosci le convenzioni R1/R2 piu' comuni, non solo _1/_2.
-  # Each entry is "R1-suffix|R2-suffix". The sample name is the FILENAME with the
-  # R1-suffix stripped; the mate is the same path with the R1-suffix swapped for R2.
-  # The default NCBI form (_1/_2.fastq.gz) stays first so existing batches behave identically.
-  # Suffixes are distinct (e.g. *_R1.fastq.gz never also matches *_R1_001.fastq.gz),
-  # so no file is picked up by two patterns.
-  local PAIR_SUFFIXES=(
-    "_1.fastq.gz|_2.fastq.gz"
-    "_R1.fastq.gz|_R2.fastq.gz"
-    "_R1_001.fastq.gz|_R2_001.fastq.gz"
-    "_1.fq.gz|_2.fq.gz"
-    "_R1.fq.gz|_R2.fq.gz"
-  )
-  for pair in "${PAIR_SUFFIXES[@]}"; do
-    r1suf="${pair%%|*}"; r2suf="${pair##*|}"
-    for f in "$d"/*"$r1suf"; do
-      # derive mate + sample by stripping/swapping the R1 token in the FILENAME
-      s="$(basename "${f%"$r1suf"}")"; mate="${f%"$r1suf"}$r2suf"
-      validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
-      [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
-      "$cb" "$s" "$f" "$mate"
-    done
-  done
-  # --- Single-end (EN): any *.fastq.gz / *.fq.gz that is NOT one of the paired mates above.
-  #     (IT): qualsiasi *.fastq.gz / *.fq.gz che NON sia un mate di una coppia gia' gestita.
-  for f in "$d"/*.fastq.gz "$d"/*.fq.gz; do
-    # exclude EVERY paired R1/R2 variant we recognise, so a paired file is never re-processed as single-end
-    case "$f" in
-      *_1.fastq.gz|*_2.fastq.gz|*_R1.fastq.gz|*_R2.fastq.gz|*_R1_001.fastq.gz|*_R2_001.fastq.gz|*_1.fq.gz|*_2.fq.gz|*_R1.fq.gz|*_R2.fq.gz) continue ;;
-    esac
-    s="$(basename "$f")"; s="${s%.fastq.gz}"; s="${s%.fq.gz}"
-    validate_name "$s" || continue
-    "$cb" "$s" "$f" ""
-  done
-  shopt -u nullglob
 }
 
 if [ "$PMN_TRIAGE_ON" = "yes" ]; then
