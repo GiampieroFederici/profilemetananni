@@ -493,3 +493,17 @@ def test_p34_excel_si_con_l_accento(tmp_path):
     valori = {x[col] for x in v[1:]}
     assert valori and valori <= {"sì", "no"}
     assert "si" not in catalogo_en("motore")                           # chiave rimasta senza usi
+
+
+def test_p27_p31_limite_kraken_dice_la_base_e_il_database_dei_numeri_k4():
+    """P27: la soglia si confronta con la % sulle read assegnate da Bracken (non classificate escluse), non "delle
+    read". P31: in una corsa rapida (PlusPF-8, 0,1 e 0,005 %) i numeri di K4 valgono per il PlusPF completo."""
+    referto, lingua = motore_referto()
+    t = referto.limite_kraken({"soglia": 0.005, "parametri": {"kraken_confidence": "0.1", "kraken_profile": "rapido"}})
+    assert "almeno lo 0,005 % delle read assegnate da Bracken (non classificate escluse; confidence 0,1)" in t
+    assert "% delle read (confidence" not in t
+    assert "Con i valori consigliati (0,5 e 0,1 %)" not in t
+    assert "consigliati per il PlusPF completo (confidence 0,5 e soglia 0,1 %)" in t
+    assert "da 196 a 64 su 12 campioni" in t and "da 10 a 0" in t
+    en = catalogo_en("motore")[referto.LIMITE_KRAKEN]
+    assert "of the reads assigned by Bracken" in en and "for the full PlusPF" in en

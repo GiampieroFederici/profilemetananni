@@ -447,8 +447,9 @@ PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le
 
 
 # D141, D142 (20/10): i limiti si dichiarano con i numeri di L3 e K4. La prima frase usa i valori veri della corsa
-LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read (confidence {confidence}). Con i "
-                   "valori consigliati (0,5 e 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
+LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read assegnate da Bracken (non "
+                   "classificate escluse; confidence {confidence}). Con i valori consigliati per il PlusPF completo "
+                   "(confidence 0,5 e soglia 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
                    "da 196 a 64 su 12 campioni, e nel campione di controllo Zymo da 10 a 0. I taxa sotto la soglia, "
                    "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la "
                    "<i>Listeria</i> serve un'analisi mirata.")
