@@ -168,3 +168,47 @@ def test_p06_hostfilter_intero(tmp_path):
     assert p.returncode == 0, p.stdout + p.stderr
     assert sorted(f.name for f in out.glob("*.gz*")) == ["S_nonhost_1.fastq.gz", "S_nonhost_2.fastq.gz"]
     assert righe_gz(out / "S_nonhost_1.fastq.gz") == righe_gz(out / "S_nonhost_2.fastq.gz") == 800
+
+
+# ---------------- P08: MetaPhlAn standard, il mapout di una corsa interrotta blocca la ripresa ----------------
+# metaphlan finto con lo stesso controllo di check_params della 4.2.4: --mapout già presente senza --force = errore
+METAPHLAN = r"""#!/usr/bin/env bash
+: > "$MPA_CHIAMATO"
+force=0
+while [ $# -gt 0 ]; do
+  case "$1" in --mapout) MAP="$2"; shift 2;; -o) PROF="$2"; shift 2;; --force) force=1; shift;; *) shift;; esac
+done
+if [ -e "$MAP" ] && [ "$force" -eq 0 ]; then echo "ERROR: Mapping output file detected: $MAP" >&2; exit 1; fi
+echo mapout | bzip2 > "$MAP"
+printf '#mpa_vJan25\nk__Bacteria\t2\t100.0\t\n' > "$PROF"
+"""
+
+
+def metaphlan_standard(tmp_path):
+    b = finti(tmp_path, metaphlan=METAPHLAN)
+    r1 = tmp_path / "r1.fq"
+    r1.write_text("@r1\nACGT\n+\nIIII\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    p = lambda: lancia("steps/30_metaphlan.sh", ["--sample", "S1", "--in1", r1, "--out", out, "--threads", "1"], b,
+                       MPA_CHIAMATO=str(tmp_path / "chiamato"))
+    return p, out
+
+
+@linux
+def test_p08_mapout_parziale_non_blocca_la_ripresa(tmp_path):
+    p, out = metaphlan_standard(tmp_path)
+    (out / "S1.bowtie2.bz2").write_bytes(b"BZh91AY&SY parziale")       # corsa uccisa a metà, nessun profilo
+    r = p()
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (out / "S1_profile.txt").stat().st_size > 0
+
+
+@linux
+def test_p08_profilo_fatto_si_salta(tmp_path):
+    p, out = metaphlan_standard(tmp_path)
+    (out / "S1_profile.txt").write_text("#fatto\n")
+    (out / "S1.bowtie2.bz2").write_bytes(b"mapout intero")
+    r = p()
+    assert r.returncode == 0 and not (tmp_path / "chiamato").exists()
+    assert (out / "S1.bowtie2.bz2").read_bytes() == b"mapout intero"
