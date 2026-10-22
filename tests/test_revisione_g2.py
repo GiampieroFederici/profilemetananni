@@ -304,3 +304,28 @@ def test_p19_estensione_sul_percorso_risolto(tmp_path, monkeypatch):
     f = risultati.file_referto(p, {"referto": {"pdf": "referto/referto.pdf", "xlsx": "referto/tabelle.xlsx"}})
     assert f["pdf"] is None
     assert f["xlsx"] == (p.risultati / "referto" / "tabelle.xlsx").resolve()
+
+
+# ---------------- Pagina Motore: l'analisi finisce mentre la pagina è aperta ----------------
+def test_motore_si_riaccende_quando_l_analisi_finisce(request, monkeypatch, tmp_path):
+    """La barra della pagina Motore si ricalcolava solo in mostrata, _avvia e _finito: se l'analisi finiva mentre
+    l'utente era sulla pagina Motore, "Controlla il motore" restava spento finché non si cambiava pagina."""
+    pytest.importorskip("pytestqt")
+    sys.path.insert(0, str(RADICE))
+    from app import finestra, main
+    monkeypatch.setenv("PMN_MOTORE", "finto")
+    monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setenv("TMP", str(tmp_path))
+    qtbot, qapp = request.getfixturevalue("qtbot"), request.getfixturevalue("qapp")
+    main.prepara(qapp)
+    f = finestra.Finestra(movimento=False)
+    qtbot.addWidget(f)
+    f.show()
+    f.fuori.setCurrentIndex(1)
+    f.contesto.progetto_in_analisi = "progetto_X"          # come fa la pagina Analisi in corso quando parte
+    f.vai("motore")
+    assert not f.principale.isEnabled()
+    f.pagine["esecuzione"].client.finito.emit(0, {"tipo": "fine", "esito": "ok"})   # l'analisi finisce
+    assert f.contesto.progetto_in_analisi is None
+    assert f.principale.isEnabled() and f.pagine["motore"].principale_attivo

@@ -181,6 +181,8 @@ class Finestra(QMainWindow):
             scorre.setWidgetResizable(True)
             scorre.setWidget(p)
             self.pila.addWidget(scorre)
+        # analisi finita con la pagina Motore aperta: "Controlla il motore" si riaccende subito
+        self.pagine["esecuzione"].analisi_finita.connect(self.pagine["motore"]._barra_azioni)
         g.addWidget(self.pila, 1, 1)
         g.addWidget(self._barra(), 2, 0, 1, 2)
         g.setColumnStretch(1, 1)
