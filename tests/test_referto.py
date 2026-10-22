@@ -77,7 +77,8 @@ def test_r2_numeri_fedeli(referto):
     assert sum(r["% fra le specie trovate"] for r in mpa.values()) == pytest.approx(100.0)
     micro = {r["Specie"]: r for r in righe(wb["Kraken_taxa"])}
     with open(os.path.join(DATI, "SRR4875279.bracken"), encoding="utf-8") as f:
-        bracken = {r["name"]: float(r["fraction_total_reads"]) * 100 for r in csv.DictReader(f, delimiter="\t")}
+        letture = {r["name"]: int(r["new_est_reads"]) for r in csv.DictReader(f, delimiter="\t")}
+    bracken = {n: 100 * v / sum(letture.values()) for n, v in letture.items()}   # read intere, non la frazione arrotondata (P29)
     assert micro["Latilactobacillus sakei"]["% sul totale assegnato"] == pytest.approx(bracken["Latilactobacillus sakei"])
     somma_microbi = sum(bracken[n] for n in micro)
     assert micro["Latilactobacillus sakei"]["% fra i taxa"] == pytest.approx(

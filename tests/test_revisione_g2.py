@@ -229,3 +229,35 @@ def test_p04_risultati_senza_le_uscite_del_metodo_che_non_gira(tmp_path, monkeyp
     assert not list((r / "metaphlan").iterdir()) and not list((r / "metaphlan_pari").iterdir())
     assert sorted(f.name for f in (r / "kraken").iterdir()) == ["SRRA.bracken", "SRRA.k2report"]
     assert sorted(f.name for f in (r / "tabelle").iterdir()) == sorted(krk + ["parameters.tsv"])
+
+
+# ---------------- P29 (GE-1 e GE-2): referto e alfa di Kraken con la stessa % esatta della beta ----------------
+def test_p29_referto_usa_le_read_intere_come_la_beta(tmp_path):
+    """64 read su 1.405.930 sono lo 0,00455 %: Bracken scrive 0.00005 e leggi_kraken ne faceva lo 0,005 %, sopra la
+    soglia rapido. Referto, sintesi, Excel, pct_microbi e alfa (diversita.tabella_kraken) mostravano Listeria
+    welshimeri, che la beta (passo 33, --taxa-out) esclude."""
+    sys.path.insert(0, str(RADICE / "motore"))
+    import diversita
+    import referto
+    (tmp_path / "S1.bracken").write_text(
+        "name\ttaxonomy_id\ttaxonomy_lvl\tkraken_assigned_reads\tadded_reads\tnew_est_reads\tfraction_total_reads\n"
+        "Listeria welshimeri\t1643\tS\t64\t0\t64\t0.00005\n"
+        "Latilactobacillus sakei\t1599\tS\t1405866\t0\t1405866\t0.99995\n", encoding="utf-8")
+    (tmp_path / "S1.k2report").write_text("100.00\t1405930\t0\tR\t1\troot\n"
+                                          "100.00\t1405930\t0\tD\t2\t  Bacteria\n"
+                                          "0.00\t64\t64\tS\t1643\t    Listeria welshimeri\n"
+                                          "100.00\t1405866\t1405866\tS\t1599\t    Latilactobacillus sakei\n",
+                                          encoding="utf-8")
+    righe = {r["nome"]: r for r in referto.leggi_kraken(tmp_path / "S1.bracken", tmp_path / "S1.k2report")}
+    assert righe["Listeria welshimeri"]["pct"] == pytest.approx(64 / 1405930 * 100, rel=1e-9)
+    assert righe["Listeria welshimeri"]["pct"] < 0.005                          # sotto la soglia rapido (>=)
+    assert sum(r["pct_microbi"] for r in righe.values()) == pytest.approx(100.0)
+    alfa = diversita.tabella_kraken({"S1": list(righe.values())}, 0.005, referto.MICROBI)
+    assert alfa[0]["letture"] == 1405866 and alfa[0]["ricchezza"] == 1          # solo L. sakei, come nella beta
+    pd = pytest.importorskip("pandas")
+    r = subprocess.run([sys.executable, str(RADICE / "steps" / "33_kraken_matrix.py"), "--in", str(tmp_path),
+                        "--out", str(tmp_path / "m.tsv"), "--taxa-out", str(tmp_path / "t.tsv"),
+                        "--threshold-pct", "0.005"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    beta = pd.read_csv(tmp_path / "t.tsv", sep="\t", index_col=0)["S1"]
+    assert set(beta[beta > 0].index) == {n for n, x in righe.items() if x["pct"] >= 0.005}

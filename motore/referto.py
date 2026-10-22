@@ -122,7 +122,12 @@ def leggi_kraken(bracken, k2report):
     with open(bracken, encoding="utf-8", newline="") as f:
         for r in csv.DictReader(f, delimiter="\t"):
             righe.append({"nome": r["name"], "taxid": r["taxonomy_id"], "categoria": cat.get(r["taxonomy_id"], "altro"),
-                          "letture": int(r["new_est_reads"]), "pct": float(r["fraction_total_reads"]) * 100.0})
+                          "letture": int(r["new_est_reads"])})
+    # % dalle read intere, come il passo 33 (beta): fraction_total_reads ha 5 decimali (passi dello 0,001 %), così un
+    # taxon allo 0,00455 % diventava 0,005 % e passava la soglia rapido (P29)
+    totale = sum(r["letture"] for r in righe)
+    for r in righe:
+        r["pct"] = 100.0 * r["letture"] / totale if totale else 0.0
     somma = sum(r["pct"] for r in righe if r["categoria"] in MICROBI)
     for r in righe:
         r["pct_microbi"] = 100.0 * r["pct"] / somma if r["categoria"] in MICROBI and somma else None
