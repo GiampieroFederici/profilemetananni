@@ -148,7 +148,9 @@ function SaltaBenvenuto($chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersi
     if (-not (Test-Path $chiave)) { New-Item -Path $chiave -Force | Out-Null }
     New-ItemProperty -Path $chiave -Name OOBEComplete -Value 1 -PropertyType DWord -Force | Out-Null
 }
-function RiavvioInSospeso { Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' }
+function RiavvioInSospeso($segno = (Join-Path $Cartella 'wsl_installata.txt'), $chiave = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') {
+    (Test-Path $segno) -and (Test-Path $chiave)   # conta solo dopo il NOSTRO wsl --install (S3-W); un aggiornamento di Windows estraneo non basta (P16)
+}
 function WslPronta {   # wsl --status da' 0 anche quando WSL2 parte solo dopo il riavvio (S3-W, VM): conta anche il riavvio in sospeso
     $c = Attendi (Avvia '--status'); $r = RiavvioInSospeso; Scrivi "  riavvio in sospeso: $r"
     ($c -eq 0) -and -not $r
@@ -226,6 +228,7 @@ if ($Fase -eq 1 -and -not (WslPronta)) {
     $c = AttendiProcesso $p
     Scrivi "wsl --install --no-distribution: codice $c"
     if ($c -ne 0) { Ferma ((T 'wsl_codice') -f $c) }
+    Set-Content (Join-Path $Cartella 'wsl_installata.txt') (Get-Date -Format o)   # segno per RiavvioInSospeso
     if (-not (WslPronta)) { ChiediRiavvio }
 }
 
@@ -233,6 +236,7 @@ if ($Fase -eq 1 -and -not (WslPronta)) {
 NienteSospensione
 Riprendi   # se si interrompe da qui in poi (PC spento durante i download), riparte al prossimo accesso
 if (-not (WslPronta)) { ChiediRiavvio }
+Remove-Item (Join-Path $Cartella 'wsl_installata.txt') -ErrorAction SilentlyContinue   # WSL pronta: un aggiornamento successivo non conta più
 $s = ControllaSpazio (Join-Path $Radice $CatalogoRel)
 if (-not $s) { Ferma (T 'disco') }
 Scrivi "spazio: servono $($s.Serve) byte, liberi $($s.Liberi) su $($s.Disco), cartella della WSL $($s.Dove)"
