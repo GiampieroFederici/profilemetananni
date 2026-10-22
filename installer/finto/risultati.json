@@ -83,82 +83,82 @@
      "dominanti": [
       {
        "nome": "Latilactobacillus sakei",
-       "pct_microbi": 37.15676747843683
+       "pct_microbi": 37.15609166961235
       },
       {
        "nome": "Latilactobacillus curvatus",
-       "pct_microbi": 31.4456588161045
+       "pct_microbi": 31.44515140803582
       },
       {
        "nome": "Leuconostoc carnosum",
-       "pct_microbi": 5.665027097963395
+       "pct_microbi": 5.664545775892542
       },
       {
        "nome": "Leuconostoc gasicomitatum",
-       "pct_microbi": 4.5801067890165585
+       "pct_microbi": 4.579798515376458
       },
       {
        "nome": "Staphylococcus equorum",
-       "pct_microbi": 3.4691403784698918
+       "pct_microbi": 3.4692765405914927
       },
       {
        "nome": "Enterococcus faecalis",
-       "pct_microbi": 2.44833355038418
+       "pct_microbi": 2.4485978555437726
       },
       {
        "nome": "Lactococcus formosensis",
-       "pct_microbi": 1.6489185858970377
+       "pct_microbi": 1.6488452928007542
       },
       {
        "nome": "Macrococcus psychrotolerans",
-       "pct_microbi": 1.300301533714675
+       "pct_microbi": 1.3005184399670084
       },
       {
        "nome": "Staphylococcus xylosus",
-       "pct_microbi": 1.1820923033769772
+       "pct_microbi": 1.181954754330152
       },
       {
        "nome": "Brochothrix thermosphacta",
-       "pct_microbi": 1.088927401500656
+       "pct_microbi": 1.0884293625544952
       },
       {
        "nome": "Lactiplantibacillus plantarum",
-       "pct_microbi": 1.0749025775622851
+       "pct_microbi": 1.075173795216213
       },
       {
        "nome": "Leuconostoc mesenteroides",
-       "pct_microbi": 0.8785550424250924
+       "pct_microbi": 0.8785495463650289
       },
       {
        "nome": "Debaryomyces hansenii",
-       "pct_microbi": 0.8184486541177884
+       "pct_microbi": 0.8188994933427595
       },
       {
        "nome": "Macrococcoides caseolyticum",
-       "pct_microbi": 0.7483245344259338
+       "pct_microbi": 0.7482031342052551
       },
       {
        "nome": "Lactococcus lactis",
-       "pct_microbi": 0.7052482894723661
+       "pct_microbi": 0.7047543301519972
       }
      ],
      "non_microbi": [
       {
        "nome": "Leishmania mexicana",
        "gruppo": "altri eucarioti",
-       "pct": 0.082,
+       "pct": 0.08235051910237934,
        "letture": 112
       },
       {
        "nome": "Homo sapiens",
        "gruppo": "altri eucarioti",
-       "pct": 0.054,
+       "pct": 0.05441016440692921,
        "letture": 74
       },
       {
        "nome": "Bottigliavirus pozzuoliense",
        "gruppo": "virus",
-       "pct": 0.019,
+       "pct": 0.019117084791623776,
        "letture": 26
       }
      ],

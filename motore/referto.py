@@ -128,9 +128,9 @@ def leggi_kraken(bracken, k2report):
     totale = sum(r["letture"] for r in righe)
     for r in righe:
         r["pct"] = 100.0 * r["letture"] / totale if totale else 0.0
-    somma = sum(r["pct"] for r in righe if r["categoria"] in MICROBI)
+    somma = sum(r["letture"] for r in righe if r["categoria"] in MICROBI)   # intera: stesso numero su ogni Python
     for r in righe:
-        r["pct_microbi"] = 100.0 * r["pct"] / somma if r["categoria"] in MICROBI and somma else None
+        r["pct_microbi"] = 100.0 * r["letture"] / somma if r["categoria"] in MICROBI and somma else None
     return sorted(righe, key=lambda r: -r["pct"])
 
 

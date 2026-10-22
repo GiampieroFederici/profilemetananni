@@ -102,7 +102,7 @@ def test_r4_homo_e_leishmania_a_parte(referto):
     micro = {r["Specie"] for r in righe(wb["Kraken_taxa"])}
     parte = {r["Nome"]: r for r in righe(wb["Kraken_a_parte"])}
     assert not micro & {"Homo sapiens", "Leishmania mexicana"}
-    assert parte["Homo sapiens"]["% sul totale assegnato"] == pytest.approx(0.054)
+    assert parte["Homo sapiens"]["% sul totale assegnato"] == pytest.approx(74 / 136004 * 100)   # read intere (P29)
     assert parte["Leishmania mexicana"]["Gruppo"] == "altri eucarioti"
     assert parte["Bottigliavirus pozzuoliense"]["Gruppo"] == "virus"
 
@@ -160,7 +160,7 @@ def test_r7_finto_esegui_e_referto(tmp_path):
     assert s["metaphlan"]["dominanti"][0]["nome"] == "Latilactobacillus sakei"
     assert s["kraken"]["microbi"] == 48 and s["kraken"]["dominanti"][0]["nome"] == "Latilactobacillus sakei"
     parte = {x["nome"]: x for x in s["kraken"]["non_microbi"]}
-    assert parte["Homo sapiens"]["pct"] == pytest.approx(0.054) and parte["Leishmania mexicana"]["gruppo"] == "altri eucarioti"
+    assert parte["Homo sapiens"]["pct"] == pytest.approx(74 / 136004 * 100) and parte["Leishmania mexicana"]["gruppo"] == "altri eucarioti"
     assert "53,7 %" in s["metaphlan"]["frase"] and "Homo sapiens 0,054 %" in s["kraken"]["frase"]
     r = subprocess.run([sys.executable, FINTO, "referto", "--progetto", str(cfg), "--velocita", "0"],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
