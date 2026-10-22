@@ -76,4 +76,7 @@ def test_diversita_metaphlan_senza_soglia():
     mpa = [r for r in righe if "div_mpa" in r]
     krk = [r for r in righe if "div_krk" in r]
     assert len(mpa) == 1 and "--min-abundance 0 " in mpa[0]                      # MetaPhlAn: nessuna soglia
-    assert len(krk) == 1 and '--min-abundance "$MINABUND"' in krk[0]               # Kraken: la soglia del profilo
+    # Kraken (22/10): la matrice dei soli taxa del prodotto, già filtrata con la soglia del profilo dal passo 33
+    assert len(krk) == 1 and '--matrix "$RES_DIR/kraken_matrix_taxa.tsv"' in krk[0] and "--min-abundance 0 " in krk[0]
+    k33 = [r for r in open(os.path.join(RADICE, "bin", "run.sh"), encoding="utf-8") if "--taxa-out" in r]
+    assert len(k33) == 1 and '--threshold-pct "$PMN_THRESHOLD"' in k33[0]

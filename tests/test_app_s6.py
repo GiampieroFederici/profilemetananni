@@ -300,6 +300,30 @@ def test_risultati_metaphlan_e_kraken_separati(f, qtbot, tmp_path, monkeypatch):
     ris.finestra_referto.close()
 
 
+def test_apri_il_controllo_qualita(f, qtbot, tmp_path, monkeypatch):
+    """v0.4 (22/10): il pulsante apre il report MultiQC di risultati/qc/ (risultati.json "qc"); spento se manca, o se
+    il percorso esce dal progetto."""
+    p, _ = esegui_fino_alla_fine(f, qtbot, tmp_path)
+    f.vai("risultati")
+    ris = f.pagine["risultati"]
+    pulsante = lambda: [b for b in ris.findChildren(QPushButton) if b.text() == "Apri il controllo qualità"][0]  # noqa: E731
+    assert not pulsante().isEnabled() and "il controllo qualità" in scritte(ris.contenuto)   # finto motore: niente qc
+    indice = json.loads((p.risultati / "risultati.json").read_text(encoding="utf-8"))
+    (p.risultati / "qc").mkdir()
+    (p.risultati / "qc" / "prova_multiqc_report.html").write_text("<html></html>", encoding="utf-8")
+    for percorso, acceso in (("../../fuori_multiqc_report.html", False), ("qc/prova_multiqc_report.html", True)):
+        (tmp_path / "fuori_multiqc_report.html").write_text("x", encoding="utf-8")
+        indice["qc"] = {"multiqc": percorso, "fastp": [], "fastqc": [], "campioni": []}
+        (p.risultati / "risultati.json").write_text(json.dumps(indice), encoding="utf-8")
+        f.vai("home")
+        f.vai("risultati")
+        assert pulsante().isEnabled() is acceso
+    aperti = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda u: aperti.append(Path(u.toLocalFile())))
+    pulsante().click()
+    assert aperti == [(p.risultati / "qc" / "prova_multiqc_report.html").resolve()]
+
+
 def test_senza_progetto_si_va_ai_progetti(f):
     for chiave in ("esecuzione", "risultati", "sicurezza"):
         f.vai(chiave)

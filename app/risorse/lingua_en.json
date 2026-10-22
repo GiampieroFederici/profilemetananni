@@ -412,5 +412,7 @@
  "I passi già finiti restano salvati. Quello a metà si rifà quando riparti. Puoi anche chiudere il programma e spegnere il computer: quando riapri il progetto, premi Riprendi l'analisi.": "The finished steps stay saved. The one halfway is redone when you restart. You can also close the program and switch off the computer: when you open the project again, press Resume the analysis.",
  "L'analisi di questo progetto si è interrotta (programma chiuso o computer spento). I passi già finiti sono salvati: riprendo da quello a metà.": "The analysis of this project was interrupted (program closed or computer switched off). The finished steps are saved: I resume from the one halfway.",
  "I passi già finiti sono salvati: riprendo da quello a metà. Puoi anche spegnere il computer e riprendere dopo.": "The finished steps are saved: I resume from the one halfway. You can also switch off the computer and resume later.",
- "Analisi interrotta": "Analysis interrupted"
+ "Analisi interrotta": "Analysis interrupted",
+ "Apri il controllo qualità": "Open the quality check",
+ "il controllo qualità": "the quality check"
 }

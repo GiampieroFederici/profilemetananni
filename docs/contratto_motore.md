@@ -116,7 +116,8 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
   che resta dopo il passo, con la nota "tempo che manca dopo questo passo, che sta durando più del previsto".
   Senza `passo_s` (motore più vecchio) vale la regola di prima. Il finto motore lo manda anche lui.
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
-  `kraken` per `DB_MANCANTE` di Kraken). L'installatore non lo manda ancora: lì vale l'ultimo `avanzamento`.
+  `kraken` per `DB_MANCANTE` di Kraken). **[22/10]** Anche l'installatore: il passo in corso (`controllo`,
+  `programmi`, `database`, `verifica`), e `risultato` = `{"codice", "passo"}` nel `fine` (D068: ora obbligatorio).
 - Ogni corsa finisce **sempre** con un solo evento `fine`, anche dopo un errore.
 - **[v0.3]** `fine` dopo un errore: `messaggio` dice dove si è fermato, che cosa è successo e che cosa fare, già pronto
   ("Problema durante la classificazione con Kraken e Bracken. Manca il database di Kraken. Apri la pagina Motore e premi
@@ -249,6 +250,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   tabelle/ (matrici unite, parameters.tsv, triage.tsv se il triage è attivo)
   referto/ referto.html, referto.pdf, referto.xlsx      [v0.2]
   sicurezza/<campione>.json                              [v0.2, se calcolata]
+  qc/ <progetto>_multiqc_report.html (+ cartella _data/), <campione>_fastp.html, fastqc/*_fastqc.html   [v0.4]
   log/
 ```
 
@@ -286,6 +288,23 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 - **[v0.2]** Campi nuovi: `triage` (`[{"campione", "esito": "buono" | "da controllare" | "da rifare", "motivi", "punteggio"}]`,
   vuoto se il triage non è attivo), `consigli` (§5.5), `referto` (`{"html", "pdf", "xlsx"}`: percorsi dentro
   `risultati/`, `null` se quel file manca).
+- **[v0.4, 22/10]** Campo `qc`: il controllo qualità delle read, copiato in `risultati/qc/` (report MultiQC con la sua
+  cartella `_data/`, HTML di fastp, HTML di FastQC delle read grezze e pulite). Percorsi dentro `risultati/`;
+  `multiqc` è `null` e le liste sono vuote se mancano (analisi di prima del 22/10). Per campione i numeri del referto,
+  letti dal JSON di fastp (`summary`, `duplication`) e dai log di Bowtie 2 (`hostfilter_logs/`); "coppie" = read / 2
+  se `a_coppie`, altrimenti read singole; `ospite_pct` e `coppie_profili` `null` se l'ospite non è stato tolto:
+
+```json
+"qc": {"multiqc": "qc/Salame_multiqc_report.html", "fastp": ["qc/C1_fastp.html"],
+       "fastqc": ["qc/fastqc/C1_1_fastqc.html", "qc/fastqc/C1_trim_1_fastqc.html"],
+       "campioni": [{"nome": "C1", "a_coppie": true, "coppie_prima": 2000000, "coppie_dopo": 1900000,
+                     "q30_prima_pct": 91.2, "q30_dopo_pct": 95.4, "duplicati_pct": 7.3, "lunghezza_media": 145.0,
+                     "ospite_pct": 70.0, "coppie_profili": 570000}]}
+```
+
+  FastQC (`steps/20_trim.sh`) è obbligatorio: se c'è ma non scrive il report, il passo `pulizia` si ferma (prima
+  passava `-o`, che FastQC 0.13.0 non conosce, e l'errore restava un avviso nel log). Alla ripresa si rifanno solo i
+  report che mancano. `versioni` ha anche `fastqc` e `multiqc`, `citazioni` anche FastQC e MultiQC.
 - **[lingua]** I valori fissi restano chiavi italiane in ogni lingua (`triage.esito`: buono, da controllare, da rifare;
   `non_microbi.gruppo`: virus, altri eucarioti, altro; `modalita`: migliorata, fssp): l'interfaccia li traduce solo
   quando li mostra. I testi (`frase`, `motivi`, `citazioni`, `messaggio` dei consigli) sono scritti nella lingua della
@@ -317,6 +336,12 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   `Diversity_Kraken`). Kraken: taxa del prodotto sopra la soglia, valore atteso esatto della rarefazione delle letture di
   Bracken. MetaPhlAn: nessuna soglia; i profili rifatti a profondità uguale stanno in `risultati/metaphlan_pari/`
   (copiati da `results/alpha_metaphlan_pari/`, steps/42); tabelle anche in `risultati/tabelle/alpha_diversity_*.tsv`.
+- **[v0.4, 22/10]** Sezione **"Controllo qualità delle read"** (numero che segue, prima di "Parametri usati"): per
+  campione coppie prima e dopo fastp, % di basi ≥ Q30 prima e dopo, % di duplicati, lunghezza media dopo fastp, % di
+  ospite tolto, coppie rimaste per i profili. Due tabelle di 5 colonne al massimo (il PDF di Qt rende male le tabelle
+  larghe), una frase su come leggerle e il collegamento a `risultati/qc/<...>_multiqc_report.html`; senza `qc` una riga
+  "non disponibile". Foglio Excel **`QC`** (stesso nome in inglese), prima di `Parametri`, solo se ci sono i numeri.
+  Nell'app il pulsante "Apri il controllo qualità" apre il report MultiQC con il browser di Windows.
 
 ### 5.4 `sicurezza` [v0.2]
 

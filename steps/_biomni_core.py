@@ -129,12 +129,13 @@ def _display(normalized: str) -> str:
 
 
 def select_taxa(metaphlan_path: str, kraken_path: str, threshold_pct: float, max_taxa: int):
-    """Return [(display_name, detected_by)] above threshold, capped at max_taxa.
+    """Return [(display_name, detected_by)], capped at max_taxa. The threshold is for Kraken only:
+    MetaPhlAn is never filtered (D128), every species it finds is kept.
 
     detected_by is 'metaphlan', 'kraken' or 'metaphlan+kraken'. Ordering is by descending
     max abundance across the tools, then alphabetical, so the cap keeps the most abundant.
     """
-    mpa = load_metaphlan_species(metaphlan_path, threshold_pct) if metaphlan_path else {}
+    mpa = load_metaphlan_species(metaphlan_path, 0.0) if metaphlan_path else {}
     krk = load_kraken_matrix(kraken_path, threshold_pct) if kraken_path else {}
     rows = []
     for name in set(mpa) | set(krk):

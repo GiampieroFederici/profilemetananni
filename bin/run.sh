@@ -91,13 +91,13 @@ if [ -n "$PMN_ENVS" ]; then
 fi
 
 # --- Kraken parameters: the profile of the chosen database (refs/kraken_profili.tsv, D022, D023).
-# A value written in config.yaml wins. The abundance threshold comes from the profile only when
-# Kraken runs; for MetaPhlAn alone it stays 0.001 %, as before.
+# A value written in config.yaml wins. The abundance threshold is for Kraken only (D128): from the
+# profile when Kraken runs; with MetaPhlAn alone it is 0, unused (MetaPhlAn is never filtered).
 krk_profile() { awk -F'\t' -v p="$PMN_KRK_PROFILO" -v c="$1" '!/^#/ && $1 == p { print $c; exit }' "$PMN_ROOT/refs/kraken_profili.tsv"; }
 [ -n "$PMN_KRK_CONF" ] || PMN_KRK_CONF="$(krk_profile 2)"
 [ -n "$PMN_KRK_MINREADS" ] || PMN_KRK_MINREADS="$(krk_profile 3)"
 if [ -z "$PMN_THRESHOLD" ]; then
-  case "$PMN_TOOL" in kraken|both) PMN_THRESHOLD="$(krk_profile 4)" ;; *) PMN_THRESHOLD=0.001 ;; esac
+  case "$PMN_TOOL" in kraken|both) PMN_THRESHOLD="$(krk_profile 4)" ;; *) PMN_THRESHOLD=0 ;; esac
 fi
 
 # --- validate every value ---
@@ -142,7 +142,7 @@ if [ "$PMN_KRK_PROFILO" = completo ] && [ -n "$PMN_KRK_DB" ] && { [ "$PMN_TOOL" 
   ra_file="/sys/class/block/$ra_dev/queue/read_ahead_kb"
   if [ -n "$ra_dev" ] && [ -r "$ra_file" ] && [ "$(cat "$ra_file")" -gt 16 ]; then
     warn "$(say "Disk read-ahead is $(cat "$ra_file") KB: Kraken with the full PlusPF was measured fast only at 16 KB (41 min for 1.5 M pairs; at 8192 KB it would take days). Set it with: echo 16 | sudo tee $ra_file, or use motore.kraken_db: rapido." \
-               "La lettura anticipata del disco e' $(cat "$ra_file") KB: Kraken con PlusPF completo e' stato misurato veloce solo a 16 KB (41 min per 1,5 M di coppie; a 8.192 KB servirebbero giorni). Impostala con: echo 16 | sudo tee $ra_file, oppure usa motore.kraken_db: rapido.")"
+               "La lettura anticipata del disco è $(cat "$ra_file") KB: Kraken con PlusPF completo è stato misurato veloce solo a 16 KB (41 min per 1,5 M di coppie; a 8.192 KB servirebbero giorni). Impostala con: echo 16 | sudo tee $ra_file, oppure usa motore.kraken_db: rapido.")"
   fi
 fi
 # MetaPhlAn mode (D016; contract section 5.1). "fette" = the 6 slices of the index (peak ~8.5 GB),
@@ -236,11 +236,16 @@ if [ -z "$PMN_ENVS" ] && [ -z "${TMPDIR:-}" ]; then
 fi
 
 # The parameters actually used, next to the results (D022: the report says what produced the numbers).
+# Only those of the methods that run (22/10): no Kraken threshold or database with MetaPhlAn alone.
 {
   printf 'parameter\tvalue\n'
-  printf 'metaphlan_mode\t%s\nmetaphlan_index\t%s\n' "$PMN_MPA_MODO" "$PMN_MPA_INDEX"
-  printf 'kraken_db\t%s\nkraken_profile\t%s\nkraken_confidence\t%s\n' "$PMN_KRK_DB" "$PMN_KRK_PROFILO" "$PMN_KRK_CONF"
-  printf 'bracken_min_reads\t%s\nbracken_readlen\t%s\nabundance_threshold_pct\t%s\n' "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN" "$PMN_THRESHOLD"
+  if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
+    printf 'metaphlan_mode\t%s\nmetaphlan_index\t%s\n' "$PMN_MPA_MODO" "$PMN_MPA_INDEX"
+  fi
+  if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
+    printf 'kraken_db\t%s\nkraken_profile\t%s\nkraken_confidence\t%s\n' "$PMN_KRK_DB" "$PMN_KRK_PROFILO" "$PMN_KRK_CONF"
+    printf 'bracken_min_reads\t%s\nbracken_readlen\t%s\nabundance_threshold_pct\t%s\n' "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN" "$PMN_THRESHOLD"
+  fi
   printf 'hosts\t%s\nfilter_human\t%s\n' "$PMN_HOSTS" "$PMN_FILTER_HUMAN"
 } > "$RES_DIR/parameters.tsv"
 
@@ -577,7 +582,9 @@ if [ "$PMN_STRAIN_ON" = "yes" ]; then
 fi
 if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
   KRK_MATRIX="$RES_DIR/kraken_matrix.tsv"
-  do_step pmn_reports_py kmatrix -- python "$PMN_ROOT/steps/33_kraken_matrix.py" --in "$KRK_DIR" --out "$KRK_MATRIX"
+  # + the product taxa only (bacteria, archaea, fungi at or above the threshold, as in the report) for the beta diversity
+  do_step pmn_reports_py kmatrix -- python "$PMN_ROOT/steps/33_kraken_matrix.py" --in "$KRK_DIR" --out "$KRK_MATRIX" \
+    --taxa-out "$RES_DIR/kraken_matrix_taxa.tsv" --threshold-pct "$PMN_THRESHOLD"
 fi
 
 # B3. Overview report (comparison + all_taxa).
@@ -593,9 +600,8 @@ fi
 # Kruskal-Wallis + Dunn (BH) on alpha diversity across groups.
 if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
   DIV_ARGS=()
-  # Abundance floor for diversity, Kraken only (MetaPhlAn is never filtered): percent threshold -> fraction in [0,1)
-  # (e.g. 0.001% -> 1e-5). 41_diversity.R drops per-sample taxa below this BEFORE richness/CLR/PCA.
-  MINABUND="$(awk -v p="$PMN_THRESHOLD" 'BEGIN{printf "%.10g", p/100}')"
+  # No abundance floor inside 41_diversity.R (--min-abundance 0): MetaPhlAn is never filtered, and the Kraken matrix
+  # of the product taxa (step 33, kraken_matrix_taxa.tsv) is already at or above the threshold of % of the total assigned (22/10).
   if [ -n "$PMN_METADATA" ]; then
     [ -f "$PMN_METADATA" ] || die "analysis.metadata not found: $(sanitize_for_log "$PMN_METADATA")"
     [ -n "$PMN_GROUP_COL" ] || die "analysis.metadata is set but analysis.group_col is empty"
@@ -631,7 +637,7 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
     do_step pmn_stats_r div_mpa -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/metaphlan_matrix.tsv" --out "$RES_DIR/diversity_metaphlan" --min-abundance 0 --alpha "$RES_DIR/alpha_diversity_metaphlan.tsv" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
   if [ -n "$KRK_MATRIX" ]; then
-    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$KRK_MATRIX" --out "$RES_DIR/diversity_kraken" --min-abundance "$MINABUND" --alpha "$RES_DIR/alpha_diversity_kraken.tsv" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
+    do_step pmn_stats_r div_krk -- Rscript "$PMN_ROOT/steps/41_diversity.R" --matrix "$RES_DIR/kraken_matrix_taxa.tsv" --out "$RES_DIR/diversity_kraken" --min-abundance 0 --alpha "$RES_DIR/alpha_diversity_kraken.tsv" ${DIV_ARGS[@]+"${DIV_ARGS[@]}"}
   fi
 fi
 
