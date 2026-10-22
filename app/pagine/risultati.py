@@ -51,10 +51,11 @@ def file_referto(progetto, d):
     """{html, pdf, xlsx, qc: percorso o None} dei file del referto nominati in risultati.json."""
     r = dict(d.get("referto") or {})
     r["qc"] = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
-    # P19: solo l'estensione attesa, perché PDF, Excel e QC si aprono col programma di Windows (un .bat partirebbe)
+    # P19: solo l'estensione attesa, perché PDF, Excel e QC si aprono col programma di Windows (un .bat partirebbe).
+    # Si guarda il percorso risolto, quello che si apre davvero: un collegamento simbolico referto.pdf -> x.bat no.
     attesa = {"html": ".html", "pdf": ".pdf", "xlsx": ".xlsx", "qc": ".html"}
-    return {k: (dentro(progetto, progetto.risultati / r[k])
-                if r.get(k) and str(r[k]).lower().endswith(attesa[k]) else None) for k in attesa}
+    trovati = {k: (dentro(progetto, progetto.risultati / r[k]) if r.get(k) else None) for k in attesa}
+    return {k: (p if p is not None and p.suffix.lower() == attesa[k] else None) for k, p in trovati.items()}
 
 
 def corsivo(testo, nomi):

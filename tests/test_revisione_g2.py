@@ -277,3 +277,30 @@ def test_p38_riassunto_singolare_e_plurale():
     assert s.riassunto({"esito": "ok", "risultato": {"campioni": 2, "tempo_totale_s": 2280, "spazio_gb": 3.2,
                                                      "spazio_libero_gb": 412.5}}) == \
         "2 campioni, circa 38 minuti, 3,2 GB di spazio (liberi 412,5 GB)."
+
+
+# ---------------- P19 (secondo giro): l'estensione si guarda sul file che si apre davvero ----------------
+def test_p19_estensione_sul_percorso_risolto(tmp_path, monkeypatch):
+    """risultati.json nomina "referto/referto.pdf", ma è un collegamento simbolico a un .bat: il nome passava il
+    controllo e apri() mandava a ShellExecute il .bat risolto. Su Windows senza il privilegio dei collegamenti
+    simbolici il collegamento si imita facendo risolvere dentro() verso il .bat."""
+    pytest.importorskip("PySide6")
+    sys.path.insert(0, str(RADICE))
+    from types import SimpleNamespace
+    from app.pagine import risultati
+    p = SimpleNamespace(cartella=tmp_path / "prj", risultati=tmp_path / "prj" / "risultati")
+    (p.risultati / "referto").mkdir(parents=True)
+    bat = p.risultati / "referto" / "x.bat"
+    bat.write_text("@echo off\n", encoding="utf-8")
+    pdf = p.risultati / "referto" / "referto.pdf"
+    try:
+        os.symlink(bat, pdf)
+    except OSError:
+        veri = risultati.dentro
+        monkeypatch.setattr(risultati, "dentro",
+                            lambda prog, perc: veri(prog, bat if Path(perc).name == "referto.pdf" else perc))
+        pdf.write_text("finto", encoding="utf-8")
+    (p.risultati / "referto" / "tabelle.xlsx").write_text("x", encoding="utf-8")
+    f = risultati.file_referto(p, {"referto": {"pdf": "referto/referto.pdf", "xlsx": "referto/tabelle.xlsx"}})
+    assert f["pdf"] is None
+    assert f["xlsx"] == (p.risultati / "referto" / "tabelle.xlsx").resolve()
