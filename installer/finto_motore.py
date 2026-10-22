@@ -183,7 +183,10 @@ class Motore:
         finally:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
-        return "ok", {"installati": ["programmi", "metaphlan", "kraken_completo", "kraken_rapido", "ospite", "prova"]}, \
+        # P15: la forma del contratto e di installa_motore.sh (i gruppi sono la prima colonna del catalogo)
+        righe = (Path(__file__).resolve().parent / "catalogo.tsv").read_text(encoding="utf-8").splitlines()[1:]
+        gruppi = list(dict.fromkeys(r.split("\t")[0] for r in righe if r.strip()))
+        return "ok", {"programmi": 8, "database": gruppi, "verifica": "verde"}, \
             _("VERDE: il motore è installato e funziona.")
 
     def verifica(self):
@@ -244,8 +247,8 @@ class Motore:
                  ("metaphlan", t["metaphlan"], [_("allineo sulla parte {n} di 6 del database", n=n) for n in range(1, 7)]
                   + [_("calcolo il profilo delle specie")]),
                  ("kraken", t["kraken"], [kraken, _("stimo le abbondanze con Bracken")]),
-                 ("riepilogo", t["riepilogo"] + t["referto"], [_("preparo le tabelle e il riepilogo")])]
-        totale_s = sum(p[1] for p in piano)
+                 ("riepilogo", t["riepilogo"], [_("preparo le tabelle e il riepilogo")])]
+        totale_s = sum(p[1] for p in piano) + t["referto"]   # il referto è l'ultimo passo, come nel vero (P15)
         fatto_s = 0.0
         for passo, sec, messaggi in piano:
             if passo == "download" and self.a.scenario == "READ_NON_TROVATE":
@@ -265,6 +268,10 @@ class Motore:
                             passo_s=round(sec / len(messaggi) / self.a.velocita) if self.a.velocita > 0 else 0)
                 self.attendi(sec / len(messaggi))
                 fatto_s += sec / len(messaggi)
+        self.evento("avanzamento", _("Preparo il referto (pagina, PDF ed Excel)..."), passo="referto", campione=None,
+                    fatto=0, totale=1, percentuale=max(97, round(100 * fatto_s / totale_s, 1)),
+                    eta_s=round(t["referto"] / self.a.velocita) if self.a.velocita > 0 else 0)
+        self.attendi(t["referto"])
         return "ok", self._scrivi_risultati(progetto.parent / "risultati", progetto), \
             _("Analisi finita in {min} min (tempo vero, qui accorciato).", min=round(totale_s / 60))
 

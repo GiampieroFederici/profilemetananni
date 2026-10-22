@@ -75,7 +75,7 @@ def test_esegui_writes_the_results_of_a_real_run(progetto):
     assert (r / "metaphlan" / "SRR4875279_profile.txt").read_bytes() == \
         open(os.path.join(DATI, "SRR4875279_profile.txt"), "rb").read()
     passi = [e["passo"] for e in ev if e["tipo"] == "avanzamento"]
-    assert passi[0] == "download" and passi[-1] == "riepilogo"
+    assert passi[0] == "download" and passi[-2:] == ["riepilogo", "referto"]   # P15: referto ultimo, come il vero
     pct = [e["percentuale"] for e in ev if e["tipo"] == "avanzamento"]
     assert pct == sorted(pct)
 

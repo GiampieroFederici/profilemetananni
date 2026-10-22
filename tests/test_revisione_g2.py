@@ -410,3 +410,34 @@ def test_p14_documenti_con_la_riga_wsl_senza_shell():
     for doc in ("docs/interfaccia_S4.md", "docs/contratto_motore.md"):
         righe = re.findall(r"`wsl\.exe -d [^`]*`", (RADICE / doc).read_text(encoding="utf-8"))
         assert righe and all(" -e " in r and " -- " not in r for r in righe), (doc, righe)
+
+
+# ---------------- P15: il finto motore come il contratto (passo referto, risultato di installa) ----------------
+def finto(tmp_path, *argomenti):
+    sys.path.insert(0, str(RADICE / "tests"))
+    from contratto import controlla
+    env = {**os.environ, "TEMP": str(tmp_path), "TMP": str(tmp_path)}   # lucchetti del finto solo per questo test
+    r = subprocess.run([sys.executable, str(RADICE / "installer" / "finto_motore.py"), *argomenti, "--velocita", "0"],
+                       capture_output=True, text=True, encoding="utf-8", env=env, timeout=120)
+    return controlla(r.stdout, r.returncode, argomenti[0])
+
+
+@pytest.mark.parametrize("lingua", ["it", "en"])
+def test_p15_esegui_finto_chiude_col_passo_referto(tmp_path, lingua):
+    """Il vero manda avanzamento "referto" come ultimo passo di esegui (contratto, v0.2); il finto sommava il tempo
+    del referto al riepilogo e non lo mandava mai."""
+    cfg = tmp_path / "prog" / "config.yaml"
+    cfg.parent.mkdir()
+    cfg.write_text("project_name: prog\n", encoding="utf-8")
+    ev = finto(tmp_path, "esegui", "--progetto", str(cfg), "--lingua", lingua)
+    av = [e for e in ev if e["tipo"] == "avanzamento"]
+    assert [e["passo"] for e in av][-2:] == ["riepilogo", "referto"] and av[-1]["campione"] is None
+    assert ev[-1]["esito"] == "ok"
+
+
+def test_p15_installa_finto_con_la_forma_del_contratto(tmp_path):
+    """Contratto §2 e installa_motore.sh: {"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}."""
+    ev = finto(tmp_path, "installa")
+    gruppi = [r.split("\t")[0] for r in (RADICE / "installer" / "catalogo.tsv").read_text(encoding="utf-8")
+              .splitlines()[1:] if r.strip()]
+    assert ev[-1]["risultato"] == {"programmi": 8, "database": list(dict.fromkeys(gruppi)), "verifica": "verde"}
