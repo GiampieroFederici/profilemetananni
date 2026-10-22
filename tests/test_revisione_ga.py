@@ -190,3 +190,43 @@ def test_p11_avvio_con_motore_appeso_non_resta_bloccato(qtbot, monkeypatch):
     qtbot.waitUntil(lambda: f.fuori.currentIndex() == 1, timeout=10000)
     assert not f.client_info.in_corso() and f.contesto.info is None
     assert [e.get("codice") for e in eventi if e["tipo"] == "errore"] == ["MOTORE_NON_AVVIATO"]
+
+
+# ---------------- P17: progetto NCBI con & o ! nella cartella Documenti ----------------
+@solo_qt
+@pytest.mark.parametrize("documenti", ["OneDrive - Salumificio Rossi & C", "Documenti!"])
+def test_p17_codici_ncbi_in_una_cartella_con_simboli_fermati_con_la_causa_vera(qtbot, monkeypatch, tmp_path, documenti):
+    """Il motore rifiuta srr_list con & o ! (validate_path_safe): l'app lo dice subito, vicino ai codici, e resta qui."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QLabel
+    from app import finestra, progetto
+    monkeypatch.setenv("PMN_MOTORE", "finto")
+    monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
+    (tmp_path / "temp").mkdir()
+    monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setenv("TMP", str(tmp_path / "temp"))
+    radice = tmp_path / documenti / "ProfileMetaNanni"
+    monkeypatch.setattr(progetto, "cartella_progetti", lambda: radice)
+    monkeypatch.setattr(finestra, "AVVIO_MIN_MS", 0)
+    f = finestra.Finestra(movimento=False)
+    qtbot.addWidget(f)
+    f.show()
+    f.avvia()
+    qtbot.waitUntil(lambda: f.attuale == "home", timeout=30000)
+    f.pagine["home"].azione_principale()                         # Nuovo progetto: i progetti locali restano possibili
+    assert f.attuale == "campioni"
+    c = f.pagine["campioni"]
+    c.testo_codici.setPlainText("SRR4875279")
+    c.azione_principale()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    QCoreApplication.processEvents()
+    testo = " ".join(e.text() for e in c.findChildren(QLabel) if e.isVisibleTo(c))
+    assert f.attuale == "campioni" and "un carattere che il motore non accetta" in testo
+    assert f.contesto.progetto.leggi()["paths"]["srr_list"] == ""
+
+
+@solo_qt
+def test_p17_controprova_cartella_senza_simboli(monkeypatch, tmp_path):
+    from app import progetto
+    p = progetto.nuovo("prova1", radice=tmp_path / "Documenti" / "ProfileMetaNanni")
+    assert p.cartella.is_dir() and progetto.percorso_sicuro(p.codici_campioni)

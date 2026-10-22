@@ -281,6 +281,12 @@ class PaginaCampioni(Pagina):
             cfg["paths"]["local_reads_dir"] = percorso_per_motore(self.cartella)
             cfg["paths"]["srr_list"] = ""
         else:
+            if not progetto.percorso_sicuro(p.codici_campioni):   # srr_list è assoluto: il motore lo rifiuterebbe
+                self.errore.addWidget(riquadro(
+                    _("Il nome di questa cartella ha un carattere che il motore non accetta."),
+                    _("Togli dal nome della cartella (e da quelle che la contengono) i simboli come ; & ! $ e riprova.")
+                    + f" ({p.cartella.parent})", "errore"))
+                return
             p.scrivi_codici(validi)
             cfg["paths"]["srr_list"] = percorso_per_motore(p.codici_campioni)
             cfg["paths"]["local_reads_dir"] = ""
