@@ -516,3 +516,23 @@ def test_p30_ancora_non_promette_una_ripresa_da_sola():
     from app.pagine import esecuzione
     assert "alla riaccensione" not in esecuzione.ANCORA and "riparte" not in esecuzione.ANCORA
     assert "quando riapri il progetto, premi Riprendi l'analisi" in esecuzione.ANCORA
+
+
+def etichette_qt(w):
+    from PySide6.QtWidgets import QLabel
+    return [x.text() for x in w.findChildren(QLabel)]
+
+
+@pytest.mark.parametrize("valore, atteso", [(0.0, "Lo <b>0,0 %</b>"), (80.5, "L'<b>80,5 %</b>"),
+                                            (11.0, "L'<b>11,0 %</b>"), (1.2, "L'<b>1,2 %</b>"),
+                                            (18.0, "Il <b>18,0 %</b>"), (53.7, "Il <b>53,7 %</b>")])
+def test_p32_articolo_davanti_alla_quota_non_assegnata(request, valore, atteso):
+    """La scheda MetaPhlAn scriveva sempre "Il": "Il 0,0 %", "Il 80,5 %". Il motore dice "Lo 0,0 %", "L'80,5 %"."""
+    pytest.importorskip("pytestqt")
+    request.getfixturevalue("qapp")
+    sys.path.insert(0, str(RADICE))
+    from app.pagine.risultati import PaginaRisultati
+    pag = PaginaRisultati.__new__(PaginaRisultati)                    # la scheda non usa lo stato della pagina
+    w = pag._scheda_metaphlan([{"nome": "S1", "sintesi": {"metaphlan": {
+        "specie": 1, "dominanti": [{"nome": "X", "pct": 50.0}], "non_assegnata_pct": valore, "frase": ""}}}])
+    assert any(t.startswith(f"Percentuale sul totale delle read del campione. {atteso} non è") for t in etichette_qt(w))

@@ -66,6 +66,17 @@ def corsivo(testo, nomi):
     return testo
 
 
+def articolo(numero_scritto):
+    """Articolo italiano davanti a una percentuale, come si legge: "Lo 0,0", "L'80,5", "Il 53,7" (stessa regola di
+    motore/referto.articolo: l'app non importa il motore)."""
+    if lingua.attuale() != "it":
+        return ""
+    intero = numero_scritto.split(",")[0].split(".")[0]
+    if intero == "0":
+        return "Lo "
+    return "L'" if intero in ("1", "11") or intero.startswith("8") else "Il "
+
+
 def separatore():
     s = QFrame(objectName="separatore")
     s.setFixedHeight(1)
@@ -240,9 +251,10 @@ class PaginaRisultati(Pagina):
             if not m:
                 s.addWidget(etichetta(_("Profilo MetaPhlAn non disponibile per questo campione."), "nota"))
                 continue
-            e = etichetta(_("Percentuale sul totale delle read del campione. Il <b>{pct} %</b> non è assegnato a "
+            p = numero(m['non_assegnata_pct'])
+            e = etichetta(_("Percentuale sul totale delle read del campione. {art}<b>{pct} %</b> non è assegnato a "
                             "nessuna specie del database: è normale (taxa non ancora nel database e DNA "
-                            "dell'ospite rimasto).", pct=numero(m['non_assegnata_pct'])))
+                            "dell'ospite rimasto).", art=articolo(p), pct=p))
             e.setTextFormat(Qt.RichText)
             s.addWidget(e)
             dom = m.get("dominanti", [])
