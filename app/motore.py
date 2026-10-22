@@ -54,7 +54,8 @@ def comando_motore():
     if finto():
         opzioni = shlex.split(os.environ.get("PMN_FINTO_OPZIONI", ""))
         return [sys.executable, str(RADICE / "installer" / "finto_motore.py")], opzioni
-    return ["wsl.exe", "-d", DISTRO, "-u", "pmn", "--", MOTORE_WSL], []
+    # -e e non "--": senza bash -c i percorsi con ' & $( ) arrivano intatti al motore
+    return ["wsl.exe", "-d", DISTRO, "-u", "pmn", "-e", MOTORE_WSL], []
 
 
 def percorso_per_motore(percorso):
@@ -110,6 +111,11 @@ class MotoreClient(QObject):
         a.finished.connect(a.deleteLater)
         a.start(programma[0], programma[1:] + ["annulla", "--corsa", self.corsa] + opzioni + lingua.per_motore())
         return True
+
+    def ferma(self):
+        """Chiude il processo se non risponde (wsl.exe appeso): _chiuso manda errore e fine come sempre."""
+        if self.in_corso():
+            self._p.kill()
 
     # ------------------------------------------------------------------
     def _leggi(self):

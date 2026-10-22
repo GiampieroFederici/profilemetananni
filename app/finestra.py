@@ -36,6 +36,7 @@ EXTRA = ("sicurezza", "+", N_("Sicurezza alimentare"))
 MENU = [("home", N_("I miei progetti")), ("motore", N_("Motore")), ("crediti", N_("Come citare"))]
 AVVIO_MIN_MS = 2500                  # l'avatar resta almeno 2,5 s (prototipo: 2-3 s)
 AVVIO_LENTO_MS = 5000                # info oltre 5 s: avvio a freddo della WSL, lo si spiega (A2)
+AVVIO_MAX_MS = 90000                 # info oltre 90 s: WSL appesa, si chiude e si va avanti (oltre il minuto a freddo)
 AVVIO_LENTO = N_("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
                  "minuto: è normale, non chiudere la finestra.")
 
@@ -128,6 +129,7 @@ class Finestra(QMainWindow):
             self._salto.start()
         QTimer.singleShot(AVVIO_MIN_MS, lambda: self._avvio_pronto("tempo"))
         QTimer.singleShot(AVVIO_LENTO_MS, self._avvio_lento)
+        QTimer.singleShot(AVVIO_MAX_MS, self._avvio_scaduto)
         self.client_info = MotoreClient(self)
         self.client_info.evento.connect(self._evento_info)
         self.client_info.finito.connect(self._info_finito)
@@ -138,6 +140,10 @@ class Finestra(QMainWindow):
     def _avvio_lento(self):
         if not self._pronto["info"]:
             self.messaggio_avvio.setText(_(AVVIO_LENTO))
+
+    def _avvio_scaduto(self):
+        if not self._pronto["info"]:
+            self.client_info.ferma()
 
     def _evento_info(self, e):
         if e["tipo"] == "fine":

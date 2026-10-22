@@ -12,7 +12,7 @@ Decisione D130, approvata da Giampiero il 18/10/2026.
 | `info` | com'è fatto il PC, che cosa del motore è installato | `info` |
 | `stima` | tempo e spazio previsti per un progetto, con i consigli | `stima` |
 | `esegui` | avvia l'analisi, **solo dopo la conferma della persona** | `esegui` |
-| `stato` | come va l'analisi avviata da qui (eventi, percentuale, tempo che resta, risultato) | (legge gli eventi) |
+| `stato` | come va l'analisi avviata da qui (eventi, percentuale, tempo che resta, risultato); con `dal` = il `prossimo` della chiamata prima, solo gli eventi nuovi | (legge gli eventi) |
 | `annulla` | ferma l'analisi con il suo codice | `annulla` |
 | `referto` | rifà il referto (HTML, PDF, Excel) di un progetto analizzato | `referto` |
 | `sicurezza` | previsioni di crescita FSSP (prototipo) | `sicurezza` |

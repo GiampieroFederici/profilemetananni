@@ -36,6 +36,7 @@ NOME = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")                 # nome di un 
 CORSA = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}")          # id della corsa del motore (evento inizio)
 CONFERMA_S = 600                                                    # il codice di conferma vale 10 minuti
 MAX_INGRESSO = 64_000                                               # byte della richiesta di sicurezza
+MAX_RIGA = 64 * 1024 * 1024        # byte di una riga JSON del motore (il 'fine' porta il risultato intero)
 
 
 # ---------------- motore ----------------
@@ -49,7 +50,7 @@ def comando(nome, *argomenti):
         programma = [sys.executable, str(RADICE / "installer" / "finto_motore.py")]
         opzioni = shlex.split(os.environ.get("PMN_FINTO_OPZIONI", ""))
     else:
-        programma, opzioni = ["wsl.exe", "-d", DISTRO, "-u", "pmn", "--", MOTORE_WSL], []
+        programma, opzioni = ["wsl.exe", "-d", DISTRO, "-u", "pmn", "-e", MOTORE_WSL], []   # -e: senza bash -c
     lingua = ["--lingua", "en"] if os.environ.get("PMN_LINGUA") == "en" else []
     return programma + [nome, *argomenti] + opzioni + lingua
 
@@ -69,7 +70,7 @@ async def lancia(nome, *argomenti, eventi=None):
     chiamato a ogni evento JSON, appena arriva. Su stdout del motore ci sono solo eventi (contratto §4)."""
     p = await asyncio.create_subprocess_exec(*comando(nome, *argomenti), stdin=asyncio.subprocess.DEVNULL,
                                              stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                                             env={**os.environ, "WSL_UTF8": "1"})
+                                             env={**os.environ, "WSL_UTF8": "1"}, limit=MAX_RIGA)
     return await raccogli(p, eventi)
 
 
@@ -219,8 +220,10 @@ def riassunto(s):
     r = s.get("risultato") or {}
     if s.get("esito") != "ok":
         return f"Stima non riuscita: {s.get('messaggio')}"
+    def it(x):   # la frase è sempre in italiano: virgola per i decimali
+        return str(x).replace(".", ",")
     return (f"{r.get('campioni')} campioni, circa {round((r.get('tempo_totale_s') or 0) / 60)} minuti, "
-            f"{r.get('spazio_gb')} GB di spazio (liberi {r.get('spazio_libero_gb')} GB).")
+            f"{it(r.get('spazio_gb'))} GB di spazio (liberi {it(r.get('spazio_libero_gb'))} GB).")
 
 
 @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False,
@@ -256,23 +259,35 @@ async def esegui(progetto: str, ctx: Context, codice_conferma: str | None = None
     a = Analisi(cfg)
     a.processo = await asyncio.create_subprocess_exec(*comando("esegui", "--progetto", per_motore(cfg)),
                                                       stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-                                                      stderr=asyncio.subprocess.PIPE, env={**os.environ, "WSL_UTF8": "1"})
+                                                      stderr=asyncio.subprocess.PIPE, env={**os.environ, "WSL_UTF8": "1"},
+                                                      limit=MAX_RIGA)
 
-    async def segui():
-        a.esito = await raccogli(a.processo, tutti=a.eventi)
+    async def segui():   # un'eccezione qualsiasi non deve lasciare l'analisi "in corso" per sempre
+        try:
+            a.esito = await raccogli(a.processo, tutti=a.eventi)
+        except Exception as ex:
+            a.esito = {"esito": "errore", "messaggio": f"Non riesco a leggere il motore: {ex}",
+                       "risultato": {"codice": "ERRORE_INTERNO"}, "eventi": a.eventi}
     a.compito = asyncio.create_task(segui())
     Stato.analisi = a
     fine = time.monotonic() + 30
     while a.corsa is None and a.in_corso() and time.monotonic() < fine:   # aspetta l'evento inizio (il codice)
         await asyncio.sleep(0.1)
+    fine = time.monotonic() + 3   # rifiuti del motore (GIA_IN_CORSO, DB_MANCANTE, config): subito dopo inizio
+    while a.in_corso() and time.monotonic() < fine:
+        await asyncio.sleep(0.1)
+    if not a.in_corso() and a.esito.get("esito") != "ok":
+        return {"avviata": False, "corsa": a.corsa, "progetto": cfg.parent.name,
+                "codice": (a.esito.get("risultato") or {}).get("codice"), "motivo": a.esito.get("messaggio")}
     return {"avviata": True, "corsa": a.corsa, "progetto": cfg.parent.name,
             "messaggio": "Analisi avviata. Seguila con stato; per fermarla usa annulla con questo codice."}
 
 
 @server.tool(annotations=SOLO_LETTURA)
-async def stato() -> dict:
-    """Come va l'analisi avviata da qui con esegui: ultimo avanzamento, tempo che resta, e alla fine il risultato.
-    Restituisce tutti gli eventi del motore arrivati finora (gli stessi che vede l'app)."""
+async def stato(dal: int = 0) -> dict:
+    """Come va l'analisi avviata da qui con esegui: ultimo avanzamento, tempo che resta, e alla fine il risultato
+    (in `fine`). `eventi`: gli eventi del motore (gli stessi che vede l'app) dalla posizione `dal` in poi, senza il
+    risultato; passa `prossimo` come `dal` alla chiamata dopo per ricevere solo quelli nuovi."""
     a = Stato.analisi
     if a is None:
         return {"analisi": None, "messaggio": "Nessuna analisi avviata da questo server."}
@@ -280,7 +295,8 @@ async def stato() -> dict:
     return {"corsa": a.corsa, "progetto": a.progetto.parent.name, "in_corso": a.in_corso(),
             "percentuale": ultimo.get("percentuale"), "messaggio": ultimo.get("messaggio"), "eta_s": ultimo.get("eta_s"),
             "fine": None if a.in_corso() else {k: a.esito[k] for k in ("esito", "messaggio", "risultato")},
-            "eventi": list(a.eventi)}
+            "eventi": [{k: v for k, v in e.items() if k != "risultato"} for e in a.eventi[max(dal, 0):]],
+            "prossimo": len(a.eventi)}
 
 
 @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False))
