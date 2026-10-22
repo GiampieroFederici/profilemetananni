@@ -28,7 +28,7 @@ from fssp import CITAZIONE, LAB, LISTERIA, crescita_listeria_lab, crescita_singo
 from fssp import ponte, validita  # noqa: E402
 from fssp.validita import numero_it  # noqa: E402
 from fssp.calcolatrici import sale_da_aw  # noqa: E402
-from fssp.modelli import ACIDI, Prodotto  # noqa: E402
+from fssp.modelli import ACIDI, Prodotto, condizioni, secondario  # noqa: E402
 from lingua import N_, _  # noqa: E402
 
 LIMITI = {"temperatura": (-20.0, 60.0), "sale_fase_acquosa": (0.0, 40.0), "aw": (0.5, 1.0), "ph": (2.0, 10.0),
@@ -118,6 +118,8 @@ def esegui(r, passo_curva_ore, avanza=None):
     prodotto, note = leggi_prodotto(r.get("prodotto"))
     profilo = leggi_profilo(r, prodotto)
     prodotto = prodotto.con(temperatura=profilo[0][0])
+    # verdetto "può crescere": psi di ogni tratto, non solo del primo (psi_listeria resta quello iniziale, come FSSP)
+    psi_profilo = [secondario(LISTERIA, condizioni(prodotto, temperatura=t)).psi for t, _ore in profilo]
     lag = r.get("lag", False)
     if not isinstance(lag, bool):
         raise IngressoNonValido(_("lag: true o false"))
@@ -148,7 +150,6 @@ def esegui(r, passo_curva_ore, avanza=None):
                     "finale_listeria_ufc_g": due_cifre(10.0 ** o["log_ufc"][-1]),
                     "cento_volte_listeria_giorni": o["cento_volte_giorni"], "curva": {"giorni": giorni,
                                                                                        "log_listeria": log_lm}}
-            psi = o["psi"]
         else:
             o = crescita_listeria_lab(prodotto, profilo, sc["n0_listeria"], sc["n0_lab"], gamma=gamma, lag=lag,
                                       modalita=modalita)
@@ -161,10 +162,9 @@ def esegui(r, passo_curva_ore, avanza=None):
                     "finale_listeria_ufc_g": due_cifre(10.0 ** o["log_listeria"][-1]),
                     "finale_lab_ufc_g": due_cifre(10.0 ** o["log_lab"][-1]),
                     "curva": {"giorni": giorni, "log_listeria": log_lm, "log_lab": log_lab}}
-            psi = o["psi_listeria"]
         prev.update({"scenario": sc["nome"], "n0_listeria_ufc_g": sc["n0_listeria"], "n0_lab_ufc_g": sc["n0_lab"],
                      "lag_giorni": o["lag_giorni"],
-                     "listeria_puo_crescere": psi is not None and psi < 1.0})
+                     "listeria_puo_crescere": any(p is not None and p < 1.0 for p in psi_profilo)})
         previsioni.append(prev)
     modello_campo = "listeria_lab" if any(p["modello"] == "listeria_lab" for p in previsioni) else "listeria"
     avvisi = [dict(a, modello=modello_campo) for a in validita.avvisi(modello_campo, prodotto, profilo)]
