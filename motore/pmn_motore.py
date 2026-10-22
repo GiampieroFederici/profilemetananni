@@ -616,10 +616,15 @@ class Motore:
         for sotto in ("metaphlan", "kraken", "tabelle", "log"):
             (r / sotto).mkdir(parents=True, exist_ok=True)
         campioni = {}
-        for f in sorted((lavoro / "metaphlan").glob("*_profile.txt")):
+        strumento = sezione(cfg, "profiling").get("tool", "both")
+        # solo i profili dei metodi di questa corsa: quelli dell'altro in pmn_work sono di una corsa vecchia (P01)
+        mpa = sorted((lavoro / "metaphlan").glob("*_profile.txt")) if strumento in ("metaphlan", "both") else []
+        krk = sorted((lavoro / "kraken").glob("*.bracken")) + sorted((lavoro / "kraken").glob("*.k2report")) \
+            if strumento in ("kraken", "both") else []
+        for f in mpa:
             shutil.copy(f, r / "metaphlan")
             campioni.setdefault(f.name[:-len("_profile.txt")], {})["metaphlan"] = f"metaphlan/{f.name}"
-        for f in sorted((lavoro / "kraken").glob("*.bracken")) + sorted((lavoro / "kraken").glob("*.k2report")):
+        for f in krk:
             shutil.copy(f, r / "kraken")
             if f.suffix == ".bracken":
                 campioni.setdefault(f.stem, {})["kraken"] = f"kraken/{f.name}"
@@ -636,7 +641,6 @@ class Motore:
                 k, _tab, v = riga.partition("\t")   # non "_": qui sotto _() traduce
                 parametri[k] = v
         ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
-        strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
         nome_db = _("PlusPF-8 del 26/06/2026") if "08gb" in kraken_db else _("PlusPF del 26/06/2026")
         citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp",
@@ -651,7 +655,7 @@ class Motore:
         for nome, file in sorted(campioni.items()):
             coppie = None
             rep = lavoro / "kraken" / f"{nome}.k2report"
-            if rep.is_file():   # righe "unclassified" + "root" del report = coppie dopo l'ospite
+            if krk and rep.is_file():   # righe "unclassified" + "root" del report = coppie dopo l'ospite
                 coppie = sum(int(c.split("\t")[1]) for c in rep.read_text(encoding="utf-8").splitlines()
                              if c.split("\t")[-1].strip() in ("unclassified", "root"))
             elenco.append({"nome": nome, "esito": "ok", "coppie_dopo_ospite": coppie, "file": file})
