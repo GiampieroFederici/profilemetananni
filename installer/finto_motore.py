@@ -262,7 +262,10 @@ class Motore:
         return "ok", self._scrivi_risultati(progetto.parent / "risultati", progetto), \
             _("Analisi finita in {min} min (tempo vero, qui accorciato).", min=round(totale_s / 60))
 
-    def _scrivi_risultati(self, r, progetto):
+    def _scrivi_risultati(self, cartella, progetto):
+        # 22/10: su Windows (senza LongPathsEnabled) un file oltre 260 caratteri non si scrive; con "\\?\" sì. Il motore
+        # vero scrive dalla WSL, che non ha questo limite: il finto deve fare lo stesso
+        r = Path("\\\\?\\" + str(cartella.resolve())) if os.name == "nt" else cartella
         for sotto in ("metaphlan", "kraken", "tabelle", "log"):
             (r / sotto).mkdir(parents=True, exist_ok=True)
         shutil.copy(DATI / f"{CAMPIONE}_profile.txt", r / "metaphlan")
@@ -295,7 +298,7 @@ class Motore:
             risultati["referto"] = self._referto(r, progetto)
             (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
         shutil.copy(self.log, r / "log")
-        return {"cartella": str(r), **risultati}
+        return {"cartella": str(cartella), **risultati}
 
     def sicurezza(self):
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motore"))
@@ -374,6 +377,12 @@ def main():
         codice = USCITA.get(esito) if esito != "errore" else CODICE_USCITA.get(risultato["codice"], 4)
     except Annullata:
         esito, risultato, messaggio, codice = "annullata", {}, _("Annullata: niente di fatto a metà è rimasto."), 3
+    except Exception as e:   # 22/10, come il motore vero: un errore nostro si dice (errore + fine), mai un traceback muto
+        with open(m.log, "a", encoding="utf-8") as f:
+            f.write(f"ERRORE INTERNO: {e!r}\n")
+        esito, risultato, messaggio = m.errore("ERRORE_INTERNO", _("Errore imprevisto del motore."),
+                                               _("Manda a noi il file {log}.", log=m.log))
+        codice = 4
     m.evento("fine", messaggio, esito=esito, risultato=risultato)
     return codice
 

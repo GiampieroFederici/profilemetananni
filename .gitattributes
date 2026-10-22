@@ -23,6 +23,8 @@ installer/lock/*.txt  text eol=lf
 motore/pmn-motore     text eol=lf
 # real SF3RAt7 results used by the fake engine (installer/finto_motore.py): keep them byte-identical
 installer/finto/*     text eol=lf
+# ... and its report (22/10): test_referto.py compares referto.html byte by byte with a fresh one (LF)
+installer/finto/referto/*.html  text eol=lf
 
 # Binary assets: git must never touch (no EOL or diff conversion)
 *.png   binary
@@ -30,3 +32,4 @@ installer/finto/*     text eol=lf
 *.jpeg  binary
 *.pdf   binary
 *.mp4   binary
+*.xlsx  binary
