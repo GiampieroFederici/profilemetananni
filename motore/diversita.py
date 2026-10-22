@@ -23,7 +23,8 @@ def indici(abbondanze):
     x = [a for a in abbondanze if a > 0]
     tot = sum(x)
     p = [a / tot for a in x] if tot else []
-    return {"ricchezza": len(p), "shannon": -sum(q * math.log(q) for q in p), "simpson": 1 - sum(q * q for q in p)}
+    return {"ricchezza": len(p), "shannon": -sum(q * math.log(q) for q in p),   # 0 taxa: Simpson 0 come Shannon
+            "simpson": 1 - sum(q * q for q in p) if p else 0.0}
 
 
 def _lnc(n, k):

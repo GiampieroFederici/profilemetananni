@@ -64,3 +64,14 @@ def test_p02_annulla_prima_di_run_sh(ambiente, tmp_path):
     assert [e["passo"] for e in ev if e["tipo"] == "avanzamento"] == []
     assert not (tmp_path / "lavoro" / "metaphlan" / "S1_profile.txt").exists()
     assert not blocco.exists()
+
+
+# ---------------- P03: Simpson of a sample without species ----------------
+def test_p03_campione_senza_specie_non_ha_simpson_massimo():
+    """MetaPhlAn profile with only UNCLASSIFIED: 0 taxa, so Simpson 0 (not 1 = the highest diversity)."""
+    import diversita
+    assert diversita.indici([]) == {"ricchezza": 0, "shannon": 0, "simpson": 0.0}
+    t = {r["campione"]: r for r in diversita.tabella_metaphlan(
+        {"vuoto": ([], 1000), "pieno": ([("X", 50.0), ("Y", 30.0)], 1000)}, {})}
+    assert t["vuoto"]["ricchezza"] == 0 and t["vuoto"]["simpson"] == 0.0
+    assert t["pieno"]["simpson"] == pytest.approx(0.46875)       # with taxa: same value as before
