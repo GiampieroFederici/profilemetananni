@@ -39,29 +39,46 @@ out2="$OUT/${SAMPLE}_trim_2.fastq.gz"
 json="$OUT/${SAMPLE}_fastp.json"
 html="$OUT/${SAMPLE}_fastp.html"
 
-if [ -s "$out1" ]; then
-  ok "$(say "$SAMPLE already trimmed -> skip" "$SAMPLE già rifilato -> salto")"
-  exit 0
-fi
-
-args=(--thread "$THREADS" --json "$json" --html "$html")
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
   [ -s "$IN2" ] || die "input not found or empty: $(sanitize_for_log "$IN2")"
   gzip -t "$IN2" 2>/dev/null || die "corrupt gzip: $(sanitize_for_log "$IN2")"
-  args=(-i "$IN1" -I "$IN2" -o "$out1" -O "$out2" "${args[@]}")
-else
-  args=(-i "$IN1" -o "$out1" "${args[@]}")
 fi
 
-info "$(say "Trimming $SAMPLE with fastp ..." "Rifilo $SAMPLE con fastp ...")"
-fastp "${args[@]}" || die "fastp failed for $SAMPLE"
+if [ -s "$out1" ]; then
+  ok "$(say "$SAMPLE already trimmed -> skip fastp" "$SAMPLE già rifilato -> salto fastp")"
+else
+  args=(--thread "$THREADS" --json "$json" --html "$html")
+  if [ -n "$IN2" ]; then
+    args=(-i "$IN1" -I "$IN2" -o "$out1" -O "$out2" "${args[@]}")
+  else
+    args=(-i "$IN1" -o "$out1" "${args[@]}")
+  fi
+  info "$(say "Trimming $SAMPLE with fastp ..." "Rifilo $SAMPLE con fastp ...")"
+  fastp "${args[@]}" || die "fastp failed for $SAMPLE"
+fi
 
-# FastQC on raw + trimmed reads (reports aggregated later by MultiQC). Non-fatal.
+# FastQC on raw + trimmed reads (reports aggregated later by MultiQC, and copied into the results).
+# FastQC 0.13.0 has no "-o" (only --outdir). A missing report is an error, not a warning nobody sees;
+# a rerun redoes only the missing reports (fastp above is skipped).
 if command -v fastqc >/dev/null 2>&1; then
   fqc=("$IN1"); [ -n "$IN2" ] && fqc+=("$IN2")
-  fqc+=("$out1"); { [ -n "$IN2" ] && [ -s "$out2" ]; } && fqc+=("$out2")
-  fastqc -q -t "$THREADS" -o "$OUT" "${fqc[@]}" || warn "$(say "fastqc failed for $SAMPLE (continuing)" "fastqc fallito per $SAMPLE (continuo)")"
+  fqc+=("$out1"); [ -n "$IN2" ] && fqc+=("$out2")
+  manca=()
+  for f in "${fqc[@]}"; do
+    b="$(basename "$f")"; b="${b%.gz}"; b="${b%.fastq}"; b="${b%.fq}"
+    [ -s "$OUT/${b}_fastqc.html" ] || manca+=("$f")
+  done
+  if [ "${#manca[@]}" -gt 0 ]; then
+    info "$(say "FastQC on $SAMPLE (${#manca[@]} files) ..." "FastQC su $SAMPLE (${#manca[@]} file) ...")"
+    fastqc -q -t "$THREADS" --outdir "$OUT" "${manca[@]}" || die "fastqc failed for $SAMPLE"
+    for f in "${manca[@]}"; do
+      b="$(basename "$f")"; b="${b%.gz}"; b="${b%.fastq}"; b="${b%.fq}"
+      [ -s "$OUT/${b}_fastqc.html" ] || die "fastqc wrote no report for $(sanitize_for_log "$b")"
+    done
+  fi
+else
+  warn "$(say "fastqc not installed: no FastQC report for $SAMPLE" "fastqc non installato: nessun report FastQC per $SAMPLE")"
 fi
 
 ok "$(say "$SAMPLE trimmed." "$SAMPLE rifilato.")"

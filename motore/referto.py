@@ -38,7 +38,8 @@ CATEGORIE = [N_("batteri"), N_("archei"), N_("funghi"), N_("virus"), N_("altri e
 DOMINANTI = 15   # specie in sintesi.*.dominanti (v0.3); la frase ne nomina 3
 VERSIONI = {"metaphlan": "MetaPhlAn", "database_metaphlan": N_("Database di MetaPhlAn"), "kraken2": "Kraken 2",
             "bracken": "Bracken", "database_kraken": N_("Database di Kraken"), "bowtie2": N_("Bowtie 2 (ospite, fette)"),
-            "fastp": N_("fastp (pulizia delle read)"), "samtools": "SAMtools"}
+            "fastp": N_("fastp (pulizia delle read)"), "samtools": "SAMtools",
+            "fastqc": N_("FastQC (qualità delle read)"), "multiqc": N_("MultiQC (riepilogo del controllo qualità)")}
 MODELLI = {"listeria": N_("modello della Listeria"), "listeria_lab": N_("modello della Listeria con i batteri lattici"),
            "lab": N_("modello dei batteri lattici")}
 NOMI_PRODOTTO = {"temperatura": N_("temperatura {} °C"), "sale_fase_acquosa": N_("sale nella fase acquosa {} %"),
@@ -232,6 +233,7 @@ def raccogli(risultati, cfg):
             "motore": indice.get("motore", ""), "campioni": campioni, "parametri": par, "soglia": soglia,
             "versioni": indice.get("versioni", {}), "citazioni": list(indice.get("citazioni", [])),
             "triage": triage, "sicurezza": sicurezza, "virus": bool(motore.get("virus", False)),
+            "qc": indice.get("qc") or {},
             "diversita": {"metaphlan": diversita.tabella_metaphlan(mpa, pari),
                           "kraken": diversita.tabella_kraken(krk, soglia, MICROBI)}}
 
@@ -295,6 +297,49 @@ def html_diversita(d):
     return h
 
 
+def valori_qc(c):
+    """[coppie prima, coppie dopo, Q30 prima, Q30 dopo, duplicati, lunghezza, ospite, coppie per i profili] di un
+    campione di risultati.json "qc" (v0.4), già scritti per le persone; vuoto se il numero manca."""
+    intero = lambda v: "" if v is None else lingua.migliaia(f"{v:,}")  # noqa: E731
+    return [intero(c.get("coppie_prima")), intero(c.get("coppie_dopo")), pct(c.get("q30_prima_pct"), 1),
+            pct(c.get("q30_dopo_pct"), 1), pct(c.get("duplicati_pct"), 1), pct(c.get("lunghezza_media"), 1),
+            pct(c.get("ospite_pct"), 1), intero(c.get("coppie_profili"))]
+
+
+def html_qc(d, n):
+    """Sezione "Controllo qualità delle read" (v0.4): due tabelle di 5 colonne (il PDF di Qt rende male le tabelle
+    larghe), una frase su come leggerle e il collegamento al report MultiQC."""
+    qc = d["qc"]
+    h = [f"<h2>{n}. {_('Controllo qualità delle read')}</h2>"]
+    if not qc.get("campioni"):
+        return h + ["<p>" + _("Controllo qualità non disponibile per questa analisi.") + "</p>"]
+    singole = any(not c.get("a_coppie", True) for c in qc["campioni"])
+    h.append("<p>" + _("Prima dei profili le read passano da fastp, che toglie le parti di bassa qualità e gli "
+                       "adattatori, e poi da Bowtie 2, che toglie il DNA dell'ospite e dell'uomo.") + "</p>")
+    righe = [[e(c["nome"])] + valori_qc(c) for c in qc["campioni"]]
+    h.append("<h3>" + _("Pulizia delle read (fastp)") + "</h3>")
+    h.append(tabella([_("Campione"), _("Coppie prima"), _("Coppie dopo"), _("Basi ≥ Q30 prima (%)"),
+                      _("Basi ≥ Q30 dopo (%)")], [r[:5] for r in righe], (1, 2, 3, 4), [24, 19, 19, 19, 19]))
+    h.append("<h3>" + _("Duplicati, lunghezza e ospite") + "</h3>")
+    h.append(tabella([_("Campione"), _("Duplicati (%)"), _("Lunghezza media (basi)"), _("Ospite tolto (%)"),
+                      _("Coppie per i profili")], [[r[0]] + r[5:] for r in righe], (1, 2, 3, 4),
+                     [24, 17, 22, 17, 20]))   # nel PDF "Lunghezza" e il nome del campione interi su una riga
+    if singole:
+        h.append('<p class="piccolo">' + _("Per i campioni a lettura singola le \"coppie\" sono read singole.")
+                 + "</p>")
+    h.append('<p class="piccolo">' + _("<b>Come leggerle.</b> Q30 vuol dire al massimo 1 errore ogni 1.000 basi: più "
+                                       "alta è la percentuale, migliori sono le read, e dopo fastp sale perché le "
+                                       "parti peggiori sono state tolte. Molti duplicati vogliono dire molte copie "
+                                       "della stessa molecola (poco DNA di partenza o molta PCR). La lunghezza media "
+                                       "è quella dopo fastp. Più DNA dell'ospite si toglie, meno coppie restano per i "
+                                       "profili: con poche coppie i taxa rari possono mancare (sezione 2).") + "</p>")
+    if qc.get("multiqc"):
+        f = qc["multiqc"]
+        h.append("<p>" + _("Grafici e dettagli di fastp, FastQC e Bowtie 2 per ogni campione sono nel report MultiQC: "
+                           "{link}", link=f'<a href="../{e(f)}">risultati/{e(f)}</a>') + "</p>")
+    return h
+
+
 def righe_parametri(d):
     """[(parametro, valore, cosa vuol dire, fonte)] (D022)."""
     p, prof = d["parametri"], profili_kraken()
@@ -323,8 +368,8 @@ def righe_parametri(d):
         consigliato = prof.get(profilo, {}).get(chiave_prof)
         fonte = fonte_k if consigliato is not None and numero(consigliato) == numero(v) else \
             _("scelto nel progetto (consigliato per '{profilo}': {consigliato})", profilo=profilo,
-              consigliato=consigliato)
-        out.append((nome, v, spiega, fonte))
+              consigliato=lingua.virgola(consigliato))
+        out.append((nome, lingua.virgola(v), spiega, fonte))   # 22/10: "0,1" con l'italiano, non "0.1"
     da_profilo("kraken_confidence", "confidence", _("Confidenza di Kraken (--confidence)"),
                _("quanto Kraken deve essere sicuro per assegnare una read (0 = accetta tutte)"))
     da_profilo("bracken_min_reads", "min_reads", _("Letture minime di Bracken (-t)"),
@@ -524,6 +569,9 @@ def html_referto(d):
                          f'{e(a["messaggio"])}</p>')
             h.append("<ul>" + "".join(f"<li>{e(x)}</li>" for x in r.get("note", [])) + "</ul>")
         n += 1
+    # controllo qualità (v0.4)
+    h += html_qc(d, n)
+    n += 1
     # parametri
     h.append(f"<h2>{n}. {_('Parametri usati')}</h2>")
     h.append(tabella([_("Parametro"), _("Valore"), _("Cosa vuol dire"), _("Fonte")],
@@ -571,13 +619,15 @@ def excel(d, percorso):
         fogli.append(nome)
     leggimi = wb.active
     leggimi.title = _("Leggimi")
+    kraken = any(c["kraken"] for c in d["campioni"])   # 22/10: soglia e limite di Kraken solo se Kraken ha girato
     for r in [[_("Referto dell'analisi: {progetto}", progetto=d['progetto'])],
               [_("Corsa {corsa}, motore {motore}", corsa=d['corsa'], motore=d['motore'])], [],
               [_("MetaPhlAn e Kraken sono metodi diversi: stanno in fogli separati e non vanno sommati.")],
               [_("Le percentuali sono DNA relativo, non cellule vive per grammo.")],
-              [_("Soglia di abbondanza (solo Kraken): {soglia} % (qui ci sono anche i taxa sotto soglia). "
-                 "MetaPhlAn non ha soglia.", soglia=d['soglia'])],
-              [senza_html(limite_kraken(d))], [senza_html(_(LIMITE_METAPHLAN))],
+              *([[_("Soglia di abbondanza (solo Kraken): {soglia} % (qui ci sono anche i taxa sotto soglia). "
+                    "MetaPhlAn non ha soglia.", soglia=lingua.virgola(f"{d['soglia']:g}"))],
+                  [senza_html(limite_kraken(d))]] if kraken else []),
+              [senza_html(_(LIMITE_METAPHLAN))],
               [_(POSTILLA_VIRUS)]]:
         leggimi.append(r)
     leggimi.column_dimensions["A"].width = 110
@@ -614,6 +664,13 @@ def excel(d, percorso):
                  p["scenario"], p["modello"], si if p["listeria_puo_crescere"] else no, p.get("psi_listeria"),
                  p.get("cento_volte_listeria_giorni"), p.get("cento_volte_lab_giorni")]
                 for r in d["sicurezza"] for p in r["previsioni"]], senza_html(_(PROTOTIPO_FSSP)))
+    if d["qc"].get("campioni"):
+        foglio("QC", [_("Campione"), _("Coppie prima di fastp"), _("Coppie dopo fastp"), _("% basi ≥ Q30 prima"),
+                      _("% basi ≥ Q30 dopo"), _("% duplicati"), _("Lunghezza media dopo fastp (basi)"),
+                      _("% ospite tolto"), _("Coppie per i profili")],
+               [[c["nome"], c.get("coppie_prima"), c.get("coppie_dopo"), c.get("q30_prima_pct"), c.get("q30_dopo_pct"),
+                 c.get("duplicati_pct"), c.get("lunghezza_media"), c.get("ospite_pct"), c.get("coppie_profili")]
+                for c in d["qc"]["campioni"]])
     foglio(_("Parametri"), [_("Parametro"), _("Valore"), _("Cosa vuol dire"), _("Fonte")], righe_parametri(d))
     citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]]
     foglio(_("Strumenti_citazioni"), [_("Strumento o database"), _("Versione")],

@@ -98,6 +98,10 @@ CITAZIONI = {
                   "DOI 10.1186/s40793-024-00561-w")],
     "bowtie2": ["Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923"],
     "fastp": ["Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560"],
+    # v0.4 (22/10): controllo qualità nel referto; MultiQC verificata su PubMed (PMID 27312411), FastQC non ha articolo
+    "fastqc": [N_("Andrews 2010, FastQC: controllo qualità delle read, Babraham Bioinformatics "
+                  "(www.bioinformatics.babraham.ac.uk/projects/fastqc)")],
+    "multiqc": ["Ewels et al. 2016, Bioinformatics 32(19):3047-3048: MultiQC. DOI 10.1093/bioinformatics/btw354"],
     "sus_scrofa": [N_("Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051")],
     "bos_taurus": [N_("Rosen et al. 2020, GigaScience 9(3):giaa021: bovino ARS-UCD1.2. DOI 10.1093/gigascience/giaa021")],
     "ovis_aries": [N_("Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. "
@@ -166,9 +170,14 @@ def quote_triage(lavoro):
 
 
 def quote_ospite(lavoro):
-    """{campione: quota di coppie tolte con l'ospite} dai log di Bowtie2 di steps/21 (hostfilter_logs/<campione>.<indice>
-    .bowtie2.log): coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo. A1 (17/10): SF3RAt3 aveva il
+    """{campione: quota di coppie tolte con l'ospite} dai log di Bowtie2 (coppie_ospite). A1 (17/10): SF3RAt3 aveva il
     68 % di ospite, non il 53 % di OSPITE_QUOTA; tolto l'ospite, esegui ricalcola MetaPhlAn e Kraken su queste."""
+    return {n: 1 - r / e for n, (e, r) in coppie_ospite(lavoro).items() if e > 0}
+
+
+def coppie_ospite(lavoro):
+    """{campione: (entrate, rimaste)} dai log di Bowtie2 di steps/21 (hostfilter_logs/<campione>.<indice>.bowtie2.log):
+    coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo."""
     entrate, rimaste = {}, {}
     for f in (Path(lavoro) / "hostfilter_logs").glob("*.bowtie2.log"):
         nome = f.name[:-len(".bowtie2.log")].rsplit(".", 1)[0]
@@ -179,7 +188,45 @@ def quote_ospite(lavoro):
         if dentro and fuori:
             entrate[nome] = max(entrate.get(nome, 0), int(dentro[1]))
             rimaste[nome] = min(rimaste.get(nome, int(fuori[1])), int(fuori[1]))
-    return {n: 1 - rimaste[n] / entrate[n] for n in entrate if entrate[n] > 0}
+    return {n: (entrate[n], rimaste[n]) for n in entrate}
+
+
+def controllo_qualita(lavoro, trim, r):
+    """risultati/qc/ (v0.4): report MultiQC con la sua cartella _data, HTML di fastp e di FastQC (fastqc/); per campione
+    i numeri del referto, letti dal JSON di fastp e dai log di Bowtie2. Coppie = read / 2 se le read sono a coppie."""
+    qc = r / "qc"
+    (qc / "fastqc").mkdir(parents=True, exist_ok=True)
+    out = {"multiqc": None, "fastp": [], "fastqc": [], "campioni": []}
+    for f in sorted((lavoro / "multiqc").glob("*multiqc_report.html")):
+        shutil.copy(f, qc)
+        out["multiqc"] = f"qc/{f.name}"
+        if f.with_name(f.stem + "_data").is_dir():
+            shutil.copytree(f.with_name(f.stem + "_data"), qc / (f.stem + "_data"), dirs_exist_ok=True)
+    for f in sorted(trim.glob("*_fastp.html")):
+        shutil.copy(f, qc)
+        out["fastp"].append(f"qc/{f.name}")
+    for f in sorted(trim.glob("*_fastqc.html")):
+        shutil.copy(f, qc / "fastqc")
+        out["fastqc"].append(f"qc/fastqc/{f.name}")
+    ospite = coppie_ospite(lavoro)
+    for f in sorted(trim.glob("*_fastp.json")):
+        nome = f.name[:-len("_fastp.json")]
+        try:
+            j = json.loads(f.read_text(encoding="utf-8"))
+            prima, dopo = j["summary"]["before_filtering"], j["summary"]["after_filtering"]
+            coppie = "read2_mean_length" in prima
+            lunghe = [dopo[k] for k in ("read1_mean_length", "read2_mean_length") if k in dopo]
+            c = {"nome": nome, "a_coppie": coppie, "coppie_prima": prima["total_reads"] // (2 if coppie else 1),
+                 "coppie_dopo": dopo["total_reads"] // (2 if coppie else 1), "q30_prima_pct": 100 * prima["q30_rate"],
+                 "q30_dopo_pct": 100 * dopo["q30_rate"], "duplicati_pct": 100 * j["duplication"]["rate"],
+                 "lunghezza_media": sum(lunghe) / len(lunghe), "ospite_pct": None, "coppie_profili": None}
+        except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
+            continue
+        if nome in ospite and ospite[nome][0] > 0:
+            entrate, rimaste = ospite[nome]
+            c["ospite_pct"], c["coppie_profili"] = 100 * (1 - rimaste / entrate), rimaste
+        out["campioni"].append(c)
+    return out
 
 
 # uscite di run.sh per etichetta (layout managed): se ci sono già, run.sh salta il passo (corsa ripresa)
@@ -581,6 +628,8 @@ class Motore:
         for f in sorted((res / "alpha_metaphlan_pari").glob("*_profile.txt")):   # MetaPhlAn a profondità uguale (R1)
             (r / "metaphlan_pari").mkdir(exist_ok=True)
             shutil.copy(f, r / "metaphlan_pari")
+        trim = Path(paths["trim_dir"]) if paths.get("layout") == "custom" and paths.get("trim_dir") else lavoro / "trim"
+        qc = controllo_qualita(lavoro, trim, r)
         parametri = {}
         if (res / "parameters.tsv").is_file():
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:
@@ -590,7 +639,9 @@ class Motore:
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
         nome_db = _("PlusPF-8 del 26/06/2026") if "08gb" in kraken_db else _("PlusPF del 26/06/2026")
-        citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp", *ospiti] if k in CITAZIONI
+        citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp",
+                                                        *(["fastqc"] if qc["fastqc"] else []),
+                                                        *(["multiqc"] if qc["multiqc"] else []), *ospiti] if k in CITAZIONI
                      and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")
                      for c in CITAZIONI[k]]
         env = installazione()
@@ -614,10 +665,11 @@ class Motore:
         versioni = {"metaphlan": versione(e, "pmn_metaphlan", "metaphlan"), "database_metaphlan": parametri.get("metaphlan_index"),
                     "kraken2": versione(e, "pmn_kraken", "kraken2"), "bracken": versione(e, "pmn_kraken", "bracken"),
                     "database_kraken": kraken_db or None, "bowtie2": versione(e, "pmn_metaphlan", "bowtie2"),
-                    "fastp": versione(e, "pmn_trim", "fastp")}
+                    "fastp": versione(e, "pmn_trim", "fastp"), "fastqc": versione(e, "pmn_trim", "fastqc"),
+                    "multiqc": versione(e, "pmn_qc", "multiqc")}
         risultati = {"motore": VERSIONE, "corsa": self.corsa, "campioni": elenco, "parametri": parametri,
                      "versioni": {k: v for k, v in versioni.items() if v}, "citazioni": citazioni,
-                     "triage": triage, "consigli": self.consigli(consigli)}
+                     "triage": triage, "consigli": self.consigli(consigli), "qc": qc}
         (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")
         risultati["referto"] = self._referto(r, progetto)
         (r / "risultati.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1), encoding="utf-8")

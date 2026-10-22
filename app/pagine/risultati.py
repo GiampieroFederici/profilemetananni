@@ -154,11 +154,14 @@ class PaginaRisultati(Pagina):
     def _referto(self, progetto, d):
         r = d.get("referto") or {}
         self.file = {k: (dentro(progetto, progetto.risultati / r[k]) if r.get(k) else None) for k in ("html", "pdf", "xlsx")}
+        multiqc = (d.get("qc") or {}).get("multiqc")   # v0.4: report MultiQC in risultati/qc/, nel browser di Windows
+        self.file["qc"] = dentro(progetto, progetto.risultati / multiqc) if multiqc else None
         riga = QHBoxLayout()
         riga.setSpacing(12)
         pulsanti = [(_("Apri il referto"), "html", self.apri_referto),
                     (_("Apri il referto in PDF"), "pdf", lambda: self.apri(self.file["pdf"])),
-                    (_("Apri le tabelle in Excel"), "xlsx", lambda: self.apri(self.file["xlsx"]))]
+                    (_("Apri le tabelle in Excel"), "xlsx", lambda: self.apri(self.file["xlsx"])),
+                    (_("Apri il controllo qualità"), "qc", lambda: self.apri(self.file["qc"]))]
         mancano = []
         for testo, chiave, funzione in pulsanti:
             b = QPushButton(testo, objectName="secondario")
@@ -166,7 +169,7 @@ class PaginaRisultati(Pagina):
             b.setEnabled(self.file[chiave] is not None)
             if self.file[chiave] is None:
                 mancano.append({"html": _("la pagina del referto"), "pdf": _("il PDF"),
-                                "xlsx": _("le tabelle Excel")}[chiave])
+                                "xlsx": _("le tabelle Excel"), "qc": _("il controllo qualità")}[chiave])
             riga.addWidget(b)
         cartella = QPushButton(_("Apri la cartella dei risultati"), objectName="link")
         cartella.clicked.connect(lambda: self.apri(dentro(progetto, progetto.risultati)))
