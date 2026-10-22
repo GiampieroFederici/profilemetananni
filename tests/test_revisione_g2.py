@@ -507,3 +507,12 @@ def test_p27_p31_limite_kraken_dice_la_base_e_il_database_dei_numeri_k4():
     assert "da 196 a 64 su 12 campioni" in t and "da 10 a 0" in t
     en = catalogo_en("motore")[referto.LIMITE_KRAKEN]
     assert "of the reads assigned by Bracken" in en and "for the full PlusPF" in en
+
+
+def test_p30_ancora_non_promette_una_ripresa_da_sola():
+    """Non c'è ripresa automatica: si riapre il progetto e si preme Riprendi l'analisi (come dice la conferma)."""
+    pytest.importorskip("PySide6")
+    sys.path.insert(0, str(RADICE))
+    from app.pagine import esecuzione
+    assert "alla riaccensione" not in esecuzione.ANCORA and "riparte" not in esecuzione.ANCORA
+    assert "quando riapri il progetto, premi Riprendi l'analisi" in esecuzione.ANCORA

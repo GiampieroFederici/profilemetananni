@@ -60,7 +60,7 @@
  "Regolamento (CE) n. 2073/2005 e modifiche, Allegato I, categoria 1.3: alimenti pronti che non favoriscono la crescita di L. monocytogenes (testo ufficiale su EUR-Lex, CELEX 32005R2073).": "Regulation (EC) No 2073/2005 and amendments, Annex I, category 1.3: ready-to-eat foods unable to support the growth of L. monocytogenes (official text on EUR-Lex, CELEX 32005R2073).",
  "ProfileMetaNanni mette insieme strumenti e database scritti da altri. Ogni referto elenca quelli usati davvero; qui c'è l'elenco completo. Se pubblichi un risultato, cita le fonti che hai usato.": "ProfileMetaNanni brings together tools and databases written by others. Every report lists the ones actually used; here is the full list. If you publish a result, cite the sources you used.",
  "Copia tutte le citazioni": "Copy all citations",
- "Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non finiti.": "You can use the computer for other things. If you switch it off, the analysis restarts from the unfinished steps when you switch it on again.",
+ "Puoi usare il computer per altro. Se lo spegni, i passi già finiti restano salvati: quando riapri il progetto, premi Riprendi l'analisi.": "You can use the computer for other things. If you switch it off, the finished steps stay saved: when you open the project again, press Resume the analysis.",
  "tempo che manca, stimato": "time left, estimated",
  "Ci vorrà molto tempo": "It will take a long time",
  "Campione da controllare": "Sample to check",

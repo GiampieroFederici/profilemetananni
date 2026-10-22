@@ -31,8 +31,8 @@ RIMEDI = {"DB_MANCANTE": (N_("Apri la pagina Motore"), "motore"),
 TITOLI_AVVISO = {"TEMPO_LUNGO": N_("Ci vorrà molto tempo"), "CAMPIONE_DA_CONTROLLARE": N_("Campione da controllare"),
                  "CAMPIONE_DA_RIFARE": N_("Campione da rifare"), "RETE_INTERROTTA": N_("La rete si è interrotta"),
                  "REFERTO_PARZIALE": N_("Il referto non è completo")}
-ANCORA = N_("Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non "
-            "finiti.")
+ANCORA = N_("Puoi usare il computer per altro. Se lo spegni, i passi già finiti restano salvati: quando riapri il "
+            "progetto, premi Riprendi l'analisi.")
 NOTA_ETA = N_("tempo che manca, stimato")
 
 
