@@ -191,11 +191,17 @@ def coppie_ospite(lavoro):
     return {n: (entrate[n], rimaste[n]) for n in entrate}
 
 
-def controllo_qualita(lavoro, trim, r):
+def controllo_qualita(lavoro, trim, r, nomi=()):
     """risultati/qc/ (v0.4): report MultiQC con la sua cartella _data, HTML di fastp e di FastQC (fastqc/); per campione
-    i numeri del referto, letti dal JSON di fastp e dai log di Bowtie2. Coppie = read / 2 se le read sono a coppie."""
+    i numeri del referto, letti dal JSON di fastp e dai log di Bowtie2. Coppie = read / 2 se le read sono a coppie.
+    nomi: i campioni del progetto, quelli tolti restano in trim (P04); vuoto = tutti, come prima."""
     qc = r / "qc"
     (qc / "fastqc").mkdir(parents=True, exist_ok=True)
+    for f in list(qc.glob("*_fastp.html")) + list((qc / "fastqc").glob("*_fastqc.html")):   # copiati da una corsa vecchia
+        f.unlink()
+    # FastQC prende il nome dal file delle read: <campione>_1_fastqc.html, <campione>_trim_1_fastqc.html, ...
+    tieni = lambda f, coda: not nomi or f.name[:-len(coda)] in nomi   # noqa: E731
+    tieni_fqc = lambda f: not nomi or any(f.name.startswith(n + "_") for n in nomi)   # noqa: E731
     out = {"multiqc": None, "fastp": [], "fastqc": [], "campioni": []}
     for f in sorted((lavoro / "multiqc").glob("*multiqc_report.html")):
         shutil.copy(f, qc)
@@ -203,14 +209,20 @@ def controllo_qualita(lavoro, trim, r):
         if f.with_name(f.stem + "_data").is_dir():
             shutil.copytree(f.with_name(f.stem + "_data"), qc / (f.stem + "_data"), dirs_exist_ok=True)
     for f in sorted(trim.glob("*_fastp.html")):
+        if not tieni(f, "_fastp.html"):
+            continue
         shutil.copy(f, qc)
         out["fastp"].append(f"qc/{f.name}")
     for f in sorted(trim.glob("*_fastqc.html")):
+        if not tieni_fqc(f):
+            continue
         shutil.copy(f, qc / "fastqc")
         out["fastqc"].append(f"qc/fastqc/{f.name}")
     ospite = coppie_ospite(lavoro)
     for f in sorted(trim.glob("*_fastp.json")):
         nome = f.name[:-len("_fastp.json")]
+        if not tieni(f, "_fastp.json"):
+            continue
         try:
             j = json.loads(f.read_text(encoding="utf-8"))
             prima, dopo = j["summary"]["before_filtering"], j["summary"]["after_filtering"]
@@ -627,6 +639,12 @@ class Motore:
         r = progetto.parent / "risultati"
         for sotto in ("metaphlan", "kraken", "tabelle", "log"):
             (r / sotto).mkdir(parents=True, exist_ok=True)
+        # risultati/ resta fra le corse: via quello che il motore ha copiato qui l'altra volta, sotto si ricopia solo
+        # quello dei metodi e dei campioni di questa corsa (P04)
+        for modello in ("metaphlan/*_profile.txt", "kraken/*.bracken", "kraken/*.k2report",
+                        "metaphlan_pari/*_profile.txt", "tabelle/*.tsv", "tabelle/*.xlsx"):
+            for f in r.glob(modello):
+                f.unlink()
         campioni = {}
         strumento = sezione(cfg, "profiling").get("tool", "both")
         # solo i profili dei metodi di questa corsa: quelli dell'altro in pmn_work sono di una corsa vecchia (P01)
@@ -648,14 +666,18 @@ class Motore:
             if f.suffix == ".bracken":
                 campioni.setdefault(f.stem, {})["kraken"] = f"kraken/{f.name}"
         for f in sorted(res.glob("*.tsv")) + sorted(res.glob("*.xlsx")):
+            # le tabelle dell'altro metodo in results sono di una corsa vecchia, come i profili (P04)
+            if ("kraken" in f.name and strumento == "metaphlan") or ("metaphlan" in f.name and strumento == "kraken"):
+                continue
             shutil.copy(f, r / "tabelle")
-        for f in sorted((res / "alpha_metaphlan_pari").glob("*_profile.txt")):   # MetaPhlAn a profondità uguale (R1)
+        pari = sorted((res / "alpha_metaphlan_pari").glob("*_profile.txt")) if strumento in ("metaphlan", "both") else []
+        for f in pari:   # MetaPhlAn a profondità uguale (R1)
             if not tieni(f.name[:-len("_profile.txt")]):
                 continue
             (r / "metaphlan_pari").mkdir(exist_ok=True)
             shutil.copy(f, r / "metaphlan_pari")
         trim = Path(paths["trim_dir"]) if paths.get("layout") == "custom" and paths.get("trim_dir") else lavoro / "trim"
-        qc = controllo_qualita(lavoro, trim, r)
+        qc = controllo_qualita(lavoro, trim, r, nomi)
         parametri = {}
         if (res / "parameters.tsv").is_file():
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:

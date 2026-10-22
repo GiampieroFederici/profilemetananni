@@ -145,3 +145,87 @@ def test_p01_gia_fatti_non_conta_le_uscite_che_run_sh_rifa(tmp_path, monkeypatch
     assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1            # niente è fatto
     kraken = next(e for e in av if e["passo"] == "kraken")
     assert kraken["passo_s"] == round(sec["krk_S1"])               # Kraken si rifà intero
+
+
+# ---------------- P04 (D1 e D4 di GD1): risultati/ solo coi campioni e i metodi di questa corsa ----------------
+FASTP = {"summary": {"before_filtering": {"total_reads": 400, "q30_rate": 0.9, "read1_mean_length": 150,
+                                          "read2_mean_length": 150},
+                     "after_filtering": {"total_reads": 380, "q30_rate": 0.95, "read1_mean_length": 146,
+                                         "read2_mean_length": 144}},
+         "duplication": {"rate": 0.07}}
+
+
+def risultati_finti(tmp_path, monkeypatch, strumento="both", progetto=("SRRA",), lavoro=("SRRA", "SRRA2")):
+    """Motore._risultati vero su un pmn_work finto (profili di installer/finto, fastp e FastQC per campione); finti solo
+    installazione, versioni e referto. SRRA2 è un campione tolto dal progetto, rimasto in pmn_work."""
+    import json
+    from types import SimpleNamespace
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore as pm
+    monkeypatch.setattr(pm, "installazione", lambda: {})
+    monkeypatch.setattr(pm, "versione", lambda *a: None)
+    finto = RADICE / "installer" / "finto"
+    prog, w = tmp_path / "p", tmp_path / "p" / "w"
+    for d in ("metaphlan", "kraken", "results", "trim"):
+        (w / d).mkdir(parents=True)
+    for nome in lavoro:
+        shutil.copy(finto / "SRR4875279_profile.txt", w / "metaphlan" / f"{nome}_profile.txt")
+        shutil.copy(finto / "SRR4875279.bracken", w / "kraken" / f"{nome}.bracken")
+        shutil.copy(finto / "SRR4875279.k2report", w / "kraken" / f"{nome}.k2report")
+        (w / "trim" / f"{nome}_fastp.json").write_text(json.dumps(FASTP), encoding="utf-8")
+        for f in (f"{nome}_fastp.html", f"{nome}_1_fastqc.html", f"{nome}_trim_1_fastqc.html"):
+            (w / "trim" / f).write_text("report", encoding="utf-8")
+    shutil.copy(finto / "parameters.tsv", w / "results" / "parameters.tsv")
+    (prog / "campioni.txt").write_text("".join(f"{n}\n" for n in progetto), encoding="utf-8")
+    cfg = {"data_source": "ncbi", "paths": {"layout": "managed", "work_dir": "./w", "srr_list": str(prog / "campioni.txt")},
+           "profiling": {"tool": strumento}}
+    (prog / "config.yaml").write_text(json.dumps(cfg), encoding="utf-8")
+    m = pm.Motore(SimpleNamespace(comando="esegui", progetto=str(prog / "config.yaml")))
+    m._referto = lambda r, p: {"html": None, "pdf": None, "xlsx": None}
+    m.log = tmp_path / "x.log"
+    m.log.write_text("", encoding="utf-8")
+    return m, prog, cfg
+
+
+def test_p04_qc_solo_campioni_del_progetto(tmp_path, monkeypatch):
+    """Il campione tolto (SRRA2, ancora in pmn_work/trim) non va nella tabella QC di risultati.json (e quindi del
+    referto) né in risultati/qc; i suoi report copiati da una corsa vecchia se ne vanno."""
+    import json
+    m, prog, cfg = risultati_finti(tmp_path, monkeypatch)
+    r = prog / "risultati"
+    (r / "qc" / "fastqc").mkdir(parents=True)
+    (r / "qc" / "SRRA2_fastp.html").write_text("corsa vecchia", encoding="utf-8")
+    (r / "qc" / "fastqc" / "SRRA2_1_fastqc.html").write_text("corsa vecchia", encoding="utf-8")
+    out = m._risultati(prog / "config.yaml", cfg)
+    assert [c["nome"] for c in out["qc"]["campioni"]] == ["SRRA"]
+    assert out["qc"]["fastp"] == ["qc/SRRA_fastp.html"]
+    assert out["qc"]["fastqc"] == ["qc/fastqc/SRRA_1_fastqc.html", "qc/fastqc/SRRA_trim_1_fastqc.html"]
+    assert sorted(f.name for f in (r / "qc").rglob("*.html")) == ["SRRA_1_fastqc.html", "SRRA_fastp.html",
+                                                                  "SRRA_trim_1_fastqc.html"]
+    indice = json.loads((r / "risultati.json").read_text(encoding="utf-8"))
+    assert [c["nome"] for c in indice["qc"]["campioni"]] == ["SRRA"]
+
+
+def test_p04_risultati_senza_le_uscite_del_metodo_che_non_gira(tmp_path, monkeypatch):
+    """Corsa "both", poi solo MetaPhlAn, poi solo Kraken: in risultati/ restano solo profili e tabelle del metodo che
+    gira (quelli dell'altro, in pmn_work, sono di una corsa vecchia)."""
+    m, prog, cfg = risultati_finti(tmp_path, monkeypatch, lavoro=("SRRA",))
+    res, r = prog / "w" / "results", prog / "risultati"
+    krk = ["alpha_diversity_kraken.tsv", "kraken_matrix.tsv", "kraken_matrix_taxa.tsv"]
+    mpa = ["alpha_diversity_metaphlan.tsv", "metaphlan_matrix.tsv", "metaphlan_merged.tsv"]
+    for t in krk + mpa:
+        (res / t).write_text("tabella\n", encoding="utf-8")
+    (res / "alpha_metaphlan_pari").mkdir()
+    shutil.copy(prog / "w" / "metaphlan" / "SRRA_profile.txt", res / "alpha_metaphlan_pari")
+    m._risultati(prog / "config.yaml", cfg)
+    assert (r / "kraken" / "SRRA.bracken").is_file() and (r / "metaphlan_pari" / "SRRA_profile.txt").is_file()
+    assert sorted(f.name for f in (r / "tabelle").iterdir()) == sorted(krk + mpa + ["parameters.tsv"])
+    cfg["profiling"]["tool"] = "metaphlan"
+    m._risultati(prog / "config.yaml", cfg)
+    assert not list((r / "kraken").iterdir())
+    assert sorted(f.name for f in (r / "tabelle").iterdir()) == sorted(mpa + ["parameters.tsv"])
+    cfg["profiling"]["tool"] = "kraken"
+    m._risultati(prog / "config.yaml", cfg)
+    assert not list((r / "metaphlan").iterdir()) and not list((r / "metaphlan_pari").iterdir())
+    assert sorted(f.name for f in (r / "kraken").iterdir()) == ["SRRA.bracken", "SRRA.k2report"]
+    assert sorted(f.name for f in (r / "tabelle").iterdir()) == sorted(krk + ["parameters.tsv"])
