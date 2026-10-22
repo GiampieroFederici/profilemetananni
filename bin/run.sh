@@ -282,54 +282,69 @@ for_each_sample() {  # for_each_sample <dir> <callback>
 # output exists, whatever produced it. One stamp per folder with the parameters of its files; the host stamp is part
 # of the profile stamps (other hosts = other reads). Only for the phases and methods that run (a MetaPhlAn-only run
 # keeps the Kraken stamp); the threshold needs nothing (Phase B tables are always redone). Never in a dry run.
-# Con layout custom NONHOST_DIR è scelta dall'utente e può servire a più progetti (D3 della revisione del 22/10):
-# il timbro dell'ospite sta nella cartella di lavoro del progetto e si cancellano solo le uscite dei suoi campioni
-# (quelli che la Fase A rifà: codici di srr_list e read locali). MetaPhlAn e Kraken sono sempre sotto work_dir.
+# Con layout custom NONHOST_DIR è scelta dall'utente e può servire a più progetti (revisione del 22/10): si toccano
+# solo le uscite dei campioni del progetto (codici di srr_list e read locali), ognuno col suo timbro accanto ai file,
+# perché lo stesso campione può stare in due progetti con ospiti diversi; il timbro del progetto, che legge la Fase B,
+# sta nella sua cartella di lavoro. I percorsi entrano nei modelli con pmn_glob_quote: "nonhost[2024]" non è un
+# modello che trova "nonhost2". MetaPhlAn e Kraken sono sempre sotto work_dir.
 NONHOST_TIMBRO="$NONHOST_DIR/.parametri"
 [ "$NONHOST_DIR" = "$PMN_WORK_DIR/nonhost" ] || NONHOST_TIMBRO="$PMN_WORK_DIR/.parametri_nonhost"
-stampa_campione() { printf '%s\n' "$1"; }
+stampa_campione() { printf '%s
+' "$1"; }
 campioni_del_progetto() {
   local srr
   if [ "$PMN_DATA_SOURCE" != local ] && [ -f "$PMN_SRR_LIST" ]; then
     while IFS= read -r srr; do
       srr="${srr%%[[:space:]]*}"
-      if validate_srr "$srr"; then printf '%s\n' "$srr"; fi
+      if validate_srr "$srr"; then printf '%s
+' "$srr"; fi
     done < "$PMN_SRR_LIST"
   fi
   if [ "$PMN_DATA_SOURCE" != ncbi ] && [ -d "$PMN_LOCAL_READS" ]; then for_each_sample "$PMN_LOCAL_READS" stampa_campione; fi
 }
+mapfile -t PMN_CAMPIONI < <(campioni_del_progetto 2> /dev/null)   # gli avvisi sui nomi delle read li dà la Fase A
+QW="$(pmn_glob_quote "$PMN_WORK_DIR")"; QN="$(pmn_glob_quote "$NONHOST_DIR")"; QH="$(pmn_glob_quote "$HF_LOG_DIR")"
+QM="$(pmn_glob_quote "$MPA_DIR")"; QK="$(pmn_glob_quote "$KRK_DIR")"; QR="$(pmn_glob_quote "$RES_DIR")"
 if [ "$DRY" -eq 0 ]; then
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
-    if [ "$NONHOST_TIMBRO" = "$NONHOST_DIR/.parametri" ]; then nonhost_uscite=("$NONHOST_DIR/*_nonhost*.fastq.gz")
+    ospite_timbro="$(printf 'hosts=%s
+filter_human=%s
+host_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")"
+    rifatti=1
+    if [ "$NONHOST_TIMBRO" = "$NONHOST_DIR/.parametri" ]; then
+      pmn_rifai_se_cambiati "$NONHOST_TIMBRO" "$ospite_timbro"           "$QN/*_nonhost*.fastq.gz" "$QH/*.bowtie2.log" "$QW/triage/*.triage_host.tsv" && rifatti=0
     else
-      nonhost_uscite=()
-      while IFS= read -r s; do
-        nonhost_uscite+=("$NONHOST_DIR/${s}_nonhost_1.fastq.gz" "$NONHOST_DIR/${s}_nonhost_2.fastq.gz" "$NONHOST_DIR/${s}_nonhost.fastq.gz")
-      done < <(campioni_del_progetto 2> /dev/null)   # gli avvisi sui nomi delle read li dà la Fase A
+      for s in ${PMN_CAMPIONI[@]+"${PMN_CAMPIONI[@]}"}; do
+        qs="$(pmn_glob_quote "$s")"
+        pmn_rifai_se_cambiati "$NONHOST_DIR/.$s.parametri" "$ospite_timbro"             "$QN/${qs}_nonhost_1.fastq.gz" "$QN/${qs}_nonhost_2.fastq.gz" "$QN/${qs}_nonhost.fastq.gz"             "$QH/$qs.*.bowtie2.log" "$QW/triage/$qs.triage_host.tsv" && rifatti=0
+      done
+      printf '%s
+' "$ospite_timbro" > "$NONHOST_TIMBRO" || die "cannot write $NONHOST_TIMBRO"
     fi
-    pmn_rifai_se_cambiati "$NONHOST_TIMBRO" \
-        "$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")" \
-        ${nonhost_uscite[@]+"${nonhost_uscite[@]}"} "$HF_LOG_DIR/*.bowtie2.log" "$PMN_WORK_DIR/triage/*.triage_host.tsv" \
-      && warn "$(say "Host removal parameters changed (or not recorded): host removal, MetaPhlAn and Kraken are redone" \
-                     "Parametri della rimozione dell'ospite cambiati (o non registrati): rifaccio ospite, MetaPhlAn e Kraken")"
+    [ "$rifatti" -eq 0 ]       && warn "$(say "Host removal parameters changed (or not recorded): host removal, MetaPhlAn and Kraken are redone"                      "Parametri della rimozione dell'ospite cambiati (o non registrati): rifaccio ospite, MetaPhlAn e Kraken")"
   fi
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "b" ]; then
     ospite_timbro="$(cat "$NONHOST_TIMBRO" 2> /dev/null || true)"
     if [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
-      pmn_rifai_se_cambiati "$MPA_DIR/.parametri" \
-          "$(printf '%s\nmetaphlan_mode=%s\nmetaphlan_index=%s' "$ospite_timbro" "$PMN_MPA_MODO" "$PMN_MPA_INDEX")" \
-          "$MPA_DIR/*_profile.txt" "$MPA_DIR/*.bowtie2.bz2" "$MPA_DIR/*.sam.bz2" "$MPA_DIR/*.mapout" "$RES_DIR/alpha_metaphlan_pari" \
-        && warn "$(say "MetaPhlAn parameters changed (or not recorded): the MetaPhlAn profiles are redone" \
-                       "Parametri di MetaPhlAn cambiati (o non registrati): rifaccio i profili di MetaPhlAn")"
+      # results_dir personalizzata: può essere di più progetti, dei profili pari si tolgono solo quelli del progetto
+      mpa_uscite=("$QM/*_profile.txt" "$QM/*.bowtie2.bz2" "$QM/*.sam.bz2" "$QM/*.mapout")
+      if [ "$RES_DIR" = "$PMN_WORK_DIR/results" ]; then mpa_uscite+=("$QR/alpha_metaphlan_pari")
+      else
+        for s in ${PMN_CAMPIONI[@]+"${PMN_CAMPIONI[@]}"}; do
+          mpa_uscite+=("$QR/alpha_metaphlan_pari/$(pmn_glob_quote "$s")_profile.txt")
+        done
+      fi
+      pmn_rifai_se_cambiati "$MPA_DIR/.parametri"           "$(printf '%s
+metaphlan_mode=%s
+metaphlan_index=%s' "$ospite_timbro" "$PMN_MPA_MODO" "$PMN_MPA_INDEX")"           "${mpa_uscite[@]}"         && warn "$(say "MetaPhlAn parameters changed (or not recorded): the MetaPhlAn profiles are redone"                        "Parametri di MetaPhlAn cambiati (o non registrati): rifaccio i profili di MetaPhlAn")"
     fi
     if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
       # the database by its real path (a trailing slash or a symlink is the same database)
-      pmn_rifai_se_cambiati "$KRK_DIR/.parametri" \
-          "$(printf '%s\nkraken_db=%s\nkraken_confidence=%s\nbracken_min_reads=%s\nbracken_readlen=%s' "$ospite_timbro" \
-             "${PMN_KRK_DB:+$(realpath -m -- "$PMN_KRK_DB")}" "$PMN_KRK_CONF" "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN")" \
-          "$KRK_DIR/*.bracken" "$KRK_DIR/*.k2report" "$KRK_DIR/*.k2out" \
-        && warn "$(say "Kraken parameters changed (or not recorded): the Kraken profiles are redone" \
-                       "Parametri di Kraken cambiati (o non registrati): rifaccio i profili di Kraken")"
+      pmn_rifai_se_cambiati "$KRK_DIR/.parametri"           "$(printf '%s
+kraken_db=%s
+kraken_confidence=%s
+bracken_min_reads=%s
+bracken_readlen=%s' "$ospite_timbro"              "${PMN_KRK_DB:+$(realpath -m -- "$PMN_KRK_DB")}" "$PMN_KRK_CONF" "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN")"           "$QK/*.bracken" "$QK/*.k2report" "$QK/*.k2out"         && warn "$(say "Kraken parameters changed (or not recorded): the Kraken profiles are redone"                        "Parametri di Kraken cambiati (o non registrati): rifaccio i profili di Kraken")"
     fi
   fi
 fi
@@ -608,7 +623,19 @@ run_profilers() {  # run_profilers <sample> <r1> <r2|"">
   return 0
 }
 
-if [ -d "$NONHOST_DIR" ] || [ "$DRY" -eq 1 ]; then
+# Only the samples of the project (revisione del 22/10): a shared nonhost folder holds other projects' samples, and the
+# outputs of samples taken out of the project would end in the merged tables, the beta and the depth of step 42.
+# An unreadable sample list keeps the old behaviour (every sample in the folder, nothing removed).
+if [ "${#PMN_CAMPIONI[@]}" -gt 0 ]; then
+  [ "$DRY" -eq 0 ] && pmn_togli_campioni_tolti "$MPA_DIR" "$KRK_DIR" "${PMN_CAMPIONI[@]}"
+  for s in "${PMN_CAMPIONI[@]}"; do
+    if [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ]; then
+      run_profilers "$s" "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" "$NONHOST_DIR/${s}_nonhost_2.fastq.gz"
+    elif [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ]; then
+      run_profilers "$s" "$NONHOST_DIR/${s}_nonhost.fastq.gz" ""
+    fi
+  done
+elif [ -d "$NONHOST_DIR" ] || [ "$DRY" -eq 1 ]; then
   shopt -s nullglob
   for f in "$NONHOST_DIR"/*_nonhost_1.fastq.gz; do
     s="$(basename "${f%_nonhost_1.fastq.gz}")"

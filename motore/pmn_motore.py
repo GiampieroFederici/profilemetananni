@@ -201,7 +201,13 @@ def controllo_qualita(lavoro, trim, r, nomi=()):
         f.unlink()
     # FastQC prende il nome dal file delle read: <campione>_1_fastqc.html, <campione>_trim_1_fastqc.html, ...
     tieni = lambda f, coda: not nomi or f.name[:-len(coda)] in nomi   # noqa: E731
-    tieni_fqc = lambda f: not nomi or any(f.name.startswith(n + "_") for n in nomi)   # noqa: E731
+    # il campione di un report FastQC è il più lungo fra quelli rifilati (un *_fastp.html a testa) che ne fa da
+    # inizio: C1_bis_1_fastqc.html è di C1_bis anche se nel progetto c'è C1
+    rifilati = sorted((f.name[:-len("_fastp.html")] for f in trim.glob("*_fastp.html")), key=len, reverse=True)
+
+    def tieni_fqc(f):
+        n = next((n for n in rifilati if f.name.startswith(n + "_")), None)
+        return not nomi or (n in nomi if n else any(f.name.startswith(c + "_") for c in nomi))
     out = {"multiqc": None, "fastp": [], "fastqc": [], "campioni": []}
     for f in sorted((lavoro / "multiqc").glob("*multiqc_report.html")):
         shutil.copy(f, qc)
@@ -641,9 +647,12 @@ class Motore:
             (r / sotto).mkdir(parents=True, exist_ok=True)
         # risultati/ resta fra le corse: via quello che il motore ha copiato qui l'altra volta, sotto si ricopia solo
         # quello dei metodi e dei campioni di questa corsa (P04)
-        for modello in ("metaphlan/*_profile.txt", "kraken/*.bracken", "kraken/*.k2report",
-                        "metaphlan_pari/*_profile.txt", "tabelle/*.tsv", "tabelle/*.xlsx"):
+        for modello in ("metaphlan/*_profile.txt", "kraken/*.bracken", "kraken/*.k2report", "metaphlan_pari/*_profile.txt"):
             for f in r.glob(modello):
+                f.unlink()
+        # in tabelle/ l'utente può salvare i suoi file: via solo i nomi che il motore scrive (quelli di results)
+        for f in list((r / "tabelle").glob("*.tsv")) + list((r / "tabelle").glob("*.xlsx")):
+            if (res / f.name).is_file():
                 f.unlink()
         campioni = {}
         strumento = sezione(cfg, "profiling").get("tool", "both")

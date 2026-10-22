@@ -117,3 +117,32 @@ pmn_rifai_se_cambiati() {
   mkdir -p "$(dirname "$file")" && printf '%s\n' "$timbro" > "$file" || die "cannot write $file"
   return "$tolti"
 }
+
+# --- a path as a literal inside a glob: "nonhost[2024]" must not match "nonhost2" (22/10) ---
+pmn_glob_quote() {
+  local s="$1"
+  s="${s//\\/\\\\}"; s="${s//\[/\\[}"; s="${s//\]/\\]}"; s="${s//\*/\\*}"; s="${s//\?/\\?}"
+  printf '%s' "$s"
+}
+
+# --- outputs of the samples no longer in the project, out of the project's own MetaPhlAn and Kraken folders ---
+# pmn_togli_campioni_tolti <metaphlan dir> <kraken dir> <sample>...
+# Only files named <sample> + a known suffix, with the sample read back exactly (C1_bis is not C1). Without samples it
+# does nothing: an unreadable list must not empty the folders.
+pmn_togli_campioni_tolti() {
+  local mpa="$1" krk="$2" f n suf s c tieni
+  shift 2
+  [ "$#" -gt 0 ] || return 0
+  for f in "$mpa"/* "$krk"/*; do
+    [ -f "$f" ] || continue
+    n="$(basename "$f")"
+    for suf in _profile.txt .mapout .bowtie2.bz2 .sam.bz2 .bracken _bracken_species.k2report .k2report .k2out ""; do
+      case "$n" in *"$suf") [ -n "$suf" ] && break ;; esac
+    done
+    [ -n "$suf" ] || continue
+    s="${n%"$suf"}"; tieni=1
+    for c in "$@"; do [ "$c" = "$s" ] && { tieni=0; break; }; done
+    [ "$tieni" -eq 1 ] && rm -f -- "$f"
+  done
+  return 0
+}

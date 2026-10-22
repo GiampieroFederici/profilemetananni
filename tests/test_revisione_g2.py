@@ -629,3 +629,126 @@ def test_p39_ram_con_la_virgola_in_italiano(codice, atteso):
     finally:
         lingua.imposta(prima)
     assert len(testi) == 2 and all(atteso in t for t in testi), testi
+
+
+# ---------------- terzo giro: difetti del revisore cieco del secondo giro (22/10) ----------------
+@linux
+def test_r1_parentesi_quadre_nel_percorso_non_diventano_un_modello(tmp_path):
+    """Cartella nonhost "nonhost[2024]": il modello [2024] trovava anche nonhost2/A1_nonhost_1.fastq.gz (cartella
+    sorella) e la cancellava, lasciando il file vero del progetto."""
+    home = installazione_finta(tmp_path)
+    condivisa, sorella = tmp_path / "nonhost[2024]", tmp_path / "nonhost2"
+    condivisa.mkdir()
+    sorella.mkdir()
+    a = progetto_custom(tmp_path, "salame", ["A1", "A2"], condivisa)   # A2 da rifilare: la corsa finta si ferma lì
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")
+    nonhost_finiti(condivisa, "A1", b"maiale")
+    nonhost_finiti(sorella, "A1", b"altro")
+    prima = byte(sorella, "A1")
+    corsa_custom(home, *a, condivisa, "[bos_taurus]")
+    assert byte(sorella, "A1") == prima                     # la cartella sorella non si tocca
+    assert byte(condivisa, "A1") == {}                      # le uscite del progetto si rifanno
+
+
+@linux
+def test_r1_stesso_campione_in_due_progetti_con_ospiti_diversi(tmp_path):
+    """Salame (maiale) e bresaola (bovino) con lo stesso campione A1 nella stessa cartella nonhost: chi trova le read
+    filtrate con l'altro ospite le rifà, invece di profilarle dichiarando il proprio ospite (D022)."""
+    home = installazione_finta(tmp_path)
+    condivisa = tmp_path / "nonhost_condivisa"
+    condivisa.mkdir()
+    a = progetto_custom(tmp_path, "salame", ["A1", "A2"], condivisa)
+    b = progetto_custom(tmp_path, "bresaola", ["A1", "B2"], condivisa)
+    corsa_custom(home, *b, condivisa, "[bos_taurus]")
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")       # il timbro di A1 si scrive quando il salame lo rifà
+    nonhost_finiti(condivisa, "A1", b"maiale")              # il salame ha finito A1 col maiale
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")
+    assert len(byte(condivisa, "A1")) == 2                  # stesso ospite: si tengono
+    corsa_custom(home, *b, condivisa, "[bos_taurus]")
+    assert byte(condivisa, "A1") == {}                      # filtrate col maiale: la bresaola le rifà
+    nonhost_finiti(condivisa, "A1", b"bovino")
+    corsa_custom(home, *a, condivisa, "[sus_scrofa]")
+    assert byte(condivisa, "A1") == {}                      # e il salame rifà le sue
+
+
+@linux
+def test_r3_fase_b_solo_i_campioni_del_progetto(tmp_path):
+    """Con la cartella nonhost condivisa la Fase B profilava anche i campioni dell'altro progetto (ore di analisi)."""
+    home = installazione_finta(tmp_path)
+    condivisa = tmp_path / "nonhost_condivisa"
+    condivisa.mkdir()
+    cfg, letture = progetto_custom(tmp_path, "salame", ["A1", "A2"], condivisa)
+    corsa_custom(home, cfg, letture, condivisa, "[sus_scrofa]")   # registra i parametri dell'ospite
+    nonhost_finiti(condivisa, "A1", b"maiale")
+    nonhost_finiti(condivisa, "B1", b"bovino")              # di un altro progetto
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("tool: metaphlan", "tool: kraken"), encoding="utf-8")
+    r = subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--dry-run",
+                        "--phase", "b"], capture_output=True, text=True, timeout=120, cwd=cfg.parent,
+                       env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    testo = r.stdout + r.stderr
+    assert "krk_A1" in testo and "krk_B1" not in testo, testo   # a secco Kraken stampa il passo anche senza database
+
+
+@linux
+def test_r3_uscite_dei_campioni_tolti_via_dalla_cartella_di_lavoro(tmp_path):
+    """MetaPhlAn e Kraken stanno sempre nella cartella di lavoro del progetto: le uscite dei campioni tolti finivano
+    nelle tabelle unite, nella beta e nella profondità del passo 42. Si tolgono solo quelle, coi nomi esatti."""
+    mpa, krk = tmp_path / "metaphlan", tmp_path / "kraken"
+    mpa.mkdir()
+    krk.mkdir()
+    for s in ("C1", "C1_bis"):
+        for f in (mpa / f"{s}_profile.txt", mpa / f"{s}.mapout", krk / f"{s}.bracken", krk / f"{s}.k2report",
+                  krk / f"{s}_bracken_species.k2report"):
+            f.write_text(s, encoding="utf-8")
+    (mpa / "nreads.txt").write_text("altro", encoding="utf-8")
+    comando = '. "$1/bin/lib/common.sh"; pmn_togli_campioni_tolti "$2" "$3" C1'
+    r = subprocess.run(["bash", "-c", comando, "x", str(RADICE), str(mpa), str(krk)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert sorted(f.name for f in mpa.iterdir()) == ["C1.mapout", "C1_profile.txt", "nreads.txt"]
+    assert sorted(f.name for f in krk.iterdir()) == ["C1.bracken", "C1.k2report", "C1_bracken_species.k2report"]
+
+
+def test_r4_i_file_dell_utente_in_risultati_tabelle_restano(tmp_path, monkeypatch):
+    """La pulizia di risultati/ fra le corse toglieva ogni *.xlsx e *.tsv di tabelle/, anche quelli salvati lì
+    dall'utente: si tolgono solo i nomi che il motore stesso scrive (quelli della cartella results)."""
+    m, prog, cfg = risultati_finti(tmp_path, monkeypatch, lavoro=("SRRA",))
+    (prog / "w" / "results" / "report_overview.xlsx").write_text("motore", encoding="utf-8")
+    m._risultati(prog / "config.yaml", cfg)
+    mio = prog / "risultati" / "tabelle" / "report_commentato.xlsx"
+    mio.write_text("note dell'utente", encoding="utf-8")
+    m._risultati(prog / "config.yaml", cfg)
+    assert mio.read_text(encoding="utf-8") == "note dell'utente"
+
+
+def test_r5_fastqc_col_nome_esatto_del_campione(tmp_path):
+    """Il filtro dei report FastQC guardava solo l'inizio del nome: C1_bis (tolto) restava se il progetto ha C1."""
+    sys.path.insert(0, str(RADICE / "motore"))
+    import pmn_motore as pm
+    lavoro, trim, r = tmp_path / "w", tmp_path / "w" / "trim", tmp_path / "risultati"
+    trim.mkdir(parents=True)
+    for s in ("C1", "C1_bis"):
+        for f in (f"{s}_fastp.html", f"{s}_1_fastqc.html", f"{s}_trim_1_fastqc.html"):
+            (trim / f).write_text("report", encoding="utf-8")
+    qc = pm.controllo_qualita(lavoro, trim, r, {"C1"})
+    assert qc["fastqc"] == ["qc/fastqc/C1_1_fastqc.html", "qc/fastqc/C1_trim_1_fastqc.html"]
+
+
+@linux
+def test_r6_profili_pari_dell_altro_progetto_restano(tmp_path):
+    """results_dir personalizzata condivisa: il cambio dei parametri di MetaPhlAn di un progetto cancellava tutta
+    alpha_metaphlan_pari, anche i profili dell'altro progetto."""
+    home = installazione_finta(tmp_path)
+    condivisa, risultati = tmp_path / "nonhost_condivisa", tmp_path / "risultati_condivisi"
+    condivisa.mkdir()
+    (risultati / "alpha_metaphlan_pari").mkdir(parents=True)
+    for s in ("A1", "B1"):
+        (risultati / "alpha_metaphlan_pari" / f"{s}_profile.txt").write_text(s, encoding="utf-8")
+    cfg, letture = progetto_custom(tmp_path, "salame", ["A1"], condivisa)
+    cfg.write_text(f"project_name: salame\ndata_source: local\nhosts: [sus_scrofa]\nfilter_human: false\n"
+                   f"paths:\n  layout: custom\n  work_dir: {cfg.parent / 'lavoro'}\n  local_reads_dir: {letture}\n"
+                   f"  nonhost_dir: {condivisa}\n  results_dir: {risultati}\nprofiling:\n  tool: metaphlan\n",
+                   encoding="utf-8")
+    subprocess.run(["bash", str(RADICE / "bin" / "run.sh"), "--config", str(cfg), "--skip-preflight", "--phase", "b"],
+                   capture_output=True, text=True, timeout=120, cwd=cfg.parent,
+                   env={**os.environ, "PMN_HOME": str(home), "NO_COLOR": "1"})
+    assert sorted(f.name for f in (risultati / "alpha_metaphlan_pari").iterdir()) == ["B1_profile.txt"]
