@@ -551,11 +551,16 @@ class Motore:
                 fatti.add(chiave)
             return 100 * (totale - resta) / totale, round(resta) if camp else None, round(questo) if camp else None
         visti, ultimo = {}, 0.0
+        annulla = STATO / f"{self.corsa}.annulla"
+        if annulla.exists():   # annulla arrivato mentre si chiedevano le dimensioni (pgid ancora None): run.sh non parte
+            raise Annullata
         p = subprocess.Popen(["bash", RUN_SH, "--config", str(progetto), "--skip-preflight"], cwd=progetto.parent,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                              errors="replace", env={**os.environ, "PMN_HOME": str(PMN_HOME), "NO_COLOR": "1"},
                              start_new_session=True)
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": p.pid}), encoding="utf-8")
+        if annulla.exists():   # arrivato fra il Popen e il lock col pgid: lo si ferma qui, poi p.wait() alza Annullata
+            os.killpg(p.pid, signal.SIGTERM)
         coda = []
         for riga in p.stdout:
             riga = riga.rstrip()
