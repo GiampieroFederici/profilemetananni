@@ -1,0 +1,3 @@
+# Server MCP di profilemetananni (pmn_mcp/server.py): versioni fissate, provate il 18/10/2026 (R1).
+# Installazione:  python -m venv pmn_mcp\.venv   e poi   pmn_mcp\.venv\Scripts\python -m pip install -r pmn_mcp\requirements.txt
+mcp==2.3.0

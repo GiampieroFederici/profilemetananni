@@ -1,0 +1,11 @@
+parameter	value
+metaphlan_mode	fette
+metaphlan_index	mpa_vJan25_CHOCOPhlAnSGB_202503
+kraken_db	~/pmn_kraken_db/k2_pluspf_08gb_20260626
+kraken_profile	rapido
+kraken_confidence	0.1
+bracken_min_reads	10
+bracken_readlen	150
+abundance_threshold_pct	0.005
+hosts	sus_scrofa
+filter_human	yes

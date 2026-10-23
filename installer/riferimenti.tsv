@@ -1,0 +1,11 @@
+chiave	valore	fonte
+pmn_metaphlan/metaphlan	4.2.4	D001, file di blocco
+pmn_metaphlan/bowtie2	2.5.5	file di blocco (Bowtie2 delle fette)
+pmn_kraken/kraken2	2.17.2	file di blocco
+pmn_kraken/bracken	3.1	file di blocco
+pmn_trim/fastp	1.4.0	file di blocco
+pmn_hostfilter/bowtie2	2.5.5	file di blocco
+pmn_hostfilter/samtools	1.24	file di blocco
+pmn_download/sra-tools	3.4.1	file di blocco
+mini_mapout_ordinato	8665f0069710cf8930edbaa10ed56d4a	S3 15/10, Ubuntu di riferimento, motore/metaphlan_fette.sh (4.582 read tenute)
+mini_profilo	6ef6bf0594f825370d4eae0c71ec92d1	S3 15/10, stesso; md5 del profilo senza la riga 2 (il comando), 12 specie

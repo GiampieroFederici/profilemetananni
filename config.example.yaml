@@ -1,0 +1,156 @@
+# profilemetananni - configuration (the user's answers / le risposte dell'utente)
+# Copy this file to config.yaml and fill it in.
+# Copia questo file in config.yaml e compilalo.
+# It is parsed with a SAFE loader (yaml.safe_load) and every value is validated.
+
+language: en                 # en | it   (output language / lingua dei messaggi)
+
+data_source: ncbi            # ncbi | local | both   (where the reads come from / da dove arrivano le reads)
+# NCBI API key (OPTIONAL): do NOT put it here. Export it in your shell instead:
+#   export NCBI_API_KEY=<your_key>     (chiave API NCBI: NON metterla qui, esportala nella shell)
+# It is read from the environment only and never written to disk/logs.
+project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names / usato nei nomi cartella)
+
+# ---------------------------------------------------------------------------
+# HOST REMOVAL / RIMOZIONE OSPITE
+# Human (GRCh38, as the published profiles, D021) is removed AUTOMATICALLY.
+# Human (uomo, GRCh38) rimosso in automatico.
+# List the ADDITIONAL host(s) to remove / elenca gli ospiti AGGIUNTIVI da rimuovere
+# (choose from refs/hosts.tsv). Empty list = human-only.
+# For Illumina data add `phix` (PhiX174 spike-in); add `bos_taurus` for beef, `gallus_gallus`
+# for poultry -- reference relatedness to the true substrate dominates accuracy.
+# ---------------------------------------------------------------------------
+hosts:
+  - sus_scrofa
+filter_human: true
+# host_sensitivity: very-sensitive | very-sensitive-local
+#   very-sensitive-local soft-clips partial host reads (slightly higher host sensitivity,
+#   ~negligible microbial loss). Default keeps today's behaviour.
+host_sensitivity: very-sensitive
+
+# ---------------------------------------------------------------------------
+# CLEANUP / PULIZIA DISCO  (asked during preprocessing / chiesto in preprocessing)
+# ---------------------------------------------------------------------------
+cleanup:
+  keep_trimmed: false        # false = delete trimmed reads after host filtering / cancella le reads trimmate
+  keep_host_reads: false     # true = save host-mapped reads / salva le reads dell'ospite
+  host_reads_dir: ""         # empty -> <work_dir>/host_reads
+
+# ---------------------------------------------------------------------------
+# TRIAGE (OPTIONAL, OFF BY DEFAULT) / TRIAGE INIZIALE (OPZIONALE, SPENTO)
+# Before trimming, look at the first `reads` fragments of each sample: host share
+# (Bowtie2 on the same host chain), quality (fastp Q30) and yield (estimated non-host
+# fragments). Writes results/triage.tsv with a score and a SUGGESTED decision
+# pass / review / exclude per sample. Prima del trimming guarda i primi `reads`
+# frammenti di ogni campione e scrive results/triage.tsv con punteggio e decisione suggerita.
+# action: report = only write the table (nothing is skipped) / scrive solo la tabella
+#         skip   = do not trim/filter/profile samples marked "exclude" / salta i campioni "exclude"
+# ---------------------------------------------------------------------------
+triage:
+  enabled: false
+  reads: 100000              # fragments (reads, or read pairs) looked at per sample
+  max_host_pct: 95           # more host than this -> review/exclude
+  min_nonhost_reads: 1000000 # fewer estimated non-host fragments than this -> review/exclude
+  min_q30_pct: 70            # lower raw Q30 than this -> review/exclude
+  action: report             # report | skip
+
+# ---------------------------------------------------------------------------
+# PATHS / CARTELLE   layout: managed (tool owns folders) | custom (you provide them)
+# ---------------------------------------------------------------------------
+paths:
+  layout: managed
+  work_dir: ./pmn_work
+  local_reads_dir: ""        # required if data_source includes 'local'
+  srr_list: ""               # required if data_source includes 'ncbi' (one accession per line)
+  raw_dir: ""                # custom layout only / solo layout custom
+  trim_dir: ""
+  nonhost_dir: ""
+  results_dir: ""
+  logs_dir: ""
+
+# ---------------------------------------------------------------------------
+# PROFILING
+# ---------------------------------------------------------------------------
+profiling:
+  tool: both                 # metaphlan | kraken | both
+  metaphlan_db: ""           # directory; empty + auto_install_db:true -> installed automatically
+  metaphlan_index: mpa_vJan25_CHOCOPhlAnSGB_202503   # PINNED DB version (MetaPhlAn 4.2.4). Never "latest":
+                             # a different DB gives profiles you cannot compare / versione del DB FISSATA
+  kraken_db: ""              # directory; empty + auto_install_db:true -> built automatically
+  auto_install_db: false     # true = download/build missing DBs automatically (LARGE: MetaPhlAn ~25GB, Kraken ~50-90GB)
+  kraken_db_mode: standard   # standard | custom
+  kraken_custom_genomes: ""  # custom mode only: file with NCBI accessions (one per line) for the custom DB
+  kraken_confidence: ""      # empty = recommended value for the database (refs/kraken_profili.tsv)
+                             # vuoto = valore consigliato per il database
+  bracken_readlen: 150       # MUST match the Bracken DB build length (often 100 or 150)
+  bracken_min_reads: ""      # Bracken -t; empty = recommended value for the database (refs/kraken_profili.tsv)
+                             # vuoto = valore consigliato per il database
+  abundance_threshold_pct: ""      # Kraken only; empty = recommended for the database (refs/kraken_profili.tsv); MetaPhlAn is never filtered
+
+# ---------------------------------------------------------------------------
+# DESKTOP ENGINE / MOTORE DELL'APP (docs/contratto_motore.md). Used when the engine is installed
+# (~/.pmn/installazione.env from installer/installa_motore.sh): programs, databases and host
+# indexes are taken from there unless a path above is filled in.
+# ---------------------------------------------------------------------------
+motore:
+  metaphlan_modo: auto       # auto | fette | standard   (auto: fette below ~40 GB of RAM, D016)
+  kraken_db: completo        # completo (PlusPF, D023) | rapido (PlusPF-8, quick screening)
+
+# ---------------------------------------------------------------------------
+# ANALYSIS / ANALISI
+# ---------------------------------------------------------------------------
+analysis:
+  report: true               # overview Excel (all_taxa; cross-tool comparison columns only when tool == both)
+  diversity: true            # alpha/beta diversity, compositional CLR/Aitchison/PCA (Gloor 2017)
+  metadata: ""               # OPTIONAL .tsv: column 'sample' + grouping column(s). Enables a COLOURED PCA
+                             # and group tests on alpha diversity (Kruskal-Wallis + Dunn post-hoc, BH-adjusted)
+  group_col: ""              # which metadata column to group by (e.g. product, country); needs 'metadata' set
+
+  # -------------------------------------------------------------------------
+  # STRAINPHLAN - strain-level comparison of the species YOU list (needs profiling.tool
+  # metaphlan or both, and profiling.metaphlan_db). OFF BY DEFAULT.
+  # STRAINPHLAN - confronto a livello di ceppo delle specie che elenchi TU. SPENTO.
+  # Species as MetaPhlAn writes them: Genus_species / specie nel formato Genere_specie.
+  # MetaPhlAn then also keeps <sample>.sam.bz2 (needed here; uses extra disk).
+  # -------------------------------------------------------------------------
+  strainphlan:
+    enabled: false
+    species:
+      - Latilactobacillus_sakei
+      - Lactococcus_lactis
+      - Staphylococcus_xylosus
+
+  # -------------------------------------------------------------------------
+  # PHASE C - taxa dossier via Biomni. OPTIONAL, OFF BY DEFAULT, LOCAL ONLY.
+  # FASE C - dossier dei taxa via Biomni. OPZIONALE, SPENTA, SOLO IN LOCALE.
+  # Only species NAMES ever leave your machine, and only after you consent.
+  # Escono solo i NOMI delle specie, e solo dopo il tuo consenso.
+  # -------------------------------------------------------------------------
+  biomni:
+    enabled: false
+    llm: ""            # REQUIRED when enabled. You choose / lo scegli TU:
+                       #  PAID (needs YOUR api key, COSTS REAL MONEY):
+                       #    claude-*  (Anthropic, ANTHROPIC_API_KEY)
+                       #    gpt-*     (OpenAI,    OPENAI_API_KEY)
+                       #    gemini-*  (Google,    GEMINI_API_KEY)
+                       #    groq/*    (Groq,      GROQ_API_KEY)
+                       #  Azure and Bedrock are NOT supported: Biomni resolves them from
+                       #  other name shapes ("azure-...", "anthropic.claude-...") that we
+                       #  cannot test, so we refuse the name instead of failing later.
+                       #  FREE AND LOCAL (no key, no cost, nothing leaves):
+                       #    ollama/<model>
+    data_path: ""      # where to keep the Biomni data lake (~11GB); empty -> ./biomni_data
+    max_taxa: 5        # HARD CAP. Start at 5 to MEASURE the cost, then raise. Max 500.
+
+# ---------------------------------------------------------------------------
+# EXECUTION / ESECUZIONE
+# ---------------------------------------------------------------------------
+execution:
+  scheduler: auto            # auto | pbs | local
+  threads: 8
+  pbs_queue: ""              # REQUIRED when scheduler=pbs (your cluster queue, e.g. commonCPUQ)
+  pbs_walltime: "24:00:00"   # PBS walltime per job
+  pbs_mem: "32GB"            # PBS memory per job. A UNIT IS REQUIRED (e.g. 32GB, 512MB); a bare number
+                             # is rejected. 32GB suits MetaPhlAn-only / a small custom Kraken DB;
+                             # the Kraken STANDARD DB is loaded fully into RAM -> needs >= ~80GB
+  pbs_select: ""             # optional raw '-l select=...' for non-standard clusters; empty -> select=1:ncpus=<threads>:mem=<pbs_mem>

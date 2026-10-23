@@ -1,0 +1,99 @@
+/* Stile dell'app (docs/interfaccia_S4.md §2, D057): chiaro e sobrio.
+   banco #EEF2F0, carta #FFFFFF, linea #CBD5D1, inchiostro #1C2B27, tenue #52625D,
+   agar #1E7A4C (scuro #155C39, chiaro #E3F1E9), piastra #121816,
+   ambra #9A5A00/#FFF3DC, rosso #A8251C/#FCE9E7, acciaio #2F5D7C/#E6EEF4. Base 18 px (R15). */
+
+* { font-family: "Atkinson Hyperlegible", "Segoe UI"; font-size: 18px; color: #1C2B27; }
+QMainWindow, #area { background: #EEF2F0; }
+QScrollArea, QScrollArea > QWidget > QWidget { background: #EEF2F0; border: 0; }
+QScrollArea:focus { border: 2px solid #2F5D7C; }   /* fuoco della tastiera sull'area che scorre (R15) */
+
+/* avvio: piastra scura, avatar che saltella */
+#avvio { background: #121816; }
+#avvio QLabel { color: #DDE5E1; background: transparent; }
+
+/* testata */
+#testata { background: #FFFFFF; border-bottom: 1px solid #CBD5D1; }
+#emblema { background: #121816; border-radius: 21px; }
+#nome { font-weight: bold; font-size: 20px; }
+#nome_progetto { color: #52625D; }
+#pallino { border-radius: 7px; background: #1E7A4C; }
+#pallino[stato="rosso"] { background: #A8251C; }
+#pallino[stato="attesa"] { background: #9DB3A8; }
+QPushButton#link { background: transparent; border: 2px solid transparent; border-radius: 8px; padding: 6px 10px;
+  color: #2F5D7C; }
+QPushButton#link:hover, QPushButton#link:focus { background: #E6EEF4; }
+QPushButton#link:focus { border-color: #2F5D7C; }
+
+/* percorso a 4 passi + Sicurezza alimentare (R3) */
+#percorso { background: #F6F8F7; border-right: 1px solid #CBD5D1; }
+QPushButton#passo { text-align: left; background: transparent; border: 2px solid transparent; border-radius: 8px;
+  padding: 10px 8px; color: #52625D; }
+QPushButton#passo:hover, QPushButton#passo:focus { background: #E6EEF4; }
+QPushButton#passo:focus { border-color: #2F5D7C; }
+QPushButton#passo[stato="attivo"] { background: #E3F1E9; color: #1C2B27; font-weight: bold; }
+QPushButton#passo[stato="fatto"] { color: #1C2B27; }
+#separatore { background: #CBD5D1; max-height: 1px; min-height: 1px; }
+
+/* contenuto */
+#titolo { font-size: 32px; font-weight: bold; }
+#sottotitolo { font-size: 23px; font-weight: bold; }
+#nota { color: #52625D; font-size: 17px; }
+#riquadro { border-radius: 12px; border-left: 6px solid #2F5D7C; background: #E6EEF4; }
+#riquadro[livello="avviso"] { border-left-color: #9A5A00; background: #FFF3DC; }
+#riquadro[livello="errore"] { border-left-color: #A8251C; background: #FCE9E7; }
+#riquadro QLabel { background: transparent; }
+#riquadro_titolo { font-weight: bold; }
+
+/* barra delle azioni: un solo pulsante principale, in basso a destra (R1) */
+#azioni { background: #FFFFFF; border-top: 1px solid #CBD5D1; }
+#aiuto { color: #52625D; }
+#aiuto[livello="avviso"] { color: #9A5A00; font-weight: bold; }
+QPushButton#principale { background: #1E7A4C; color: #FFFFFF; border: 0; border-radius: 8px;
+  padding: 14px 28px; font-weight: bold; font-size: 19px; min-width: 230px; }
+QPushButton#principale:hover { background: #155C39; }
+QPushButton#principale:focus { background: #155C39; border: 3px solid #1C2B27; text-decoration: underline; }
+QPushButton#principale:disabled { background: #DDE5E1; color: #52625D; }
+/* principale che interrompe un lavoro ("Ferma l'analisi"): bianco col bordo rosso, come nel prototipo */
+QPushButton#principale[pericolo="true"] { background: #FFFFFF; color: #A8251C; border: 2px solid #A8251C; }
+QPushButton#principale[pericolo="true"]:hover { background: #FCE9E7; }
+QPushButton#principale[pericolo="true"]:focus { background: #FCE9E7; border: 3px solid #A8251C;
+  text-decoration: underline; }
+QPushButton#secondario { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px; padding: 12px 20px; }
+QPushButton#secondario:hover { border-color: #2F5D7C; }
+QPushButton#secondario:focus { border: 2px solid #2F5D7C; padding: 11px 19px; }
+
+/* schede di scelta e pannelli bianchi (R5) */
+QFrame#scelta { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#scelta[scelto="true"] { background: #E3F1E9; border: 2px solid #1E7A4C; }
+QFrame#scelta[spento="true"] { background: #F6F8F7; }
+QFrame#scelta QLabel, QFrame#scelta QRadioButton, QFrame#scelta QCheckBox { background: transparent; }
+QFrame#pannello { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
+QFrame#pannello QLabel { background: transparent; }
+#pannello_titolo { font-weight: bold; font-size: 20px; }
+#consigliato { color: #1E7A4C; font-weight: bold; font-size: 16px; }
+#etichetta_campo { font-weight: bold; }
+
+/* campi */
+QLineEdit, QPlainTextEdit, QComboBox { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px;
+  padding: 8px 10px; }
+QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus { border: 2px solid #2F5D7C; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 30px; border: 0; }
+QComboBox::down-arrow { image: url(risorse:freccia_giu.svg); width: 16px; height: 16px; }
+QComboBox QAbstractItemView { background: #FFFFFF; selection-background-color: #E3F1E9;
+  selection-color: #1C2B27; }
+QRadioButton::indicator { width: 16px; height: 16px; border-radius: 10px; border: 2px solid #52625D;
+  background: #FFFFFF; }
+QRadioButton::indicator:checked { border: 2px solid #1E7A4C; background: qradialgradient(cx:0.5, cy:0.5,
+  radius:0.5, fx:0.5, fy:0.5, stop:0 #1E7A4C, stop:0.55 #1E7A4C, stop:0.65 #FFFFFF, stop:1 #FFFFFF); }
+QRadioButton::indicator:disabled { border-color: #CBD5D1; }
+/* fuoco della tastiera visibile anche su pulsanti tondi e caselle (R15): bordo blu, trasparente senza fuoco */
+QRadioButton, QCheckBox { border: 2px solid transparent; border-radius: 6px; padding: 2px 6px; }
+QRadioButton:focus, QCheckBox:focus { border-color: #2F5D7C; }
+QTextBrowser { border: 1px solid #CBD5D1; border-radius: 8px; }
+QTextBrowser:focus { border: 2px solid #2F5D7C; }
+QPushButton#apri { background: transparent; border: 0; color: #2F5D7C; text-align: left; padding: 4px 0;
+  font-weight: bold; }
+QPushButton#apri:hover, QPushButton#apri:focus { text-decoration: underline; }
+QProgressBar { background: #E2E8E5; border: 0; border-radius: 6px; height: 12px; }
+QProgressBar::chunk { background: #1E7A4C; border-radius: 6px; }

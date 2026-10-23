@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProfileMetaNanni, prototipo</title>
+<!-- Prototipo S4 (solo studio, non e' l'app): schermate e regole per S5-S6 in PySide6.
+     Dati veri: dati.js (finto motore + corsa SF3RAt7 + motore/fssp), rigenerato da costruisci_dati.py. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="dati.js"></script>
+<style>
+:root {
+  --banco: #EEF2F0;      /* sfondo: il bancone del laboratorio */
+  --carta: #FFFFFF;      /* pannelli */
+  --linea: #CBD5D1;      /* bordi */
+  --inchiostro: #1C2B27; /* testo */
+  --tenue: #52625D;      /* testo secondario */
+  --agar: #1E7A4C;       /* azione principale */
+  --agar-scuro: #155C39;
+  --agar-chiaro: #E3F1E9;
+  --neon: #5BFF5B;       /* solo dentro la piastra scura dell'avatar */
+  --piastra: #121816;    /* fondo dell'avatar */
+  --ambra: #9A5A00; --ambra-chiaro: #FFF3DC;
+  --rosso: #A8251C; --rosso-chiaro: #FCE9E7;
+  --acciaio: #2F5D7C; --acciaio-chiaro: #E6EEF4;
+  --r-pannello: 12px; --r-bottone: 8px;
+  font-size: 18px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--banco); color: var(--inchiostro);
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; line-height: 1.45; }
+h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 .4rem; }
+h2 { font-size: 1.3rem; margin: 1.6rem 0 .5rem; }
+h3 { font-size: 1.05rem; margin: 1rem 0 .3rem; }
+p { margin: .3rem 0 .8rem; max-width: 46rem; }
+i.sp { font-style: italic; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--acciaio); outline-offset: 2px; }
+
+/* finestra dell'app */
+.finestra { display: grid; grid-template-columns: 17rem 1fr; grid-template-rows: auto 1fr auto; height: 100vh; }
+.testata { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; padding: .6rem 1.2rem;
+  background: var(--carta); border-bottom: 1px solid var(--linea); }
+.emblema { background: var(--piastra) url(avatar_baffi.png) center/88% no-repeat; width: 4.6rem; height: 2.4rem;
+  border-radius: 1.2rem; flex: none; }
+.emblema.respira { animation: respira 2.4s ease-in-out infinite; }
+@keyframes respira { 50% { filter: brightness(1.35) drop-shadow(0 0 6px #5BFF5B66); } }
+.testata .nome { font-weight: 700; font-size: 1.1rem; }
+.testata .progetto { color: var(--tenue); }
+.testata nav { margin-left: auto; display: flex; gap: .3rem; }
+.testata nav button, .link { background: none; border: 0; padding: .45rem .7rem; border-radius: var(--r-bottone);
+  cursor: pointer; color: var(--acciaio); }
+.testata nav button:hover, .link:hover { background: var(--acciaio-chiaro); }
+.statomotore { display: inline-flex; align-items: center; gap: .4rem; }
+.pallino { width: .75rem; height: .75rem; border-radius: 50%; background: var(--agar); }
+.pallino.rosso { background: var(--rosso); }
+
+/* percorso: e' davvero una sequenza, quindi numeri */
+.percorso { padding: 1.4rem 1rem; border-right: 1px solid var(--linea); background: #F6F8F7; }
+.percorso ol { list-style: none; margin: 0; padding: 0; }
+.percorso li { display: flex; gap: .7rem; align-items: center; padding: .7rem .6rem; border-radius: var(--r-bottone);
+  color: var(--tenue); }
+.percorso li .n { width: 2rem; height: 2rem; border-radius: 50%; border: 2px solid var(--linea); display: grid;
+  place-items: center; font-weight: 700; flex: none; background: var(--carta); }
+.percorso li.attivo { background: var(--agar-chiaro); color: var(--inchiostro); font-weight: 700; }
+.percorso li.attivo .n { border-color: var(--agar); color: var(--agar); }
+.percorso li.fatto .n { background: var(--agar); border-color: var(--agar); color: #fff; }
+.percorso li.extra { margin-top: 1.4rem; border-top: 1px solid var(--linea); border-radius: 0; padding-top: 1.1rem; }
+.percorso li.extra .n { border-style: dashed; }
+
+main { overflow: auto; padding: 1.6rem 2.2rem 2rem; }
+.pagina { display: none; max-width: 62rem; }
+.pagina.vista { display: block; }
+.azioni { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; padding: .8rem 1.4rem;
+  background: var(--carta); border-top: 1px solid var(--linea); }
+.azioni .aiuto { color: var(--tenue); }
+.azioni .spazio { flex: 1; }
+.principale { background: var(--agar); color: #fff; border: 0; border-radius: var(--r-bottone);
+  padding: .8rem 1.6rem; font-weight: 700; font-size: 1.05rem; cursor: pointer; min-width: 13rem; }
+.principale:hover { background: var(--agar-scuro); }
+.principale:disabled { background: #9DB3A8; cursor: not-allowed; }
+.secondario { background: var(--carta); border: 1px solid var(--linea); border-radius: var(--r-bottone);
+  padding: .7rem 1.2rem; cursor: pointer; }
+.secondario:hover { border-color: var(--acciaio); }
+.pericolo { color: var(--rosso); }
+
+/* pannelli e campi */
+.pannello { background: var(--carta); border: 1px solid var(--linea); border-radius: var(--r-pannello);
+  padding: 1.1rem 1.3rem; margin: .8rem 0; }
+.scelte { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .8rem; }
+.scelta { display: block; background: var(--carta); border: 2px solid var(--linea); border-radius: var(--r-pannello);
+  padding: 1rem 1.1rem; cursor: pointer; }
+.scelta:has(input:checked) { border-color: var(--agar); background: var(--agar-chiaro); }
+.scelta input { margin-right: .5rem; transform: scale(1.3); accent-color: var(--agar); }
+.scelta .titolo { font-weight: 700; }
+.scelta .spiega { color: var(--tenue); margin: .3rem 0 0 1.9rem; font-size: .92rem; }
+.etichetta { display: block; font-weight: 700; margin: 1rem 0 .3rem; }
+.campo { width: 100%; max-width: 30rem; padding: .6rem .7rem; border: 1px solid #9FB0AA; border-radius: var(--r-bottone);
+  background: var(--carta); }
+textarea.campo { min-height: 6rem; }
+.nota { color: var(--tenue); font-size: .92rem; }
+.consigliato { display: inline-block; background: var(--agar-chiaro); color: var(--agar-scuro); border-radius: 1rem;
+  padding: .05rem .6rem; font-size: .85rem; font-weight: 700; margin-left: .4rem; }
+details.avanzate { margin-top: 1.4rem; }
+details.avanzate > summary { cursor: pointer; color: var(--acciaio); font-weight: 700; padding: .4rem 0; }
+.riga-parametro { display: grid; grid-template-columns: 15rem 12rem 1fr; gap: 1rem; align-items: start;
+  padding: .7rem 0; border-top: 1px solid #E2E8E5; }
+.fonte { font-size: .9rem; color: var(--tenue); }
+
+/* avvisi */
+.avviso, .errore, .info { border-radius: var(--r-pannello); padding: .9rem 1.1rem; margin: .8rem 0;
+  border-left: 6px solid; max-width: 50rem; }
+.avviso { background: var(--ambra-chiaro); border-color: var(--ambra); }
+.errore { background: var(--rosso-chiaro); border-color: var(--rosso); }
+.info { background: var(--acciaio-chiaro); border-color: var(--acciaio); }
+.avviso b, .errore b, .info b { display: block; margin-bottom: .2rem; }
+
+/* esecuzione */
+.barra { height: 1.6rem; background: #DDE5E1; border-radius: .8rem; overflow: hidden; margin: .6rem 0; }
+.barra > div { height: 100%; width: 0; background: var(--agar); }
+.grande { font-size: 2.6rem; font-weight: 700; line-height: 1; }
+.passi { list-style: none; padding: 0; margin: 1rem 0; columns: 2; }
+.passi li { padding: .25rem 0; color: var(--tenue); break-inside: avoid; }
+.passi li::before { content: "○"; display: inline-block; width: 1.6rem; }
+.passi li.fatto { color: var(--inchiostro); }
+.passi li.fatto::before { content: "✓"; color: var(--agar); font-weight: 700; }
+.passi li.ora { color: var(--inchiostro); font-weight: 700; }
+.passi li.ora::before { content: "●"; color: var(--agar); }
+.passi li.errore { color: var(--rosso); font-weight: 700; }
+.passi li.errore::before { content: "✗"; color: var(--rosso); }
+
+/* risultati */
+.schede { display: flex; gap: .3rem; border-bottom: 2px solid var(--linea); margin: 1rem 0 .8rem; flex-wrap: wrap; }
+.schede button { border: 0; background: none; padding: .6rem 1rem; cursor: pointer; border-bottom: 4px solid transparent;
+  margin-bottom: -2px; color: var(--tenue); font-weight: 700; }
+.schede button[aria-selected="true"] { color: var(--inchiostro); border-color: var(--agar); }
+.barre { display: grid; grid-template-columns: 17rem 1fr 4.5rem; gap: .35rem .8rem; align-items: center; max-width: 52rem; }
+.barre .b { height: 1.1rem; background: var(--agar); border-radius: 0 .3rem .3rem 0; min-width: 2px; }
+.barre .b.k { background: var(--acciaio); }
+.barre .v { text-align: right; font-variant-numeric: tabular-nums; }
+.citazioni { font-size: .9rem; color: var(--tenue); }
+.citazioni li { margin: .2rem 0; }
+.file-uscita { display: flex; gap: .6rem; flex-wrap: wrap; margin: .6rem 0; }
+
+/* sicurezza alimentare */
+.due { display: grid; grid-template-columns: 22rem 1fr; gap: 1.6rem; align-items: start; }
+.esito { border-radius: var(--r-pannello); padding: 1rem 1.2rem; margin: .7rem 0; border: 1px solid var(--linea);
+  background: var(--carta); }
+.esito .titolo { font-weight: 700; font-size: 1.1rem; }
+.esito.cresce { border-left: 6px solid var(--ambra); }
+.esito.ferma { border-left: 6px solid var(--agar); }
+.esito.incerto { border-left: 6px dashed var(--tenue); }
+svg text { font-family: inherit; }
+
+/* avvio: l'unico momento animato */
+#avvio { position: fixed; inset: 0; background: var(--piastra); display: grid; place-items: center; z-index: 20;
+  transition: opacity .6s; }
+#avvio.via { opacity: 0; pointer-events: none; }
+#avvio img { width: min(52vh, 26rem); border-radius: 1.4rem; animation: saltella 1.6s cubic-bezier(.3,.7,.4,1) 1 both; }
+#avvio p { color: #C9D6D0; text-align: center; margin-top: 1.2rem; min-height: 1.5em; }
+@keyframes saltella {
+  0% { transform: translateY(-28vh) scaleY(1.05); } 30% { transform: translateY(0) scaleY(.92); }
+  45% { transform: translateY(-9vh); } 60% { transform: translateY(0) scaleY(.96); }
+  72% { transform: translateY(-3vh); } 84%, 100% { transform: translateY(0) scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { #avvio img, .emblema.respira { animation: none; } }
+
+/* barra del prototipo (non esiste nell'app) */
+.demo { position: fixed; left: .8rem; bottom: 5.2rem; background: #FFFDF2; border: 2px dashed #B8A64A;
+  border-radius: 10px; padding: .5rem .7rem; font-size: .8rem; z-index: 10; max-width: 15.4rem; }
+.demo select { font-size: .8rem; }
+dialog { border: 1px solid var(--linea); border-radius: var(--r-pannello); padding: 1.4rem 1.6rem; max-width: 34rem; }
+dialog::backdrop { background: #1C2B2766; }
+table.semplice { border-collapse: collapse; }
+table.semplice td, table.semplice th { text-align: left; padding: .35rem .9rem .35rem 0; border-bottom: 1px solid #E2E8E5; }
+@media (max-width: 860px) {
+  .finestra { grid-template-columns: 1fr; } .percorso { display: none; }
+  .due, .riga-parametro { grid-template-columns: 1fr; } .barre { grid-template-columns: 9rem 1fr 4rem; }
+  main { padding: 1rem; } .passi { columns: 1; } }
+</style>
+</head>
+<body>
+<div id="avvio" role="status"><div><img src="avatar_512.png" alt="ProfileMetaNanni"><p id="avvio-testo"></p></div></div>
+
+<div class="finestra">
+  <header class="testata">
+    <div class="emblema" id="emblema" title="ProfileMetaNanni"></div>
+    <div><div class="nome">ProfileMetaNanni</div><div class="progetto" id="nome-progetto">Nessun progetto aperto</div></div>
+    <nav aria-label="Menu">
+      <button data-vai="home">I miei progetti</button>
+      <button data-vai="motore"><span class="statomotore"><span class="pallino" id="pallino"></span>Motore</span></button>
+      <button data-vai="crediti">Come citare</button>
+    </nav>
+  </header>
+
+  <aside class="percorso" aria-label="Passi dell'analisi">
+    <ol id="percorso">
+      <li data-passo="progetto"><span class="n">1</span>Campioni e prodotto</li>
+      <li data-passo="scelte"><span class="n">2</span>Scelte dell'analisi</li>
+      <li data-passo="esecuzione"><span class="n">3</span>Analisi in corso</li>
+      <li data-passo="risultati"><span class="n">4</span>Risultati</li>
+      <li data-passo="sicurezza" class="extra"><span class="n">+</span>Sicurezza alimentare</li>
+    </ol>
+  </aside>
+
+  <main id="main">
+    <!-- HOME -->
+    <section class="pagina" id="p-home">
+      <h1>I miei progetti</h1>
+      <p>Un progetto raccoglie i campioni di un lotto o di uno studio, le scelte fatte e i risultati.</p>
+      <div class="pannello">
+        <table class="semplice">
+          <tr><th>Progetto</th><th>Campioni</th><th>Stato</th><th></th></tr>
+          <tr><td>Felino, prova SF3RAt7</td><td>1</td><td>Risultati pronti</td><td><button class="link" data-vai="risultati">Apri</button></td></tr>
+        </table>
+      </div>
+      <p class="nota">Primo avvio? Il motore deve essere installato una volta sola: lo trovi in alto, alla voce Motore.</p>
+    </section>
+
+    <!-- 1 PROGETTO -->
+    <section class="pagina" id="p-progetto">
+      <h1>Campioni e prodotto</h1>
+      <p>Dimmi da dove arrivano le read e che prodotto stai analizzando. Al resto penso io.</p>
+      <label class="etichetta" for="f-nome">Nome del progetto</label>
+      <input class="campo" id="f-nome" value="Felino, prova SF3RAt7">
+      <p class="nota">Lo usi tu per ritrovarlo. Lettere, numeri e spazi.</p>
+
+      <h2>Dove sono le read?</h2>
+      <div class="scelte">
+        <label class="scelta"><input type="radio" name="fonte" value="pc"><span class="titolo">Sul mio computer</span>
+          <div class="spiega">File che ti ha mandato il laboratorio di sequenziamento (finiscono in .fastq.gz).</div></label>
+        <label class="scelta"><input type="radio" name="fonte" value="ncbi" checked><span class="titolo">In un archivio pubblico</span>
+          <div class="spiega">Le scarico io da NCBI o ENA con il loro codice (per esempio SRR4875279).</div></label>
+      </div>
+      <div id="fonte-pc" hidden>
+        <label class="etichetta">Cartella delle read</label>
+        <button class="secondario">Scegli la cartella...</button>
+        <p class="nota">Si apre nella cartella Documenti. Trovo da solo le coppie di file (R1 e R2) di ogni campione.</p>
+      </div>
+      <div id="fonte-ncbi">
+        <label class="etichetta" for="f-srr">Codici dei campioni, uno per riga</label>
+        <textarea class="campo" id="f-srr">SRR4875279</textarea>
+        <p class="nota">Ho riconosciuto 1 codice valido.</p>
+      </div>
+
+      <h2>Che prodotto è?</h2>
+      <label class="etichetta" for="f-prodotto">Prodotto</label>
+      <select class="campo" id="f-prodotto">
+        <option value="maiale" selected>Salume di maiale (salame, salsiccia, prosciutto...)</option>
+        <option value="bovino">Prodotto di bovino (bresaola, carne secca...)</option>
+        <option value="pecora">Prodotto di pecora o agnello</option>
+        <option value="altro">Altro o misto</option>
+      </select>
+      <div class="info" id="ospite-info"><b>Toglierò il DNA del maiale e quello umano.</b>
+        Sono la gran parte delle read di un salume e non dicono nulla dei microbi. Il DNA umano si toglie sempre.</div>
+    </section>
+
+    <!-- 2 SCELTE -->
+    <section class="pagina" id="p-scelte">
+      <h1>Scelte dell'analisi</h1>
+      <p id="scelte-intro"></p>
+
+      <h2>Quanto a fondo cercare le specie rare?</h2>
+      <p class="nota">Vale per il secondo metodo di analisi, il programma Kraken. Il primo (MetaPhlAn) gira sempre allo stesso modo.</p>
+      <div class="scelte">
+        <label class="scelta"><input type="radio" name="kraken" value="completo" checked>
+          <span class="titolo">Database completo</span><span class="consigliato">consigliato</span>
+          <div class="spiega">Trova anche le specie poco abbondanti. Più lento: per questo campione circa <span id="t-kraken"></span>.</div></label>
+        <label class="scelta"><input type="radio" name="kraken" value="rapido">
+          <span class="titolo">Screening rapido</span>
+          <div class="spiega">Pochi secondi a campione, ma può perdere specie fra 0,1 e 1 %, anche batteri lattici. Utile per una prima occhiata.</div></label>
+      </div>
+
+      <h2>Che cosa cerco?</h2>
+      <label class="scelta" style="max-width:40rem"><input type="checkbox" checked disabled>
+        <span class="titolo">Batteri, archei e lieviti</span>
+        <div class="spiega">Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per stare in 16 GB) e con Kraken.</div></label>
+      <label class="scelta" style="max-width:40rem;margin-top:.6rem"><input type="checkbox" id="f-virus">
+        <span class="titolo">Anche i virus</span>
+        <div class="spiega">Opzione sperimentale.</div></label>
+      <div class="avviso" id="virus-avviso" hidden><b>Sperimentale, non validata.</b>
+        Con il database diviso in parti, quando due copie virali quasi identiche sono ugualmente buone la scelta
+        può cambiare rispetto all'analisi standard. Il referto lo dichiara.</div>
+
+      <details class="avanzate">
+        <summary>Parametri per esperti (di solito non servono)</summary>
+        <p class="nota">Ogni valore consigliato viene dalla letteratura; la fonte è accanto. Quello che scegli finisce nel referto.</p>
+        <div id="parametri"></div>
+        <details style="margin-top:1rem"><summary class="link">Mostra il file del progetto (per riprodurre l'analisi)</summary>
+          <pre class="pannello" id="yaml" style="font-size:.85rem;overflow:auto"></pre></details>
+      </details>
+
+      <h2>Prima di partire</h2>
+      <div class="pannello" id="stima"></div>
+    </section>
+
+    <!-- 3 ESECUZIONE -->
+    <section class="pagina" id="p-esecuzione">
+      <h1 id="es-titolo">Analisi in corso</h1>
+      <p id="es-messaggio" aria-live="polite"></p>
+      <div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="es-barra"></div></div>
+      <div style="display:flex;gap:2.4rem;align-items:baseline;flex-wrap:wrap">
+        <div><div class="grande" id="es-pct">0 %</div><div class="nota">fatto</div></div>
+        <div><div class="grande" id="es-eta">...</div><div class="nota">tempo che manca, stimato</div></div>
+      </div>
+      <ul class="passi" id="es-passi"></ul>
+      <div id="es-avvisi"></div>
+      <p class="nota">Puoi usare il computer per altro. Se lo spegni, alla riaccensione l'analisi riparte dai passi non finiti.</p>
+      <details><summary class="link">Dettagli tecnici</summary><p class="nota" id="es-log"></p></details>
+    </section>
+
+    <!-- 4 RISULTATI -->
+    <section class="pagina" id="p-risultati">
+      <h1>Risultati</h1>
+      <p id="ris-sintesi" style="font-size:1.1rem"></p>
+      <div class="file-uscita">
+        <button class="secondario">Apri il referto</button>
+        <button class="secondario">Salva il referto in PDF</button>
+        <button class="secondario">Apri le tabelle in Excel</button>
+        <button class="link">Apri la cartella dei risultati</button>
+      </div>
+      <div class="schede" role="tablist">
+        <button role="tab" aria-selected="true" data-scheda="mpa">Specie trovate con MetaPhlAn</button>
+        <button role="tab" aria-selected="false" data-scheda="krk">Specie trovate con Kraken</button>
+        <button role="tab" aria-selected="false" data-scheda="come">Come è stata fatta l'analisi</button>
+      </div>
+      <div id="sch-mpa"></div>
+      <div id="sch-krk" hidden></div>
+      <div id="sch-come" hidden></div>
+      <h2>Strumenti e database usati</h2>
+      <p class="nota">Se usi questi risultati in un documento, cita queste fonti.</p>
+      <ol class="citazioni" id="ris-citazioni"></ol>
+    </section>
+
+    <!-- SICUREZZA ALIMENTARE -->
+    <section class="pagina" id="p-sicurezza">
+      <h1>Sicurezza alimentare</h1>
+      <p>Che cosa succederebbe alla <i class="sp">Listeria monocytogenes</i>, se ci fosse, durante la conservazione del prodotto?
+        Calcolo con i modelli di FSSP (DTU Food) partendo dalle caratteristiche del prodotto e dalle specie trovate.</p>
+      <div class="info"><b>Il profilo dice chi c'è, non quanti sono per grammo.</b>
+        Per questo provo degli scenari: 1 e 100 ufc/g di <i class="sp">Listeria</i> all'inizio. Se hai una conta dei batteri lattici in piastra, mettila: rende la previsione più realistica.</div>
+      <div class="due">
+        <div class="pannello">
+          <h3 style="margin-top:0">Il tuo prodotto</h3>
+          <label class="etichetta" for="s-caso">Esempio (solo prototipo)</label>
+          <select class="campo" id="s-caso"></select>
+          <label class="etichetta">Temperatura di conservazione (°C)</label><input class="campo" id="s-temp">
+          <label class="etichetta">Per quanti giorni</label><input class="campo" id="s-giorni">
+          <label class="etichetta">Sale nella parte acquosa (%) oppure aw</label><input class="campo" id="s-sale">
+          <label class="etichetta">pH</label><input class="campo" id="s-ph">
+          <label class="etichetta">Nitrito (mg/kg)</label><input class="campo" id="s-nitrito">
+          <label class="etichetta">Conta dei batteri lattici (ufc/g)</label><input class="campo" id="s-lab" placeholder="facoltativa">
+          <p class="nota" id="s-nota-lab"></p>
+          <details class="avanzate"><summary>Altri ingredienti e opzioni</summary>
+            <p class="nota">Acidi organici (lattico, acetico, citrico, sorbico, benzoico, diacetato), CO₂, fumo (fenoli), ritardo iniziale (lag), modalità di calcolo "come FSSP" o "migliorata" (predefinita).</p></details>
+        </div>
+        <div>
+          <div id="s-avvisi"></div>
+          <div id="s-esiti"></div>
+          <div class="pannello"><h3 style="margin-top:0">Come cresce nel tempo</h3><div id="s-grafico"></div></div>
+          <div class="pannello" id="s-ponte"></div>
+          <p class="citazioni" id="s-cita"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- MOTORE -->
+    <section class="pagina" id="p-motore">
+      <h1>Motore</h1>
+      <p>Il motore fa i calcoli dentro Windows, in uno spazio Linux tutto suo. Si installa una volta e si controlla da qui.</p>
+      <div class="pannello" id="motore-stato"></div>
+      <div id="motore-verifica"></div>
+    </section>
+
+    <!-- CREDITI -->
+    <section class="pagina" id="p-crediti">
+      <h1>Come citare</h1>
+      <p>ProfileMetaNanni mette insieme strumenti e database scritti da altri. Ogni referto elenca quelli usati davvero; qui c'è l'elenco completo.</p>
+      <ol class="citazioni" id="crediti-lista"></ol>
+    </section>
+  </main>
+
+  <footer class="azioni">
+    <span class="aiuto" id="az-aiuto"></span><span class="spazio"></span>
+    <button class="secondario" id="az-indietro">Indietro</button>
+    <button class="principale" id="az-avanti">Avanti</button>
+  </footer>
+</div>
+
+<div class="demo" id="demo" aria-label="Solo prototipo">
+  <b>Solo prototipo:</b> scenario del finto motore
+  <select id="demo-scenario">
+    <option value="esegui">corsa riuscita</option>
+    <option value="esegui_DB_MANCANTE">manca il database</option>
+    <option value="esegui_READ_NON_TROVATE">campione non trovato</option>
+    <option value="esegui_annullata">annullata</option>
+    <option value="esegui_GIA_IN_CORSO">analisi già in corso</option>
+    <option value="stima_TEMPO_LUNGO">stima molto lunga</option>
+  </select>
+</div>
+
+<dialog id="conferma-annulla">
+  <h2 style="margin-top:0">Fermare l'analisi?</h2>
+  <p>I passi già finiti restano salvati. Quello a metà si rifà quando riparti.</p>
+  <div style="display:flex;gap:.8rem;justify-content:flex-end">
+    <button class="secondario" value="no" id="ann-no">Continua l'analisi</button>
+    <button class="principale" style="background:var(--rosso);min-width:0" id="ann-si">Ferma l'analisi</button>
+  </div>
+</dialog>
+
+<script>
+const D = window.PMN_DATI;
+const $ = s => document.querySelector(s);
+const it = (x, d = 1) => Number(x).toLocaleString("it-IT", { maximumFractionDigits: d });
+const durata = s => s < 90 ? `${Math.round(s)} secondi` : s < 5400 ? `${Math.round(s / 60)} minuti`
+  : `${it(s / 3600, 1)} ore`;
+const ultimo = (ev, tipo) => [...ev].reverse().find(e => e.tipo === tipo);
+const PASSI = { download: "Scarico le read", controllo_qualita: "Controllo la qualità", pulizia: "Pulisco le read",
+  ospite: "Tolgo il DNA dell'ospite", metaphlan: "Profilo con MetaPhlAn", kraken: "Profilo con Kraken",
+  riepilogo: "Preparo referto e tabelle" };
+const ORDINE = ["progetto", "scelte", "esecuzione", "risultati"];
+const AZIONI = {
+  home: ["", null, "Nuovo progetto", () => vai("progetto")],
+  progetto: ["Passo 1 di 4", "home", "Avanti: scelte dell'analisi", () => vai("scelte")],
+  scelte: ["Passo 2 di 4", "progetto", "Avvia l'analisi", () => avvia()],
+  esecuzione: ["Passo 3 di 4", null, "Ferma l'analisi", () => $("#conferma-annulla").showModal()],
+  risultati: ["Passo 4 di 4", null, "Prevedi la sicurezza alimentare", () => vai("sicurezza")],
+  sicurezza: ["Previsione con FSSP (DTU Food)", "risultati", "Aggiungi al referto", () => alert("Nel vero: il motore aggiunge la previsione al referto.")],
+  motore: ["", "home", "Controlla il motore", () => verifica()],
+  crediti: ["", "home", "Torna ai progetti", () => vai("home")],
+};
+let pagina = "home", fatti = new Set();
+
+function vai(p) {
+  pagina = p;
+  document.querySelectorAll(".pagina").forEach(s => s.classList.toggle("vista", s.id === "p-" + p));
+  document.querySelectorAll("#percorso li").forEach(li => {
+    li.classList.toggle("attivo", li.dataset.passo === p);
+    li.classList.toggle("fatto", fatti.has(li.dataset.passo) && li.dataset.passo !== p);
+  });
+  const [aiuto, indietro, avanti, azione] = AZIONI[p];
+  $("#az-aiuto").textContent = aiuto;
+  $("#az-indietro").hidden = !indietro;
+  $("#az-indietro").onclick = () => vai(indietro);
+  const b = $("#az-avanti");
+  b.textContent = avanti; b.onclick = azione; b.disabled = false;
+  b.classList.toggle("pericolo-bottone", p === "esecuzione");
+  b.style.background = p === "esecuzione" ? "var(--carta)" : "";
+  b.style.color = p === "esecuzione" ? "var(--rosso)" : "";
+  b.style.border = p === "esecuzione" ? "2px solid var(--rosso)" : "";
+  if (p !== "home" && p !== "motore" && p !== "crediti") $("#nome-progetto").textContent = $("#f-nome").value;
+  if (p === "scelte") disegnaScelte();
+  $("#main").scrollTop = 0;
+  location.hash = p;
+}
+document.querySelectorAll("[data-vai]").forEach(b => b.addEventListener("click", () => vai(b.dataset.vai)));
+
+/* avvio: l'avatar saltella e si ferma (D046), intanto chiedo "info" al motore */
+function avvio() {
+  const info = D.motore.info.eventi;
+  const t = $("#avvio-testo");
+  t.textContent = "Preparo il motore...";
+  setTimeout(() => t.textContent = ultimo(info, "fine").messaggio, 1300);
+  setTimeout(() => { $("#avvio").classList.add("via"); }, 2600);
+}
+
+/* 1: ospite proposto dal prodotto (System One v0: regola, non calcolo) */
+const OSPITI = { maiale: "del maiale", bovino: "del bovino", pecora: "della pecora", altro: null };
+$("#f-prodotto").addEventListener("change", e => {
+  const o = OSPITI[e.target.value];
+  $("#ospite-info").innerHTML = o ? `<b>Toglierò il DNA ${o} e quello umano.</b> Sono la gran parte delle read di un prodotto di carne e non dicono nulla dei microbi. Il DNA umano si toglie sempre.`
+    : `<b>Toglierò solo il DNA umano.</b> Se il prodotto contiene carne, sceglila: senza, molte read finiscono assegnate per errore.`;
+});
+document.querySelectorAll("input[name=fonte]").forEach(r => r.addEventListener("change", () => {
+  const pc = document.querySelector("input[name=fonte]:checked").value === "pc";
+  $("#fonte-pc").hidden = !pc; $("#fonte-ncbi").hidden = pc;
+}));
+$("#f-virus").addEventListener("change", e => $("#virus-avviso").hidden = !e.target.checked);
+
+/* 2: scelte, parametri con fonte (D022) e stima prima di partire (D023) */
+const PARAMETRI = [
+  ["Soglia di confidenza di Kraken", "0 (database completo)", ["0", "0,05", "0,1", "0,2", "0,3"],
+   "Per il database completo come Edwin et al. 2024. Per i database ridotti 0,05-0,30 (Wright, Comeau e Langille 2023)."],
+  ["Abbondanza minima mostrata", "0,005 %", ["0,001 %", "0,005 %", "0,01 %", "0,1 %"],
+   "0,005 % è la soglia migliore trovata da Edwin et al. 2024 (suolo; da confermare sui salumi)."],
+  ["Read minime per specie (Bracken)", "10", ["1", "10", "50"], "Valore consigliato da Microbiome Helper (Langille) per Bracken."],
+  ["Lunghezza delle read (Bracken)", "150", ["100", "150", "250"], "Deve corrispondere alle read del sequenziamento: di solito 150."],
+];
+function disegnaScelte() {
+  const info = ultimo(D.motore.info.eventi, "fine").risultato;
+  $("#scelte-intro").innerHTML = `Ho già preparato le scelte consigliate per questo computer (${it(info.ram_gb)} GB di memoria, ${info.processori} processori). Puoi partire subito.`;
+  $("#parametri").innerHTML = PARAMETRI.map(([n, v, opz, fonte]) => `<div class="riga-parametro"><b>${n}</b>
+    <select class="campo">${opz.map(o => `<option ${v.startsWith(o) ? "selected" : ""}>${o}${v.startsWith(o) ? " (consigliato)" : ""}</option>`).join("")}</select>
+    <span class="fonte">${fonte}</span></div>`).join("");
+  $("#yaml").textContent = `project_name: felino_prova_SF3RAt7\ndata_source: ncbi\nhosts:\n  - sus_scrofa\nfilter_human: true\npaths:\n  srr_list: campioni.txt\nprofiling:\n  tool: both\nmotore:\n  metaphlan_modo: fette\n  kraken_db: ${document.querySelector("input[name=kraken]:checked").value}\n  virus: ${$("#f-virus").checked}\n  processori: ${info.processori}`;
+  const chiave = $("#demo-scenario").value === "stima_TEMPO_LUNGO" ? "stima_TEMPO_LUNGO" : "stima";
+  const ev = D.motore[chiave].eventi, r = ultimo(ev, "fine").risultato, av = ev.filter(e => e.tipo === "avviso");
+  const tot = Object.values(r.tempo_s).reduce((a, b) => a + b, 0);
+  $("#t-kraken").textContent = durata(r.tempo_s.kraken);
+  $("#stima").innerHTML = `<table class="semplice">
+    <tr><td>Campioni</td><td><b>${r.campioni}</b> (${it(r.coppie_totali / 1e6, 1)} milioni di coppie di read)</td></tr>
+    <tr><td>Tempo stimato</td><td><b>circa ${durata(tot)}</b> (ospite ${durata(r.tempo_s.ospite)}, MetaPhlAn ${durata(r.tempo_s.metaphlan)}, Kraken ${durata(r.tempo_s.kraken)})</td></tr>
+    <tr><td>Spazio che serve</td><td><b>${it(r.spazio_gb, 0)} GB</b>, ne hai ${it(info.spazio_libero_gb, 0)} liberi</td></tr></table>
+    ${av.map(a => `<div class="avviso"><b>Ci vorrà molto tempo.</b>${a.messaggio}<br><button class="link" onclick="document.querySelector('input[value=rapido]').click();disegnaScelte()">Passa allo screening rapido</button></div>`).join("")}
+    <p class="nota" style="margin-bottom:0">${ultimo(ev, "fine").messaggio}</p>`;
+  $("#az-aiuto").textContent = `Tempo stimato: circa ${durata(tot)}. Spazio: ${it(r.spazio_gb, 0)} GB.`
+    + (av.length ? " Ci vorrà molto: leggi l'avviso qui sopra." : "");
+  $("#az-aiuto").style.color = av.length ? "var(--ambra)" : "";
+  $("#az-aiuto").style.fontWeight = av.length ? "700" : "";
+}
+document.querySelectorAll("input[name=kraken]").forEach(r => r.addEventListener("change", disegnaScelte));
+
+/* 3: riproduco gli eventi veri del finto motore (D032): la barra usa solo percentuale ed eta_s */
+let timer = null;
+function avvia() {
+  fatti.add("progetto"); fatti.add("scelte");
+  vai("esecuzione");
+  const scen = $("#demo-scenario").value.startsWith("esegui") ? $("#demo-scenario").value : "esegui";
+  const ev = D.motore[scen].eventi;
+  $("#es-titolo").textContent = "Analisi in corso";
+  $("#es-avvisi").innerHTML = ""; $("#es-barra").style.width = "0"; $("#es-pct").textContent = "0 %";
+  $("#es-eta").textContent = "...";
+  $("#es-passi").innerHTML = Object.entries(PASSI).map(([k, t]) => `<li data-p="${k}">${t}</li>`).join("");
+  $("#emblema").classList.add("respira");
+  let i = 0;
+  clearInterval(timer);
+  timer = setInterval(() => {
+    const e = ev[i++];
+    if (!e) return clearInterval(timer);
+    mostra(e, ev);
+  }, 450);
+}
+function mostra(e, ev) {
+  if (e.tipo === "inizio") $("#es-log").textContent = `Registro tecnico (da mandarci in caso di problemi): ${e.log}`;
+  if (e.tipo === "avanzamento") {
+    $("#es-messaggio").textContent = e.messaggio;
+    $("#es-barra").style.width = e.percentuale + "%";
+    $("#es-pct").textContent = `${it(e.percentuale, 0)} %`;
+    $("#es-eta").textContent = e.eta_s == null ? "..." : durata(e.eta_s * 60);  // finto motore: tempi /60
+    let prima = true;
+    document.querySelectorAll("#es-passi li").forEach(li => {
+      const ora = li.dataset.p === e.passo;
+      li.className = ora ? "ora" : prima ? "fatto" : "";
+      if (ora) prima = false;
+    });
+  }
+  if (e.tipo === "avviso") $("#es-avvisi").insertAdjacentHTML("beforeend", `<div class="avviso"><b>Da sapere</b>${e.messaggio}</div>`);
+  if (e.tipo === "errore") {
+    $("#es-titolo").textContent = "L'analisi si è fermata";
+    $("#es-eta").textContent = "ferma";
+    // contratto v0.2: l'errore dice in quale passo si e' fermato
+    let prima = true;
+    document.querySelectorAll("#es-passi li").forEach(li => {
+      const qui = li.dataset.p === e.passo;
+      li.className = qui ? "errore" : prima && e.passo ? "fatto" : "";
+      if (qui) prima = false;
+    });
+    $("#es-avvisi").insertAdjacentHTML("beforeend", `<div class="errore"><b>${e.messaggio}</b>${e.cosa_fare}</div>`);
+  }
+  if (e.tipo === "fine") {
+    $("#emblema").classList.remove("respira");
+    const b = $("#az-avanti"); b.style.cssText = "";
+    if (e.esito === "ok") {
+      document.querySelectorAll("#es-passi li").forEach(li => li.className = "fatto");
+      $("#es-titolo").textContent = "Analisi finita";
+      $("#es-messaggio").textContent = e.messaggio;
+      $("#es-eta").textContent = "0"; $("#es-pct").textContent = "100 %"; $("#es-barra").style.width = "100%";
+      fatti.add("esecuzione");
+      b.textContent = "Guarda i risultati"; b.onclick = () => vai("risultati");
+    } else if (e.esito === "annullata") {
+      $("#es-titolo").textContent = "Analisi fermata";
+      $("#es-messaggio").textContent = e.messaggio;
+      b.textContent = "Riprendi l'analisi"; b.onclick = () => { $("#demo-scenario").value = "esegui"; avvia(); };
+    } else {
+      const err = ultimo(ev, "errore");
+      const dove = { DB_MANCANTE: ["Apri la pagina Motore", "motore"], READ_NON_TROVATE: ["Correggi i campioni", "progetto"],
+        GIA_IN_CORSO: ["Torna ai progetti", "home"] }[err && err.codice] || ["Torna ai progetti", "home"];
+      b.textContent = dove[0]; b.onclick = () => vai(dove[1]);
+    }
+  }
+}
+$("#ann-no").onclick = () => $("#conferma-annulla").close();
+$("#ann-si").onclick = () => {
+  $("#conferma-annulla").close(); clearInterval(timer);
+  ultimo(D.motore.esegui_annullata.eventi, "fine") && mostra(ultimo(D.motore.esegui_annullata.eventi, "fine"), D.motore.esegui_annullata.eventi);
+};
+
+/* 4: risultati. MetaPhlAn e Kraken sempre separati, mai fusi */
+function barre(lista, cls, n = 15) {
+  const max = Math.max(...lista.slice(0, n).map(s => s.pct));
+  return `<div class="barre">${lista.slice(0, n).map(s => `<i class="sp">${s.nome}</i>
+    <div class="b ${cls}" style="width:${100 * s.pct / max}%"></div><span class="v">${s.pct.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</span>`).join("")}</div>`;
+}
+function risultati() {
+  // frasi e conteggi dal motore (risultati.json, campioni[].sintesi, D070): l'interfaccia mostra, non calcola
+  const res = D.risultati, c = res.campioni[0], s = c.sintesi, m = D.metaphlan;
+  const corsivo = testo => [...s.metaphlan.dominanti, ...s.kraken.dominanti, ...s.kraken.non_microbi]
+    .reduce((t, d) => t.split(d.nome).join(`<i class="sp">${d.nome}</i>`), testo);
+  $("#ris-sintesi").innerHTML = `Campione <b>${c.nome}</b>.<br>${corsivo(s.metaphlan.frase)}<br>${corsivo(s.kraken.frase)}`;
+  $("#sch-mpa").innerHTML = `<p>Percentuale sul totale delle read del campione. Il <b>${it(s.metaphlan.non_assegnata_pct, 1)} %</b> non è assegnato a nessuna specie del database
+    (è normale: microbi non ancora nel database e DNA non microbico rimasto).</p>${barre(m.specie, "")}
+    <p class="nota">Le prime 15 di ${s.metaphlan.specie}. Le altre sono nel referto e nelle tabelle Excel.</p>`;
+  // Kraken: tabella dei soli microbi letta come nel referto (motore/referto.py), "% fra i microbi"
+  const k = D.kraken.filter(r => r.pct_microbi != null).map(r => ({ nome: r.nome, pct: r.pct_microbi }));
+  const nm = s.kraken.non_microbi;
+  $("#sch-krk").innerHTML = `<p>Percentuale fra i soli microbi (batteri, archei, funghi), dopo la ridistribuzione di Bracken. Metodo diverso da MetaPhlAn: i numeri non si sommano e non si confrontano uno a uno.</p>
+    ${barre(k, "k")}<p class="nota">Le prime 15 di ${s.kraken.microbi}. Le altre sono nel referto e nelle tabelle Excel.</p>
+    ${nm.length ? `<div class="info"><b>Segnalati a parte, fuori dal profilo</b>${nm.map(x => `<i class="sp">${x.nome}</i> (${x.gruppo}, ${it(x.pct, 3)} %)`).join(", ")}. Non sono microbi del prodotto (per esempio avanzi di DNA dell'ospite) o sono virus.</div>` : ""}`;
+  // parametri come li scrive run.sh (results/parameters.tsv), riportati dal motore in risultati.json
+  const p = res.parametri, v = res.versioni;
+  const ospiti = String(p.hosts || "").split(/[ ,]+/).filter(Boolean).concat(p.filter_human === "yes" ? ["grch38"] : []);
+  p.metaphlan_modo = p.metaphlan_modo || p.metaphlan_mode;
+  $("#sch-come").innerHTML = `<table class="semplice">
+    <tr><td>Ospite tolto</td><td>${ospiti.map(o => ({ sus_scrofa: "maiale (Sscrofa11.1)", bos_taurus: "bovino (ARS-UCD1.2)", ovis_aries: "pecora (ARS-UI_Ramb_v2.0)", grch38: "uomo (GRCh38)" })[o] || o).join(", ")}</td></tr>
+    <tr><td>Coppie di read rimaste</td><td>${it(res.campioni[0].coppie_dopo_ospite, 0)}</td></tr>
+    <tr><td>MetaPhlAn</td><td>${v.metaphlan}, database ${v.database_metaphlan}, ${p.metaphlan_modo === "fette" ? "in 6 parti (stesso profilo dell'analisi standard)" : "standard"}</td></tr>
+    <tr><td>Kraken e Bracken</td><td>Kraken ${v.kraken2}, Bracken ${v.bracken}, database ${v.database_kraken}</td></tr>
+    <tr><td>Soglia di confidenza</td><td>${String(p.kraken_confidence).replace(".", ",")}</td></tr>
+    <tr><td>Abbondanza minima</td><td>${String(p.abundance_threshold_pct).replace(".", ",")} %</td></tr></table>`;
+  $("#ris-citazioni").innerHTML = res.citazioni.map(c => `<li>${c}</li>`).join("");
+}
+document.querySelectorAll(".schede button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".schede button").forEach(x => x.setAttribute("aria-selected", x === b));
+  ["mpa", "krk", "come"].forEach(s => $("#sch-" + s).hidden = s !== b.dataset.scheda);
+}));
+
+/* sicurezza alimentare: comando sicurezza del motore (contratto v0.2, motore/fssp), numeri mostrati come sono */
+function sicurezza() {
+  const sel = $("#s-caso");
+  sel.innerHTML = Object.entries(D.fssp).map(([k, c]) => `<option value="${k}">${c.titolo}</option>`).join("");
+  sel.onchange = () => caso(sel.value);
+  caso(sel.value);
+}
+const log10 = x => it(x, 1);
+// nomi dei LAB fuori modello dalla nota del motore: "... non è adatto (leuconostoc carnosum, ...)"
+const nonAdatti = note => {
+  const n = note.find(x => x.includes("adatto (")); if (!n) return "nessuno";
+  return n.slice(n.indexOf("(") + 1, n.indexOf(")")).split(", ").map(s => `<i class="sp">${s[0].toUpperCase() + s.slice(1)}</i>`).join(", ");
+};
+function caso(k) {
+  const c = D.fssp[k], q = c.richiesta, r = c.risultato, pr = q.prodotto;
+  $("#s-temp").value = it(pr.temperatura); $("#s-giorni").value = q.giorni;
+  $("#s-sale").value = pr.aw ? `aw ${it(pr.aw, 2)}` : `${it(pr.sale_fase_acquosa)} %`;
+  $("#s-ph").value = it(pr.ph); $("#s-nitrito").value = pr.nitrito;
+  $("#s-lab").value = q.conte ? it(q.conte.lab_ufc_g, 0) : "";
+  $("#s-nota-lab").innerHTML = q.conte ? "Uso la conta per far partire i batteri lattici: frenano la <i class=sp>Listeria</i>."
+    : "Senza conta prevedo la <i class=sp>Listeria</i> da sola: è il caso peggiore, senza il freno dei batteri lattici.";
+  // avvisi FUORI_CAMPO: eventi del comando sicurezza (contratto v0.2), testo del motore cosi' com'e' (D048, M8)
+  const av = c.eventi.filter(e => e.tipo === "avviso" && e.codice === "FUORI_CAMPO");
+  $("#s-avvisi").innerHTML = av.length ? `<div class="avviso"><b>Fuori dal campo dei modelli: è un'estrapolazione, usala con cautela.</b>
+    <ul>${av.map(a => `<li>${a.messaggio.replace(/\. La previsione.*$/, "")}</li>`).join("")}</ul></div>` : "";
+  $("#s-esiti").innerHTML = r.previsioni.map(p => {
+    const fin = p.curva.log_listeria.at(-1), ini = Math.log10(Math.max(p.n0_listeria_ufc_g, 1e-9));
+    const cresce = fin - ini > 0.05;
+    const frase = !p.listeria_puo_crescere ? (av.length ? `Secondo il modello la <i class="sp">Listeria</i> non cresce, ma qui il modello lavora fuori dal suo campo: <b>non è una garanzia</b>.`
+        : `In queste condizioni la <i class="sp">Listeria</i> <b>non cresce</b>.`)
+      : cresce ? `Dopo ${q.giorni} giorni arriverebbe a <b>10<sup>${log10(fin)}</sup> ufc/g</b> (circa ${it(Number(Math.pow(10, fin).toPrecision(2)), 0)} ufc/g).`
+      : `Cresce pochissimo: dopo ${q.giorni} giorni resta intorno a 10<sup>${log10(fin)}</sup> ufc/g.`;
+    const cento = p.cento_volte_listeria_giorni ? ` Si moltiplica per 100 in circa ${it(p.cento_volte_listeria_giorni, 0)} giorni.` : "";
+    const lab = p.modello === "listeria_lab" ? ` I batteri lattici la frenano.` : "";
+    const classe = cresce ? "cresce" : av.length ? "incerto" : "ferma";   // fuori campo: mai un verde rassicurante
+    return `<div class="esito ${classe}"><div class="titolo">Se all'inizio ci fosse ${it(p.n0_listeria_ufc_g, 0)} ufc/g di <i class="sp">Listeria</i></div>${frase}${cento}${lab}</div>`;
+  }).join("");
+  $("#s-grafico").innerHTML = grafico(r.previsioni);
+  const pn = r.ponte;
+  $("#s-ponte").innerHTML = `<h3 style="margin-top:0">Che cosa ho usato del profilo</h3><ul>
+    <li><i class="sp">Listeria monocytogenes</i>: ${pn.listeria_trovata ? "<b>trovata</b> nel profilo" : "non trovata. Non vuol dire che manchi: sotto la soglia di rilevamento può esserci"}.</li>
+    <li>Batteri lattici del modello: ${pn.lab_trovati.map(s => `<i class="sp">${s[0].toUpperCase() + s.slice(1)}</i>`).join(", ") || "nessuno"}.</li>
+    <li>Altri batteri lattici trovati, per cui il modello non è adatto: ${nonAdatti(r.note)}. La loro crescita non si prevede.</li></ul>
+    <p class="nota">${pn.specie_non_coperte.length} specie del profilo non hanno un modello in FSSP.</p>`;
+  $("#s-cita").textContent = `Modelli: ${r.citazione}`;
+}
+function grafico(prev) {
+  const W = 620, H = 240, m = { l: 52, r: 16, t: 14, b: 38 };
+  const giorni = prev[0].curva.giorni, gmax = giorni.at(-1);
+  const serie = prev.flatMap((p, i) => [{ y: p.curva.log_listeria, c: i ? "#9A5A00" : "#D08A1E", n: `Listeria da ${it(p.n0_listeria_ufc_g, 0)} ufc/g` }]
+    .concat(p.curva.log_lab && i === 0 ? [{ y: p.curva.log_lab, c: "#1E7A4C", n: "batteri lattici" }] : []));
+  const ymax = Math.ceil(Math.max(...serie.flatMap(s => s.y)) + .5), ymin = Math.min(0, Math.floor(Math.min(...serie.flatMap(s => s.y))));
+  const X = g => m.l + (W - m.l - m.r) * g / gmax, Y = v => H - m.b - (H - m.t - m.b) * (v - ymin) / (ymax - ymin);
+  let s = `<svg viewBox="0 0 ${W} ${H + 26}" width="100%" role="img" aria-label="Crescita prevista nel tempo">`;
+  const passoY = ymax - ymin > 6 ? 2 : 1;
+  for (let v = ymin; v <= ymax; v += passoY) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#E2E8E5"/><text x="${m.l - 8}" y="${Y(v) + 5}" text-anchor="end" font-size="15" fill="#52625D">10<tspan dy="-7" font-size="11">${v}</tspan></text>`;
+  for (let g = 0; g <= gmax; g += gmax > 40 ? 10 : 5) s += `<text x="${X(g)}" y="${H - m.b + 20}" text-anchor="middle" font-size="15" fill="#52625D">${g}</text>`;
+  s += `<text x="${(W + m.l) / 2}" y="${H - 2}" text-anchor="middle" font-size="15" fill="#52625D">giorni</text>`;
+  serie.forEach(se => s += `<polyline fill="none" stroke="${se.c}" stroke-width="3" points="${se.y.map((v, i) => `${X(giorni[i]).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}"/>`);
+  serie.forEach((se, i) => s += `<rect x="${m.l + i * 190}" y="${H + 10}" width="18" height="4" fill="${se.c}"/><text x="${m.l + 24 + i * 190}" y="${H + 16}" font-size="15">${se.n}</text>`);
+  return s + `</svg><p class="nota">ufc/g su scala logaritmica: ogni riga è dieci volte la precedente.</p>`;
+}
+
+/* motore: info e verifica (contratto 5.1) */
+const NOMI_DB = { metaphlan_fette_vJan25_v1: "MetaPhlAn, database in 6 parti", kraken_pluspf_20260626: "Kraken, database completo",
+  kraken_pluspf_08gb_20260626: "Kraken, screening rapido", ospite_maiale_bovino_pecora_uomo: "DNA da togliere: maiale, bovino, pecora, uomo" };
+function motore() {
+  const r = ultimo(D.motore.info.eventi, "fine").risultato;
+  $("#motore-stato").innerHTML = `<p><span class="statomotore"><span class="pallino"></span><b>Installato e pronto</b></span></p>
+    <table class="semplice">${r.database.map(d => `<tr><td>${NOMI_DB[d.nome] || d.nome}</td><td>${d.installato ? "installato" : "<b class=pericolo>manca</b>"}</td><td>${it(d.gb)} GB</td></tr>`).join("")}</table>
+    <p class="nota">Questo computer: ${it(r.ram_gb)} GB di memoria, ${r.processori} processori, ${it(r.spazio_libero_gb, 0)} GB liberi. Versioni: MetaPhlAn ${r.programmi.metaphlan}, Kraken ${r.programmi.kraken2}, Bracken ${r.programmi.bracken}.</p>
+    <button class="secondario">Installa o completa</button>`;
+  const crediti = [...new Set([...D.risultati.citazioni, D.fssp.salsiccia.risultato.citazione])];
+  $("#crediti-lista").innerHTML = crediti.map(c => `<li>${c}</li>`).join("");
+}
+function verifica() {
+  const ev = D.motore.verifica.eventi, f = ultimo(ev, "fine");
+  $("#motore-verifica").innerHTML = `<div class="info"><b>${f.messaggio}</b>${f.risultato.controlli.map(c => `${c.esito === "ok" ? "✓" : "✗"} ${c.nome}`).join("<br>")}</div>`;
+}
+
+risultati(); sicurezza(); motore();
+const daHash = () => { const h = location.hash.slice(1); if (h !== pagina && AZIONI[h]) h === "esecuzione" ? avvia() : vai(h); };
+window.addEventListener("hashchange", daHash);
+// solo prototipo: ?scenario=... e ?senza_avvio per le fotografie delle schermate
+const q = new URLSearchParams(location.search);
+if (q.get("scenario")) $("#demo-scenario").value = q.get("scenario");
+if (q.get("caso")) { $("#s-caso").value = q.get("caso"); caso(q.get("caso")); }
+const iniziale = location.hash;
+vai("home"); location.hash = iniziale; daHash();
+if (q.has("senza_avvio")) $("#avvio").remove(); else avvio();
+</script>
+</body>
+</html>

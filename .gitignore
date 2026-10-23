@@ -1,0 +1,61 @@
+# profilemetananni - files that must NOT be committed to GitHub.
+
+# Pipeline outputs / work directories (can be huge)
+pmn_work/
+*/pmn_work/
+**/results/
+**/multiqc/
+**/host_index/
+
+# Databases (tens of GB) and downloads
+*.k2d
+*.bt2
+*.bt2l
+*.sra
+*.fastq
+*.fastq.gz
+*.fq.gz
+
+# Caches / temporary
+__pycache__/
+*.pyc
+*.tmp
+*.bak
+Rplots.pdf
+size_cache.json
+cache_*.json
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local user configuration (keep the example, ignore the real one)
+config.yaml
+
+# PRIVATO - appunti personali. MAI nel repo pubblico.
+# PRIVATE - personal notes and documents. NEVER in the public repo.
+_PRIVATO/
+
+# pytest
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Phase C credentials (never commit an API key)
+.pmn/
+*.credentials
+.biomni_consent.json
+
+# Lavoro di progetto privato (piano app, diario, prove). MAI nel repo pubblico.
+# Private project work (app plan, log, validation runs). NEVER in the public repo.
+implementazione/
+
+# Ambiente Python dell'app su Windows (S5a): si ricrea con app/requirements.txt
+app/.venv/
+# Ambiente Python del server MCP (R1): si ricrea con pmn_mcp/requirements.txt
+pmn_mcp/.venv/
+
+# B1: pacchetto costruito da installer/windows/costruisci_pacchetto.py
+/build/

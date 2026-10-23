@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# motore/pmn-motore - il comando unico del motore (docs/contratto_motore.md §1), collegato in ~/.pmn/bin/.
+# "installa" va subito all'installatore (non ha bisogno di nulla di installato); gli altri comandi girano
+# con il Python dell'ambiente pmn_reports_py installato, o con python3 di sistema se il motore non c'e' ancora.
+set -euo pipefail
+R=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+if [ "${1:-}" = installa ]; then shift; exec bash "$R/installer/installa_motore.sh" --json --si "$@"; fi
+E=$(awk -F= '$1 == "PMN_ENVS" { print $2; exit }' "${PMN_HOME:-$HOME/.pmn}/installazione.env" 2> /dev/null || true)
+PY=python3
+[ -n "$E" ] && [ -x "$E/pmn_reports_py/bin/python" ] && PY="$E/pmn_reports_py/bin/python"
+exec "$PY" "$R/motore/pmn_motore.py" "$@"

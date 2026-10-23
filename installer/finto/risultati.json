@@ -1,0 +1,211 @@
+{
+ "motore": "0.1.0",
+ "corsa": "2026-10-15T18-11-10",
+ "campioni": [
+  {
+   "nome": "SRR4875279",
+   "esito": "ok",
+   "coppie_dopo_ospite": 1507887,
+   "file": {
+    "metaphlan": "metaphlan/SRR4875279_profile.txt",
+    "kraken": "kraken/SRR4875279.bracken"
+   },
+   "sintesi": {
+    "metaphlan": {
+     "specie": 27,
+     "dominanti": [
+      {
+       "nome": "Latilactobacillus sakei",
+       "pct": 21.617793
+      },
+      {
+       "nome": "Latilactobacillus curvatus",
+       "pct": 11.403097
+      },
+      {
+       "nome": "Leuconostoc gasicomitatum",
+       "pct": 4.417127
+      },
+      {
+       "nome": "Leuconostoc carnosum",
+       "pct": 2.869882
+      },
+      {
+       "nome": "Staphylococcus equorum",
+       "pct": 1.473571
+      },
+      {
+       "nome": "Lactococcus formosensis",
+       "pct": 0.955129
+      },
+      {
+       "nome": "Macrococcoides caseolyticum",
+       "pct": 0.686442
+      },
+      {
+       "nome": "Brochothrix thermosphacta",
+       "pct": 0.579825
+      },
+      {
+       "nome": "Enterococcus faecalis",
+       "pct": 0.410196
+      },
+      {
+       "nome": "Staphylococcus xylosus",
+       "pct": 0.407292
+      },
+      {
+       "nome": "Leuconostoc gelidum",
+       "pct": 0.246961
+      },
+      {
+       "nome": "Lactococcus lactis",
+       "pct": 0.236528
+      },
+      {
+       "nome": "Lactococcus garvieae",
+       "pct": 0.159407
+      },
+      {
+       "nome": "Staphylococcus saprophyticus",
+       "pct": 0.153712
+      },
+      {
+       "nome": "Pediococcus pentosaceus",
+       "pct": 0.134995
+      }
+     ],
+     "non_assegnata_pct": 53.651104,
+     "frase": "MetaPhlAn: 27 specie trovate; dominano Latilactobacillus sakei (21,6 % delle read), Latilactobacillus curvatus (11,4 % delle read) e Leuconostoc gasicomitatum (4,4 % delle read). Il 53,7 % delle read non è assegnato a specie note."
+    },
+    "kraken": {
+     "microbi": 48,
+     "dominanti": [
+      {
+       "nome": "Latilactobacillus sakei",
+       "pct_microbi": 37.15609166961235
+      },
+      {
+       "nome": "Latilactobacillus curvatus",
+       "pct_microbi": 31.44515140803582
+      },
+      {
+       "nome": "Leuconostoc carnosum",
+       "pct_microbi": 5.664545775892542
+      },
+      {
+       "nome": "Leuconostoc gasicomitatum",
+       "pct_microbi": 4.579798515376458
+      },
+      {
+       "nome": "Staphylococcus equorum",
+       "pct_microbi": 3.4692765405914927
+      },
+      {
+       "nome": "Enterococcus faecalis",
+       "pct_microbi": 2.4485978555437726
+      },
+      {
+       "nome": "Lactococcus formosensis",
+       "pct_microbi": 1.6488452928007542
+      },
+      {
+       "nome": "Macrococcus psychrotolerans",
+       "pct_microbi": 1.3005184399670084
+      },
+      {
+       "nome": "Staphylococcus xylosus",
+       "pct_microbi": 1.181954754330152
+      },
+      {
+       "nome": "Brochothrix thermosphacta",
+       "pct_microbi": 1.0884293625544952
+      },
+      {
+       "nome": "Lactiplantibacillus plantarum",
+       "pct_microbi": 1.075173795216213
+      },
+      {
+       "nome": "Leuconostoc mesenteroides",
+       "pct_microbi": 0.8785495463650289
+      },
+      {
+       "nome": "Debaryomyces hansenii",
+       "pct_microbi": 0.8188994933427595
+      },
+      {
+       "nome": "Macrococcoides caseolyticum",
+       "pct_microbi": 0.7482031342052551
+      },
+      {
+       "nome": "Lactococcus lactis",
+       "pct_microbi": 0.7047543301519972
+      }
+     ],
+     "non_microbi": [
+      {
+       "nome": "Leishmania mexicana",
+       "gruppo": "altri eucarioti",
+       "pct": 0.08235051910237934,
+       "letture": 112
+      },
+      {
+       "nome": "Homo sapiens",
+       "gruppo": "altri eucarioti",
+       "pct": 0.05441016440692921,
+       "letture": 74
+      },
+      {
+       "nome": "Bottigliavirus pozzuoliense",
+       "gruppo": "virus",
+       "pct": 0.019117084791623776,
+       "letture": 26
+      }
+     ],
+     "frase": "Kraken: 48 taxa sopra la soglia; dominano Latilactobacillus sakei (37,2 % fra i taxa), Latilactobacillus curvatus (31,4 % fra i taxa) e Leuconostoc carnosum (5,7 % fra i taxa). Segnalati a parte (non del prodotto, o virus): Leishmania mexicana 0,082 %, Homo sapiens 0,054 %, Bottigliavirus pozzuoliense 0,019 %."
+    }
+   }
+  }
+ ],
+ "parametri": {
+  "metaphlan_mode": "fette",
+  "metaphlan_index": "mpa_vJan25_CHOCOPhlAnSGB_202503",
+  "kraken_db": "~/pmn_kraken_db/k2_pluspf_08gb_20260626",
+  "kraken_profile": "rapido",
+  "kraken_confidence": "0.1",
+  "bracken_min_reads": "10",
+  "bracken_readlen": "150",
+  "abundance_threshold_pct": "0.005",
+  "hosts": "sus_scrofa",
+  "filter_human": "yes"
+ },
+ "versioni": {
+  "metaphlan": "4.2.4",
+  "database_metaphlan": "mpa_vJan25_CHOCOPhlAnSGB_202503",
+  "kraken2": "2.17.2",
+  "bracken": "3.1",
+  "database_kraken": "k2_pluspf_08gb_20260626",
+  "bowtie2": "2.5.5",
+  "fastp": "1.4.0"
+ },
+ "citazioni": [
+  "Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
+  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice Bowtie2, costruito da profilemetananni)",
+  "Wood et al. 2019, Genome Biol 20:257: Kraken 2. DOI 10.1186/s13059-019-1891-0",
+  "Lu et al. 2017, PeerJ Comput Sci 3:e104: Bracken. DOI 10.7717/peerj-cs.104",
+  "Indici Kraken2/Bracken PlusPF-8 del 26/06/2026 di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)",
+  "Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di Kraken2. DOI 10.1099/mgen.0.000949",
+  "Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. DOI 10.1186/s40793-024-00561-w",
+  "Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923",
+  "Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560",
+  "Warr et al. 2020, GigaScience 9(6):giaa051: maiale Sscrofa11.1. DOI 10.1093/gigascience/giaa051",
+  "Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116"
+ ],
+ "triage": [],
+ "consigli": [],
+ "referto": {
+  "html": "referto/referto.html",
+  "pdf": "referto/referto.pdf",
+  "xlsx": "referto/referto.xlsx"
+ }
+}

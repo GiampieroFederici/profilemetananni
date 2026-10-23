@@ -1,0 +1,6 @@
+# Kraken2/Bracken parameters recommended for each database (D022, D023). Chosen with
+# profiling/motore keys in config.yaml; a value written in the config always wins.
+# completo: chosen by K4 (19/10/2026, implementazione/validazione/L3_sintetici_salumi/K4); rapido: not tested by K4.
+# Columns: profile<TAB>kraken2_confidence<TAB>bracken_min_reads (-t)<TAB>abundance_threshold_pct<TAB>source (in Italian: it goes into the report / in italiano: va nel referto)
+completo	0.5	10	0.1	PlusPF completo: confidence 0,5 e soglia 0,1 % dalla taratura K4 (12 comunità simulate di salume L3, confermata sul campione Zymo L4); Bracken -t 10
+rapido	0.1	10	0.005	PlusPF-8 (screening rapido): confidence 0,1, dentro l'intervallo 0,05-0,30 per i database ridotti (Wright, Comeau & Langille 2023); soglia 0,005 % da Edwin et al. 2024; Bracken -t 10
