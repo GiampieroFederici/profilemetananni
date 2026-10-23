@@ -1,7 +1,7 @@
 # Lingua inglese: termini da controllare (dopo L6b)
 
 > Sessione Lingua IT/EN, 18/10/2026, ramo `lingua-it-en`.
-> L'inglese è una **prima stesura**. Questi termini li controlla Giampiero **dopo la prova con 5 persone (L6b)**.
+> L'inglese è una **prima stesura**. Questi termini si controllano **dopo la prova con 5 persone (L6b)**.
 > Le traduzioni stanno in due file: `app/risorse/lingua_en.json` (app) e `motore/lingua_en.json` (motore, referto, FSSP).
 > Per cambiare una traduzione: si cambia solo il testo inglese a destra, mai la frase italiana a sinistra (è la chiave).
 

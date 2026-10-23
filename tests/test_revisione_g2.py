@@ -581,7 +581,7 @@ def test_p37_singolare_e_plurale_nelle_schede_della_sicurezza(request):
     assert "2 specie del profilo non hanno un modello in FSSP" in " ".join(etichette_qt(f3))
 
 
-# ---------------- P24: il .k2out per read non serve al programma (scelta di Giampiero, 22/10) ----------------
+# ---------------- P24: il .k2out per read non serve al programma (scelta del 22/10) ----------------
 def kraken_finto(tmp_path, **env):
     """32_kraken_bracken.sh con kraken2 e bracken finti: kraken2 scrive i suoi argomenti in argomenti.txt."""
     b = tmp_path / "bin"

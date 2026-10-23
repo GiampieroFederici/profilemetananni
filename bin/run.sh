@@ -192,7 +192,7 @@ case "$PMN_SCHED_CHOICE" in
 esac
 # On PBS the queue is mandatory (asked at the start); fail fast with a clear message.
 if [ "$PMN_SCHED" = "pbs" ] && [ -z "$PMN_PBS_QUEUE" ]; then
-  die "scheduler=pbs requires execution.pbs_queue in config.yaml (e.g. commonCPUQ on UniTN HPC3)"
+  die "scheduler=pbs requires execution.pbs_queue in config.yaml (the queue name of your PBS cluster)"
 fi
 export PMN_SCHED PMN_THREADS PMN_CONDA_BASE
 export PMN_PBS_QUEUE PMN_PBS_WALLTIME PMN_PBS_MEM PMN_PBS_SELECT

@@ -1,7 +1,7 @@
 """Server MCP di profilemetananni (D130): il motore usabile da un assistente compatibile MCP (Claude Code, Codex,
 Qwen Code, GLM, altri).
 
-Impostazione approvata da Giampiero (18/10/2026):
+Impostazione del 18/10/2026:
 - espone i comandi che il motore ha già: info, stima, esegui, annulla, referto, sicurezza, con gli stessi eventi JSON
   dell'app (docs/contratto_motore.md). In più due aiuti che non toccano il motore: `progetti` (elenco dei progetti) e
   `stato` (eventi dell'analisi avviata da qui, che dura molti minuti);

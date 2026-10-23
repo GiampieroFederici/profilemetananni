@@ -2,7 +2,7 @@
 
 Fa usare il motore di profilemetananni a un assistente di programmazione compatibile MCP (Model Context Protocol):
 Claude Code, Codex, Qwen Code, GLM (dentro il client che lo usa), Gemini CLI, OpenCode, Cline, Kilo e gli altri.
-Decisione D130, approvata da Giampiero il 18/10/2026.
+Decisione D130 del 18/10/2026.
 
 ## Che cosa fa
 
@@ -40,14 +40,14 @@ in automatico).
 Serve Python 3.10 o più recente su Windows (qui: Python 3.11.9).
 
 ```bat
-cd C:\Users\GIAMPIERO\Documents\Internoship\server_analisis\profilemetananni
+cd <cartella di profilemetananni>
 python -m venv pmn_mcp\.venv
 pmn_mcp\.venv\Scripts\python -m pip install -r pmn_mcp\requirements.txt
 ```
 
 Nei comandi qui sotto:
-- `PYTHON` = `C:\Users\GIAMPIERO\Documents\Internoship\server_analisis\profilemetananni\pmn_mcp\.venv\Scripts\python.exe`
-- `SERVER` = `C:\Users\GIAMPIERO\Documents\Internoship\server_analisis\profilemetananni\pmn_mcp\server.py`
+- `PYTHON` = `<cartella di profilemetananni>\pmn_mcp\.venv\Scripts\python.exe`
+- `SERVER` = `<cartella di profilemetananni>\pmn_mcp\server.py`
 
 Variabili facoltative: `PMN_LINGUA=en` (messaggi del motore in inglese), `PMN_PROGETTI` (altra cartella dei
 progetti), `PMN_MOTORE=finto` (il finto motore, per provare senza WSL).

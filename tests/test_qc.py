@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Controllo qualità delle read nel referto (v0.4, 22/10/2026, Giampiero: "è vitale").
+"""Controllo qualità delle read nel referto (v0.4, 22/10/2026).
 
 FastQC non aveva mai fatto un report: steps/20_trim.sh passava "-o", che FastQC 0.13.0 (pmn_trim) non conosce, e
 l'errore restava un avviso nel log. Qui: lo script con un fastqc finto che si comporta come lo 0.13.0, lo script con

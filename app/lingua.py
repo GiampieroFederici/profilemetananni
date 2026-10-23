@@ -6,7 +6,7 @@ per parola (tests/test_lingua.py), e chi legge il codice legge ancora la frase v
   _(testo, **campi)  traduce e poi riempie i {campi} (str.format); senza campi il testo resta com'è
   N_(testo)          segna un testo da tradurre più tardi (costanti del modulo): restituisce il testo così com'è
 I numeri: con l'italiano virgola per i decimali e punto per le migliaia, con l'inglese il contrario (scelta di
-Giampiero, 18/10). La lingua scelta si ricorda fra un avvio e l'altro (QSettings, come l'ultima cartella delle read).
+18/10). La lingua scelta si ricorda fra un avvio e l'altro (QSettings, come l'ultima cartella delle read).
 """
 import json
 import re

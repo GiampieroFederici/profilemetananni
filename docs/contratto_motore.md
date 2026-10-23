@@ -228,7 +228,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   sulle coppie rimaste davvero, lette dai log di Bowtie2 di `steps/21` (`hostfilter_logs/`, `quote_ospite()`): prima
   entrate nel primo indice, poi rimaste dopo l'ultimo. Prova del 17/10 su SF3RAt3 (68 % di ospite, non 53 %): all'inizio
   di Kraken `eta_s` 1.954 s con la quota fissa, 1.324 s con i log, reale 1.533 s (+27,5 % → −13,6 %). La `stima` prima
-  di partire resta con la quota fissa (scelta di Giampiero, 17/10): su SF3RAt3 3.026 s contro 4.598 s reali, di cui
+  di partire resta con la quota fissa (scelta del 17/10): su SF3RAt3 3.026 s contro 4.598 s reali, di cui
   2.229 s di download con la rete lenta.
 - Processori: `execution.threads` (quelli che `run.sh` usa davvero), poi `motore.processori`, poi 8.
   La radice quadrata per Kraken viene da 2 sole misure (8 e 24 processori): da riconfermare su altri PC.

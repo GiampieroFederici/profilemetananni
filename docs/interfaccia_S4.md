@@ -33,7 +33,7 @@ Fotografie e referto di GSEA (privati): `implementazione/studio/S4_gsea/`.
 
 ---
 
-## 2. Stile (scelta di Giampiero: chiaro e sobrio, con l'avatar)
+## 2. Stile (scelta: chiaro e sobrio, con l'avatar)
 
 | Elemento | Scelta | Perché |
 |---|---|---|
@@ -235,7 +235,7 @@ si navigano col solo pulsante principale, `info` arriva dal finto motore ("15,6 
 
 ---
 
-## 8. Domande per Giampiero: risposte del 16/10 (intervista di S5a)
+## 8. Domande di progetto: risposte del 16/10 (intervista di S5a)
 
 1. **Soglia di legge nel grafico:** no, come D060 (D074).
 2. **Dove gira la GUI:** Python di Windows con PySide6 in `app/.venv` (D072).

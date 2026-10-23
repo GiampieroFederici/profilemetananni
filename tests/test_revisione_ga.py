@@ -194,7 +194,7 @@ def test_p11_avvio_con_motore_appeso_non_resta_bloccato(qtbot, monkeypatch):
 
 # ---------------- P17: progetto NCBI con & o ! nella cartella Documenti ----------------
 @solo_qt
-@pytest.mark.parametrize("documenti", ["OneDrive - Salumificio Rossi & C", "Documenti!"])
+@pytest.mark.parametrize("documenti", ["OneDrive - Azienda Rossi & C", "Documenti!"])
 def test_p17_codici_ncbi_in_una_cartella_con_simboli_fermati_con_la_causa_vera(qtbot, monkeypatch, tmp_path, documenti):
     """Il motore rifiuta srr_list con & o ! (validate_path_safe): l'app lo dice subito, vicino ai codici, e resta qui."""
     from PySide6.QtCore import QCoreApplication, QEvent

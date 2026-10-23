@@ -141,7 +141,7 @@ function ChiudiBenvenuto($dopo, $nome = 'wslsettings', $secondi = 15) {   # B2 (
         [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 300
     }
 }
-function SaltaBenvenuto($chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss') {   # B2 (P4, decisione di Giampiero)
+function SaltaBenvenuto($chiave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss') {   # B2 (P4)
     # Il servizio WSL apre "Benvenuto in WSL" dopo la registrazione della prima distribuzione se manca OOBEComplete
     # (microsoft/WSL, src/windows/service/exe/LxssUserSession.cpp, _LaunchOOBEIfNeeded; lo scrive poi WSL stesso).
     # Solo per questo utente; se Microsoft cambia, la finestra ricompare e la chiude ChiudiBenvenuto.

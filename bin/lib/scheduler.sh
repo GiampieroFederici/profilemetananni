@@ -36,7 +36,7 @@ _pmn_run_pbs() {
   logdir="$(cd "$logdir" && pwd)" || die "cannot resolve log dir to an absolute path"
   local pbs="$logdir/${label}.pbs"
 
-  # Resource line: user override (pbs_select) or the standard PBS Pro form (UniTN HPC3 style).
+  # Resource line: user override (pbs_select) or the standard PBS Pro form (typical PBS Pro cluster).
   local selectline="${PMN_PBS_SELECT:-}"
   [ -n "$selectline" ] || selectline="select=1:ncpus=${PMN_THREADS:-8}:mem=${PMN_PBS_MEM:-32GB}"
 

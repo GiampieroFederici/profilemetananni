@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Difetti aperti corretti il 22/10/2026 (estensione della sessione QC, Giampiero: "risolvi tutti i problemi").
+"""Difetti aperti corretti il 22/10/2026 (estensione della sessione QC).
 Ogni test è rosso sul codice di c610320 e verde dopo la correzione.
 Gira con la suite del motore:  ~/miniforge3/envs/pmn_reports_py/bin/python -m pytest tests/test_difetti_22_10.py"""
 import os

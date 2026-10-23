@@ -302,7 +302,7 @@ def test_tempo_totale_dal_motore(qtbot, f):
 
 
 def test_virus_nascosto_finche_non_arriva_al_motore(qtbot, f):
-    """22/10, Giampiero: "Anche i virus" non arriva a bin/run.sh, quindi non si mostra; il progetto scrive false."""
+    """22/10: "Anche i virus" non arriva a bin/run.sh, quindi non si mostra; il progetto scrive false."""
     s = vai_alle_scelte(qtbot, f)
     assert not s.scheda_virus.isVisibleTo(s) and not s.virus.isVisibleTo(s)
     assert "Anche i virus" not in [b.text() for b in s.findChildren(QCheckBox) if b.isVisibleTo(s)]

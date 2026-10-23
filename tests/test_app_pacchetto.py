@@ -195,7 +195,7 @@ def test_messaggio_estrai_in_due_lingue():
 
 
 def test_benvenuto_di_wsl_evitato_con_oobecomplete():
-    """B2 (P4, decisione di Giampiero): OOBEComplete=1 per l'utente PRIMA della prima distribuzione, così il servizio
+    """B2 (P4): OOBEComplete=1 per l'utente PRIMA della prima distribuzione, così il servizio
     WSL non apre "Benvenuto in WSL"; la chiusura automatica resta come rete di sicurezza."""
     chiave = r"HKCU:\Software\ProfileMetaNanni_prova_B2\Lxss"
     try:

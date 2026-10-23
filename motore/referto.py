@@ -449,7 +449,7 @@ def tabella(intestazione, righe, allinea_destra=(), larghezze=None):
     return "\n".join(t)
 
 
-# D115: nella prova con le persone Kraken e FSSP sono prototipi. Kraken dopo K4 (19/10, Giampiero: "Resta prototipo,
+# D115: nella prova con le persone Kraken e FSSP sono prototipi. Kraken dopo K4 (19/10: "Resta prototipo,
 # testo nuovo"): tarato su comunità simulate e sullo Zymo, non ancora su salumi veri
 PROTOTIPO_KRAKEN = N_("<b>Prototipo, non per decisioni.</b> Le impostazioni di Kraken sono tarate su comunità simulate e "
                       "su un campione di controllo (Zymo), non ancora su salumi veri: guarda questi numeri come un "

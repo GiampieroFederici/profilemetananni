@@ -130,7 +130,7 @@ class PaginaScelte(Pagina):
                                "modo la scelta può cambiare rispetto all'analisi standard. Il referto lo dichiara."),
                              "avviso"))                                                     # R13, D017, D033
         self.corpo.addWidget(self.scheda_virus)
-        # 22/10, Giampiero: nascosto finché motore.virus non arriva a bin/run.sh (oggi non lo legge nessuno). Il valore
+        # 22/10: nascosto finché motore.virus non arriva a bin/run.sh (oggi non lo legge nessuno). Il valore
         # di un progetto già salvato resta com'è: il referto dice "richiesti, ma non ancora calcolati"
         self.scheda_virus.setVisible(False)
 
