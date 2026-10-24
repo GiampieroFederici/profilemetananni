@@ -10,7 +10,7 @@
 #   --catalogo  altro catalogo (prova)
 #   --specchio  tutte le sorgenti da un solo indirizzo, es. http://127.0.0.1:8765 (prova con lo specchio locale, D038)
 #   --lingua    it (predefinita) o en: lingua dei messaggi per la persona (anche con PMN_LINGUA, come motore/lingua.py)
-# Variabili: PMN_HOME (predefinita ~/.pmn), PMN_URL_PACCHETTI (dove sono pubblicati i pacchetti pmn, D035).
+# Variabili: PMN_HOME (predefinita ~/.pmn), PMN_URL_PACCHETTI (dove sono pubblicati i pacchetti pmn, predefinita la Release database-v1 su GitHub).
 set -euo pipefail
 
 PMN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -20,7 +20,7 @@ SPECCHIO=""; SI=0; STIMA=0; JSON=0; LINGUA=${PMN_LINGUA:-it}
 MICROMAMBA_VER=2.9.0-0
 MICROMAMBA_SHA256=366cd9cd8be14df1ab8ed50352a82111082a36686b2d389fdb79a92c3fafb3e3
 URL_KRAKEN=https://genome-idx.s3.amazonaws.com/kraken
-URL_PMN=${PMN_URL_PACCHETTI:-}
+URL_PMN=${PMN_URL_PACCHETTI:-https://github.com/GiampieroFederici/profilemetananni/releases/download/database-v1}
 ENVS=(pmn_download pmn_qc pmn_trim pmn_hostfilter pmn_metaphlan pmn_kraken pmn_stats_r pmn_reports_py)
 GB_PROGRAMMI=16   # ambienti installati + cache dei pacchetti durante l'installazione (misurati: ~11 GB + margine)
 
@@ -54,8 +54,6 @@ declare -A EN=(
   ["Su Ubuntu: sudo apt install %s"]="On Ubuntu: sudo apt install %s"
   ["Non trovo il catalogo dei database (%s)."]="I cannot find the database catalogue (%s)."
   ["Riscarica profilemetananni."]="Download profilemetananni again."
-  ["I pacchetti di profilemetananni non sono ancora pubblicati."]="The profilemetananni packages are not published yet."
-  ["Per ora si installa solo in prova, con lo specchio locale."]="For now it installs only in test mode, with the local mirror."
   ["Da scaricare: circa %s GB. Spazio necessario: %s GB. Spazio libero: %s GB."]="To download: about %s GB. Space needed: %s GB. Free space: %s GB."
   ["Lo spazio libero non basta: servono %s GB, ce ne sono %s."]="The free space is not enough: %s GB are needed, there are %s."
   ["Libera spazio sul disco e rilancia."]="Free some space on the disk and run it again."
@@ -152,12 +150,9 @@ done
 url_di() {  # sorgente percorso
   if [ -n "$SPECCHIO" ]; then printf '%s/%s/%s' "$SPECCHIO" "$1" "$2"
   elif [ "$1" = kraken ]; then printf '%s/%s' "$URL_KRAKEN" "$2"
-  else printf '%s/%s' "$URL_PMN" "$2"
+  else printf '%s/%s' "$URL_PMN" "${2//\//__}"   # E1: la Release di GitHub vuole nomi piatti, "/" diventa "__"
   fi
 }
-if [ -z "$SPECCHIO" ] && [ -z "$URL_PMN" ] && tail -n +2 "$CATALOGO" | cut -f3 | grep -qx pmn; then
-  fallisci DOWNLOAD_FALLITO "$(T 'I pacchetti di profilemetananni non sono ancora pubblicati.')" "$(T 'Per ora si installa solo in prova, con lo specchio locale.')"
-fi
 # pezzo gia' scaricato e verificato: il segnalino contiene l'MD5 della riga e il file (o la cartella) c'e' ancora
 segnalino() { printf '%s/stato/%s.ok' "$PMN_HOME" "${1//\//__}"; }   # destinazione
 fatto() { [ "$(cat "$(segnalino "$1")" 2>/dev/null)" = "$2" ] && [ -e "$PMN_HOME/db/$1" ]; }   # destinazione md5
