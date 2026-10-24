@@ -1,8 +1,9 @@
 # 🧰 Installatore del motore · Engine installer
 
-> Stato (15/10/2026): provato da zero su una WSL nuova (Ubuntu 24.04) con lo **specchio locale**.
-> I pacchetti di profilemetananni (fette, indici dell'ospite, mini-campione) **non sono ancora pubblicati** (D035):
-> senza `--specchio` l'installatore si ferma e lo dice.
+> Stato (24/10/2026): provato da zero con lo **specchio locale**, su una WSL nuova (Ubuntu 24.04) e su Windows 11 pulito in una VM.
+> I pacchetti di profilemetananni (fette, `.pkl`, indici dell'ospite, mini-campione: 71 file, 41,8 GB) si scaricano dalla
+> Release `database-v1` di GitHub, con i nomi piatti: `/` diventa `__` (`fette_vJan25_v1/idx3/fetta3.1.bt2` si chiama
+> `fette_vJan25_v1__idx3__fetta3.1.bt2`). `--specchio` o la variabile `PMN_URL_PACCHETTI` cambiano l'indirizzo.
 
 ## Cosa installa
 

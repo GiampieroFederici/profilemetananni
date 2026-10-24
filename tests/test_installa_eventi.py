@@ -82,9 +82,35 @@ def test_not_enough_space_stops_before_downloading(tmp_path):
     assert not (home / "db" / "prova").exists()
 
 
-def test_unpublished_packages(tmp_path):
-    home, c = catalogo(tmp_path, installato=False)
-    assert errore(home, "--si", "--catalogo", str(c)) == "DOWNLOAD_FALLITO"
+def velocita_misurata(tmp_path, servito, *arg, **env):
+    """--stima reads the start of the first file to download: with a file:// address (no network) the speed is
+    measured only if the installer asks for the file where it was put."""
+    home, c = catalogo(tmp_path, byte=2**20, installato=False)
+    servito.parent.mkdir(parents=True, exist_ok=True)
+    servito.write_bytes(b"x" * 2**20)
+    e = {k: v for k, v in os.environ.items() if k != "PMN_URL_PACCHETTI"}
+    r = subprocess.run(["bash", INSTALLA, "--json", "--stima", "--catalogo", str(c), *arg], capture_output=True,
+                       text=True, encoding="utf-8", env={**e, "PMN_HOME": str(home), **env}, timeout=120)
+    ev = controlla(r.stdout, r.returncode, "installa")
+    assert r.returncode == 0
+    return ev[-1]["risultato"]["velocita_mb_s"] is not None
+
+
+def test_pmn_packages_come_from_the_release_with_flat_names(tmp_path):
+    """E1: a GitHub Release takes only flat file names, so prova/x is published as prova__x."""
+    rel = tmp_path / "release"
+    assert velocita_misurata(tmp_path, rel / "prova__x", PMN_URL_PACCHETTI=rel.as_uri())
+
+
+def test_the_local_mirror_keeps_the_folders(tmp_path):
+    """D038: the mirror (--specchio, prova.conf) still serves <source>/<path> with the subfolders."""
+    sp = tmp_path / "specchio"
+    assert velocita_misurata(tmp_path, sp / "pmn" / "prova" / "x", "--specchio", sp.as_uri())
+
+
+def test_default_address_is_the_database_v1_release():
+    testo = open(INSTALLA, encoding="utf-8").read()
+    assert "URL_PMN=${PMN_URL_PACCHETTI:-https://github.com/GiampieroFederici/profilemetananni/releases/download/database-v1}" in testo
 
 
 def test_answer_no_is_annullata(tmp_path):
