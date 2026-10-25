@@ -14,6 +14,11 @@
   <img src="docs/vetrina/en_results.png" alt="ProfileMetaNanni, the Results page" width="720">
 </p>
 
+<p align="center">
+  <a href="docs/vetrina/profilemetananni_video_en.mp4"><img src="docs/vetrina/video_cover.png" alt="Video of ProfileMetaNanni, 43 seconds" width="480"></a><br>
+  <i>A 43-second video of the program: click the picture to open it.</i>
+</p>
+
 ## How to install
 
 ### Download: coming soon
@@ -144,6 +149,11 @@ MIT (see `LICENSE`).
 **La metagenomica dei salumi su un normale PC Windows con 16 GB di RAM.** Dalle read di sequenziamento del DNA di un campione a quali taxa ci sono e in che proporzione. Si installa con un doppio clic e si usa senza terminale.
 
 > **A breve.** Il programma da installare è in pubblicazione. Per sapere quando è pronto, segui questo repository: **Star** o **Watch** in alto nella pagina.
+
+<p align="center">
+  <a href="docs/vetrina/profilemetananni_video_en.mp4"><img src="docs/vetrina/video_cover.png" alt="Video di ProfileMetaNanni, 43 secondi" width="480"></a><br>
+  <i>Un video di 43 secondi sul programma (in inglese): fai clic sull'immagine per aprirlo.</i>
+</p>
 
 ## Come si installa
 
