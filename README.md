@@ -15,8 +15,8 @@
 </p>
 
 <p align="center">
-  <a href="docs/vetrina/profilemetananni_video_en.mp4"><img src="docs/vetrina/video_cover.png" alt="Video of ProfileMetaNanni, 43 seconds" width="480"></a><br>
-  <i>A 43-second video of the program: click the picture to open it.</i>
+  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 seconds" width="720"><br>
+  <i>The program in 43 seconds. <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (11 MB, to download).</i>
 </p>
 
 ## How to install
@@ -151,8 +151,8 @@ MIT (see `LICENSE`).
 > **A breve.** Il programma da installare è in pubblicazione. Per sapere quando è pronto, segui questo repository: **Star** o **Watch** in alto nella pagina.
 
 <p align="center">
-  <a href="docs/vetrina/profilemetananni_video_en.mp4"><img src="docs/vetrina/video_cover.png" alt="Video di ProfileMetaNanni, 43 secondi" width="480"></a><br>
-  <i>Un video di 43 secondi sul programma (in inglese): fai clic sull'immagine per aprirlo.</i>
+  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 secondi" width="720"><br>
+  <i>Il programma in 43 secondi (in inglese). <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (11 MB, da scaricare).</i>
 </p>
 
 ## Come si installa
