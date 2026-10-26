@@ -8,8 +8,6 @@
 
 **Metagenomics of cured meat products on an ordinary Windows PC with 16 GB of RAM.** From the DNA sequencing reads of a sample to which taxa are present and in which proportion. It installs with a double click and works without a terminal.
 
-> **Coming soon.** The installer is being published. To know when it is ready, follow this repository: **Star** or **Watch** at the top of the page.
-
 <p align="center">
   <img src="docs/vetrina/en_results.png" alt="ProfileMetaNanni, the Results page" width="720">
 </p>
@@ -21,9 +19,7 @@
 
 ## How to install
 
-### Download: coming soon
-
-The installer zip will be published here soon.
+### [Download ProfileMetaNanni](https://github.com/GiampieroFederici/profilemetananni/releases/latest)
 
 Before you start, check that you have:
 
@@ -33,7 +29,7 @@ Before you start, check that you have:
 
 Then 3 steps:
 
-1. When it is published, download **profilemetananni_....zip** from the release linked here. Do not choose "Source code": that is the code, not the program to install.
+1. Open the link above. In the **Assets** section click **profilemetananni_....zip**. Do not choose "Source code": that is the code, not the program to install.
 2. Open the **Downloads** folder, right-click the zip and choose **Extract All**, then **Extract**.
 3. In the extracted folder double-click **Installa profilemetananni**.
 
@@ -116,7 +112,7 @@ The installer enables WSL2 (it asks once for administrator permission and one re
 
 ## Status
 
-Version 1.0, coming soon. Installation from scratch was tested on a clean Windows 11 virtual machine: 14 user interactions, no terminal, no help. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one.
+Version 1.0. Installation from scratch was tested on a clean Windows 11 virtual machine: 14 user interactions, no terminal, no help. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one.
 
 | Validation | Result |
 |---|---|
@@ -148,8 +144,6 @@ MIT (see `LICENSE`).
 
 **La metagenomica dei salumi su un normale PC Windows con 16 GB di RAM.** Dalle read di sequenziamento del DNA di un campione a quali taxa ci sono e in che proporzione. Si installa con un doppio clic e si usa senza terminale.
 
-> **A breve.** Il programma da installare è in pubblicazione. Per sapere quando è pronto, segui questo repository: **Star** o **Watch** in alto nella pagina.
-
 <p align="center">
   <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 secondi" width="720"><br>
   <i>Il programma in 43 secondi (in inglese). <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (11 MB, da scaricare).</i>
@@ -157,9 +151,7 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### Download: a breve
-
-Lo zip del programma da installare sarà pubblicato qui a breve.
+### [Scarica ProfileMetaNanni](https://github.com/GiampieroFederici/profilemetananni/releases/latest)
 
 Prima di iniziare controlla di avere:
 
@@ -169,7 +161,7 @@ Prima di iniziare controlla di avere:
 
 Poi 3 passi:
 
-1. Quando sarà pubblicato, scarica **profilemetananni_....zip** dalla Release indicata qui. Non scegliere "Source code": quello è il codice, non il programma da installare.
+1. Apri il link qui sopra. Nella sezione **Assets** fai clic su **profilemetananni_....zip**. Non scegliere "Source code": quello è il codice, non il programma da installare.
 2. Apri la cartella **Download**, fai clic destro sullo zip e scegli **Estrai tutto**, poi **Estrai**.
 3. Nella cartella estratta fai doppio clic su **Installa profilemetananni**.
 
@@ -252,7 +244,7 @@ L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un 
 
 ## Stato
 
-Versione 1.0, a breve. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale: 14 interazioni dell'utente, nessun terminale, nessun aiuto. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno.
+Versione 1.0. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale: 14 interazioni dell'utente, nessun terminale, nessun aiuto. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno.
 
 | Validazione | Risultato |
 |---|---|
