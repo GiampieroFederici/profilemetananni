@@ -1,5 +1,17 @@
 # ProfileMetaNanni 1.0
 
+## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
+
+| English | Italiano |
+|---|---|
+| **1.** Click the link above: the zip (50 MB) goes to your **Downloads** folder. | **1.** Fai clic sul link qui sopra: lo zip (50 MB) va nella cartella **Download**. |
+| **2.** Right-click the zip, choose **Extract All**, then **Extract**. | **2.** Clic destro sullo zip, scegli **Estrai tutto**, poi **Estrai**. |
+| **3.** In the new folder, double-click **Installa profilemetananni** and answer the windows. | **3.** Nella cartella nuova, doppio clic su **Installa profilemetananni** e rispondi alle finestre. |
+
+**You need** Windows 11 (not Mac), 16 GB of RAM, about 300 GB free on the internal disk, several hours of download. Every window explained: [How to install](#how-to-install).
+
+**Serve** Windows 11 (non Mac), 16 GB di RAM, circa 300 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
+
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
 </p>
@@ -19,7 +31,7 @@
 
 ## How to install
 
-### [Download ProfileMetaNanni](https://github.com/GiampieroFederici/profilemetananni/releases/latest)
+### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
 
 Before you start, check that you have:
 
@@ -29,7 +41,7 @@ Before you start, check that you have:
 
 Then 3 steps:
 
-1. Open the link above. In the **Assets** section click **profilemetananni_....zip**. Do not choose "Source code": that is the code, not the program to install.
+1. Click the link above: the browser saves the zip in the **Downloads** folder.
 2. Open the **Downloads** folder, right-click the zip and choose **Extract All**, then **Extract**.
 3. In the extracted folder double-click **Installa profilemetananni**.
 
@@ -103,7 +115,7 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 
 | What | Value |
 |---|---|
-| System | Windows 11 (tested) |
+| System | Windows 11 (tested). Not available for macOS |
 | RAM | 16 GB |
 | Disk | internal, about 300 GB free during installation (about 170-190 GB once installed) |
 | Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 41.8 GB of ProfileMetaNanni packages) |
@@ -151,7 +163,7 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### [Scarica ProfileMetaNanni](https://github.com/GiampieroFederici/profilemetananni/releases/latest)
+### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
 
 Prima di iniziare controlla di avere:
 
@@ -161,7 +173,7 @@ Prima di iniziare controlla di avere:
 
 Poi 3 passi:
 
-1. Apri il link qui sopra. Nella sezione **Assets** fai clic su **profilemetananni_....zip**. Non scegliere "Source code": quello è il codice, non il programma da installare.
+1. Fai clic sul link qui sopra: il browser salva lo zip nella cartella **Download**.
 2. Apri la cartella **Download**, fai clic destro sullo zip e scegli **Estrai tutto**, poi **Estrai**.
 3. Nella cartella estratta fai doppio clic su **Installa profilemetananni**.
 
@@ -235,7 +247,7 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 
 | Cosa | Valore |
 |---|---|
-| Sistema | Windows 11 (provato) |
+| Sistema | Windows 11 (provato). Non disponibile per macOS |
 | RAM | 16 GB |
 | Disco | interno, circa 300 GB liberi durante l'installazione (circa 170-190 GB a installazione finita) |
 | Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 41,8 GB di pacchetti ProfileMetaNanni) |
