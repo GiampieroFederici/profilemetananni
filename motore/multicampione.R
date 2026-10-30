@@ -8,8 +8,8 @@
 # Methods: Aitchison distance = Euclidean on CLR after multiplicative zero replacement (Martin-Fernandez et al. 2003,
 # doi:10.1023/A:1023866030544; Gloor et al. 2017, doi:10.3389/fmicb.2017.02224); Bray-Curtis on relative abundances;
 # PERMANOVA = vegan::adonis2 (Anderson 2001, doi:10.1111/j.1442-9993.2001.01070.pp.x) ALWAYS with PERMDISP =
-# vegan::betadisper + permutest (Anderson 2006, doi:10.1111/j.1541-0420.2005.00440.x), on the same permutation set
-# (permute::shuffleSet; blocks = subject for repeated measures). A significant PERMANOVA with different dispersions
+# vegan::betadisper distances (Anderson 2006, doi:10.1111/j.1541-0420.2005.00440.x) tested by permuting the group
+# labels with the same permutation set (permute::shuffleSet; blocks = subject for repeated measures). A significant PERMANOVA with different dispersions
 # may reflect dispersion, not location (Anderson & Walsh 2013, doi:10.1890/12-2010.1).
 suppressPackageStartupMessages({library(vegan); library(permute); library(ggplot2)})
 
@@ -150,6 +150,15 @@ out(if (length(post_rows)) do.call(rbind, post_rows) else
     "alpha_posthoc.tsv")
 
 # ---------------- beta diversity: PERMANOVA always with PERMDISP ----------------
+NOTE_IDENTICAL <- "all samples are identical: no test possible"
+NOTE_WITHIN_IDENTICAL <- "samples are identical within each group: the statistic is not defined, no test"
+NOTE_ZERO_DISPERSION <- "dispersion is zero in every group: the statistic is not defined, no test"
+NOTE_EQUAL_WITHIN <- "dispersion is the same within each group: the statistic is not defined, no test"
+f_anova <- function(z, g) {                                    # one-way ANOVA F on the distances to the median
+  m <- ave(z, g)
+  k <- nlevels(droplevels(g))
+  (sum((m - mean(z))^2) / (k - 1)) / (sum((z - m)^2) / (length(z) - k))
+}
 beta_rows <- list()
 captions <- list()
 for (i in seq_len(nrow(comps))) {
@@ -172,22 +181,40 @@ for (i in seq_len(nrow(comps))) {
       }
       set.seed(seed)
       perms <- shuffleSet(attr(d, "Size"), control = h, quietly = TRUE)
+      dm <- max(as.matrix(d))
       ad <- adonis2(d ~ g, data = data.frame(g = g), permutations = perms)
-      pt <- permutest(betadisper(d, g), permutations = perms)
-      list(n = attr(d, "Size"), np = nrow(perms), adf = ad$Df[1], aF = ad$F[1], aR2 = ad$R2[1], ap = ad[1, "Pr(>F)"],
-           ddf = pt$tab$Df[1], dF = pt$tab$F[1], dp = pt$tab[1, "Pr(>F)"], note = "")
+      # 30/10 (VM B2-5a): with (nearly) identical samples the residual or the dispersions are rounding noise and an F
+      # from them is not a statistic: it gave PERMDISP p = 0.001 with 3 + 3 samples. Such cases get no p, only a note.
+      a_note <- if (dm == 0 || ad$SumOfSqs[3] <= 1e-10 * dm^2) NOTE_IDENTICAL else
+        if (ad$SumOfSqs[2] <= 1e-10 * ad$SumOfSqs[3]) NOTE_WITHIN_IDENTICAL else ""
+      # PERMDISP: distances to the group median (vegan::betadisper, Anderson 2006), F as in vegan::permutest, but
+      # the p comes from permuting the group LABELS of these distances with the same permutations as the PERMANOVA:
+      # exact, so never below the smallest p the design allows (vegan permutes residuals, which with 3 + 3 samples
+      # gave p below 1/10, the floor of the label permutations).
+      z <- betadisper(d, g)$distances
+      ssw <- sum((z - ave(z, g))^2)
+      d_note <- if (dm == 0 || max(z) <= 1e-8 * dm) NOTE_ZERO_DISPERSION else
+        if (ssw <= 1e-10 * dm^2 * length(z)) NOTE_EQUAL_WITHIN else ""
+      d_F <- f_anova(z, g)
+      d_p <- (sum(apply(perms, 1, function(i) f_anova(z, g[i])) >= d_F - sqrt(.Machine$double.eps)) + 1) /
+        (nrow(perms) + 1)
+      ok <- a_note == ""
+      okd <- d_note == ""
+      list(n = attr(d, "Size"), np = nrow(perms), adf = ad$Df[1], aF = if (ok) ad$F[1] else NA,
+           aR2 = if (ok) ad$R2[1] else NA, ap = if (ok) ad[1, "Pr(>F)"] else NA, ddf = nlevels(g) - 1,
+           dF = if (okd) d_F else NA, dp = if (okd) d_p else NA, note = c(a_note, d_note))
     }, error = function(e) list(n = nrow(des), np = NA, adf = NA, aF = NA, aR2 = NA, ap = NA, ddf = NA, dF = NA,
-                                 dp = NA, note = conditionMessage(e)))
+                                 dp = NA, note = rep(conditionMessage(e), 2)))
     differs <- !is.na(res$dp) && res$dp < 0.05
     beta_rows[[length(beta_rows) + 1]] <- data.frame(comparison = cmp$comparison, distance = k,
       test = c("PERMANOVA", "PERMDISP"), n = res$n, permutations = res$np, restriction = cmp$permutations,
       df = c(res$adf, res$ddf), F = fmt(c(res$aF, res$dF), 4), R2 = c(fmt(res$aR2, 3), ""),
       p = fmt(c(res$ap, res$dp), 3), dispersion_differs = c(if (is.na(res$dp)) "" else if (differs) "yes" else "no", ""),
       note = res$note)
-    captions[[paste(cmp$comparison, k)]] <- if (is.na(res$ap)) paste("No test:", res$note) else paste0(
+    captions[[paste(cmp$comparison, k)]] <- if (is.na(res$ap)) paste("No test:", res$note[1]) else paste0(
       "PERMANOVA R2 = ", fmt(res$aR2, 2), ", p = ", fmt(res$ap, 3), " (", res$np, " permutations, ",
       c(free = "free", blocks = "restricted within subject", subject_mean = "subject means")[cmp$permutations],
-      "); PERMDISP p = ", fmt(res$dp, 3),
+      "); ", if (is.na(res$dp)) paste("PERMDISP:", res$note[2]) else paste("PERMDISP p =", fmt(res$dp, 3)),
       if (differs) "\nDispersion differs between groups: PERMANOVA may reflect dispersion, not only location" else "")
   }
 }

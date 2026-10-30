@@ -372,6 +372,73 @@ def test_un_solo_campione_nulla(tmp_path):
     assert not (risultati / "multicampione").exists() and not (tmp_path / "metadati.tsv").exists()
 
 
+# ---------------- 30/10, VM B2-5a: p mai sotto il minimo del disegno; statistiche non definite ----------------
+def p_minimo(dimensioni):
+    """1 / numero di divisioni distinte dei campioni in gruppi di queste dimensioni (gruppi uguali scambiabili):
+    con 3 + 3 campioni 720 / (3! 3! 2!) = 10 divisioni, quindi p >= 0,1."""
+    n = math.factorial(sum(dimensioni))
+    for k in dimensioni:
+        n //= math.factorial(k)
+    for k in set(dimensioni):
+        n //= math.factorial(dimensioni.count(k))
+    return 1 / n
+
+
+def quasi_identici(tmp_path, stessi_dentro=False):
+    """6 sottocampioni dello stesso campione (gruppi A e B da 3), come la prova VM B2-5."""
+    rnd = random.Random(30)
+    base = [50, 30, 10, 5, 3, 1, 0.5, 0.3, 0.1, 0.05]
+    camp = {}
+    for g in "AB":
+        primo = composizione(base, rnd, 0.01)
+        for i in range(3):
+            camp[f"{g}{i}"] = primo if stessi_dentro else composizione(base, rnd, 0.01)
+    return progetto(tmp_path, camp, [(s, s[0], "", "") for s in camp])
+
+
+@con_r
+def test_nessun_p_sotto_il_minimo_del_disegno(tmp_path):
+    risultati, d = quasi_identici(tmp_path)
+    mc.esegui(risultati, d)
+    righe = tsv(risultati / "multicampione" / "metaphlan" / "beta_tests.tsv")
+    assert {(r["distance"], r["test"]) for r in righe} == {(x, y) for x in ("aitchison", "braycurtis")
+                                                           for y in ("PERMANOVA", "PERMDISP")}
+    for r in righe:   # entrambe le distanze, PERMANOVA e PERMDISP
+        assert r["p"] and float(r["p"]) >= p_minimo([3, 3]) - 1e-9, r
+
+
+@con_r
+def test_campioni_identici_nel_gruppo_niente_p_e_parole_semplici(tmp_path):
+    """Dentro ogni gruppo i 3 campioni sono identici: dispersioni nulle (rumore di arrotondamento, 1e-17), che prima
+    davano PERMDISP p = 0,001. Ora nessun p, e il referto lo dice in parole."""
+    risultati, d = quasi_identici(tmp_path, stessi_dentro=True)
+    rie = mc.esegui(risultati, d)
+    for r in tsv(risultati / "multicampione" / "metaphlan" / "beta_tests.tsv"):
+        assert r["p"] == "" and r["F"] == "" and "not defined" in r["note"], r
+    sys.path.insert(0, str(ROOT / "motore"))
+    import referto
+    html = "\n".join(referto.html_multicampione({"multicampione": rie, "soglia": 0.005}))
+    assert "il test non è definito, nessun valore p" in html and "non definita" in html
+    assert "dispersione è zero in ogni gruppo" in html
+
+
+@con_r
+def test_permdisp_f_uguale_a_vegan(tmp_path):
+    """F di PERMDISP uguale a quello di vegan::permutest (cambia solo come si permuta per il p)."""
+    risultati, d = due_gruppi_diversi(tmp_path)
+    mc.esegui(risultati, d)
+    cart = risultati / "multicampione" / "metaphlan"
+    prova = cart / "prova_vegan.R"
+    prova.write_text(
+        'suppressPackageStartupMessages(library(vegan))\n'
+        f'd <- as.dist(as.matrix(read.delim("{(cart / "distance_aitchison.tsv").as_posix()}", row.names = 1, '
+        'check.names = FALSE)))\n'
+        'g <- factor(substr(labels(d), 1, 1))\n'
+        'cat(permutest(betadisper(d, g), permutations = 9)$tab$F[1])\n', encoding="utf-8")
+    vegan = subprocess.run([R, str(prova)], capture_output=True, text=True, check=True).stdout
+    assert float(beta(cart, "aitchison", "PERMDISP")["F"]) == pytest.approx(float(vegan), rel=1e-3)
+
+
 # ---------------- nel referto: MetaPhlAn e Kraken separati ----------------
 def scrivi_metaphlan(f, specie):
     righe = ["#mpa_vJan25_CHOCOPhlAnSGB_202503", "#1000 reads processed", "#clade_name\tNCBI_tax_id\trelative_abundance"]

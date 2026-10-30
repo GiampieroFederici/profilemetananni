@@ -518,5 +518,10 @@
  "Sulla radice, e ancora di più al suo interno, il DNA della vite è molto: per questo alcuni studi fanno lo shotgun solo sulla superficie della radice e sul suolo attorno. Per il suolo attorno alla radice scegli 'Suolo o rizosfera'.": "On the root, and even more inside it, there is a lot of grapevine DNA: for this reason some studies do shotgun sequencing only on the root surface and on the surrounding soil. For the soil around the root choose 'Soil or rhizosphere'.",
  "docs/ambienti.md: ospite, database e limiti di ogni ambiente con le fonti; prova con dati pubblici piccoli in implementazione/validazione/ambienti/ESITO.md. 'Sperimentale' finché la prova non è finita e coerente con l'articolo": "docs/ambienti.md: host, databases and limits of each environment with the sources; test with small public data in implementazione/validazione/ambienti/ESITO.md. 'Experimental' until the test is finished and consistent with the article",
  "Kraken: nessuna specie con almeno {n} read; il profilo di Kraken di questo campione è vuoto.": "Kraken: no species with at least {n} reads; the Kraken profile of this sample is empty.",
- "Kraken: nessuna specie con almeno {n} read in {nome}; il profilo di Kraken di questo campione è vuoto.": "Kraken: no species with at least {n} reads in {nome}; the Kraken profile of this sample is empty."
+ "Kraken: nessuna specie con almeno {n} read in {nome}; il profilo di Kraken di questo campione è vuoto.": "Kraken: no species with at least {n} reads in {nome}; the Kraken profile of this sample is empty.",
+ "i campioni sono identici: nessun test possibile": "the samples are identical: no test possible",
+ "i campioni sono identici dentro ogni gruppo: il test non è definito, nessun valore p": "the samples are identical within each group: the test is not defined, no p value",
+ "la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p": "the dispersion is zero in every group (identical samples): the test is not defined, no p value",
+ "la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p": "the dispersion is the same within each group: the test is not defined, no p value",
+ "non definita": "not defined"
 }

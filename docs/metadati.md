@@ -47,9 +47,17 @@ una frase che dice perché.
 
 Beta: distanza di Aitchison (distanza euclidea sul CLR, dopo aver sostituito gli zeri con metà della più piccola
 abbondanza non nulla, sostituzione moltiplicativa) e Bray-Curtis sulle abbondanze relative; PCoA. La PERMANOVA
-(`vegan::adonis2`, 999 permutazioni, seme 1992) ha **sempre** accanto PERMDISP (`vegan::betadisper` + `permutest`,
-stesse permutazioni): se la dispersione differisce fra i gruppi, il referto lo scrive accanto alla PERMANOVA. R² è la
-dimensione dell'effetto.
+(`vegan::adonis2`, 999 permutazioni, seme 1992) ha **sempre** accanto PERMDISP: distanze dalla mediana del gruppo di
+`vegan::betadisper`, F uguale a quello di `permutest`, ma il valore p viene dallo scambio delle etichette dei gruppi con
+le **stesse permutazioni** della PERMANOVA. Così nessun p scende sotto il minimo che il disegno permette (con 3 + 3
+campioni le divisioni distinte sono 10, quindi p ≥ 0,1); `permutest` scambia i residui e con gruppi così piccoli dava
+p più bassi (prova sulla VM, 30/10). Se la dispersione differisce fra i gruppi, il referto lo scrive accanto alla
+PERMANOVA. R² è la dimensione dell'effetto.
+
+Quando la statistica non è definita (campioni identici, oppure identici dentro ogni gruppo, dispersione zero o uguale
+dentro ogni gruppo) non si scrive nessun valore p: la tabella dice "non definita" e la nota spiega perché in parole
+semplici. Con campioni quasi identici, prima, il rumore di arrotondamento dei numeri (circa 1e-17) diventava un F e un
+p di 0,001.
 
 Kraken: solo batteri, archei e funghi sopra la soglia del referto (D128), ed è un prototipo. MetaPhlAn: tutte le
 specie, nessuna soglia. Diversità alfa: i valori a profondità uguale del referto (`motore/diversita.py`).
