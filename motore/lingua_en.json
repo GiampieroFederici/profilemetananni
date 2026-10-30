@@ -316,6 +316,8 @@
  "Controllo il PC e lo spazio libero...": "Checking the PC and the free space...",
  "Installo i programmi (8 ambienti)...": "Installing the programs (8 environments)...",
  "Scarico i database e controllo che siano integri...": "Downloading the databases and checking that they are intact...",
+ "Scarico i database: {fatti} di {totali} GB ({sorgenti}).": "Downloading the databases: {fatti} of {totali} GB ({sorgenti}).",
+ "Kraken {k} MB/s, altri database {p} MB/s": "Kraken {k} MB/s, other databases {p} MB/s",
  "Prova finale su un piccolo campione (alcuni minuti)...": "Final test on a small sample (a few minutes)...",
  "L'analisi richiederà più di 4 ore. Puoi usare lo screening rapido (PlusPF-8) o il cloud.": "The analysis will take more than 4 hours. You can use the quick screening (PlusPF-8) or the cloud.",
  "steps/17_triage_report.py (scenario del finto motore)": "steps/17_triage_report.py (fake engine scenario)",

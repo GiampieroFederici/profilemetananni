@@ -80,6 +80,22 @@ def test_esegui_writes_the_results_of_a_real_run(progetto):
     assert pct == sorted(pct)
 
 
+def test_installa_sends_the_new_optional_download_fields(progetto):
+    """v1.1 (contract section 4): periodic database progress with byte_fatti, byte_totali, velocita_mb_s, sorgente,
+    sorgenti, as installa_motore.sh does; only new fields, the old ones are all there."""
+    for lingua, testo in (("it", "Scarico i database: 32,3 di 129,3 GB (Kraken 3,1 MB/s"),
+                          ("en", "Downloading the databases: 32.3 of 129.3 GB (Kraken 3.1 MB/s")):
+        out, rc = lancia("installa", "--lingua", lingua)
+        ev = controlla(out, rc, "installa")
+        nuovi = [e for e in ev if e["tipo"] == "avanzamento" and "byte_fatti" in e]
+        assert len(nuovi) == 4 and all(e["passo"] == "database" for e in nuovi)
+        assert nuovi[0]["messaggio"].startswith(testo)
+        assert nuovi[-1]["byte_fatti"] == nuovi[-1]["byte_totali"] and nuovi[-1]["eta_s"] == 0
+        assert {s["sorgente"] for s in nuovi[0]["sorgenti"]} == {"kraken", "pmn"} and nuovi[0]["sorgente"] == "kraken"
+        pct = [e["percentuale"] for e in ev if e["tipo"] == "avanzamento"]
+        assert pct == sorted(pct)
+
+
 def test_annulla_stops_a_running_esegui(progetto):
     corsa = subprocess.Popen([sys.executable, FINTO, "esegui", "--progetto", str(progetto), "--velocita", "200"],
                              stdout=subprocess.PIPE, text=True, encoding="utf-8")

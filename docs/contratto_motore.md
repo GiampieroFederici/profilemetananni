@@ -20,6 +20,11 @@
 > (eventi, referto, FSSP) nella lingua scelta. Senza l'opzione tutto resta come prima, in italiano: nessun campo nuovo,
 > tolto o rinominato. Aggiunte segnate **[lingua]**.
 
+> **[v1.1, 30/10/2026, installatore]** `installa` scarica a pezzi e più sorgenti insieme (D165): solo **campi nuovi
+> facoltativi** in `avanzamento` (`byte_fatti`, `byte_totali`, `velocita_mb_s`, `sorgente`, `sorgenti`) e nel risultato
+> di `--stima` (`spazio_necessario_byte`, `spazio_libero_byte`, `sorgenti`); nessun campo tolto o rinominato.
+> Aggiunte segnate **[v1.1]**.
+
 ---
 
 ## 1. Come si chiama il motore
@@ -42,7 +47,7 @@
 | Comando | Cosa fa | Ingresso | Uscita (evento `fine`, campo `risultato`) |
 |---|---|---|---|
 | `info` | descrive PC e installazione, senza calcoli lunghi | nessuno | §5.1 |
-| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | `{"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}`; con `--stima`: `{"da_scaricare_gb", "spazio_necessario_gb", "spazio_libero_gb", "velocita_mb_s", "tempo_stimato_s"}` |
+| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | `{"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}`; con `--stima`: `{"da_scaricare_gb", "spazio_necessario_gb", "spazio_libero_gb", "velocita_mb_s", "tempo_stimato_s"}`; **[v1.1]** in più `spazio_necessario_byte`, `spazio_libero_byte` (byte esatti: l'unica regola dello spazio, la legge anche `installa_pmn.ps1`) e `sorgenti` (`[{"sorgente", "da_scaricare_gb", "velocita_mb_s", "tempo_stimato_s"}]`, `null` se non misurata); `tempo_stimato_s` è quello della sorgente più lenta (le sorgenti scaricano insieme) |
 | `verifica` | MD5 dei database + mini-campione di regressione (D032) | nessuno | `{"esito": "verde" \| "rosso", "controlli": [...]}` |
 | `stima` | tempo e spazio previsti, prima di partire (D023, D034) | `--progetto <config.yaml>` | §5.2 |
 | `esegui` | analisi completa del progetto | `--progetto <config.yaml>` | §5.3 |
@@ -98,6 +103,14 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
 - `passo` per `esegui`: `download`, `controllo_qualita`, `pulizia`, `ospite`, `metaphlan`, `kraken`, `riepilogo`.
 - `passo` per `installa`: `controllo`, `programmi`, `database`, `verifica`, `fine`
   (già così in `installer/installa_motore.sh --json`).
+- **[v1.1]** In `installa`, durante lo scarico dei database, un `avanzamento` **almeno ogni 30 s** (il motore lo manda
+  ogni 15 s, anche dentro un file da 85 GB) con i campi nuovi facoltativi: `byte_fatti` e `byte_totali` (tutti i
+  database del catalogo, già scaricati compresi), `velocita_mb_s` (somma delle sorgenti, media degli ultimi ~60 s),
+  `sorgente` (quella che decide il tempo che manca, la più lenta, o `null`) e `sorgenti`
+  (`[{"sorgente", "byte_fatti", "byte_totali", "velocita_mb_s"}]`, una voce per sorgente del catalogo: `kraken`,
+  `pmn`). `eta_s` si ricalcola a ogni evento con la velocità vera di ogni sorgente; `percentuale` = 22 + 70 × byte
+  fatti / byte totali e non torna indietro. Gli eventi d'inizio file ("Scarico ...") restano senza questi campi.
+  Chi non li conosce li ignora.
 - **[v0.2]** `passo` `sicurezza` (un avanzamento per scenario) e `referto` (ultimo passo di `esegui`, e del comando `referto`).
 - L'interfaccia mostra `messaggio` così com'è; per la barra usa `percentuale` ed `eta_s`.
 - **[v0.2]** Testi per l'utente con le vere lettere accentate (è, à, ù, perché), mai l'apostrofo al posto dell'accento.
