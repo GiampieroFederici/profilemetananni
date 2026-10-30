@@ -5,18 +5,42 @@ di progetto.nuovo e porta a "Campioni e prodotto". Mentre un'analisi gira si lav
 gli altri non si aprono e non se ne creano di nuovi (si spiega perché).
 "Prova il campione d'esempio" (A2) crea o riapre il progetto d'esempio con il mini-campione che il motore annuncia
 in `info.esempio`: si arriva alle scelte già pronte, e un clic su "Avvia l'analisi" basta.
+"Versione e aggiornamenti" (R12): versione installata, "Cerca aggiornamenti" (Release latest di GitHub, app/aggiorna.py),
+"Aggiorna adesso" solo dopo il Sì, "Torna alla versione precedente" se c'è; tutto spento mentre il motore lavora.
 """
+import shutil
+import threading
 from datetime import date, datetime
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGridLayout, QLineEdit, QPushButton, QVBoxLayout
+from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLineEdit, QMessageBox, QProgressDialog, QPushButton, QVBoxLayout
 
-from app import progetto
+from app import aggiorna, progetto
 from app.lingua import N_, _
 from app.pagine.base import Pagina, etichetta, pannello, riquadro, svuota
 from app.pagine.progetto import regola
 
 NOME_ESEMPIO = "esempio_SF3RAt7"
+
+
+class _Rete(QObject):
+    """Il lavoro in rete gira in un filo a parte; questi segnali portano i risultati alla pagina (filo dell'interfaccia)."""
+    controllato = Signal(object)        # dict di aggiorna.controlla() oppure ErroreAggiorna
+    scaricato = Signal(object)          # cartella del pacchetto estratto oppure ErroreAggiorna
+    passo = Signal(int, int)            # byte scaricati, byte totali
+
+
+def _in_filo(funzione, segnale):
+    def lavora():
+        try:
+            r = funzione()
+        except aggiorna.ErroreAggiorna as e:
+            r = e
+        except Exception:               # imprevisto: lo si dice, l'app non si ferma
+            r = aggiorna.ErroreAggiorna("RISPOSTA", _("Il controllo degli aggiornamenti non è riuscito."),
+                                        _("Riprova più tardi."))
+        segnale.emit(r)
+    threading.Thread(target=lavora, daemon=True).start()
 
 
 class PaginaHome(Pagina):
@@ -57,6 +81,29 @@ class PaginaHome(Pagina):
         self.errore = QVBoxLayout()
         self.corpo.addLayout(self.errore)
 
+        self.corpo.addSpacing(8)
+        p, s = pannello(_("Versione e aggiornamenti"))
+        s.addWidget(etichetta(_("Versione installata: {versione}.", versione=aggiorna.VERSIONE)))
+        riga = QHBoxLayout()
+        self.cerca = QPushButton(_("Cerca aggiornamenti"), objectName="secondario")
+        self.cerca.clicked.connect(self.cerca_aggiornamenti)
+        self.indietro = QPushButton(_("Torna alla versione precedente"), objectName="secondario")
+        self.indietro.clicked.connect(self.torna_indietro)
+        riga.addWidget(self.cerca)
+        riga.addWidget(self.indietro)
+        riga.addStretch(1)
+        s.addLayout(riga)
+        self.nota_occupato = etichetta(_("Mentre il motore lavora non si aggiorna: aspetta che finisca."), "nota")
+        s.addWidget(self.nota_occupato)
+        self.zona_aggiorna = QVBoxLayout()
+        s.addLayout(self.zona_aggiorna)
+        self.corpo.addWidget(p)
+        self.rete = _Rete(self)
+        self.rete.controllato.connect(self._controllato)
+        self.rete.scaricato.connect(self._scaricato)
+        self.rete.passo.connect(self._passo)
+        self.release, self.barra_scarico, self._in_rete, self._fermo = None, None, False, False
+
     def mostrata(self):
         svuota(self.zona_motore)
         if self.contesto.info is None:
@@ -81,6 +128,7 @@ class PaginaHome(Pagina):
         self._elenco()
         if not self.nome.text():
             self.nome.setText(self._nome_proposto())
+        self._stato_aggiorna()
 
     def _nome_proposto(self):
         oggi = f"{_('progetto')}_{date.today().isoformat()}"   # nome di cartella proposto: project_... con l'inglese
@@ -206,3 +254,141 @@ class PaginaHome(Pagina):
         self.contesto.progetto = nuovo
         self.nome.clear()
         self.vai.emit("campioni")
+
+    # ---------------- versione e aggiornamenti (R12) ----------------
+    def motore_occupato(self):
+        """Analisi, installazione o altro lavoro del motore in corso: intanto non si aggiorna (la finestra lo sa)."""
+        f = self.window()
+        return f.occupato() if hasattr(f, "occupato") else self.contesto.progetto_in_analisi is not None
+
+    def _stato_aggiorna(self):
+        occupato = self.motore_occupato()
+        self.cerca.setEnabled(not (occupato or self._in_rete))
+        self.indietro.setVisible(aggiorna.precedente() is not None)
+        self.indietro.setEnabled(not (occupato or self._in_rete))
+        self.nota_occupato.setVisible(occupato)
+
+    def conferma(self, titolo, testo):
+        return QMessageBox.question(self, titolo, testo) == QMessageBox.Yes
+
+    def cerca_aggiornamenti(self):
+        svuota(self.zona_aggiorna)
+        self._stato_aggiorna()
+        if self.motore_occupato():
+            return
+        self._in_rete = True
+        self._stato_aggiorna()
+        self.zona_aggiorna.addWidget(etichetta(_("Controllo su GitHub..."), "nota"))
+        _in_filo(aggiorna.controlla, self.rete.controllato)
+
+    def _controllato(self, r):
+        self._in_rete = False
+        svuota(self.zona_aggiorna)
+        self._stato_aggiorna()
+        if isinstance(r, aggiorna.ErroreAggiorna):
+            self.zona_aggiorna.addWidget(riquadro(r.messaggio, r.cosa_fare, "avviso"))
+            return
+        self.release = r
+        if r["stato"] == "uguale":
+            self.zona_aggiorna.addWidget(riquadro(_("Hai già l'ultima versione ({versione}).", versione=r["nuova"]),
+                                                  "", "info"))
+            return
+        if r["stato"] == "vecchia":
+            self.zona_aggiorna.addWidget(riquadro(
+                _("La versione installata ({installata}) è più nuova di quella pubblicata ({nuova}): non c'è nulla "
+                  "da aggiornare.", installata=r["installata"], nuova=r["nuova"]), "", "info"))
+            return
+        self.zona_aggiorna.addWidget(riquadro(_("È disponibile la versione {nuova}.", nuova=r["nuova"]),
+                                              _("Versione installata: {versione}.", versione=r["installata"]), "info"))
+        if r["novita"]:
+            self.zona_aggiorna.addWidget(etichetta(_("Novità"), "etichetta_campo"))
+            novita = etichetta(r["novita"])
+            novita.setTextFormat(Qt.PlainText)       # testo della Release: mai interpretato come HTML
+            self.zona_aggiorna.addWidget(novita)
+        if r["pacchetto"] is None:
+            self.zona_aggiorna.addWidget(riquadro(_("Il pacchetto della versione nuova non è ancora pronto."),
+                                                  _("Riprova più tardi."), "avviso"))
+        elif not aggiorna.puo_installare():
+            self.zona_aggiorna.addWidget(riquadro(
+                _("Da questa copia del programma posso solo controllare."),
+                _("Per aggiornare, scarica lo zip dalla pagina della Release su GitHub e installalo con il doppio "
+                  "clic."), "avviso"))
+        else:
+            b = QPushButton(_("Aggiorna adesso"), objectName="secondario")
+            b.clicked.connect(self.aggiorna_adesso)
+            self.zona_aggiorna.addWidget(b, 0, Qt.AlignLeft)
+
+    def aggiorna_adesso(self):
+        r = self.release
+        if self.motore_occupato() or not r or not r.get("pacchetto"):
+            self._stato_aggiorna()
+            return
+        mb = max(1, round(r["pacchetto"]["byte"] / 1e6))
+        if not self.conferma(_("Aggiorna ProfileMetaNanni"), _(
+                "Scarico la versione {nuova} (circa {mb} MB). Poi il programma si chiude, si aggiorna e si riapre da "
+                "solo.\n\nSe il motore nuovo ha bisogno di altri database, prima di scaricarli te lo chiedo. I tuoi "
+                "progetti, i risultati e le impostazioni restano dove sono; se qualcosa non va, puoi tornare alla "
+                "versione precedente.\n\nProcedo?", nuova=r["nuova"], mb=mb)):
+            return
+        self._in_rete, self._fermo = True, False
+        self._stato_aggiorna()
+        self.barra_scarico = QProgressDialog(_("Scarico la versione {nuova}...", nuova=r["nuova"]), _("Annulla"),
+                                             0, 100, self)
+        self.barra_scarico.setWindowModality(Qt.WindowModal)     # intanto non si avvia un'analisi
+        self.barra_scarico.setMinimumDuration(0)
+        self.barra_scarico.setAutoClose(False)
+        self.barra_scarico.setAutoReset(False)
+        self.barra_scarico.canceled.connect(self._annulla_scarico)
+        self.barra_scarico.show()
+        pacchetto, lavoro = r["pacchetto"], aggiorna.cartella_lavoro()
+
+        def scarica_ed_estrai():
+            shutil.rmtree(lavoro, ignore_errors=True)            # resti di un aggiornamento passato
+            zip_ = aggiorna.scarica(pacchetto, lavoro, lambda f, t: self.rete.passo.emit(f, t), lambda: self._fermo)
+            return aggiorna.estrai(zip_, lavoro)
+        _in_filo(scarica_ed_estrai, self.rete.scaricato)
+
+    def _annulla_scarico(self):
+        self._fermo = True
+
+    def _passo(self, fatti, totali):
+        if self.barra_scarico is not None and totali:
+            self.barra_scarico.setValue(int(100 * fatti / totali))
+
+    def _scaricato(self, r):
+        self._in_rete = False
+        if self.barra_scarico is not None:
+            self.barra_scarico.hide()
+            self.barra_scarico.deleteLater()
+            self.barra_scarico = None
+        svuota(self.zona_aggiorna)
+        self._stato_aggiorna()
+        if isinstance(r, aggiorna.ErroreAggiorna):
+            self.zona_aggiorna.addWidget(riquadro(r.messaggio, r.cosa_fare, "avviso"))
+            return
+        if self.motore_occupato():
+            self.zona_aggiorna.addWidget(riquadro(_("Il motore ha cominciato un lavoro: non aggiorno adesso."),
+                                                  _("Riprova quando ha finito."), "avviso"))
+            return
+        self._lancia(r.joinpath(*aggiorna.PS1), False)
+
+    def torna_indietro(self):
+        script = aggiorna.precedente()
+        if script is None or self.motore_occupato():
+            self._stato_aggiorna()
+            return
+        if self.conferma(_("Torna alla versione precedente"), _(
+                "Il programma si chiude, rimette la versione di prima (programma e motore) e si riapre. I tuoi "
+                "progetti, i risultati e le impostazioni restano dove sono.\n\nProcedo?")):
+            self._lancia(script, True)
+
+    def _lancia(self, script, ripristina):
+        """Lo script aspetta che l'app sia chiusa prima di toccarla: qui si lancia e si chiude la finestra."""
+        try:
+            aggiorna.avvia_script(script, ripristina)
+        except OSError:
+            self.zona_aggiorna.addWidget(riquadro(_("Non riesco ad avviare l'aggiornamento."),
+                                                  _("Scarica la versione nuova dalla pagina della Release su GitHub."),
+                                                  "errore"))
+            return
+        self.window().close()

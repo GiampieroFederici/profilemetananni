@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QGridLayout, Q
                                QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
 from app import lingua
+from app.aggiorna import VERSIONE
 from app.lingua import N_, _
 from app.motore import MotoreClient
 from app.pagine.base import Contesto
@@ -201,6 +202,7 @@ class Finestra(QMainWindow):
         self.emblema.setAccessibleName("ProfileMetaNanni")
         s.addWidget(self.emblema)
         s.addWidget(QLabel("ProfileMetaNanni", objectName="nome"))
+        s.addWidget(QLabel(f"v{VERSIONE}", objectName="versione"))     # D168: la versione, in un punto discreto
         self.nome_progetto = QLabel("", objectName="nome_progetto")
         s.addWidget(self.nome_progetto)
         s.addStretch(1)
