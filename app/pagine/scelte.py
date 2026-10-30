@@ -63,8 +63,9 @@ def durata(secondi):
 
 
 def gb(x):
-    """Spazio in parole: '12 GB'; sotto 1 GB 'meno di 1 GB' (non '0 GB', come per il campione d'esempio)."""
-    return _("meno di 1 GB") if 0 < x < 0.5 else f"{numero(x, 0)} GB"
+    """Spazio in parole: '12 GB'; sotto 1 GB 'meno di 1 GB' (non '0 GB', come per il campione d'esempio; B4-d: anche
+    quando non serve spazio nuovo, per esempio un progetto rifatto)."""
+    return _("meno di 1 GB") if x < 0.5 else f"{numero(x, 0)} GB"
 
 
 class PaginaScelte(Pagina):

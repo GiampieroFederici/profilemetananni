@@ -295,9 +295,8 @@ def test_b4c_casuale_nessun_conteggio_a_zero(stile, f, qtbot):
                "kraken": {"microbi": 0, "dominanti": [], "non_microbi": [],
                           "frase": "Kraken: nessun taxon sopra la soglia."}}
     (p.risultati / "risultati.json").write_text(json.dumps({
-        "motore": "1.1.0", "campioni": [{"nome": "CASUALE", "esito": "ok", "sintesi": sintesi}],
-        "consigli": [{"codice": "METAPHLAN_VUOTO", "messaggio": "MetaPhlAn: nessuna specie trovata in CASUALE."}]}),
-        encoding="utf-8")
+        "motore": "1.1.0", "campioni": [{"nome": "CASUALE", "esito": "ok", "sintesi": sintesi}]}),   # B4-d: come
+        encoding="utf-8")                                                                         # il motore, senza consigli
     f.contesto.progetto = p
     f.vai("risultati")
     qtbot.wait(200)
@@ -305,3 +304,10 @@ def test_b4c_casuale_nessun_conteggio_a_zero(stile, f, qtbot):
     testi = " | ".join(lab.text() for w in pag.schede for lab in w.findChildren(QLabel))
     assert not re.search(r"\b0 (specie|taxa)\b", testi), testi
     assert "MetaPhlAn non ha trovato specie" in testi and "Kraken non ha trovato taxa sopra la soglia" in testi
+    assert "Da sapere" not in testi       # B4-d: rimandava a un riquadro "Da sapere" che in questa pagina non c'è
+
+
+def test_b4d_spazio_zero_in_parole():
+    """B4-d: "Spazio: 0 GB" nelle scelte di Casuale (progetto rifatto, nessuno spazio nuovo)."""
+    from app.pagine.scelte import gb
+    assert gb(0) == gb(0.2) == "meno di 1 GB" and gb(12.4) == "12 GB"

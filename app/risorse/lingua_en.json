@@ -553,6 +553,6 @@
  "Windows non riesce a verificare il certificato di sicurezza di GitHub.": "Windows cannot verify the security certificate of GitHub.",
  "Controlla che data e ora del computer siano giuste, poi riprova. Se la rete è di un'azienda o di un ente, chiedi a chi la gestisce se blocca GitHub.": "Check that the date and time of the computer are right, then try again. If the network belongs to a company or an institution, ask the people who manage it whether it blocks GitHub.",
  "Apri il registro": "Open the log",
- "MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto. Il perché è in \"Da sapere\", in cima alla pagina.": "MetaPhlAn found no species in this sample: the profile is empty. The reason is under \"Good to know\", at the top of the page.",
+ "MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto.": "MetaPhlAn found no species in this sample: the profile is empty.",
  "Kraken non ha trovato taxa sopra la soglia in questo campione.": "Kraken found no taxa above the threshold in this sample."
 }

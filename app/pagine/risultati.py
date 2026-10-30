@@ -413,8 +413,8 @@ class PaginaRisultati(Pagina):
                 s.addWidget(etichetta(_("Profilo MetaPhlAn non disponibile per questo campione."), "nota"))
                 continue
             if not m.get("specie"):                # B4-c: profilo vuoto ma valido (era "Qui tutte le 0 specie")
-                s.addWidget(etichetta(_("MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto. Il "
-                                        "perché è in \"Da sapere\", in cima alla pagina."), "nota"))
+                s.addWidget(etichetta(_("MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto."),
+                                      "nota"))
                 continue
             p = numero(m['non_assegnata_pct'])
             e = etichetta(_("Percentuale sul totale delle read del campione. {art}<b>{pct} %</b> non è assegnato a "
