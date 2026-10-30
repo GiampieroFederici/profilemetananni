@@ -205,11 +205,13 @@ class PaginaMotore(Pagina):
                 self.da_installare = e.get("codice") in DA_INSTALLARE
                 titolo = _("ROSSO: {messaggio}", messaggio=e['messaggio']) if comando == "verifica" else e["messaggio"]
                 self.zona_esito.addWidget(riquadro(titolo, e.get("cosa_fare", ""), "errore"))
+            self._esito_in_vista()                     # B4-9: anche il ROSSO, non solo il VERDE (B2 P7)
             return
         if fine.get("esito") == "annullata":
             self.zona_esito.addWidget(riquadro(fine.get("messaggio", ""), _("Premi Installa o completa per "
                                                                             "riprendere da dove si era fermata."),
                                                "info"))
+            self._esito_in_vista()
             return
         r = fine.get("risultato") or {}
         controlli = r.get("controlli") or []

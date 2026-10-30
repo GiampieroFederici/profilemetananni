@@ -264,3 +264,21 @@ def test_b4c_pulsanti_del_referto_non_sotto_le_schede(stile, f, qtbot, larghezza
     sotto = [b.text() for b in pag.findChildren(QPushButton)
              if b.isVisible() and QRect(b.mapTo(pag, QPoint(0, 0)), b.size()).intersects(schede)]
     assert sotto == [], (larghezza, sotto)
+
+
+def test_b4c_errore_della_verifica_in_vista(stile, f, qtbot):
+    """B4-9: a 8 GB il ROSSO della memoria stava in fondo alla pagina Motore e non si vedeva senza scorrere (il VERDE
+    sì, B2 P7)."""
+    from PySide6.QtCore import QCoreApplication, QPoint
+    misura(f, qtbot, 655)
+    f.vai("motore")
+    m = f.pagine["motore"]
+    scorre = f.pila.currentWidget()
+    m.errore_corsa = {"codice": "RAM_INSUFFICIENTE", "messaggio": "La prova si è fermata perché la memoria non basta.",
+                      "cosa_fare": "Chiudi gli altri programmi e riprova."}
+    m._esito("verifica", {"esito": "errore"})
+    esito = m.zona_esito.itemAt(m.zona_esito.count() - 1).widget()
+    qtbot.wait(300)
+    QCoreApplication.processEvents()
+    y, alto = esito.mapTo(scorre.viewport(), QPoint(0, 0)).y(), scorre.viewport().height()
+    assert 0 <= y and y + min(esito.height(), alto) <= alto, (y, esito.height(), alto)
