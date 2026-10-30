@@ -12,7 +12,7 @@ Se la pagina cambia contesto.info chiama self.info_cambiata.emit(): la testata a
 Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); il loro stile è in stile.qss.
 """
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QRadioButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget
 
 from app import lingua
 from app.lingua import N_, _
@@ -140,12 +140,81 @@ class Scelta(QFrame):
         self._ridisegna()
 
 
+class PulsanteACapo(QPushButton):
+    """Pulsante il cui testo va a capo quando la finestra è stretta (B2-2b): lo scrive una QLabel dentro, il
+    pulsante resta cliccabile, selezionabile e raggiungibile col Tab come prima."""
+    def __init__(self, testo="", **opzioni):
+        super().__init__(**opzioni)
+        self.scritta = QLabel()
+        self.scritta.setWordWrap(True)
+        self.scritta.setAttribute(Qt.WA_TransparentForMouseEvents)
+        s = QHBoxLayout(self)
+        s.setContentsMargins(0, 4, 0, 4)
+        s.addWidget(self.scritta)
+        politica = self.sizePolicy()
+        politica.setHeightForWidth(True)
+        self.setSizePolicy(politica)
+        self.setText(testo)
+
+    def setText(self, testo):
+        self.scritta.setText(testo)
+        self.setAccessibleName(testo)
+        self.updateGeometry()
+
+    def text(self):
+        return self.scritta.text()
+
+    def sizeHint(self):
+        return self.layout().sizeHint()
+
+    def minimumSizeHint(self):
+        return self.layout().minimumSize()
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, larghezza):
+        return self.layout().totalHeightForWidth(larghezza)
+
+    def _sottolinea(self, si):                 # come QPushButton#apri:hover/:focus di stile.qss
+        f = self.scritta.font()
+        f.setUnderline(si)
+        self.scritta.setFont(f)
+
+    def enterEvent(self, evento):
+        self._sottolinea(True)
+        super().enterEvent(evento)
+
+    def leaveEvent(self, evento):
+        self._sottolinea(self.hasFocus())
+        super().leaveEvent(evento)
+
+    def focusInEvent(self, evento):
+        self._sottolinea(True)
+        super().focusInEvent(evento)
+
+    def focusOutEvent(self, evento):
+        self._sottolinea(self.underMouse())
+        super().focusOutEvent(evento)
+
+
 def riga_di_scelte(*schede):
-    r = QHBoxLayout()
+    """Schede affiancate; se la pagina è troppo stretta per affiancarle, una sotto l'altra (impila, B2-2b)."""
+    r = QHBoxLayout(objectName="riga_di_scelte")
     r.setSpacing(16)
     for s in schede:
         r.addWidget(s, 1)
     return r
+
+
+def impila(pagina, larghezza):
+    """B2-2b: le righe di schede che a questa larghezza (spazio per il contenuto della pagina) non ci stanno
+    affiancate vanno una sotto l'altra; quelle che ci stanno tornano affiancate."""
+    for r in pagina.findChildren(QHBoxLayout, "riga_di_scelte"):
+        schede = [r.itemAt(i).widget() for i in range(r.count())
+                  if r.itemAt(i).widget() is not None and not r.itemAt(i).widget().isHidden()]
+        affiancate = sum(s.minimumSizeHint().width() for s in schede) + r.spacing() * (len(schede) - 1)
+        r.setDirection(QHBoxLayout.LeftToRight if affiancate <= larghezza else QHBoxLayout.TopToBottom)
 
 
 def pannello(titolo=None):
@@ -160,9 +229,14 @@ def pannello(titolo=None):
 
 
 def svuota(disposizione):
-    """Toglie i widget di un layout (per ridisegnare una zona della pagina)."""
+    """Toglie i widget di un layout (per ridisegnare una zona della pagina), anche quelli dei layout dentro
+    (B2-11a: la griglia della stima di prima restava visibile sotto quella nuova)."""
     while disposizione.count():
-        w = disposizione.takeAt(0).widget()
+        voce = disposizione.takeAt(0)
+        w, dentro = voce.widget(), voce.layout()
         if w:
             w.hide()
             w.deleteLater()
+        elif dentro is not None:
+            svuota(dentro)
+            dentro.deleteLater()

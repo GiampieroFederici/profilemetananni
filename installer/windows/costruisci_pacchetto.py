@@ -7,7 +7,7 @@ Uscita in build\\pacchetto\\: la cartella profilemetananni\\ e profilemetananni_
     Installa profilemetananni.cmd    il doppio clic (avvia installer\\windows\\installa_pmn.ps1)
     app_windows\\ProfileMetaNanni\\   l'app di PyInstaller a cartella (--onedir): ProfileMetaNanni.exe + _internal\\
     installer\\ motore\\ bin\\ steps\\ refs\\   i file del motore, solo quelli in git (prepara_pmn.sh li copia nella WSL)
-    VERSIONE.txt                     "profilemetananni 1.1.0" e "commit <commit>" (D168; numero in app/aggiorna.py)
+    VERSIONE.txt                     "profilemetananni 1.1.0" e "commit <commit>" (D168; numero nel file motore/VERSIONE)
 Le librerie (PyInstaller, Pillow) sono in installer/windows/requisiti_pacchetto.txt.
 """
 import base64
@@ -79,6 +79,7 @@ def app(ico):
         "--add-data", f"{RADICE / 'app' / 'risorse'}{sep}app/risorse",
         "--add-data", f"{RADICE / 'app' / 'stile.qss'}{sep}app",
         "--add-data", f"{RADICE / 'refs' / 'kraken_profili.tsv'}{sep}refs",
+        "--add-data", f"{RADICE / 'motore' / 'VERSIONE'}{sep}motore",       # D168: la versione che legge app/aggiorna.py
         "--exclude-module", "pytest", "--exclude-module", "pytestqt",
     ])
     return BUILD / "dist" / "ProfileMetaNanni"

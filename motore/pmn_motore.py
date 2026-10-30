@@ -29,7 +29,7 @@ import ospiti
 import system_one
 from lingua import N_, _
 
-VERSIONE = "0.1.0"
+VERSIONE = (Path(__file__).resolve().parent / "VERSIONE").read_text(encoding="utf-8").strip()   # D168: unica fonte
 ROOT = Path(__file__).resolve().parent.parent
 PMN_HOME = Path(os.environ.get("PMN_HOME", Path.home() / ".pmn"))
 STATO = PMN_HOME / "stato"

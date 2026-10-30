@@ -127,7 +127,7 @@ class PaginaMotore(Pagina):
             self._pallino("verde")
             self.stato_titolo.setText(_("Installato e pronto") + (_(" (motore di prova)") if i.get("finto") else ""))
         for riga, d in enumerate(database):
-            self.griglia.addWidget(QLabel(_(NOMI_DB[d["nome"]]) if d["nome"] in NOMI_DB else
+            self.griglia.addWidget(etichetta(_(NOMI_DB[d["nome"]]) if d["nome"] in NOMI_DB else   # B2-2b: a capo
                                           _("Altro database ({nome})", nome=d['nome'])), riga, 0)
             self.griglia.addWidget(QLabel(_("installato") if d.get("installato") else _("manca")), riga, 1)
             self.griglia.addWidget(QLabel(f"{numero(d['gb'])} GB" if d.get("gb") is not None else ""), riga, 2)

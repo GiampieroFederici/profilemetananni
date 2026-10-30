@@ -435,7 +435,6 @@
  "Non riesco a raggiungere GitHub.": "I cannot reach GitHub.",
  "Controlla la connessione a internet e riprova.": "Check the internet connection and try again.",
  "La risposta di GitHub non è quella attesa.": "The answer from GitHub is not the expected one.",
- "Lo scaricamento si è interrotto.": "The download stopped.",
  "GitHub accetta pochi controlli all'ora da questa rete e il limite è raggiunto.": "GitHub accepts only a few checks per hour from this network and the limit has been reached.",
  "Non c'è abbastanza spazio sul disco per l'aggiornamento.": "There is not enough space on the disk for the update.",
  "Libera almeno {gb} GB e riprova.": "Free at least {gb} GB and try again.",
@@ -550,5 +549,8 @@
  "Puoi aggiungere l'ospite lo stesso: alla prima analisi scarico il genoma e controllo il codice. La stima vale per un genoma grande come quello umano.": "You can add the host anyway: at the first analysis I download the genome and check the code. The estimate is for a genome as large as the human one.",
  "Controlla la data e l'ora del computer e la connessione a internet.": "Check the date and time of the computer and the internet connection.",
  "Controlla la connessione a internet.": "Check the internet connection.",
- "Costruire l'indice richiede {costo}; sul disco occupa {disco}, e durante la costruzione ne servono {tmp} in più. Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.": "Building the index takes {costo}; on the disk it takes {disco}, and while it is built {tmp} more are needed. It is done only once, at the first analysis that uses this host; then it is reused."
+ "Costruire l'indice richiede {costo}; sul disco occupa {disco}, e durante la costruzione ne servono {tmp} in più. Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.": "Building the index takes {costo}; on the disk it takes {disco}, and while it is built {tmp} more are needed. It is done only once, at the first analysis that uses this host; then it is reused.",
+ "Windows non riesce a verificare il certificato di sicurezza di GitHub.": "Windows cannot verify the security certificate of GitHub.",
+ "Controlla che data e ora del computer siano giuste, poi riprova. Se la rete è di un'azienda o di un ente, chiedi a chi la gestisce se blocca GitHub.": "Check that the date and time of the computer are right, then try again. If the network belongs to a company or an institution, ask the people who manage it whether it blocks GitHub.",
+ "Apri il registro": "Open the log"
 }

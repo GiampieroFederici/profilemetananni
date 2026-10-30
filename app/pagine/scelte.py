@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QFrame, QGridL
 from app import lingua
 from app.lingua import N_, _
 from app.motore import RADICE, MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
+from app.pagine.base import Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
 
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
 CONFIDENZE = ["0", "0.05", "0.1", "0.2", "0.3", "0.5"]
@@ -136,7 +136,7 @@ class PaginaScelte(Pagina):
 
         # parametri per esperti: chiusi (R6), consigliato preselezionato e fonte accanto (D022)
         self.corpo.addSpacing(8)
-        self.apri_esperti = QPushButton(objectName="apri")
+        self.apri_esperti = PulsanteACapo(objectName="apri")
         self.apri_esperti.setCheckable(True)
         self.apri_esperti.toggled.connect(self._esperti)
         self.corpo.addWidget(self.apri_esperti)
@@ -158,11 +158,11 @@ class PaginaScelte(Pagina):
         for i, (nome, campo, fonte) in enumerate(righe):
             griglia.addWidget(etichetta(nome, "etichetta_campo"), i, 0)
             campo.setAccessibleName(nome)
-            campo.setMinimumWidth(220)
+            campo.setMinimumWidth(160)                 # B2-2b: 220 non ci stava a 830 px
             griglia.addWidget(campo, i, 1)
             griglia.addWidget(etichetta(fonte, "nota"), i, 2)
         s.addLayout(griglia)
-        self.apri_file = QPushButton(objectName="apri")
+        self.apri_file = PulsanteACapo(objectName="apri")
         self.apri_file.setCheckable(True)
         self.apri_file.toggled.connect(self._file)
         s.addWidget(self.apri_file)

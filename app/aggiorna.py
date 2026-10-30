@@ -1,6 +1,6 @@
 """Aggiornamento dell'app dalla Release "latest" di GitHub (R12, D168).
 
-VERSIONE è il numero di questa versione: costruisci_pacchetto.py lo scrive anche in VERSIONE.txt dello zip.
+VERSIONE è il numero di questa versione (file motore/VERSIONE): costruisci_pacchetto.py lo scrive anche in VERSIONE.txt dello zip.
   controlla()   legge la Release latest (solo HTTPS, nessun token, timeout breve) e confronta il tag vX.Y.Z
   scarica()     scarica lo zip della Release controllando byte e SHA-256 (campo `digest` dell'API di GitHub)
   estrai()      estrae lo zip in una cartella di lavoro, senza uscire da quella cartella
@@ -15,8 +15,6 @@ import re
 import shutil
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -24,7 +22,8 @@ from urllib.parse import urlsplit
 
 from app.lingua import _
 
-VERSIONE = "1.1.0"
+# D168, B2-2a: un solo numero per app, motore e zip, nel file motore/VERSIONE (nell'app impacchettata è in _internal)
+VERSIONE = (Path(__file__).resolve().parent.parent / "motore" / "VERSIONE").read_text(encoding="utf-8").strip()
 URL_ULTIMA = "https://api.github.com/repos/GiampieroFederici/profilemetananni/releases/latest"
 TIMEOUT = 10                       # secondi: il controllo non deve bloccare a lungo
 MAX_NOVITA = 1200                  # caratteri delle novità mostrati
@@ -35,7 +34,7 @@ APP_EXE = ("app_windows", "ProfileMetaNanni", "ProfileMetaNanni.exe")
 
 
 class ErroreAggiorna(Exception):
-    """codice: RETE, LIMITE, RISPOSTA, INDIRIZZO, PACCHETTO_DIVERSO, INCOMPATIBILE, SPAZIO, DISCO, ANNULLATO."""
+    """codice: RETE, CERTIFICATO, LIMITE, RISPOSTA, INDIRIZZO, PACCHETTO_DIVERSO, INCOMPATIBILE, SPAZIO, DISCO, ANNULLATO."""
     def __init__(self, codice, messaggio, cosa_fare=""):
         super().__init__(messaggio)
         self.codice, self.messaggio, self.cosa_fare = codice, messaggio, cosa_fare
@@ -58,34 +57,80 @@ def sicuro(url):
     return url
 
 
-class _SoloSicuri(urllib.request.HTTPRedirectHandler):
-    """Anche i rinvii (GitHub manda lo zip a un altro server) devono restare HTTPS."""
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        sicuro(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+def errore_http(codice, intestazioni):
+    """GitHub ha risposto con un codice di errore: limite di richieste (403/429) o altro."""
+    if codice == 429 or (codice == 403 and intestazioni.get("x-ratelimit-remaining") == "0"):
+        try:
+            ora = datetime.fromtimestamp(int(intestazioni.get("x-ratelimit-reset"))).strftime("%H:%M")
+        except (TypeError, ValueError, OSError):
+            ora = None
+        return ErroreAggiorna("LIMITE", _("GitHub accetta pochi controlli all'ora da questa rete e il limite è "
+                                          "raggiunto."),
+                              _("Riprova dopo le {ora}.", ora=ora) if ora else _("Riprova fra un'ora."))
+    return ErroreAggiorna("RISPOSTA", _("GitHub ha risposto con un errore (codice {codice}).", codice=codice),
+                          _("Riprova più tardi."))
 
 
-def _apri(url, timeout):
-    richiesta = urllib.request.Request(sicuro(url), headers={
-        "Accept": "application/vnd.github+json", "User-Agent": f"ProfileMetaNanni/{VERSIONE}"})
-    try:
-        return urllib.request.build_opener(_SoloSicuri).open(richiesta, timeout=timeout)
-    except urllib.error.HTTPError as e:
-        if e.code == 429 or (e.code == 403 and e.headers.get("X-RateLimit-Remaining") == "0"):
-            try:
-                ora = datetime.fromtimestamp(int(e.headers.get("X-RateLimit-Reset"))).strftime("%H:%M")
-            except (TypeError, ValueError, OSError):
-                ora = None
-            raise ErroreAggiorna("LIMITE", _("GitHub accetta pochi controlli all'ora da questa rete e il limite è "
-                                             "raggiunto."),
-                                 _("Riprova dopo le {ora}.", ora=ora) if ora else _("Riprova fra un'ora."))
-        raise ErroreAggiorna("RISPOSTA", _("GitHub ha risposto con un errore (codice {codice}).", codice=e.code),
-                             _("Riprova più tardi."))
-    except (urllib.error.URLError, OSError) as e:
-        if isinstance(getattr(e, "reason", None), ErroreAggiorna):
-            raise e.reason
-        raise ErroreAggiorna("RETE", _("Non riesco a raggiungere GitHub."),
-                             _("Controlla la connessione a internet e riprova."))
+def errore_rete(errore_qt):
+    """Errore della rete di Qt: certificato non verificato (B2-7a, punto 6) oppure rete assente o lenta."""
+    from PySide6.QtNetwork import QNetworkReply
+    if errore_qt == QNetworkReply.NetworkError.SslHandshakeFailedError:
+        return ErroreAggiorna("CERTIFICATO", _("Windows non riesce a verificare il certificato di sicurezza di "
+                                               "GitHub."),
+                              _("Controlla che data e ora del computer siano giuste, poi riprova. Se la rete è di "
+                                "un'azienda o di un ente, chiedi a chi la gestisce se blocca GitHub."))
+    return ErroreAggiorna("RETE", _("Non riesco a raggiungere GitHub."),
+                          _("Controlla la connessione a internet e riprova."))
+
+
+def _chiedi(url, timeout, su_dati=None):
+    """GET con la rete di Qt; torna i byte della risposta (vuoti se su_dati riceve i pezzi man mano).
+    B2-7a (come app/progetto.py): urllib di Python si fida solo delle radici già nell'archivio di Windows, e una
+    Windows appena installata non le ha tutte; Qt fa completare la catena a Windows, che scarica la radice che
+    manca come fanno i browser. Rinvii solo verso indirizzi non meno sicuri (GitHub manda lo zip a un altro server
+    HTTPS). Un ciclo di eventi locale aspetta la risposta: intanto la finestra resta viva."""
+    from PySide6.QtCore import QEventLoop, QUrl
+    from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
+    rete = QNetworkAccessManager()
+    richiesta = QNetworkRequest(QUrl(sicuro(url)))
+    richiesta.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, f"ProfileMetaNanni/{VERSIONE}")
+    richiesta.setRawHeader(b"Accept", b"application/vnd.github+json")
+    richiesta.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                           QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
+    richiesta.setTransferTimeout(int(timeout * 1000))       # niente byte per tanto tempo: si ferma
+    risposta = rete.get(richiesta)
+    pezzi, problema = [], []
+
+    def leggi():
+        dati = bytes(risposta.readAll().data())
+        if problema or not dati:
+            return
+        if su_dati is None:
+            pezzi.append(dati)
+            return
+        try:
+            su_dati(dati)
+        except (ErroreAggiorna, OSError) as e:
+            problema.append(e)
+            risposta.abort()
+    risposta.readyRead.connect(leggi)
+    giro = QEventLoop()
+    risposta.finished.connect(giro.quit)
+    if not risposta.isFinished():
+        giro.exec()
+    leggi()
+    codice = risposta.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    intestazioni = {bytes(k).decode("latin-1").lower(): bytes(v).decode("latin-1") for k, v in risposta.rawHeaderPairs()}
+    errore, finale = risposta.error(), risposta.url().toString()
+    risposta.deleteLater()
+    if problema:
+        raise problema[0]
+    if codice is not None and codice >= 400:
+        raise errore_http(codice, intestazioni)
+    if errore != QNetworkReply.NetworkError.NoError:
+        raise errore_rete(errore)
+    sicuro(finale)
+    return b"".join(pezzi)
 
 
 def testo_semplice(corpo, massimo=MAX_NOVITA):
@@ -119,8 +164,7 @@ def _pacchetto(release):
 
 def controlla(url=URL_ULTIMA, installata=VERSIONE, timeout=TIMEOUT):
     """{"stato": "nuova" | "uguale" | "vecchia", "installata", "nuova", "novita", "pacchetto" (o None), "pagina"}."""
-    with _apri(url, timeout) as r:
-        grezzo = r.read(2_000_000)
+    grezzo = _chiedi(url, timeout)
     try:
         d = json.loads(grezzo.decode("utf-8"))
         nuova = versione(d["tag_name"])
@@ -139,30 +183,31 @@ def scarica(pacchetto, cartella, avanzamento=None, fermo=None, timeout=TIMEOUT):
     cartella = Path(cartella)
     cartella.mkdir(parents=True, exist_ok=True)
     dest = cartella / pacchetto["nome"]
-    h, fatti = hashlib.sha256(), 0
+    h, fatti = hashlib.sha256(), [0]
     diverso = ErroreAggiorna("PACCHETTO_DIVERSO", _("Il file scaricato non è quello pubblicato."),
                              _("Riprova: se succede ancora, scarica la versione nuova dalla pagina della Release."))
     try:
-        with _apri(pacchetto["url"], timeout) as r, open(dest, "wb") as f:
-            while blocco := r.read(1 << 20):
-                fatti += len(blocco)
-                if fatti > pacchetto["byte"]:
+        with open(dest, "wb") as f:
+            def pezzo(blocco):
+                fatti[0] += len(blocco)
+                if fatti[0] > pacchetto["byte"]:
                     raise diverso
                 h.update(blocco)
                 f.write(blocco)
                 if avanzamento:
-                    avanzamento(fatti, pacchetto["byte"])
+                    avanzamento(fatti[0], pacchetto["byte"])
                 if fermo and fermo():
                     raise ErroreAggiorna("ANNULLATO", _("Aggiornamento annullato: non ho cambiato nulla."))
-        if fatti != pacchetto["byte"] or (pacchetto["sha256"] and h.hexdigest() != pacchetto["sha256"]):
+            _chiedi(pacchetto["url"], timeout, pezzo)
+        if fatti[0] != pacchetto["byte"] or (pacchetto["sha256"] and h.hexdigest() != pacchetto["sha256"]):
             raise diverso
     except ErroreAggiorna:
         dest.unlink(missing_ok=True)
         raise
-    except OSError:
+    except OSError:                            # il file non si scrive (disco pieno, cartella bloccata)
         dest.unlink(missing_ok=True)
-        raise ErroreAggiorna("RETE", _("Lo scaricamento si è interrotto."),
-                             _("Controlla la connessione a internet e riprova."))
+        raise ErroreAggiorna("DISCO", _("Non riesco a preparare la versione nuova sul disco."),
+                             _("Scaricala dalla pagina della Release e installala con il doppio clic."))
     return dest
 
 
