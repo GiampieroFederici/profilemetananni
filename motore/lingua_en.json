@@ -528,5 +528,8 @@
  "non definita": "not defined",
  "diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read": "alpha diversity at equal depth: re-running MetaPhlAn on a subsample of the reads",
  "MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found; the MetaPhlAn profile of this sample is empty.",
- "MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found in {nome}; the MetaPhlAn profile of this sample is empty."
+ "MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found in {nome}; the MetaPhlAn profile of this sample is empty.",
+ "troppo pochi campioni per un valore p affidabile della dispersione": "too few samples for a reliable p value of the dispersion",
+ "dispersione media: {valori}": "mean dispersion: {valori}",
+ "Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 campioni).": "With these samples the smallest possible PERMANOVA p is {p}: 1 divided by the number of distinct ways to split the samples into the groups (for example 0.1 with 3 + 3 samples)."
 }

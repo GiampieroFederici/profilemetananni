@@ -154,6 +154,8 @@ NOTE_IDENTICAL <- "all samples are identical: no test possible"
 NOTE_WITHIN_IDENTICAL <- "samples are identical within each group: the statistic is not defined, no test"
 NOTE_ZERO_DISPERSION <- "dispersion is zero in every group: the statistic is not defined, no test"
 NOTE_EQUAL_WITHIN <- "dispersion is the same within each group: the statistic is not defined, no test"
+NOTE_FEW_DISP <- "too few samples for a reliable p value of the dispersion"
+MIN_DISP <- 5                                                    # D197: independent units per group for a PERMDISP p
 beta_rows <- list()
 captions <- list()
 for (i in seq_len(nrow(comps))) {
@@ -186,22 +188,31 @@ for (i in seq_len(nrow(comps))) {
       bd <- betadisper(d, g)
       z <- bd$distances
       ssw <- sum((z - ave(z, g))^2)
+      # D197 (30/10): with fewer than MIN_DISP independent units in a group the residual-permutation p of permutest is
+      # not calibrated (3 + 3 under a true null: 1.4 % below 0.05, all of them at p = 1/720): dispersions only.
       d_note <- if (dm == 0 || max(z) <= 1e-8 * dm) NOTE_ZERO_DISPERSION else
-        if (ssw <= 1e-10 * dm^2 * length(z)) NOTE_EQUAL_WITHIN else ""
+        if (ssw <= 1e-10 * dm^2 * length(z)) NOTE_EQUAL_WITHIN else
+          if (min(table(g)) < MIN_DISP) NOTE_FEW_DISP else ""
       pt <- permutest(bd, permutations = perms)
       ok <- a_note == ""
       okd <- d_note == ""
+      # smallest p the PERMANOVA can give with these permutations: the permutations that keep the same split count
+      # as the observed one (with 3 + 3 and all 720 orders: 72/720 = 0.1)
+      canon <- function(x) match(x, unique(x))
+      same <- sum(apply(perms, 1, function(r) identical(canon(as.character(g[r])), canon(as.character(g)))))
       list(n = attr(d, "Size"), np = nrow(perms), adf = ad$Df[1], aF = if (ok) ad$F[1] else NA,
            aR2 = if (ok) ad$R2[1] else NA, ap = if (ok) ad[1, "Pr(>F)"] else NA, ddf = pt$tab$Df[1],
-           dF = if (okd) pt$tab$F[1] else NA, dp = if (okd) pt$tab[1, "Pr(>F)"] else NA, note = c(a_note, d_note))
+           dF = if (okd) pt$tab$F[1] else NA, dp = if (okd) pt$tab[1, "Pr(>F)"] else NA, note = c(a_note, d_note),
+           pmin = (same + 1) / (nrow(perms) + 1),
+           disp = paste(sprintf("%s: %s", levels(g), fmt(tapply(z, g, mean), 3)), collapse = "; "))
     }, error = function(e) list(n = nrow(des), np = NA, adf = NA, aF = NA, aR2 = NA, ap = NA, ddf = NA, dF = NA,
-                                 dp = NA, note = rep(conditionMessage(e), 2)))
+                                 dp = NA, note = rep(conditionMessage(e), 2), pmin = NA, disp = ""))
     differs <- !is.na(res$dp) && res$dp < 0.05
     beta_rows[[length(beta_rows) + 1]] <- data.frame(comparison = cmp$comparison, distance = k,
       test = c("PERMANOVA", "PERMDISP"), n = res$n, permutations = res$np, restriction = cmp$permutations,
       df = c(res$adf, res$ddf), F = fmt(c(res$aF, res$dF), 4), R2 = c(fmt(res$aR2, 3), ""),
       p = fmt(c(res$ap, res$dp), 3), dispersion_differs = c(if (is.na(res$dp)) "" else if (differs) "yes" else "no", ""),
-      note = res$note)
+      p_min = c(fmt(res$pmin, 3), ""), group_dispersion = c("", res$disp), note = res$note)
     captions[[paste(cmp$comparison, k)]] <- if (is.na(res$ap)) paste("No test:", res$note[1]) else paste0(
       "PERMANOVA R2 = ", fmt(res$aR2, 2), ", p = ", fmt(res$ap, 3), " (", res$np, " permutations, ",
       c(free = "free", blocks = "restricted within subject", subject_mean = "subject means")[cmp$permutations],
@@ -212,7 +223,8 @@ for (i in seq_len(nrow(comps))) {
 out(if (length(beta_rows)) do.call(rbind, beta_rows) else
       data.frame(comparison = character(), distance = character(), test = character(), n = character(),
                  permutations = character(), restriction = character(), df = character(), F = character(),
-                 R2 = character(), p = character(), dispersion_differs = character(), note = character()),
+                 R2 = character(), p = character(), dispersion_differs = character(), p_min = character(),
+                 group_dispersion = character(), note = character()),
     "beta_tests.tsv")
 
 # ---------------- plots (English) ----------------
