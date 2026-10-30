@@ -51,6 +51,18 @@ abbondanza non nulla, sostituzione moltiplicativa) e Bray-Curtis sulle abbondanz
 stesse permutazioni): se la dispersione differisce fra i gruppi, il referto lo scrive accanto alla PERMANOVA. R² è la
 dimensione dell'effetto.
 
+Pochi campioni (D197). Con meno di 5 unità indipendenti in un gruppo PERMDISP mostra solo la dispersione media di ogni
+gruppo (distanza media dalla mediana), senza F né p, con la frase "troppo pochi campioni per un valore p affidabile
+della dispersione". Il motivo è una prova con l'ipotesi nulla vera (30/10): 6 sottoinsiemi casuali di 750 read dello
+stesso profilo MetaPhlAn, 1000 repliche. Con 3 + 3 campioni il p di `permutest` era sotto 0,05 nell'1,4 % dei casi, ma
+sempre al valore estremo p = 1/720 (10 volte più spesso di quanto quel p prometta). Con 10 + 10 campioni era sotto 0,05
+nel 4,5 % dei casi, vicino al 5 % atteso. Script e tabella: `implementazione/v1.1/multi_tipo1/` (`multi_tipo1.R`,
+`multi_tipo1_risultati.tsv`).
+
+Anche la PERMANOVA ha un limite con pochi campioni: il p più piccolo possibile è 1 diviso il numero di modi distinti di
+dividere i campioni nei gruppi. Con 3 + 3 campioni le divisioni sono 10 e il p non scende mai sotto 0,1. Il referto
+scrive questo minimo accanto a ogni confronto (`p_min` in `beta_tests.tsv`).
+
 Quando la statistica non è definita (campioni identici, oppure identici dentro ogni gruppo, dispersione zero o uguale
 dentro ogni gruppo) non si scrive nessun valore p: la tabella dice "non definita" e la nota spiega perché in parole
 semplici. Con campioni quasi identici, prima, il rumore di arrotondamento dei numeri (circa 1e-17) diventava un F e un

@@ -523,5 +523,8 @@
  "i campioni sono identici dentro ogni gruppo: il test non è definito, nessun valore p": "the samples are identical within each group: the test is not defined, no p value",
  "la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p": "the dispersion is zero in every group (identical samples): the test is not defined, no p value",
  "la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p": "the dispersion is the same within each group: the test is not defined, no p value",
- "non definita": "not defined"
+ "non definita": "not defined",
+ "troppo pochi campioni per un valore p affidabile della dispersione": "too few samples for a reliable p value of the dispersion",
+ "dispersione media: {valori}": "mean dispersion: {valori}",
+ "Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 campioni).": "With these samples the smallest possible PERMANOVA p is {p}: 1 divided by the number of distinct ways to split the samples into the groups (for example 0.1 with 3 + 3 samples)."
 }

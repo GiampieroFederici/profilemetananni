@@ -324,7 +324,11 @@ NOTE_R = {"all values are equal: no test possible": N_("valori tutti uguali: nes
           "dispersion is zero in every group: the statistic is not defined, no test":
               N_("la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p"),
           "dispersion is the same within each group: the statistic is not defined, no test":
-              N_("la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p")}
+              N_("la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p"),
+          # D197: con meno di 5 unità per gruppo PERMDISP mostra solo le dispersioni medie
+          "too few samples for a reliable p value of the dispersion":
+              N_("troppo pochi campioni per un valore p affidabile della dispersione")}
+POCHI_PERMDISP = "too few samples for a reliable p value of the dispersion"   # nota di multicampione.R (MIN_DISP)
 
 
 def nota_r(nota):
@@ -423,16 +427,21 @@ def html_multicampione(d):
                     h.append('<p class="piccolo">' + _("I confronti a coppie fra i gruppi sono nel file {f}.",
                                                        f=f"multicampione/{profiler}/alpha_posthoc.tsv") + "</p>")
             beta = [r for r in p["beta"] if r["comparison"] == c["id"]]
-            righe_b, permutazioni = [], ""
+            righe_b, permutazioni, p_min = [], "", ""
             for dist in DISTANZE:   # la dispersione (PERMDISP) sta sempre nella stessa riga della PERMANOVA
                 pa = next((r for r in beta if r["distance"] == dist and r["test"] == "PERMANOVA"), None)
                 pd = next((r for r in beta if r["distance"] == dist and r["test"] == "PERMDISP"), None)
                 if pa:
-                    permutazioni = pa["permutations"]
+                    permutazioni, p_min = pa["permutations"], pa.get("p_min") or p_min
                     note = [nota_r(r["note"]) for r in (pa, pd) if r and r["note"]]
+                    if pd and pd["p"]:
+                        disp = p_testo(pd["p"])
+                    elif pd and pd["note"] == POCHI_PERMDISP:   # D197: solo le dispersioni medie, niente p
+                        disp = _("dispersione media: {valori}", valori=e(lingua.virgola(pd.get("group_dispersion", ""))))
+                    else:
+                        disp = _("non definita")
                     righe_b.append([e(_(DISTANZE[dist])), f"R² {p_testo(pa['R2'], 2)}; p {p_testo(pa['p'])}"
-                                    if pa["p"] else _("non definita"),
-                                    p_testo(pd["p"]) if pd and pd["p"] else _("non definita"),
+                                    if pa["p"] else _("non definita"), disp,
                                     e("; ".join(dict.fromkeys(note))) if note else nota_dispersione(pa)])
             if righe_b:
                 h.append(tabella([_("Distanza (beta)"), "PERMANOVA", _("PERMDISP, p"), _("Nota")], righe_b, (1, 2),
@@ -442,7 +451,10 @@ def html_multicampione(d):
                                                    "i gruppi sono dispersi in modo diverso. {n} permutazioni {modo}, "
                                                    "seme {seme}.", n=e(permutazioni),
                                                    modo=_(multicampione.PERMUTA[c["permutazioni"]]),
-                                                   seme=multicampione.SEME) + "</p>")
+                                                   seme=multicampione.SEME)
+                         + (" " + _("Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il "
+                                    "numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 "
+                                    "campioni).", p=p_testo(p_min)) if p_min else "") + "</p>")
     h.append('<p class="piccolo">' + _(LIMITI_MULTI) + "</p>")
     h.append('<p class="piccolo">' + _("Metodi: zeri sostituiti con metà della più piccola abbondanza non nulla "
                                        "(sostituzione moltiplicativa, Martín-Fernández 2003) prima del CLR; PERMANOVA "

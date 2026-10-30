@@ -406,6 +406,25 @@ def test_nessun_p_sotto_il_minimo_del_disegno(tmp_path):
     for r in righe:   # entrambe le distanze; il minimo vale per la PERMANOVA (PERMDISP di vegan permuta i residui)
         if r["test"] == "PERMANOVA":
             assert r["p"] and float(r["p"]) >= p_minimo([3, 3]) - 1e-9, r
+            assert float(r["p_min"]) == pytest.approx(p_minimo([3, 3]))          # 72/720 = 0,1
+        else:   # D197: meno di 5 unità per gruppo, solo le dispersioni medie, niente F né p
+            assert r["p"] == "" and r["F"] == "" and r["note"].startswith("too few samples"), r
+            assert re.fullmatch(r"A: [\d.e-]+; B: [\d.e-]+", r["group_dispersion"]), r
+
+
+@con_r
+def test_cinque_per_gruppo_permdisp_ha_il_p(tmp_path):
+    """D197: da 5 unità per gruppo PERMDISP torna a dare F e p (vegan::permutest), la PERMANOVA sempre."""
+    rnd = random.Random(31)
+    base = [50, 30, 10, 5, 3, 1, 0.5, 0.3, 0.1, 0.05]
+    camp = {f"{g}{i}": composizione(base, rnd, 0.2) for g in "AB" for i in range(5)}
+    risultati, d = progetto(tmp_path, camp, [(s, s[0], "", "") for s in camp])
+    mc.esegui(risultati, d)
+    for r in tsv(risultati / "multicampione" / "metaphlan" / "beta_tests.tsv"):
+        assert r["p"] and r["F"] and r["note"] == "", r
+        if r["test"] == "PERMANOVA":
+            # 999 permutazioni a caso: circa 1 su 126 ridà la stessa divisione (126 divisioni distinte con 5 + 5)
+            assert 0.002 < float(r["p_min"]) < 0.02 and p_minimo([5, 5]) == pytest.approx(1 / 126)
 
 
 @con_r
@@ -498,7 +517,9 @@ def test_referto_con_metadati_sezione_e_cartelle_separate(tmp_path):
     mpa, krk = sez.split("<h4>MetaPhlAn</h4>")[1].split("<h4>Kraken + Bracken</h4>")
     for parte in (mpa, krk):
         assert "Mann-Whitney" in parte and "R² " in parte and "PERMDISP, p" in parte and "999 permutazioni" in parte
-        assert "Bray-Curtis" in parte and "dispersione" in parte
+        assert "Bray-Curtis" in parte and "dispersione media: A: " in parte          # 4 + 4: D197, niente p
+        assert "troppo pochi campioni per un valore p affidabile della dispersione" in parte
+        assert "il p più piccolo possibile della PERMANOVA è" in parte
     assert "Prototipo, non per decisioni" in krk and "Prototipo" not in mpa
     assert "Limiti." in sez and not re.search(r"\bmicrob[oi]\b", sez, re.I) and "—" not in sez
     assert "Anderson MJ (2006)" in html                                            # fonti nel referto
