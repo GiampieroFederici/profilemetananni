@@ -24,7 +24,7 @@
  "Non trovo le read di uno o più campioni.": "I cannot find the reads of one or more samples.",
  "Controlla i codici SRR o la cartella delle read nel progetto.": "Check the SRR codes or the reads folder in the project.",
  "Manca un database o un programma del motore.": "A database or a program of the engine is missing.",
- "Apri la pagina Motore e premi Installa.": "Open the Engine page and press Install.",
+ "Apri la pagina Motore e premi Installa o completa.": "Open the Engine page and press Install or complete.",
  "Il progetto contiene un valore non valido.": "The project contains an invalid value.",
  "Controlla le impostazioni del progetto.": "Check the project settings.",
  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice Bowtie2, costruito da profilemetananni)": "MetaPhlAn database mpa_vJan25_CHOCOPhlAnSGB_202503 (the 6 slices are derived from its Bowtie2 index, built by profilemetananni)",

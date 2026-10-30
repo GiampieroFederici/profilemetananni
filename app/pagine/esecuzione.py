@@ -39,6 +39,8 @@ NOTA_ETA = N_("tempo che manca, stimato")
 
 def durata(secondi):
     """Formatta i secondi stimati dal motore: '45 secondi', '12 minuti', '1,5 ore'."""
+    if secondi < 30:                     # B4-d: niente "0 secondi" o "1 secondi" quando il tempo arriva a zero
+        return _("meno di un minuto")
     if secondi < 90:
         return _("{n} secondi", n=round(secondi))
     if secondi < 5400:

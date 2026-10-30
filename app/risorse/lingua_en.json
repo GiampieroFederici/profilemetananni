@@ -428,7 +428,7 @@
  "Riprova: se succede ancora, scarica la versione nuova dalla pagina della Release.": "Try again: if it happens again, download the new version from the Release page.",
  "Indirizzo non sicuro per l'aggiornamento.": "Unsafe address for the update.",
  "Scarica la versione nuova dalla pagina della Release su GitHub.": "Download the new version from the Release page on GitHub.",
- "Questa versione non si installa dal pulsante Aggiorna.": "This version cannot be installed with the Update button.",
+ "Questa versione non si installa dal pulsante Cerca aggiornamenti.": "This version cannot be installed with the Check for updates button.",
  "Scaricala dalla pagina della Release e installala con il doppio clic.": "Download it from the Release page and install it with a double click.",
  "GitHub ha risposto con un errore (codice {codice}).": "GitHub answered with an error (code {codice}).",
  "Riprova più tardi.": "Try again later.",
@@ -554,5 +554,6 @@
  "Controlla che data e ora del computer siano giuste, poi riprova. Se la rete è di un'azienda o di un ente, chiedi a chi la gestisce se blocca GitHub.": "Check that the date and time of the computer are right, then try again. If the network belongs to a company or an institution, ask the people who manage it whether it blocks GitHub.",
  "Apri il registro": "Open the log",
  "MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto.": "MetaPhlAn found no species in this sample: the profile is empty.",
- "Kraken non ha trovato taxa sopra la soglia in questo campione.": "Kraken found no taxa above the threshold in this sample."
+ "Kraken non ha trovato taxa sopra la soglia in questo campione.": "Kraken found no taxa above the threshold in this sample.",
+ "{campioni}{elenco} ({n} coppie di read)": "{campioni}{elenco} ({n} read pairs)"
 }

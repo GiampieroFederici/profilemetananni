@@ -216,7 +216,7 @@ def foto_app(lingua_scelta=None):
         s.virus.setChecked(False)
         stima_finita(w)
         s._errore({"codice": "DB_MANCANTE", "messaggio": "Manca il database di Kraken.",
-                   "cosa_fare": "Apri la pagina Motore e premi Installa."})
+                   "cosa_fare": "Apri la pagina Motore e premi Installa o completa."})
         scatta("16 scelte errore di stima", w)
         s._errore({"codice": "SCONOSCIUTO", "messaggio": "X.", "cosa_fare": "Y."})
         scatta("17 scelte errore sconosciuto", w)
@@ -656,7 +656,7 @@ profilo sicurezza alimentare lettura letture coppie valore fonte parametri strum
 # testi che restano uguali in tutte le lingue (nomi propri, valori del file del progetto): non sono frasi italiane
 AMMESSE = ("[file] ", "Felino", "fette", "rapido", "completo")
 # messaggi che questa fotografia fa arrivare da sé alle pagine (dati di prova, non testi dell'app)
-DI_PROVA = ("Manca il database di Kraken.", "Apri la pagina Motore e premi Installa.", "Poca RAM.", "Messaggio.",
+DI_PROVA = ("Manca il database di Kraken.", "Apri la pagina Motore e premi Installa o completa.", "Poca RAM.", "Messaggio.",
             "Cosa fare.", "manca il PDF", "ALTRO")
 # negli eventi del motore (JSON) l'utente vede solo questi campi; gli altri sono chiavi del contratto (passo, esito...)
 VISIBILI = {"messaggio", "cosa_fare", "frase", "perche", "note", "profilo_usato", "citazione", "citazioni", "scenario",

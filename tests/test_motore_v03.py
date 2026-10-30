@@ -220,11 +220,11 @@ def test_9_fine_dice_passo_e_cosa_fare(tmp_path):
     ev, rc = finto(tmp_path, "esegui", "--progetto", str(cfg), "--scenario", "DB_MANCANTE")
     assert rc == 2 and ev[-1]["risultato"] == {"codice": "DB_MANCANTE", "passo": "kraken"}
     assert ev[-1]["messaggio"] == ("Problema durante la classificazione con Kraken e Bracken. Manca il database di "
-                                   "Kraken. Apri la pagina Motore e premi Installa.")
+                                   "Kraken. Apri la pagina Motore e premi Installa o completa.")
     ev, rc = finto(tmp_path, "esegui", "--progetto", str(tmp_path / "manca.yaml"))
     assert ev[-1]["messaggio"] == "Non trovo il file del progetto. Salva il progetto e riprova."   # prima di un passo
     ev, rc = vero(tmp_path, "verifica")
-    assert rc == 2 and ev[-1]["messaggio"] == "Il motore non è ancora installato. Apri la pagina Motore e premi Installa."
+    assert rc == 2 and ev[-1]["messaggio"] == "Il motore non è ancora installato. Apri la pagina Motore e premi Installa o completa."
     assert set(pmn_motore.NOMI_PASSI) <= PASSI                          # solo passi del contratto
 
 

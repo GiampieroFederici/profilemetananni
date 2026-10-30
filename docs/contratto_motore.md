@@ -97,7 +97,7 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
 | `inizio` | `comando`, `corsa` (id), `log` (percorso del log tecnico) | "Analisi avviata: 3 campioni" |
 | `avanzamento` | `passo`, `campione`, `fatto`, `totale`, `percentuale` (0-100), `eta_s` (secondi stimati, o null) | "Campione 1 di 3: allineo sulla parte 3 di 6 del database" |
 | `avviso` | `codice`, `messaggio` | "Restano 40 GB liberi: bastano per questo progetto" |
-| `errore` | `codice`, `messaggio`, `cosa_fare`; **[v0.2]** `passo` (dove si è fermato, o `null` se prima di iniziare) | "Manca il database di Kraken." / "Apri la pagina Motore e premi Installa." |
+| `errore` | `codice`, `messaggio`, `cosa_fare`; **[v0.2]** `passo` (dove si è fermato, o `null` se prima di iniziare) | "Manca il database di Kraken." / "Apri la pagina Motore e premi Installa o completa." |
 | `fine` | `esito` (`ok`, `errore`, `annullata`), `risultato` (oggetto) | "Analisi finita in 1 h 12 min" |
 
 - `passo` per `esegui`: `download`, `controllo_qualita`, `pulizia`, `ospite`, `metaphlan`, `kraken`, `riepilogo`.
@@ -114,7 +114,7 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
 - **[v0.2]** `passo` `sicurezza` (un avanzamento per scenario) e `referto` (ultimo passo di `esegui`, e del comando `referto`).
 - L'interfaccia mostra `messaggio` così com'è; per la barra usa `percentuale` ed `eta_s`.
 - **[v0.2]** Testi per l'utente con le vere lettere accentate (è, à, ù, perché), mai l'apostrofo al posto dell'accento.
-  `cosa_fare` per motore mancante: "Apri la pagina Motore e premi Installa." (la pagina dell'app si chiama "Motore").
+  `cosa_fare` per motore mancante: "Apri la pagina Motore e premi Installa o completa." (la pagina dell'app si chiama "Motore").
 - **[v0.2]** In `esegui` `eta_s` è calcolato con le stesse regole di `stima` (§5.2) e scende a ogni evento: secondi
   per finire il passo in corso più i passi dopo. Il download non è stimato (dipende dalla rete); se le dimensioni
   dei campioni non si possono chiedere (rete giù) `eta_s` resta `null`.

@@ -55,6 +55,8 @@ def virgola(testo):
 
 def durata(secondi):
     """Secondi in parole: '45 secondi', '51 minuti', '9,9 ore' (R11: solo formato)."""
+    if secondi < 30:                     # B4-d: niente "0 secondi" o "1 secondi" quando il tempo arriva a zero
+        return _("meno di un minuto")
     if secondi < 90:
         return _("{n} secondi", n=round(secondi))
     if secondi < 5400:
@@ -66,6 +68,18 @@ def gb(x):
     """Spazio in parole: '12 GB'; sotto 1 GB 'meno di 1 GB' (non '0 GB', come per il campione d'esempio; B4-d: anche
     quando non serve spazio nuovo, per esempio un progetto rifatto)."""
     return _("meno di 1 GB") if x < 0.5 else f"{numero(x, 0)} GB"
+
+
+def campioni_in_parole(campioni, elenco, coppie):
+    """'3: A, B, C (4,2 milioni di coppie di read)'; un campione piccolo era '0,0 milioni' (B4-d): sotto 100.000 coppie
+    il numero intero, e senza numero se le coppie non sono note."""
+    if coppie >= 100000:
+        return _("{campioni}{elenco} ({milioni} milioni di coppie di read)", campioni=campioni, elenco=elenco,
+                 milioni=numero(coppie / 1e6, 1))
+    if coppie:
+        return _("{campioni}{elenco} ({n} coppie di read)", campioni=campioni, elenco=elenco,
+                 n=f"{coppie:,}".replace(",", lingua.migliaia()))
+    return f"{campioni}{elenco}"
 
 
 class PaginaScelte(Pagina):
@@ -379,8 +393,7 @@ class PaginaScelte(Pagina):
         griglia.setVerticalSpacing(6)
         nomi_campioni = r.get("nomi_campioni") or []                            # v0.3: i nomi del motore
         elenco = f": {', '.join(nomi_campioni[:6])}{'...' if len(nomi_campioni) > 6 else ''}" if nomi_campioni else ""
-        righe = [(_("Campioni"), _("{campioni}{elenco} ({milioni} milioni di coppie di read)", campioni=campioni,
-                                   elenco=elenco, milioni=numero(coppie / 1e6, 1))),
+        righe = [(_("Campioni"), campioni_in_parole(campioni, elenco, coppie)),
                  (_("Tempo stimato"), _("circa {durata}", durata=durata(totale))
                   + (f" ({dettaglio})" if dettaglio else "")),
                  (_("Spazio che serve"), gb(r.get("spazio_gb", 0))

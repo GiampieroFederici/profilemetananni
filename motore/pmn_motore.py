@@ -100,7 +100,7 @@ ERRORI = [
      N_("L'ospite aggiunto in questo progetto non è valido."),
      N_("Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.")),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
-     N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa.")),
+     N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa o completa.")),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      N_("Il progetto contiene un valore non valido."), N_("Controlla le impostazioni del progetto.")),
 ]
@@ -332,7 +332,7 @@ def esempio(env):
 def serve_installazione():
     env = installazione()
     if not env:
-        raise Errore("DB_MANCANTE", _("Il motore non è ancora installato."), _("Apri la pagina Motore e premi Installa."))
+        raise Errore("DB_MANCANTE", _("Il motore non è ancora installato."), _("Apri la pagina Motore e premi Installa o completa."))
     return env
 
 

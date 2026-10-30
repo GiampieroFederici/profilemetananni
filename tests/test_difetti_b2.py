@@ -311,3 +311,19 @@ def test_b4d_spazio_zero_in_parole():
     """B4-d: "Spazio: 0 GB" nelle scelte di Casuale (progetto rifatto, nessuno spazio nuovo)."""
     from app.pagine.scelte import gb
     assert gb(0) == gb(0.2) == "meno di 1 GB" and gb(12.4) == "12 GB"
+
+
+def test_b4d_durate_e_coppie_mai_a_zero():
+    """Passata sui testi dopo B4-d: "0 secondi" quando il tempo che manca arriva a zero, "0,0 milioni di coppie di
+    read" per un campione piccolo, "pulsante Aggiorna" e "premi Installa" per pulsanti che si chiamano diversamente."""
+    from app import aggiorna
+    from app.pagine import esecuzione, scelte
+    for durata in (esecuzione.durata, scelte.durata):
+        assert durata(0) == durata(12) == "meno di un minuto" and durata(45) == "45 secondi"
+    assert scelte.campioni_in_parole(1, ": CASUALE", 3200) == "1: CASUALE (3.200 coppie di read)"
+    assert scelte.campioni_in_parole(1, "", 200000) == "1 (0,2 milioni di coppie di read)"
+    assert scelte.campioni_in_parole(2, "", 0) == "2"
+    sorgente = (RADICE / "app" / "aggiorna.py").read_text(encoding="utf-8")
+    assert "pulsante Aggiorna" not in sorgente and "pulsante Cerca aggiornamenti" in sorgente
+    for f in ("motore/pmn_motore.py", "installer/finto_motore.py"):
+        assert "premi Installa." not in (RADICE / f).read_text(encoding="utf-8")
