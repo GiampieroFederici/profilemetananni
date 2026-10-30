@@ -42,7 +42,7 @@ COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e
 COPPIE_LUNGO = 34109943             # C03_1 (scenario TEMPO_LUNGO)
 USCITA = {"ok": 0, "annullata": 3}
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "INGRESSO_NON_VALIDO": 1,
-                 "DB_MANCANTE": 2, "ERRORE_INTERNO": 4}
+                 "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "ERRORE_INTERNO": 4}
 INFO = {
     "motore": "0.1.0", "finto": True, "ram_gb": 15.6, "processori": 8, "spazio_libero_gb": 643,
     "modo_consigliato": {"metaphlan": "fette", "kraken": "completo"},
@@ -219,6 +219,11 @@ class Motore:
         if self.a.scenario == "DB_MANCANTE":
             return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
                                _("Apri la pagina Motore e premi Installa."))
+        if self.a.scenario == "RAM_INSUFFICIENTE":   # B3-4: come il vero (pmn_motore.py verifica), niente "Installa"
+            return self.errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne "
+                                                      "usa fino a 8,2 GB."),
+                               _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore "
+                                 "qui non può lavorare: non serve reinstallarlo."))
         self.attendi(300)
         controlli = [{"nome": _(n), "esito": "ok"} for n in
                      (N_("versioni dei programmi"), N_("MD5 dei database"), N_("mini-campione: mapout"),
@@ -402,7 +407,8 @@ def main():
     p.add_argument("--ingresso")
     p.add_argument("--velocita", type=float, default=60)
     p.add_argument("--scenario", default="ok", choices=["ok", "DB_MANCANTE", "GIA_IN_CORSO", "annullata",
-                                                         "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE"])
+                                                         "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE",
+                                                         "RAM_INSUFFICIENTE"])
     p.add_argument("--lingua", choices=lingua.LINGUE)
     p.add_argument("--spazio-libero", type=int)   # come il motore vero (installa, v1.1)
     a = p.parse_args()

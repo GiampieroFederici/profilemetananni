@@ -37,7 +37,7 @@ RUN_SH = os.environ.get("PMN_RUN_SH", str(ROOT / "bin" / "run.sh"))   # sostitui
 ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi prima di riprovare il download
 TENTATIVI_RETE = 3
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
-                 "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
+                 "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
@@ -468,7 +468,13 @@ class Motore:
                 n += 1
                 self.avanza("verifica", _("Controllo {n}: {nome}", n=n, nome=m.group(2).strip()[:60]),
                             5 + 90 * n / 16)
-        if p.wait() != 0:
+        uscita = p.wait()
+        if uscita == 3:   # B3-4: memoria + swap sotto 9 GB, o un programma chiuso da Linux per memoria (137)
+            raise Errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne usa "
+                                                "fino a 8,2 GB."),
+                         _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore qui "
+                           "non può lavorare: non serve reinstallarlo."))
+        if uscita != 0:
             raise Errore("VERIFICA_ROSSA", _("ROSSO: la prova del motore non ha dato il risultato atteso."),
                          _("Manda a noi il file {log}.", log=self.log))
         return "ok", {"esito": "verde", "controlli": controlli}, _("VERDE: il motore funziona.")

@@ -654,7 +654,7 @@ if [ "$r" = 0 ]; then
   gruppi=$(righe | cut -f1 | awk '!visto[$0]++ {printf "%s\"%s\"", (n++ ? "," : ""), $0}')
   RISULTATO="{\"programmi\":${#ENVS[@]},\"database\":[$gruppi],\"verifica\":\"verde\"}"
   PASSO=fine; evento fine 100 "$(T 'VERDE: il motore è installato e funziona.')"
-elif tail -n +"$((INIZIO_VERIFICA + 1))" "$LOG" | grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory'; then
+elif [ "$r" = 3 ] || tail -n +"$((INIZIO_VERIFICA + 1))" "$LOG" | grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory'; then
   # B1-b: un programma chiuso da Linux per memoria non e' un ROSSO generico
   fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 16 GB di memoria. Se si ripete, manda a noi il file %s." "$LOG")"
 else
