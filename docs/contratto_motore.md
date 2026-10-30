@@ -171,6 +171,7 @@ l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce semp
 | `FUORI_CAMPO` | avviso | `sicurezza`: un fattore è fuori dal campo di validità del modello (M8); uno per fattore e modello, con i campi `modello` (`listeria`, `listeria_lab`, `lab`) e `fattore`, testo già pronto ("Per il modello della Listeria: pH = 5.4: fuori dal campo...") |
 | `CAMPIONE_DA_CONTROLLARE`, `CAMPIONE_DA_RIFARE` | avviso | `esegui`: esito del triage (System One v0, §5.5) |
 | `REFERTO_PARZIALE` | avviso | `esegui`/`referto`: manca il PDF o l'Excel (la pagina HTML c'è sempre). **[v0.3]** Testo solo in italiano, per esempio "Il referto non è completo: manca l'Excel: nel motore non c'è il modulo che lo scrive (openpyxl). La pagina del referto si apre lo stesso."; il dettaglio tecnico va nel log |
+| `KRAKEN_VUOTO` | avviso | **[v1.1]** `esegui`/`referto`: in un campione nessuna specie arriva alle read minime di Bracken (`-t`), quindi il suo profilo di Kraken è vuoto ma valido e l'analisi continua (MetaPhlAn, referto). Esempio: "Kraken: nessuna specie con almeno 10 read in ERR2603036; il profilo di Kraken di questo campione è vuoto." |
 
 Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` possono arrivare come **avviso**
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.

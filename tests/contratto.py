@@ -14,7 +14,7 @@ PASSI = {"download", "controllo_qualita", "pulizia", "ospite", "metaphlan", "kra
 CODICI = {"CONFIG_NON_VALIDA", "DB_MANCANTE", "DB_ROVINATO", "SPAZIO_INSUFFICIENTE", "RAM_INSUFFICIENTE",
           "READ_NON_TROVATE", "DOWNLOAD_FALLITO", "GIA_IN_CORSO", "TEMPO_LUNGO",
           "SISTEMA_NON_ADATTO", "PROGRAMMA_MANCANTE", "VERIFICA_ROSSA", "RETE_NON_MISURATA", "RETE_INTERROTTA",
-          "ERRORE_INTERNO",
+          "ERRORE_INTERNO", "KRAKEN_VUOTO",
           # v0.2: food safety, System One v0, report
           "INGRESSO_NON_VALIDO", "FUORI_CAMPO", "CAMPIONE_DA_CONTROLLARE", "CAMPIONE_DA_RIFARE", "REFERTO_PARZIALE"}
 USCITA = {"ok": 0, "annullata": 3}
