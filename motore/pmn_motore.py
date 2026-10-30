@@ -41,12 +41,12 @@ CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
-PULIZIA_S_PER_M = 5.6          # fastp: 18 s per 3,24 M coppie (17/10)
+PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
 OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 230   # per M coppie senza ospite (C03_1, S2.2); fissi: 357 s per 1,51 M (17/10)
-KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2)
+MPA_S_PER_M, MPA_FISSI_S = 86.2, 185   # per M coppie senza ospite (C03_1, S2.2); fissi: 230 s il 17/10, 45 s in meno con read_fastx.py sul disco della WSL (v1.1 VELOCITA)
+KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
 ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre

@@ -40,7 +40,9 @@ def test_processori_dalla_corsa():
     assert pm.processori({"execution": {"threads": "x"}}) == pm.KRAKEN_PROC_RIF
     otto = {**CFG, "execution": {"threads": 8}, "motore": {"kraken_db": "completo"}}
     assert pm.tempi(SF3RAT7, otto)["kraken"] > pm.tempi(SF3RAT7, CFG)["kraken"]
-    assert abs(pm.tempi(SF3RAT7, otto)["kraken"] - 2447) <= 0.1 * 2447   # K2: 40 min 47 s con 8 processori
+    # v1.1 (VELOCITA, 30/10, 8 processori, 8 GB): Kraken + Bracken 24 min 20 s a PC poco carico, 33 min a PC carico
+    # (prima della v1.1, K2: 40 min 47 s); la stima resta prudente: fra il piu' veloce e il piu' lento + 10 %
+    assert 1460 <= pm.tempi(SF3RAT7, otto)["kraken"] <= 1.1 * 1980
 
 
 def test_read_locali_solo_metaphlan_e_rapido():
