@@ -738,6 +738,11 @@ class Motore:
                 coppie = sum(int(c.split("\t")[1]) for c in rep.read_text(encoding="utf-8").splitlines()
                              if c.split("\t")[-1].strip() in ("unclassified", "root"))
             elenco.append({"nome": nome, "esito": "ok", "coppie_dopo_ospite": coppie, "file": file})
+            b = r / file["kraken"] if file.get("kraken") else None
+            if b and b.is_file() and len(b.read_text(encoding="utf-8").splitlines()) <= 1:   # solo l'intestazione
+                self.evento("avviso", _("Kraken: nessuna specie con almeno {n} read in {nome}; il profilo di Kraken di "
+                                        "questo campione è vuoto.", n=parametri.get("bracken_min_reads", "10"), nome=nome),
+                            codice="KRAKEN_VUOTO")
         import referto   # stessa cartella; qui serve solo la libreria standard
         try:
             soglia = float(parametri.get("abundance_threshold_pct") or 0)

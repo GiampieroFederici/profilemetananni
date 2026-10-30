@@ -682,7 +682,12 @@ def html_referto(d):
                                        "contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte "
                                        "(D023).") + "</p>")
     for c in d["campioni"]:
-        if not c["kraken"]:
+        if c["kraken"] is None:
+            continue
+        if not c["kraken"]:   # profilo vuoto ma valido (steps/32: nessuna specie con almeno -t read)
+            h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
+            h.append("<p>" + _("Kraken: nessuna specie con almeno {n} read; il profilo di Kraken di questo campione è "
+                               "vuoto.", n=e(d["parametri"].get("bracken_min_reads", "10"))) + "</p>")
             continue
         micro = [r for r in c["kraken"] if r["categoria"] in MICROBI]
         sopra = [r for r in micro if r["pct"] >= s]

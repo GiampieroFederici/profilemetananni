@@ -35,7 +35,7 @@ def main() -> int:
     if not files:
         sys.exit(f"no *.bracken files in {a.indir}")
 
-    columns, prodotto = {}, {}
+    columns, prodotto, vuoti = {}, {}, []
     for f in files:
         sample = os.path.basename(f)[: -len(".bracken")]
         try:
@@ -50,6 +50,7 @@ def main() -> int:
         reads = df.set_index("name")["new_est_reads"].astype(float)
         if reads.sum() <= 0:
             print(f"[WARN] no reads in Bracken file, skipping: {f}", file=sys.stderr)
+            vuoti.append(sample)   # profilo di Kraken vuoto ma valido (steps/32: nessuna specie con -t read)
             continue
         series = reads / reads.sum()
         if a.taxa_out:
@@ -69,9 +70,11 @@ def main() -> int:
     matrix.index.name = "species"
     matrix = matrix.sort_index()
 
-    if matrix.shape[1] == 0:
+    if matrix.shape[1] == 0 and not vuoti:
         print("[FAIL] no usable Bracken samples (all files empty/invalid)", file=sys.stderr)
         return 2
+    if matrix.shape[1] == 0:   # solo profili vuoti: tabelle senza campioni, l'analisi continua (MetaPhlAn, referto)
+        print(f"[WARN] every Kraken profile is empty ({', '.join(vuoti)}): matrices without samples", file=sys.stderr)
 
     out_abs = os.path.abspath(a.out)
     os.makedirs(os.path.dirname(out_abs), exist_ok=True)
