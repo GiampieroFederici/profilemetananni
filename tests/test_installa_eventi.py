@@ -146,6 +146,46 @@ def test_messages_with_real_accents_and_decimal_comma():
         assert out.strip() == atteso
 
 
+def meminfo(tmp_path, mem_kb, swap_kb):
+    f = tmp_path / "meminfo"
+    f.write_text(f"MemTotal:       {mem_kb} kB\nMemFree:        1000 kB\nSwapTotal:      {swap_kb} kB\n", encoding="utf-8")
+    return str(f)
+
+
+def test_b1_memoria_poca_si_ferma_prima_di_scaricare(tmp_path, monkeypatch):
+    """B1-b (VM 30/10, 8 GB): Linux saw 3,8 GB + 1 GB of swap, 44 GB were downloaded and then the final test was a
+    generic RED (bowtie2 killed, 137). Now it stops at the start with RAM_INSUFFICIENTE and says what to do."""
+    home, c = catalogo(tmp_path, installato=False)
+    monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 3984588, 1048576))
+    out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
+    ev = controlla(out, rc, "installa")
+    assert rc == 2 and ev[-2]["codice"] == "RAM_INSUFFICIENTE" and ev[-2]["passo"] == "controllo"
+    assert "Memoria insufficiente: Linux ha 4,8 GB" in ev[-2]["messaggio"] and "16 GB" in ev[-2]["cosa_fare"]
+    monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 8165008, 4194304))   # a 16 GB PC: 7,8 GB + 4 GB of swap
+    out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
+    assert rc == 0
+
+
+def test_b1_prova_finale_rossa_per_memoria_non_generica():
+    """B1-b: a program killed by Linux for memory during the final test is RAM_INSUFFICIENTE, not a generic RED;
+    B1: the verifica_<pid> folder of a stopped final test is removed."""
+    testo = open(INSTALLA, encoding="utf-8").read()
+    prova = testo[testo.index("# ===================== 5. prova finale"):]
+    assert "exited with value 137" in prova and "fallisci RAM_INSUFFICIENTE" in prova
+    assert prova.index("verifica_motore.sh") < prova.index("pulisci_tmp verifica_") < prova.index("fallisci VERIFICA_ROSSA")
+
+
+def test_b1_resti_della_prova_finale_tolti(tmp_path):
+    home, c = catalogo(tmp_path)
+    morto = home / "tmp" / "verifica_999999"
+    morto.mkdir(parents=True)
+    (morto / "mini.mapout").write_text("x", encoding="utf-8")
+    vivo = home / "tmp" / f"verifica_{os.getpid()}"     # a final test still running (from the app): untouched
+    vivo.mkdir()
+    out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
+    assert rc == 0 and not morto.exists() and vivo.exists()
+
+
 def test_stima_in_english(tmp_path):
     """B2 (P12): with --lingua en (or PMN_LINGUA=en, set by pmn-motore) the messages for the person are in English;
     without, Italian as before."""

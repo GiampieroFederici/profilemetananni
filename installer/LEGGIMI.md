@@ -36,6 +36,12 @@ quello che è già arrivato e controllato. Se un file arriva rovinato, l'install
 succede ancora, il messaggio indica il file da mandarci. Se il computer si spegne durante lo scarico, al prossimo
 accesso l'installazione riparte da sola.
 
+**Memoria.** Serve un PC con almeno **16 GB** di memoria (l'analisi con MetaPhlAn usa fino a 8 GB dentro Linux).
+Con meno l'installatore si ferma subito, prima di installare o scaricare qualsiasi cosa, e lo dice.
+
+**Se l'installatore ti chiede di mandarci un file**, il percorso che vedi si apre da Windows (una copia del registro
+tecnico in `%LOCALAPPDATA%\profilemetananni\`, accanto a `installazione_windows.log`).
+
 **Nessun permesso di amministratore** dopo quello per attivare WSL.
 
 ---
