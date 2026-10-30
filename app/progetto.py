@@ -3,9 +3,14 @@
 Si scrive e si legge solo con yaml.safe_dump / yaml.safe_load. Il motore valida il contenuto
 (CONFIG_NON_VALIDA): qui si controlla solo il nome della cartella.
 """
+import gzip
+import json
 import os
 import re
 import tempfile
+import urllib.error
+import urllib.request
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -146,6 +151,117 @@ def campioni_locali(cartella):
                 out.append((nome, cartella / f, None))
     saltati = [f for f in file if f.endswith(suffissi) and f not in usati]
     return out, saltati
+
+
+# ---------------- ospiti aggiunti dalla persona (R8) ----------------
+# Stesse regole di motore/ospiti.py (il motore le ricontrolla): nome breve, codice dell'assembly NCBI, file FASTA.
+NOME_OSPITE = re.compile(r"[A-Za-z][A-Za-z0-9_]{1,39}")
+ACCESSION = re.compile(r"GC[AF]_[0-9]{9}\.[0-9]{1,3}")
+ESTENSIONI_FASTA = (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
+# nomi già usati dal motore (refs/hosts.tsv, che l'app impacchettata non ha: tests/test_ospiti_app.py li confronta)
+OSPITI_DEL_MOTORE = {"sus_scrofa", "bos_taurus", "gallus_gallus", "ovis_aries", "grch38", "chm13", "phix",
+                     "vitis_vinifera", "homo_sapiens"}
+# costo dell'indice Bowtie 2: stesse costanti e fonti di motore/ospiti.py (misure del 14/10 e del 30/10)
+MINUTI_PER_GBP, RAM_GB_PER_GBP, RAM_GB_FISSA = 7.2, 2.3, 0.2
+INDICE_BYTE_PER_BASE, TEMPORANEO_BYTE_PER_BASE, GZ_RAPPORTO = 1.4, 1.3, 3.3
+DOWNLOAD_BYTE_S, ZIP_BYTE_PER_BASE = 4.1e6, 0.31
+BASI_GRANDE = 3_100_000_000             # dimensione sconosciuta: come un genoma di mammifero, prudente
+NCBI_DATASETS = "https://api.ncbi.nlm.nih.gov/datasets/v2/genome/accession/{}/dataset_report"
+
+
+def stima_indice(basi, scaricare=False):
+    """Costo della costruzione dell'indice: {"minuti", "ram_gb", "disco_gb", "temporaneo_gb"}."""
+    gbp = basi / 1e9
+    secondi = 60 * MINUTI_PER_GBP * gbp + (basi * ZIP_BYTE_PER_BASE / DOWNLOAD_BYTE_S if scaricare else 0)
+    return {"minuti": max(1, round(secondi / 60)), "ram_gb": round(RAM_GB_FISSA + RAM_GB_PER_GBP * gbp, 1),
+            "disco_gb": round(INDICE_BYTE_PER_BASE * basi / 1e9, 1),
+            "temporaneo_gb": round(TEMPORANEO_BYTE_PER_BASE * basi / 1e9, 1)}
+
+
+def file_ospiti(radice=None):
+    """L'elenco degli ospiti aggiunti: nella cartella dei progetti, fuori da quella del programma (un aggiornamento
+    non lo tocca)."""
+    return Path(radice or cartella_progetti()) / "ospiti_personali.yaml"
+
+
+def ospiti_personali(radice=None):
+    """{nome: {"accession" o "fasta", "basi", "organismo", "aggiunto"}} degli ospiti aggiunti; voci non valide saltate."""
+    f = file_ospiti(radice)
+    try:
+        dati = yaml.safe_load(f.read_text(encoding="utf-8")) if f.is_file() else {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    return {n: v for n, v in (dati if isinstance(dati, dict) else {}).items() if isinstance(v, dict) and NOME_OSPITE.fullmatch(str(n))
+            and (ACCESSION.fullmatch(str(v.get("accession", ""))) or str(v.get("fasta", "")).lower().endswith(ESTENSIONI_FASTA))}
+
+
+def errore_nome_ospite(nome, radice=None):
+    """Il problema del nome breve di un ospite nuovo, o None se va bene."""
+    if not NOME_OSPITE.fullmatch(nome or ""):
+        return _("Il nome può avere solo lettere senza accenti, numeri e trattino basso (_), da 2 a 40, e deve "
+                 "iniziare con una lettera.")
+    if nome.lower() in OSPITI_DEL_MOTORE or nome in ospiti_personali(radice):
+        return _("Esiste già un ospite che si chiama {nome}: scegli un altro nome.", nome=nome)
+    return None
+
+
+def controlla_fasta(percorso):
+    """(basi stimate, None) di un genoma FASTA sul computer, o (None, problema in parole)."""
+    p = Path(percorso)
+    if not p.name.lower().endswith(ESTENSIONI_FASTA):
+        return None, _("Il file deve finire in .fa, .fasta o .fna (anche .gz).")
+    if not percorso_sicuro(p):
+        return None, _("Il nome di questo file (o di una cartella che lo contiene) ha un carattere che il motore non "
+                       "accetta, come ; & ! $: rinominalo e riprova.")
+    try:
+        with (gzip.open(p, "rb") if p.name.lower().endswith(".gz") else open(p, "rb")) as f:
+            inizio = f.read(4096).lstrip()
+        byte = p.stat().st_size
+    except (OSError, EOFError):
+        return None, _("Non riesco a leggere questo file.")
+    if not inizio.startswith(b">"):
+        return None, _("Questo file non è un genoma in formato FASTA (deve iniziare con il segno >).")
+    return round(byte * GZ_RAPPORTO) if p.name.lower().endswith(".gz") else byte, None
+
+
+def dimensione_ncbi(accession, attesa=15):
+    """(basi, organismo) dell'assembly da NCBI Datasets, None se NCBI non lo conosce; OSError se la rete non va."""
+    if not ACCESSION.fullmatch(accession or ""):   # solo codici validi entrano nell'indirizzo
+        return None
+    try:
+        with urllib.request.urlopen(NCBI_DATASETS.format(accession), timeout=attesa) as r:
+            dati = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 404):
+            return None
+        raise OSError(str(e)) from e
+    except ValueError as e:
+        raise OSError(str(e)) from e
+    for rep in dati.get("reports") or []:
+        basi = (rep.get("assembly_stats") or {}).get("total_sequence_length")
+        if basi:
+            return int(basi), (rep.get("organism") or {}).get("organism_name", "")
+    return None
+
+
+def aggiungi_ospite(nome, voce, radice=None):
+    """Aggiunge un ospite all'elenco (scrittura tutto o niente). voce: {"accession" o "fasta", "basi", ...}."""
+    problema = errore_nome_ospite(nome, radice)
+    if problema:
+        raise ValueError(problema)
+    elenco = ospiti_personali(radice)
+    elenco[nome] = {**voce, "aggiunto": date.today().isoformat()}
+    f = file_ospiti(radice)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=f.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as g:
+            yaml.safe_dump(elenco, g, allow_unicode=True, sort_keys=False)
+        os.replace(tmp, f)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    return elenco
 
 
 def percorso_sicuro(percorso):
