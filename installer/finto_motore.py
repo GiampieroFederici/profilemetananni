@@ -42,7 +42,7 @@ COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e
 COPPIE_LUNGO = 34109943             # C03_1 (scenario TEMPO_LUNGO)
 USCITA = {"ok": 0, "annullata": 3}
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "INGRESSO_NON_VALIDO": 1,
-                 "DB_MANCANTE": 2, "ERRORE_INTERNO": 4}
+                 "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "ERRORE_INTERNO": 4}
 INFO = {
     "motore": "0.1.0", "finto": True, "ram_gb": 15.6, "processori": 8, "spazio_libero_gb": 643,
     "modo_consigliato": {"metaphlan": "fette", "kraken": "completo"},
@@ -179,7 +179,10 @@ class Motore:
                             eta_s=None)
                 if self.a.scenario == "annullata" and passo == "database":
                     raise Annullata
-                self.attendi(sec)
+                if passo == "database":
+                    self._scarico_a_pezzi(sec)
+                else:
+                    self.attendi(sec)
         finally:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
@@ -189,12 +192,38 @@ class Motore:
         return "ok", {"programmi": 8, "database": gruppi, "verifica": "verde"}, \
             _("VERDE: il motore è installato e funziona.")
 
+    def _scarico_a_pezzi(self, sec):
+        """v1.1 (contratto §4): durante lo scarico un avanzamento periodico con i campi nuovi facoltativi, come il vero
+        (installa_motore.sh, ogni 15 s): byte_fatti, byte_totali, velocita_mb_s, sorgente (la più lenta), sorgenti."""
+        totali = {"kraken": 96_947_745_536, "pmn": 41_869_955_072}       # Kraken completo + rapido; pacchetti pmn
+        velocita = {"kraken": 3.1, "pmn": 7.0}                             # MB/s, misura del 30/10 (D165)
+        for k in range(1, 5):
+            fatti = {s: round(totali[s] * k / 4) for s in totali}
+            resto_s = max((totali[s] - fatti[s]) / (velocita[s] * 1e6) for s in totali)
+            self.evento("avanzamento",
+                        _("Scarico i database: {fatti} di {totali} GB ({sorgenti}).",
+                          fatti=lingua.virgola(f"{sum(fatti.values()) / 2**30:.1f}"),
+                          totali=lingua.virgola(f"{sum(totali.values()) / 2**30:.1f}"),
+                          sorgenti=_("Kraken {k} MB/s, altri database {p} MB/s", k=lingua.virgola(velocita["kraken"]),
+                                     p=lingua.virgola(velocita["pmn"]))),
+                        passo="database", campione=None, fatto=0, totale=1, percentuale=22 + 70 * k // 4 - (k == 4),
+                        eta_s=round(resto_s), byte_fatti=sum(fatti.values()), byte_totali=sum(totali.values()),
+                        velocita_mb_s=round(sum(velocita.values()), 2), sorgente="kraken",
+                        sorgenti=[{"sorgente": s, "byte_fatti": fatti[s], "byte_totali": totali[s],
+                                   "velocita_mb_s": velocita[s]} for s in totali])
+            self.attendi(sec / 4)
+
     def verifica(self):
         self.evento("avanzamento", _("Controllo i database e provo un piccolo campione..."), passo="verifica",
                     campione=None, fatto=0, totale=1, percentuale=10, eta_s=None)
         if self.a.scenario == "DB_MANCANTE":
             return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
                                _("Apri la pagina Motore e premi Installa."))
+        if self.a.scenario == "RAM_INSUFFICIENTE":   # B3-4: come il vero (pmn_motore.py verifica), niente "Installa"
+            return self.errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne "
+                                                      "usa fino a 8,2 GB."),
+                               _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore "
+                                 "qui non può lavorare: non serve reinstallarlo."))
         self.attendi(300)
         controlli = [{"nome": _(n), "esito": "ok"} for n in
                      (N_("versioni dei programmi"), N_("MD5 dei database"), N_("mini-campione: mapout"),
@@ -329,7 +358,8 @@ class Motore:
     def _referto(self, r, progetto):
         """motore/referto.py sul progetto: {file: percorso relativo o None}, None se la pagina non c'è."""
         p = subprocess.run([sys.executable, str(MOTORE / "referto.py"), "--risultati", str(r), "--progetto", str(progetto)],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, "PYTHONIOENCODING": "utf-8"})   # su Windows il figlio scriverebbe in cp1252
         try:
             esito = json.loads(p.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
@@ -377,8 +407,10 @@ def main():
     p.add_argument("--ingresso")
     p.add_argument("--velocita", type=float, default=60)
     p.add_argument("--scenario", default="ok", choices=["ok", "DB_MANCANTE", "GIA_IN_CORSO", "annullata",
-                                                         "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE"])
+                                                         "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE",
+                                                         "RAM_INSUFFICIENTE"])
     p.add_argument("--lingua", choices=lingua.LINGUE)
+    p.add_argument("--spazio-libero", type=int)   # come il motore vero (installa, v1.1)
     a = p.parse_args()
     if a.lingua:
         lingua.imposta(a.lingua)

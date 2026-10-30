@@ -7,6 +7,7 @@ Uscita in build\\pacchetto\\: la cartella profilemetananni\\ e profilemetananni_
     Installa profilemetananni.cmd    il doppio clic (avvia installer\\windows\\installa_pmn.ps1)
     app_windows\\ProfileMetaNanni\\   l'app di PyInstaller a cartella (--onedir): ProfileMetaNanni.exe + _internal\\
     installer\\ motore\\ bin\\ steps\\ refs\\   i file del motore, solo quelli in git (prepara_pmn.sh li copia nella WSL)
+    VERSIONE.txt                     "profilemetananni 1.1.0" e "commit <commit>" (D168; numero nel file motore/VERSIONE)
 Le librerie (PyInstaller, Pillow) sono in installer/windows/requisiti_pacchetto.txt.
 """
 import base64
@@ -19,6 +20,9 @@ import PyInstaller.__main__
 from PIL import Image
 
 RADICE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(RADICE))
+from app.aggiorna import VERSIONE   # noqa: E402  (D168: un solo numero, quello che l'app confronta col tag della Release)
+
 BUILD = RADICE / "build"
 USCITA = BUILD / "pacchetto"
 PACCHETTO = USCITA / "profilemetananni"
@@ -48,6 +52,11 @@ def git(*arg):
     return subprocess.run(["git", *arg], cwd=RADICE, check=True, capture_output=True, text=True).stdout
 
 
+def versione_txt(commit):
+    """D168: prima riga il numero di versione (lo legge aggiorna_pmn.ps1), seconda il commit come prima."""
+    return f"profilemetananni {VERSIONE}\ncommit {commit}\n"
+
+
 def icona():
     """L'avatar dell'app in formato .ico (tutte le misure che usa Windows)."""
     ico = BUILD / "ProfileMetaNanni.ico"
@@ -70,6 +79,7 @@ def app(ico):
         "--add-data", f"{RADICE / 'app' / 'risorse'}{sep}app/risorse",
         "--add-data", f"{RADICE / 'app' / 'stile.qss'}{sep}app",
         "--add-data", f"{RADICE / 'refs' / 'kraken_profili.tsv'}{sep}refs",
+        "--add-data", f"{RADICE / 'motore' / 'VERSIONE'}{sep}motore",       # D168: la versione che legge app/aggiorna.py
         "--exclude-module", "pytest", "--exclude-module", "pytestqt",
     ])
     return BUILD / "dist" / "ProfileMetaNanni"
@@ -87,7 +97,7 @@ def main():
             shutil.copy2(RADICE / rel, PACCHETTO / rel)
     shutil.copytree(app(icona()), PACCHETTO / "app_windows" / "ProfileMetaNanni")
     (PACCHETTO / "Installa profilemetananni.cmd").write_bytes(LANCIATORE.encode("ascii"))
-    (PACCHETTO / "VERSIONE.txt").write_text(f"profilemetananni, commit {commit}\n", encoding="utf-8")
+    (PACCHETTO / "VERSIONE.txt").write_text(versione_txt(commit), encoding="utf-8")
     zip_ = shutil.make_archive(str(USCITA / f"profilemetananni_{commit}"), "zip", USCITA, "profilemetananni")
     print(f"Pacchetto: {zip_} ({Path(zip_).stat().st_size / 1e6:.0f} MB)")
 

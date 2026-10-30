@@ -62,6 +62,7 @@ QPushButton#principale[pericolo="true"]:focus { background: #FCE9E7; border: 3px
 QPushButton#secondario { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 8px; padding: 12px 20px; }
 QPushButton#secondario:hover { border-color: #2F5D7C; }
 QPushButton#secondario:focus { border: 2px solid #2F5D7C; padding: 11px 19px; }
+QPushButton#secondario:disabled { background: #EEF2F0; color: #6B7A75; border: 1px dashed #CBD5D1; }
 
 /* schede di scelta e pannelli bianchi (R5) */
 QFrame#scelta { background: #FFFFFF; border: 1px solid #CBD5D1; border-radius: 12px; }
@@ -95,5 +96,6 @@ QTextBrowser:focus { border: 2px solid #2F5D7C; }
 QPushButton#apri { background: transparent; border: 0; color: #2F5D7C; text-align: left; padding: 4px 0;
   font-weight: bold; }
 QPushButton#apri:hover, QPushButton#apri:focus { text-decoration: underline; }
+QPushButton#apri QLabel { color: #2F5D7C; font-weight: bold; }   /* B2-2b: PulsanteACapo, testo che va a capo */
 QProgressBar { background: #E2E8E5; border: 0; border-radius: 6px; height: 12px; }
 QProgressBar::chunk { background: #1E7A4C; border-radius: 6px; }

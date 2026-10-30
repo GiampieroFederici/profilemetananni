@@ -9,6 +9,7 @@ I file di MetaPhlAn non si modificano.
 Uso: python metaphlan_mapout.py <file.mapout> --input_type mapout [altre opzioni di metaphlan]
 """
 import bz2
+import gc
 import os
 import pickle
 import sys
@@ -21,8 +22,17 @@ def check_database(self):
     pkl = os.path.join(self.db_dir, f"{self.index}.pkl")
     if not os.path.isfile(pkl):
         return False
-    with bz2.BZ2File(pkl, "r") as handle:
-        self.database_pkl = pickle.load(handle)
+    # Il .pkl di vJan25 sono 11,4 M di marcatori, ognuno un dizionario: mentre si creano, il raccoglitore dei cicli di
+    # Python li ripercorre tutti di continuo. Spento durante la lettura, poi gli oggetti letti si "congelano" (restano
+    # fino alla fine): stessi oggetti, stesso profilo, stessa memoria; MetaPhlAn da mapout su 66.000 read da 1:27-1:37
+    # a 1:00-1:02 (VM B2-4, 30/10).
+    gc.disable()
+    try:
+        with bz2.BZ2File(pkl, "r") as handle:
+            self.database_pkl = pickle.load(handle)
+    finally:
+        gc.enable()
+    gc.freeze()
     return True
 
 

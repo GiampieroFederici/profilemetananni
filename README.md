@@ -1,6 +1,6 @@
-# ProfileMetaNanni 1.0
+# ProfileMetaNanni 1.1
 
-## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
+## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
 
 | English | Italiano |
 |---|---|
@@ -8,9 +8,9 @@
 | **2.** Right-click the zip, choose **Extract All**, then **Extract**. | **2.** Clic destro sullo zip, scegli **Estrai tutto**, poi **Estrai**. |
 | **3.** In the new folder, double-click **Installa profilemetananni** and answer the windows. | **3.** Nella cartella nuova, doppio clic su **Installa profilemetananni** e rispondi alle finestre. |
 
-**You need** Windows 11 (not Mac), 16 GB of RAM, about 300 GB free on the internal disk, several hours of download. Every window explained: [How to install](#how-to-install).
+**You need** Windows 11 (not Mac), 16 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
-**Serve** Windows 11 (non Mac), 16 GB di RAM, circa 300 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
+**Serve** Windows 11 (non Mac), 16 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -18,7 +18,7 @@
 
 **English** | [Italiano](#italiano)
 
-**Metagenomics of cured meat products on an ordinary Windows PC with 16 GB of RAM.** From the DNA sequencing reads of a sample to which taxa are present and in which proportion. It installs with a double click and works without a terminal.
+**Metagenomics of cured meat products on an ordinary Windows PC with 16 GB of RAM.** Since version 1.1 also human faeces, skin, soil and grapevine (experimental). From the DNA sequencing reads of a sample to which taxa are present and in which proportion. It installs with a double click and works without a terminal.
 
 <p align="center">
   <img src="docs/vetrina/en_results.png" alt="ProfileMetaNanni, the Results page" width="720">
@@ -31,13 +31,13 @@
 
 ## How to install
 
-### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
+### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
 
 Before you start, check that you have:
 
 - a PC with **Windows 11** and **16 GB of RAM**;
-- about **300 GB free** on an internal disk (not a USB disk). Once installed, about 190 GB stay in use;
-- an internet connection, better with a cable. About 139 GB of databases are downloaded: with a 100 Mbit/s network it takes more than 3 hours, with a 30 Mbit/s one more than 10 hours. Meanwhile you can use the PC.
+- about **180 GB free** on an internal disk (not a USB disk). Once installed, about 180 GB stay in use;
+- an internet connection, better with a cable. About 139 GB of databases are downloaded, in pieces over several connections at once: with a 100 Mbit/s network it takes about 3 hours, with a 30 Mbit/s one about 10 hours. Meanwhile you can use the PC.
 
 Then 3 steps:
 
@@ -51,12 +51,13 @@ What you will see (in order) and how to answer. The installer speaks the languag
 |---|---|
 | Windows security warning about the file (the program has no digital signature) | **Open** or **Run**. If "Windows protected your PC" appears: **More info**, then **Run anyway** |
 | The installer needs a Windows component (WSL) | **OK**, then answer **Yes** to the Windows question |
-| A restart is needed, restart now? | **Yes**. After the restart the installation starts again by itself |
+| A restart is needed, restart now? | **Yes**. After the restart the installation starts again by itself, within about 2 minutes |
 | profilemetananni will download about ... GB of databases, with the space and the estimated time | read it and answer **Yes** |
-| Progress bar | wait. The PC does not go to sleep by itself during the downloads |
+| Laptop lid question (only for long downloads) | keep the lid open, or answer **Yes** and the setting is put back at the end |
+| Progress bar, with speed and time left | wait. The PC does not go to sleep by itself during the downloads. **Interrompi** (Stop) pauses the installation |
 | Everything is ready: profilemetananni is installed and works | **OK**: the program opens |
 
-If WSL is already on the PC, the WSL and restart windows do not appear. If the network drops or you switch the PC off, double-click **Installa profilemetananni** again: it resumes from where it stopped and does not download again the files already checked.
+If WSL is already on the PC, the WSL and restart windows do not appear. If the network drops, you press **Interrompi** or you switch the PC off, double-click **Installa profilemetananni** again: it resumes from where it stopped and does not download again the pieces already received. To update later, use the **Cerca aggiornamenti** (check for updates) button in the app: it asks before changing anything and keeps your projects.
 
 <p align="center">
   <img src="docs/installazione/1_domanda_download.jpg" alt="Question before the download" width="420"><br>
@@ -80,15 +81,16 @@ This is why it is a Windows program that installs with a double click and runs w
 
 ## What it does
 
-It starts from shotgun sequencing reads of a cured meat product (`.fastq.gz` files from the sequencing lab, or SRR/ERR/DRR accessions from a public archive) and reports which taxa are present and in which proportion.
+It starts from shotgun sequencing reads (`.fastq.gz` files from the sequencing lab, or SRR/ERR/DRR accessions from a public archive) and reports which taxa are present and in which proportion. It was built and validated on cured meat products; human faeces, skin, soil and grapevine (must, berry, leaf, root) are available as **experimental** sample types, with their limits explained in the app and in [`docs/ambienti.md`](docs/ambienti.md).
 
 | Step | Tool |
 |---|---|
 | Read cleaning and quality control | fastp, FastQC, MultiQC |
-| Host read removal | Bowtie 2 against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0) and human (GRCh38) |
+| Host read removal | Bowtie 2 against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
 | Marker-gene taxonomic profiling | MetaPhlAn 4.2.4 with the `mpa_vJan25_CHOCOPhlAnSGB_202503` database |
 | k-mer taxonomic profiling (prototype) | Kraken 2 + Bracken with PlusPF (full) or PlusPF-8 (quick screening) |
 | Alpha diversity at equal depth | richness, Shannon, Simpson, for each method |
+| Several samples | alpha and beta diversity (Aitchison, Bray-Curtis), tests chosen from the study design, PERMANOVA always with the dispersion test; groups filled in a table in the app ([`docs/metadati.md`](docs/metadati.md)) |
 | Food safety scenarios (prototype) | FSSP 4.0 predictive microbiology models for *Listeria monocytogenes* |
 | Report | HTML, PDF and Excel, with versions, parameters, limits and citations |
 
@@ -117,7 +119,7 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 |---|---|
 | System | Windows 11 (tested). Not available for macOS |
 | RAM | 16 GB |
-| Disk | internal, about 300 GB free during installation (about 170-190 GB once installed) |
+| Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download |
 | Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 41.8 GB of ProfileMetaNanni packages) |
 
 The installer enables WSL2 (it asks once for administrator permission and one restart), creates a dedicated Linux space and installs the programs from lock files with pinned versions and the databases with MD5 checks.
@@ -152,9 +154,9 @@ MIT (see `LICENSE`).
 
 <a name="italiano"></a>
 
-[English](#profilemetananni-10) | **Italiano**
+[English](#profilemetananni-11) | **Italiano**
 
-**La metagenomica dei salumi su un normale PC Windows con 16 GB di RAM.** Dalle read di sequenziamento del DNA di un campione a quali taxa ci sono e in che proporzione. Si installa con un doppio clic e si usa senza terminale.
+**La metagenomica dei salumi su un normale PC Windows con 16 GB di RAM.** Dalla versione 1.1 anche feci umane, cute, suolo e vite (sperimentale). Dalle read di sequenziamento del DNA di un campione a quali taxa ci sono e in che proporzione. Si installa con un doppio clic e si usa senza terminale.
 
 <p align="center">
   <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 secondi" width="720"><br>
@@ -163,13 +165,13 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.0.0/profilemetananni_185ba9e.zip)
+### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
 
 Prima di iniziare controlla di avere:
 
 - un PC con **Windows 11** e **16 GB di RAM**;
-- circa **300 GB liberi** su un disco interno (non un disco USB). A installazione finita ne restano occupati circa 190;
-- una connessione a internet, meglio col cavo. Si scaricano circa 139 GB di database: con una rete da 100 Mbit/s servono più di 3 ore, con una da 30 Mbit/s più di 10 ore. Intanto puoi usare il PC.
+- circa **180 GB liberi** su un disco interno (non un disco USB). A installazione finita ne restano occupati circa 180;
+- una connessione a internet, meglio col cavo. Si scaricano circa 139 GB di database, a pezzi su più connessioni insieme: con una rete da 100 Mbit/s servono circa 3 ore, con una da 30 Mbit/s circa 10 ore. Intanto puoi usare il PC.
 
 Poi 3 passi:
 
@@ -183,12 +185,13 @@ Che cosa vedrai (in ordine) e che cosa rispondere:
 |---|---|
 | Avviso di sicurezza di Windows sul file (il programma non ha una firma digitale) | **Apri** o **Esegui**. Se compare "Windows ha protetto il PC": **Ulteriori informazioni**, poi **Esegui comunque** |
 | "Per funzionare, profilemetananni ha bisogno di un componente di Windows (WSL)" | **OK**, poi alla domanda di Windows rispondi **Sì** |
-| "Serve un riavvio del computer... Riavvio adesso?" | **Sì**. Dopo il riavvio l'installazione riparte da sola |
+| "Serve un riavvio del computer... Riavvio adesso?" | **Sì**. Dopo il riavvio l'installazione riparte da sola, entro circa 2 minuti |
 | "profilemetananni scaricherà circa ... GB di database", con lo spazio e il tempo stimato | leggi e rispondi **Sì** |
-| Barra di avanzamento | aspetta. Il PC non va in sospensione da solo durante i download |
+| Domanda sul coperchio del portatile (solo per scarichi lunghi) | tieni il coperchio aperto, oppure rispondi **Sì** e alla fine l'impostazione torna com'era |
+| Barra di avanzamento, con velocità e tempo che manca | aspetta. Il PC non va in sospensione da solo durante i download. **Interrompi** mette in pausa l'installazione |
 | "Tutto pronto: profilemetananni è installato e funziona" | **OK**: si apre il programma |
 
-Se WSL c'è già sul PC, le finestre di WSL e del riavvio non compaiono. Se la rete cade o spegni il PC, fai di nuovo doppio clic su **Installa profilemetananni**: riprende da dove era arrivata e non riscarica i file già controllati.
+Se WSL c'è già sul PC, le finestre di WSL e del riavvio non compaiono. Se la rete cade, premi **Interrompi** o spegni il PC, fai di nuovo doppio clic su **Installa profilemetananni**: riprende da dove era arrivata e non riscarica i pezzi già arrivati. Per aggiornare in seguito c'è il pulsante **Cerca aggiornamenti** nell'app: chiede prima di cambiare qualcosa e conserva i tuoi progetti.
 
 <p align="center">
   <img src="docs/installazione/1_domanda_download.jpg" alt="Domanda prima del download" width="420"><br>
@@ -212,15 +215,16 @@ Per questo è un programma per Windows che si installa con un doppio clic e si u
 
 ## Che cosa fa
 
-Parte dalle read di sequenziamento shotgun di un salume (file `.fastq.gz` del laboratorio, oppure codici SRR/ERR/DRR di un archivio pubblico) e dice quali taxa ci sono e in che proporzione.
+Parte dalle read di sequenziamento shotgun (file `.fastq.gz` del laboratorio, oppure codici SRR/ERR/DRR di un archivio pubblico) e dice quali taxa ci sono e in che proporzione. È stato costruito e validato sui salumi; feci umane, cute, suolo e vite (mosto, acino, foglia, radice) sono disponibili come tipi di campione **sperimentali**, con i limiti spiegati nell'app e in [`docs/ambienti.md`](docs/ambienti.md).
 
 | Passo | Strumento |
 |---|---|
 | Pulizia e controllo qualità delle read | fastp, FastQC, MultiQC |
-| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0) e uomo (GRCh38) |
+| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
 | Profilo tassonomico con geni marcatori | MetaPhlAn 4.2.4 con il database `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | Profilo tassonomico per k-mer (prototipo) | Kraken 2 + Bracken con PlusPF (completo) o PlusPF-8 (screening rapido) |
 | Diversità alfa a profondità uguale | ricchezza, Shannon, Simpson, per ciascun metodo |
+| Più campioni | diversità alfa e beta (Aitchison, Bray-Curtis), test scelti in base al disegno sperimentale, PERMANOVA sempre insieme al test della dispersione; gruppi compilati in una tabella nell'app ([`docs/metadati.md`](docs/metadati.md)) |
 | Scenari di sicurezza alimentare (prototipo) | modelli di microbiologia predittiva di FSSP 4.0 per *Listeria monocytogenes* |
 | Referto | HTML, PDF ed Excel, con versioni, parametri, limiti e citazioni |
 
@@ -249,7 +253,7 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 |---|---|
 | Sistema | Windows 11 (provato). Non disponibile per macOS |
 | RAM | 16 GB |
-| Disco | interno, circa 300 GB liberi durante l'installazione (circa 170-190 GB a installazione finita) |
+| Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico |
 | Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 41,8 GB di pacchetti ProfileMetaNanni) |
 
 L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un riavvio), crea uno spazio Linux dedicato e ci installa i programmi da file di blocco con versioni fisse e i database con controllo MD5.

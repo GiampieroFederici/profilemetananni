@@ -26,12 +26,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "motore"))
 import diversita  # noqa: E402
 import lingua  # noqa: E402
+import multicampione  # noqa: E402
 import system_one  # noqa: E402
 from lingua import N_, _  # noqa: E402
 
 OSPITI = {"sus_scrofa": N_("maiale (Sscrofa11.1)"), "bos_taurus": N_("bovino (ARS-UCD1.2)"),
           "ovis_aries": N_("pecora (ARS-UI_Ramb_v2.0)"), "grch38": N_("uomo (GRCh38)"),
-          "homo_sapiens": N_("uomo (GRCh38)")}
+          "homo_sapiens": N_("uomo (GRCh38)"), "vitis_vinifera": N_("vite (T2T-PN40024)")}
 MICROBI = ("batteri", "archei", "funghi")   # categorie: chiavi, si traducono solo quando si mostrano
 CATEGORIE = [N_("batteri"), N_("archei"), N_("funghi"), N_("virus"), N_("altri eucarioti"), N_("altro"),
              N_("buono"), N_("da controllare"), N_("da rifare"), N_("migliorata"), N_("fssp")]
@@ -255,10 +256,13 @@ def valori_diversita(r):
 def html_diversita(d):
     """Sezione "Diversità alfa" (R1): avviso sulla profondità, poi MetaPhlAn e Kraken in due tabelle separate."""
     div = d["diversita"]
+    multi = (d.get("multicampione") or {}).get("attiva")
     if not div["metaphlan"] and not div["kraken"]:
-        return []
+        return [f"<h2>4. {_('Diversità e confronto fra i campioni')}</h2>"] + html_multicampione(d) if multi else []
     uno = len(d["campioni"]) == 1
-    h = [f"<h2>4. {_('Diversità alfa (quanti taxa e quanto sono distribuiti)')}</h2>",
+    titolo = _("Diversità e confronto fra i campioni") if multi else _("Diversità alfa (quanti taxa e quanto sono "
+                                                                         "distribuiti)")
+    h = [f"<h2>4. {titolo}</h2>",
          riquadro(_("<b>Attenzione alla profondità.</b> La ricchezza (quanti taxa si trovano) cresce con il numero di "
                     "read: con più read si trovano più taxa rari, anche nello stesso prodotto.") + " " +
                   (_("Questo progetto ha un solo campione: i valori sono alla sua profondità. Confrontali solo con "
@@ -299,6 +303,164 @@ def html_diversita(d):
     h.append('<p class="piccolo">' + _("Metodo: rarefazione a profondità uguale (Schloss 2024, mSphere "
                                        "9:e00354-23). La ricchezza osservata sottostima quella vera (Willis 2019, "
                                        "Front Microbiol 10:2407).") + "</p>")
+    return h + (html_multicampione(d) if multi else [])
+
+
+INDICI = {"richness": N_("Ricchezza"), "shannon": "Shannon", "simpson": "Simpson"}
+DISTANZE = {"aitchison": N_("Aitchison (CLR)"), "braycurtis": "Bray-Curtis"}
+LIMITI_MULTI = N_("<b>Limiti.</b> Un fattore alla volta: niente modelli con più fattori, interazioni o covariate (le "
+                  "colonne in più di metadati.tsv si riportano ma non si usano). Con meno di 3 unità per gruppo non si "
+                  "fa nessun test. Con pochi campioni un risultato non significativo non vuol dire che i gruppi siano "
+                  "uguali. La PERMANOVA risente delle differenze di dispersione: per questo ha sempre accanto PERMDISP. "
+                  "I valori p non sono corretti fra indici, distanze e confronti diversi. Le abbondanze sono DNA "
+                  "relativo, non cellule vive per grammo.")
+
+
+NOTE_R = {"all values are equal: no test possible": N_("valori tutti uguali: nessun test possibile"),
+          # 30/10 (VM B2-5a): statistiche non definite con campioni (quasi) identici, al posto di un valore p
+          "all samples are identical: no test possible": N_("i campioni sono identici: nessun test possibile"),
+          "samples are identical within each group: the statistic is not defined, no test":
+              N_("i campioni sono identici dentro ogni gruppo: il test non è definito, nessun valore p"),
+          "dispersion is zero in every group: the statistic is not defined, no test":
+              N_("la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p"),
+          "dispersion is the same within each group: the statistic is not defined, no test":
+              N_("la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p"),
+          # D197: con meno di 5 unità per gruppo PERMDISP mostra solo le dispersioni medie
+          "too few samples for a reliable p value of the dispersion":
+              N_("troppo pochi campioni per un valore p affidabile della dispersione")}
+POCHI_PERMDISP = "too few samples for a reliable p value of the dispersion"   # nota di multicampione.R (MIN_DISP)
+
+
+def nota_r(nota):
+    """Una nota di multicampione.R (in inglese, come le tabelle) nella lingua del referto."""
+    return _(NOTE_R[nota]) if nota in NOTE_R else nota
+
+
+def citazioni_multi(d):
+    """Le fonti dei metodi dell'analisi multicampione, solo se è stata fatta (almeno 2 campioni)."""
+    m = d.get("multicampione") or {}
+    return list(m.get("citazioni", [])) if m.get("attiva") else []
+
+
+def righe_multi_excel(p):
+    """[righe] del foglio di un profiler: test alfa e beta come li ha scritti multicampione.R."""
+    out = [[r["comparison"], _("alfa"), _(INDICI.get(r["metric"], r["metric"])), _(multicampione.TEST[r["test"]]),
+            r["n"], r["statistic_name"], r["statistic"], r["p"], _(multicampione.EFFETTO.get(r["effect_size_name"], "")),
+            r["effect_size"], "", nota_r(r["note"])] for r in p["alfa"]]
+    out += [[r["comparison"], _("beta"), _(DISTANZE.get(r["distance"], r["distance"])), r["test"], r["n"], "F", r["F"],
+             r["p"], "R²" if r["R2"] else "", r["R2"], r["permutations"],
+             nota_dispersione(r) if r["test"] == "PERMANOVA" and r["dispersion_differs"] else nota_r(r["note"])]
+            for r in p["beta"]]
+    return out
+
+
+def p_testo(v, cifre=None):
+    """Un numero scritto da multicampione.R, nella lingua scelta; vuoto se manca. Senza cifre è un valore p: 3
+    decimali, "< 0,001" sotto (stretto anche nelle colonne del PDF)."""
+    x = numero(v)
+    if x is None:
+        return ""
+    if cifre is None:
+        return "&lt; " + pct(0.001, 3) if x < 0.001 else pct(x, 3)
+    return pct(x, cifre)
+
+
+def nota_dispersione(r):
+    if r.get("dispersion_differs") == "yes":
+        return _("dispersione diversa fra i gruppi: la PERMANOVA può dipendere da questa, non solo dalla composizione")
+    return _("dispersione simile fra i gruppi") if r.get("dispersion_differs") == "no" else e(r.get("note", ""))
+
+
+def html_multicampione(d):
+    """Sottosezione "Confronto fra i campioni" (R11): metadati, test scelti e perché, alfa e beta per profiler
+    (MetaPhlAn e Kraken separati), limiti. I numeri vengono da risultati/multicampione/ (motore/multicampione.R)."""
+    m = d["multicampione"]
+    md = m["metadati"]
+    h = [f"<h3>{_('Confronto fra i campioni (analisi multicampione)')}</h3>",
+         "<p>" + _("La diversità alfa dice quanti taxa ci sono dentro ogni campione; la diversità beta dice quanto i "
+                   "campioni sono diversi fra loro (distanza di Aitchison sui dati trasformati con il logaritmo dei "
+                   "rapporti, CLR, e distanza di Bray-Curtis sulle abbondanze relative). MetaPhlAn e Kraken restano "
+                   "separati. Tabelle e grafici (in inglese) sono in {cartella}.",
+                   cartella="<b>risultati/multicampione/</b>") + "</p>"]
+    if not md["usati"]:
+        h.append(riquadro(_("<b>Nessun test, solo descrizione.</b> Non è ancora scritto a quale gruppo appartiene ogni "
+                            "campione. Nell'app, pagina Risultati, riquadro \"Analisi multicampione\": scrivi il gruppo "
+                            "di ogni campione (ed eventualmente soggetto e tempo) e premi \"Salva e aggiorna l'analisi\". "
+                            "I test si scelgono da soli in base al disegno. I dati restano nel file {file} della cartella "
+                            "del progetto, che si può anche compilare con Excel.", file=f"<b>{md['file']}</b>")
+                          + (" " + _("Il modello del file, con i nomi dei campioni, è stato creato adesso.")
+                             if md["creato_ora"] else "")))
+    for problema_ in md["problemi"]:
+        h.append('<p class="piccolo"><b>' + _("Metadati:") + "</b> " + e(problema_) + "</p>")
+    for profiler, nome in (("metaphlan", "MetaPhlAn"), ("kraken", "Kraken + Bracken")):
+        p = m["profiler"].get(profiler)
+        if not p:
+            continue
+        h.append(f"<h4>{nome}</h4>")
+        if profiler == "kraken":
+            h.append('<p class="piccolo">' + _("<b>Prototipo, non per decisioni</b> (come la sezione 3). Solo batteri, "
+                                               "archei e funghi sopra la soglia di Kraken ({soglia} %).",
+                                               soglia=pct(d["soglia"], 3)) + "</p>")
+        else:
+            h.append('<p class="piccolo">' + _("Tutte le specie, nessuna soglia di abbondanza.") + "</p>")
+        h.append('<p class="piccolo">' + _("{n} campioni nell'analisi.", n=p["campioni"]) +
+                 (" " + _("Esclusi perché senza taxa: {nomi}.", nomi=e(", ".join(p["esclusi"]))) if p["esclusi"] else "")
+                 + "</p>")
+        if p["errore"]:
+            h.append(riquadro(e(p["errore"])))
+        if not p["confronti"] and md["usati"]:
+            h.append("<p>" + _("Nessun confronto: servono almeno 2 gruppi diversi fra i campioni di questo profilo.")
+                     + "</p>")
+        for c in p["confronti"]:
+            h.append("<p>" + _("<b>Confronto per {fattore}</b> ({livelli}).",
+                               fattore=e(_(multicampione.NOMI_FATTORI[c["fattore"]])),
+                               livelli=e(", ".join(c["livelli"]))) + " " + e(c["motivo"]) + "</p>")
+            alfa = [r for r in p["alfa"] if r["comparison"] == c["id"]]
+            if alfa:
+                h.append(tabella([_("Indice (alfa)"), _("Test"), "n", "p", _("Effetto")],
+                                 [[e(_(INDICI.get(r["metric"], r["metric"]))), e(_(multicampione.TEST[r["test"]])),
+                                   e(r["n"]), p_testo(r["p"]),
+                                   (e(_(multicampione.EFFETTO.get(r["effect_size_name"], ""))) + " "
+                                    + p_testo(r["effect_size"], 2)) if r["effect_size"] else e(nota_r(r["note"]))]
+                                  for r in alfa], (2, 3), [17, 31, 7, 13, 32]))
+                if c["test_alfa"] in ("kruskal_dunn", "friedman"):
+                    h.append('<p class="piccolo">' + _("I confronti a coppie fra i gruppi sono nel file {f}.",
+                                                       f=f"multicampione/{profiler}/alpha_posthoc.tsv") + "</p>")
+            beta = [r for r in p["beta"] if r["comparison"] == c["id"]]
+            righe_b, permutazioni, p_min = [], "", ""
+            for dist in DISTANZE:   # la dispersione (PERMDISP) sta sempre nella stessa riga della PERMANOVA
+                pa = next((r for r in beta if r["distance"] == dist and r["test"] == "PERMANOVA"), None)
+                pd = next((r for r in beta if r["distance"] == dist and r["test"] == "PERMDISP"), None)
+                if pa:
+                    permutazioni, p_min = pa["permutations"], pa.get("p_min") or p_min
+                    note = [nota_r(r["note"]) for r in (pa, pd) if r and r["note"]]
+                    if pd and pd["p"]:
+                        disp = f"p {p_testo(pd['p'])}"
+                    elif pd and pd["note"] == POCHI_PERMDISP:   # D197: solo le dispersioni medie, niente p
+                        disp = _("dispersione media: {valori}", valori=e(lingua.virgola(pd.get("group_dispersion", ""))))
+                    else:
+                        disp = _("non definita")
+                    righe_b.append([e(_(DISTANZE[dist])), f"R² {p_testo(pa['R2'], 2)}; p {p_testo(pa['p'])}"
+                                    if pa["p"] else _("non definita"), disp,
+                                    e("; ".join(dict.fromkeys(note))) if note else nota_dispersione(pa)])
+            if righe_b:
+                # B4-4: intestazione "PERMDISP" (prima "PERMDISP, p"): sotto 5 per gruppo ci sono le dispersioni, non p
+                h.append(tabella([_("Distanza (beta)"), "PERMANOVA", "PERMDISP", _("Nota")], righe_b, (1, 2),
+                                 [21, 24, 21, 34]))
+                h.append('<p class="piccolo">' + _("PERMANOVA: quanto la composizione media differisce fra i gruppi "
+                                                   "(R² = parte della variabilità spiegata dai gruppi). PERMDISP: se "
+                                                   "i gruppi sono dispersi in modo diverso. {n} permutazioni {modo}, "
+                                                   "seme {seme}.", n=e(permutazioni),
+                                                   modo=_(multicampione.PERMUTA[c["permutazioni"]]),
+                                                   seme=multicampione.SEME)
+                         + (" " + _("Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il "
+                                    "numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 "
+                                    "campioni).", p=p_testo(p_min)) if p_min else "") + "</p>")
+    h.append('<p class="piccolo">' + _(LIMITI_MULTI) + "</p>")
+    h.append('<p class="piccolo">' + _("Metodi: zeri sostituiti con metà della più piccola abbondanza non nulla "
+                                       "(sostituzione moltiplicativa, Martín-Fernández 2003) prima del CLR; PERMANOVA "
+                                       "(Anderson 2001) sempre con PERMDISP (Anderson 2006), sulle stesse permutazioni; "
+                                       "programmi e versioni in parametri.tsv.") + "</p>")
     return h
 
 
@@ -401,12 +563,16 @@ def righe_parametri(d):
         out.append((_("Lunghezza delle read per Bracken (-r)"), p["bracken_readlen"], _("lunghezza tipica delle read"),
                     _("impostazione della pipeline")))
     ospiti = [o for o in p.get("hosts", "").replace(",", " ").split() if o]
-    if p.get("filter_human") in ("yes", "true", "True", "1"):
+    if p.get("filter_human") in ("yes", "true", "True", "1") and "grch38" not in ospiti:
         ospiti.append("grch38")
     if ospiti:
         out.append((_("DNA tolto prima dell'analisi (ospite)"), ", ".join(_(OSPITI.get(o, o)) for o in ospiti),
                     _("genomi di riferimento usati per togliere il DNA dell'ospite e dell'uomo"),
                     _("D021 (stesse versioni dei profili pubblicati)")))
+    for chiave in sorted(k for k in p if k.startswith("host_index_")):   # ospiti costruiti dal motore (v1.1, R8)
+        out.append((_("Genoma dell'ospite {nome}", nome=chiave[len("host_index_"):]), p[chiave],
+                    _("da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice"),
+                    "steps/11_host_index.sh"))
     return out
 
 
@@ -521,7 +687,12 @@ def html_referto(d):
     if any(c["metaphlan"] for c in d["campioni"]):
         h.append("<p>" + _(LIMITE_METAPHLAN) + "</p>")
     for c in d["campioni"]:
-        if not c["metaphlan"]:
+        if c["metaphlan"] is None:
+            continue
+        if not c["metaphlan"]:   # profilo senza specie, valido (solo UNCLASSIFIED: VM B3-3, read casuali)
+            h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
+            h.append("<p>" + _("MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è "
+                               "vuoto.") + "</p>")
             continue
         somma = sum(v for _, v in c["metaphlan"]) or 1.0
         h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
@@ -541,7 +712,12 @@ def html_referto(d):
                                        "contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte "
                                        "(D023).") + "</p>")
     for c in d["campioni"]:
-        if not c["kraken"]:
+        if c["kraken"] is None:
+            continue
+        if not c["kraken"]:   # profilo vuoto ma valido (steps/32: nessuna specie con almeno -t read)
+            h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
+            h.append("<p>" + _("Kraken: nessuna specie con almeno {n} read; il profilo di Kraken di questo campione è "
+                               "vuoto.", n=e(d["parametri"].get("bracken_min_reads", "10"))) + "</p>")
             continue
         micro = [r for r in c["kraken"] if r["categoria"] in MICROBI]
         sopra = [r for r in micro if r["pct"] >= s]
@@ -604,7 +780,7 @@ def html_referto(d):
     h.append(f"<h2>{n}. {_('Strumenti e database usati')}</h2>")
     h.append(tabella([_("Strumento o database"), _("Versione")],
                      [[e(_(VERSIONI.get(k, k))), e(v)] for k, v in d["versioni"].items() if v], larghezze=[45, 55]))
-    citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]]
+    citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]] + citazioni_multi(d)
     h.append(f"<p><b>{_('Come citarli:')}</b></p><ol>" + "".join(f"<li>{e(c)}</li>" for c in citazioni) + "</ol>")
     n += 1
     h.append(f"<h2>{n}. {_('Parole usate')}</h2><ul>" + "".join(f"<li><b>{e(_(a))}</b>: {e(_(b))}</li>"
@@ -676,6 +852,13 @@ def excel(d, percorso):
                    [[r["campione"], r["letture"], r["letture_usate"], _(STATO_DIVERSITA[r["stato"]]), r["ricchezza"],
                      r["shannon"], r["simpson"]] for r in d["diversita"][metodo]],
                    proto_k if metodo == "kraken" else None)
+    multi = d.get("multicampione") or {}
+    for metodo, nome in (("metaphlan", _("Multi_MetaPhlAn")), ("kraken", _("Multi_Kraken"))):   # mai insieme
+        p = multi.get("profiler", {}).get(metodo) if multi.get("attiva") else None
+        if p and (p["alfa"] or p["beta"]):
+            foglio(nome, [_("Confronto"), _("Diversità"), _("Indice o distanza"), _("Test"), "n", _("Statistica"),
+                          _("Valore"), "p", _("Effetto"), _("Valore dell'effetto"), _("Permutazioni"), _("Nota")],
+                   righe_multi_excel(p), proto_k if metodo == "kraken" else None)
     if d["triage"]:
         foglio("Triage", [_("Campione"), _("Esito"), _("Motivi"), _("Punteggio")],
                [[t["campione"], _(t["esito"]), "; ".join(t["motivi"]), t["punteggio"]] for t in d["triage"]])
@@ -694,7 +877,7 @@ def excel(d, percorso):
                  c.get("duplicati_pct"), c.get("lunghezza_media"), c.get("ospite_pct"), c.get("coppie_profili")]
                 for c in d["qc"]["campioni"]])
     foglio(_("Parametri"), [_("Parametro"), _("Valore"), _("Cosa vuol dire"), _("Fonte")], righe_parametri(d))
-    citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]]
+    citazioni = d["citazioni"] + [r["citazione"] for r in d["sicurezza"][:1]] + citazioni_multi(d)
     foglio(_("Strumenti_citazioni"), [_("Strumento o database"), _("Versione")],
            [[_(VERSIONI.get(k, k)), v] for k, v in d["versioni"].items()] + [[]] +
            [[_("Citazione"), c] for c in citazioni])
@@ -759,12 +942,19 @@ def main():
             cfg = {}
         cfg = cfg if isinstance(cfg, dict) else {}
     d = raccogli(risultati, cfg)
+    problemi = []
+    try:   # R11: con almeno 2 campioni; un errore qui non ferma il referto
+        d["multicampione"] = multicampione.esegui(risultati, d)
+    except Exception as ex:
+        d["multicampione"] = {"attiva": False}
+        problemi.append(_("manca l'analisi multicampione: errore imprevisto (il dettaglio è nel registro del motore)"))
+        print(f"multicampione: {type(ex).__name__}: {ex}", file=sys.stderr)
     cartella = risultati / "referto"
     cartella.mkdir(exist_ok=True)
     for vecchio in ("referto.html", "referto.xlsx", "referto.pdf"):   # niente file di un referto precedente
         (cartella / vecchio).unlink(missing_ok=True)
     testo = html_referto(d)
-    uscita = {"html": str(cartella / "referto.html"), "xlsx": None, "pdf": None, "problemi": []}
+    uscita = {"html": str(cartella / "referto.html"), "xlsx": None, "pdf": None, "problemi": problemi}
     (cartella / "referto.html").write_text(testo, encoding="utf-8")
     uscita["dettagli"] = []   # testo tecnico per il registro (log); per l'utente solo "problemi", in italiano
     try:

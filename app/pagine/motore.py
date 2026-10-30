@@ -127,7 +127,7 @@ class PaginaMotore(Pagina):
             self._pallino("verde")
             self.stato_titolo.setText(_("Installato e pronto") + (_(" (motore di prova)") if i.get("finto") else ""))
         for riga, d in enumerate(database):
-            self.griglia.addWidget(QLabel(_(NOMI_DB[d["nome"]]) if d["nome"] in NOMI_DB else
+            self.griglia.addWidget(etichetta(_(NOMI_DB[d["nome"]]) if d["nome"] in NOMI_DB else   # B2-2b: a capo
                                           _("Altro database ({nome})", nome=d['nome'])), riga, 0)
             self.griglia.addWidget(QLabel(_("installato") if d.get("installato") else _("manca")), riga, 1)
             self.griglia.addWidget(QLabel(f"{numero(d['gb'])} GB" if d.get("gb") is not None else ""), riga, 2)
@@ -170,7 +170,9 @@ class PaginaMotore(Pagina):
         self.messaggio.setText(_("Controllo il motore...") if comando == "verifica" else _("Preparo l'installazione..."))
         self._lavoro(True)
         self.respira.emit(True)
-        self.client.avvia(comando)
+        # R3 (v1.1): dentro la WSL il motore vede il disco virtuale; lo spazio vero di Windows decide se tenere i pezzi
+        libero = spazio_windows_gb() if comando == "installa" else None
+        self.client.avvia(comando, *(["--spazio-libero", str(int(libero * 1e9))] if libero is not None else []))
         self._barra_azioni()
 
     def ferma(self):
@@ -203,11 +205,13 @@ class PaginaMotore(Pagina):
                 self.da_installare = e.get("codice") in DA_INSTALLARE
                 titolo = _("ROSSO: {messaggio}", messaggio=e['messaggio']) if comando == "verifica" else e["messaggio"]
                 self.zona_esito.addWidget(riquadro(titolo, e.get("cosa_fare", ""), "errore"))
+            self._esito_in_vista()                     # B4-9: anche il ROSSO, non solo il VERDE (B2 P7)
             return
         if fine.get("esito") == "annullata":
             self.zona_esito.addWidget(riquadro(fine.get("messaggio", ""), _("Premi Installa o completa per "
                                                                             "riprendere da dove si era fermata."),
                                                "info"))
+            self._esito_in_vista()
             return
         r = fine.get("risultato") or {}
         controlli = r.get("controlli") or []

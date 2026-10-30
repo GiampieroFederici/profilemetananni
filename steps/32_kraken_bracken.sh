@@ -62,7 +62,14 @@ if [ -s "$brk" ]; then
   exit 0
 fi
 
-k2args=(--db "$DB" --memory-mapping --threads "$THREADS" --confidence "$CONFIDENCE"
+# A database larger than the RAM (PlusPF, 118 GB, on a 16 GB PC) is read from the disk piece by piece while Kraken
+# classifies: it waits for the disk most of the time (R10, 30/10: 0.6 of 8 processors busy for 52 min on SF3RAt7).
+# 4 threads per processor keep more disk reads in flight (150,000 pairs, 8 processors: 5:17 -> 3:49, same report).
+K_THREADS=$THREADS
+hash_b="$(stat -c %s "$DB/hash.k2d" 2> /dev/null || echo 0)"
+ram_b="$(awk '/^MemTotal:/ { printf "%d", $2 * 1024 }' /proc/meminfo)"
+[ "$hash_b" -gt "$ram_b" ] && K_THREADS=$(( THREADS * 4 ))
+k2args=(--db "$DB" --memory-mapping --threads "$K_THREADS" --confidence "$CONFIDENCE"
         --report "$k2report" --output "$k2out" --gzip-compressed)
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"
@@ -74,6 +81,19 @@ fi
 
 info "$(say "Classifying $SAMPLE with Kraken2 ..." "Classifico $SAMPLE con Kraken2 ...")"
 kraken2 "${k2args[@]}" || die "kraken2 failed for $SAMPLE"
+
+# Bracken keeps the taxa at the level with at least -t reads in the clade (column 2 of the report) and exits with
+# "no reads found" when none is left (est_abundance.py 3.0.1): a soil with 677 classified pairs and at most 5 reads per
+# species stopped the whole run (ERR2603036, 30/10). Same test here: none = an empty but valid profile, and a warning.
+if ! awk -F'\t' -v l="$LEVEL" -v t="$MINREADS" '$4 == l && $2 > 0 && $2 >= t { f = 1; exit } END { exit !f }' "$k2report"; then
+  case "$LEVEL" in D) lv=domains ;; P) lv=phylums ;; C) lv=classes ;; O) lv=orders ;; F) lv=families ;; G) lv=genuses ;; S) lv=species ;; esac
+  : > "$OUT/${SAMPLE}_bracken_${lv}.k2report" || die "cannot write the Bracken report of $SAMPLE"
+  printf 'name\ttaxonomy_id\ttaxonomy_lvl\tkraken_assigned_reads\tadded_reads\tnew_est_reads\tfraction_total_reads\n' \
+    > "$brk" || die "cannot write $brk"
+  warn "$(say "Kraken: no species with at least $MINREADS reads in $SAMPLE; the Kraken profile of this sample is empty (Bracken not run)." \
+              "Kraken: nessuna specie con almeno $MINREADS read in $SAMPLE; il profilo di Kraken di questo campione è vuoto (Bracken non eseguito).")"
+  exit 0
+fi
 
 info "$(say "Estimating abundance with Bracken ..." "Stimo l'abbondanza con Bracken ...")"
 bracken -d "$DB" -i "$k2report" -o "$brk" -r "$READLEN" -l "$LEVEL" -t "$MINREADS" \

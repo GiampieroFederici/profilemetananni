@@ -2,10 +2,15 @@
 # installer/verifica_motore.sh - prova finale dell'installazione (D032, D037):
 #   versioni dei programmi chiave, programmi avviabili, mini-campione di regressione (200.000 coppie di SF3RAt7)
 #   con MD5 identici a installer/riferimenti.tsv. Esce con 0 solo se e' tutto VERDE.
+#   B3-4 (VM 30/10, 8 GB): esce con 3 e la riga MEMORIA_INSUFFICIENTE se memoria + swap di Linux sono sotto 9 GB
+#   (picco di MetaPhlAn a fette 8,2 GB, come installa_motore.sh) o se Linux chiude un programma per memoria (137):
+#   non e' un motore da reinstallare. PMN_MEMINFO solo per le prove.
 # Uso: bash installer/verifica_motore.sh   (PMN_HOME predefinita ~/.pmn)
 set -euo pipefail
 PMN_HOME=${PMN_HOME:-$HOME/.pmn}
 . "$PMN_HOME/installazione.env"
+mem_kb=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")
+if [ "$mem_kb" -lt $((9 * 1024 * 1024)) ]; then echo "MEMORIA_INSUFFICIENTE memoria + swap $mem_kb kB, servono 9 GB"; exit 3; fi
 RIF=$PMN_ROOT/installer/riferimenti.tsv
 val() { awk -F'\t' -v k="$1" '$1 == k {print $2}' "$RIF"; }
 esito=0
@@ -25,8 +30,14 @@ done
 
 # mini-campione di regressione
 O=$PMN_TMP/verifica_$$
-rm -rf "$O"
-bash "$PMN_ROOT/motore/metaphlan_fette.sh" mini "$PMN_PROVA/mini_SF3RAt7_1.fastq.gz" "$PMN_PROVA/mini_SF3RAt7_2.fastq.gz" "$O" 8
+rm -rf "$O" "$O.log"
+if ! bash "$PMN_ROOT/motore/metaphlan_fette.sh" mini "$PMN_PROVA/mini_SF3RAt7_1.fastq.gz" "$PMN_PROVA/mini_SF3RAt7_2.fastq.gz" "$O" 8 2>&1 | tee "$O.log"; then
+  if grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory' "$O.log"; then
+    echo "MEMORIA_INSUFFICIENTE Linux ha chiuso un programma per memoria"; rm -rf "$O" "$O.log"; exit 3
+  fi
+  rm -rf "$O" "$O.log"; echo "DIVERSO mini: MetaPhlAn a fette non ha finito"; echo "ROSSO"; exit 1
+fi
+rm -f "$O.log"
 controlla "mini: mapout (righe ordinate)" "$(sort "$O/mini.mapout" | md5sum | cut -d' ' -f1)" "$(val mini_mapout_ordinato)"
 controlla "mini: profilo (senza la riga del comando)" "$(sed 2d "$O/mini_profile.txt" | md5sum | cut -d' ' -f1)" "$(val mini_profilo)"
 rm -rf "$O"

@@ -14,6 +14,7 @@ PMN_MOTORE=finto; PMN_FINTO_OPZIONI aggiunge opzioni al finto (per esempio "--ve
 """
 import json
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -29,9 +30,10 @@ RADICE = Path(__file__).resolve().parent.parent
 DISTRO = "pmn"                                   # nome della WSL del motore (installer/windows/installa_pmn.ps1)
 MOTORE_WSL = "/home/pmn/.pmn/bin/pmn-motore"     # collegato dall'installatore (D053)
 
-
+    # nell'app impacchettata sys.executable è l'exe stesso: il finto la rilancerebbe a catena (30/10)
 def finto():
-    return os.environ.get("PMN_MOTORE") == "finto"
+    # nell app impacchettata sys.executable e l exe stesso: il finto la rilancerebbe a catena (30/10)
+    return os.environ.get("PMN_MOTORE") == "finto" and not getattr(sys, "frozen", False)
 
 
 def spazio_windows_gb():
@@ -56,6 +58,23 @@ def comando_motore():
         return [sys.executable, str(RADICE / "installer" / "finto_motore.py")], opzioni
     # -e e non "--": senza bash -c i percorsi con ' & $( ) arrivano intatti al motore
     return ["wsl.exe", "-d", DISTRO, "-u", "pmn", "-e", MOTORE_WSL], []
+
+
+LINUX = re.compile(r"(?<![\w/.])/(?:home/pmn|mnt/([a-z]))(/[^\s\"'<>]*)?")
+
+
+def percorso_windows(testo):
+    """B2-13 (R18): nei testi del motore i percorsi Linux come si aprono da Windows. /home/pmn/... ->
+    \\\\wsl.localhost\\pmn\\home\\pmn\\... (la WSL del motore), /mnt/c/... -> C:\\... ; il punto finale della frase
+    resta fuori dal percorso."""
+    def windows(m):
+        resto, coda = m.group(2) or "", ""
+        while resto and resto[-1] in ".,;:)":
+            resto, coda = resto[:-1], resto[-1] + coda
+        if m.group(1):
+            return m.group(1).upper() + ":" + (resto.replace("/", "\\") or "\\") + coda
+        return "\\\\wsl.localhost\\" + DISTRO + "\\home\\pmn" + resto.replace("/", "\\") + coda
+    return LINUX.sub(windows, testo)
 
 
 def percorso_per_motore(percorso):
@@ -136,6 +155,10 @@ class MotoreClient(QObject):
         if not isinstance(e, dict) or "tipo" not in e:
             self.diagnostica.append(testo)
             return
+        if not finto():                            # B2-13: ciò che la persona legge, con percorsi apribili da Windows
+            for chiave in ("messaggio", "cosa_fare", "log"):
+                if isinstance(e.get(chiave), str):
+                    e[chiave] = percorso_windows(e[chiave])
         if e["tipo"] == "inizio":
             self.corsa = e.get("corsa")
         if e["tipo"] == "fine":

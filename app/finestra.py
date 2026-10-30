@@ -9,14 +9,15 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
                                QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
 from app import lingua
+from app.aggiorna import VERSIONE
 from app.lingua import N_, _
 from app.motore import MotoreClient
-from app.pagine.base import Contesto
+from app.pagine.base import Contesto, impila
 from app.pagine.crediti import PaginaCrediti
 from app.pagine.esecuzione import PaginaEsecuzione
 from app.pagine.home import PaginaHome
@@ -36,7 +37,9 @@ EXTRA = ("sicurezza", "+", N_("Sicurezza alimentare"))
 MENU = [("home", N_("I miei progetti")), ("motore", N_("Motore")), ("crediti", N_("Come citare"))]
 AVVIO_MIN_MS = 2500                  # l'avatar resta almeno 2,5 s (prototipo: 2-3 s)
 AVVIO_LENTO_MS = 5000                # info oltre 5 s: avvio a freddo della WSL, lo si spiega (A2)
-AVVIO_MAX_MS = 90000                 # info oltre 90 s: WSL appesa, si chiude e si va avanti (oltre il minuto a freddo)
+LARGA = 1100                         # B2-2b: sotto questa larghezza la finestra si stringe (percorso, margini)
+PERCORSO_LARGO, PERCORSO_STRETTO = 306, 250
+AVVIO_MAX_MS = 90000                # info oltre 90 s: WSL appesa, si chiude e si va avanti (oltre il minuto a freddo)
 AVVIO_LENTO = N_("Il motore si sta avviando. La prima volta dopo l'accensione del computer può volerci fino a un "
                  "minuto: è normale, non chiudere la finestra.")
 
@@ -189,9 +192,18 @@ class Finestra(QMainWindow):
         return w
 
     def _testata(self):
+        """B2-2b: due gruppi, nome a sinistra e comandi a destra; su uno schermo stretto i comandi vanno sotto
+        (_adatta), così la testata non tiene la finestra più larga dello schermo (sulla VM a 830 px era tagliata)."""
         t = self.zona_testata = QFrame(objectName="testata")
-        s = QHBoxLayout(t)
-        s.setContentsMargins(20, 10, 20, 10)
+        self.griglia_testata = QGridLayout(t)
+        self.griglia_testata.setContentsMargins(20, 10, 20, 10)
+        self.griglia_testata.setHorizontalSpacing(16)
+        self.griglia_testata.setVerticalSpacing(4)
+        self.griglia_testata.setColumnStretch(0, 1)
+        t.setMinimumWidth(1)               # la larghezza minima la decide _adatta (una riga o due), non la somma
+        self.testata_sinistra, self.testata_destra = QWidget(), QWidget()
+        s = QHBoxLayout(self.testata_sinistra)
+        s.setContentsMargins(0, 0, 0, 0)
         s.setSpacing(16)
         self.emblema = QLabel(objectName="emblema")
         self.emblema.setFixedSize(84, 42)
@@ -201,9 +213,12 @@ class Finestra(QMainWindow):
         self.emblema.setAccessibleName("ProfileMetaNanni")
         s.addWidget(self.emblema)
         s.addWidget(QLabel("ProfileMetaNanni", objectName="nome"))
+        s.addWidget(QLabel(f"v{VERSIONE}", objectName="versione"))     # D168: la versione, in un punto discreto
         self.nome_progetto = QLabel("", objectName="nome_progetto")
         s.addWidget(self.nome_progetto)
-        s.addStretch(1)
+        s = QHBoxLayout(self.testata_destra)
+        s.setContentsMargins(0, 0, 0, 0)
+        s.setSpacing(16)
         self.pallino = QLabel(objectName="pallino")
         self.pallino.setFixedSize(14, 14)
         self.stato_motore = QPushButton(_("Motore: controllo..."), objectName="link")
@@ -225,11 +240,60 @@ class Finestra(QMainWindow):
         r.addWidget(self.pulsante_lingua)
         s.addWidget(scelta)
         self._stato_motore()
+        self.testata_una_riga = None
+        self._righe_testata(True)
         return t
+
+    def _righe_testata(self, una):
+        """Una riga (nome a sinistra, comandi a destra) o due (comandi sotto, a sinistra)."""
+        if una == self.testata_una_riga:
+            return
+        g = self.griglia_testata
+        for w in (self.testata_sinistra, self.testata_destra):
+            g.removeWidget(w)
+        if una:
+            g.addWidget(self.testata_sinistra, 0, 0, Qt.AlignLeft)
+            g.addWidget(self.testata_destra, 0, 1, Qt.AlignRight)
+        else:
+            g.addWidget(self.testata_sinistra, 0, 0, 1, 2, Qt.AlignLeft)
+            g.addWidget(self.testata_destra, 1, 0, 1, 2, Qt.AlignLeft)
+        self.testata_una_riga = una
+
+    def _adatta(self, larghezza):
+        """B2-2b: sotto 1100 px testata su due righe se non ci sta, percorso più stretto, margini delle pagine minori:
+        i testi vanno a capo invece di uscire a destra."""
+        if not hasattr(self, "testata_sinistra"):
+            return
+        serve = (self.testata_sinistra.sizeHint().width() + self.testata_destra.sizeHint().width()
+                 + self.griglia_testata.horizontalSpacing() + 40)
+        self._righe_testata(larghezza >= serve)
+        stretta = larghezza < LARGA
+        percorso, margine = (self._percorso_stretto(), 20) if stretta else (PERCORSO_LARGO, 40)
+        self.zona_percorso.setFixedWidth(percorso)
+        lato = 8 if stretta else 16                             # B4-1: stretta, meno margine e la voce non si taglia
+        self.zona_percorso.layout().setContentsMargins(lato, 24, lato, 24)
+        contenuto = larghezza - percorso - 2 * margine - 20     # 20: barra di scorrimento verticale
+        for p in self.pagine.values():
+            p.corpo.setContentsMargins(*((20, 20, 20, 20) if stretta else (40, 28, 40, 28)))
+            impila(p, contenuto)
+
+    def _percorso_stretto(self):
+        """B4-1: la colonna stretta è larga almeno quanto la voce più lunga in grassetto (la voce selezionata si
+        tagliava: "Campioni e prodott"), più margini (8 + 8), imbottitura (8 + 8) e bordo (2 + 2) dello stile."""
+        b = next(iter(self.passi.values()))[0]
+        grassetto = QFont(b.font())
+        grassetto.setBold(True)
+        m = QFontMetrics(grassetto)
+        testi = [f"✓   {testo}" for _b, _n, testo in self.passi.values()]
+        return max(PERCORSO_STRETTO, max(m.horizontalAdvance(t) for t in testi) + 36)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._adatta(evento.size().width())
 
     def _percorso(self):
         p = self.zona_percorso = QFrame(objectName="percorso")
-        p.setFixedWidth(306)
+        p.setFixedWidth(PERCORSO_LARGO)
         s = QVBoxLayout(p)
         s.setContentsMargins(16, 24, 16, 24)
         s.setSpacing(4)
@@ -267,7 +331,11 @@ class Finestra(QMainWindow):
         self.pila.setCurrentIndex(list(self.pagine).index(chiave))
         pagina.mostrata()
         progetto = self.contesto.progetto
-        self.nome_progetto.setText(f"· {progetto.nome}" if progetto else "")
+        nome = f"· {progetto.nome}" if progetto else ""
+        corto = self.nome_progetto.fontMetrics().elidedText(nome, Qt.ElideRight, 320)   # B2-2b: nomi lunghi
+        self.nome_progetto.setText(corto)
+        self.nome_progetto.setToolTip(nome[2:] if corto != nome else "")
+        self._adatta(self.width())
         self._azioni()
 
     def _analisi_finita(self):

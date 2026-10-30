@@ -40,7 +40,9 @@ def test_processori_dalla_corsa():
     assert pm.processori({"execution": {"threads": "x"}}) == pm.KRAKEN_PROC_RIF
     otto = {**CFG, "execution": {"threads": 8}, "motore": {"kraken_db": "completo"}}
     assert pm.tempi(SF3RAT7, otto)["kraken"] > pm.tempi(SF3RAT7, CFG)["kraken"]
-    assert abs(pm.tempi(SF3RAT7, otto)["kraken"] - 2447) <= 0.1 * 2447   # K2: 40 min 47 s con 8 processori
+    # v1.1 (VELOCITA, 30/10, 8 processori, 8 GB): Kraken + Bracken 24 min 20 s a PC poco carico, 33 min a PC carico
+    # (prima della v1.1, K2: 40 min 47 s); la stima resta prudente: fra il piu' veloce e il piu' lento + 10 %
+    assert 1460 <= pm.tempi(SF3RAT7, otto)["kraken"] <= 1.1 * 1980
 
 
 def test_read_locali_solo_metaphlan_e_rapido():
@@ -55,7 +57,7 @@ def test_piano_nell_ordine_di_run_sh():
     due = [("A", 1_000_000, 1), ("B", 2_000_000, 1)]
     etichette = [e for e, _, _, _ in pm.piano(due, {**CFG, "triage": {"enabled": True}})]
     assert etichette == ["size", "dl_A", "dl_B", "tq_A", "th_A", "tq_B", "th_B", "triage", "trim_A", "hf_A", "trim_B",
-                         "hf_B", "multiqc", "mpa_A", "krk_A", "mpa_B", "krk_B", "riepilogo", "referto"]
+                         "hf_B", "multiqc", "mpa_A", "krk_A", "mpa_B", "krk_B", "riepilogo", "alfa_mpa_B", "referto"]
     gruppi = [g for _, _, g, _ in pm.piano(due, CFG)]
     assert gruppi == sorted(gruppi)
 

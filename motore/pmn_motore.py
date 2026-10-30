@@ -25,10 +25,11 @@ from datetime import datetime
 from pathlib import Path
 
 import lingua       # stessa cartella (motore/)
+import ospiti
 import system_one
 from lingua import N_, _
 
-VERSIONE = "0.1.0"
+VERSIONE = (Path(__file__).resolve().parent / "VERSIONE").read_text(encoding="utf-8").strip()   # D168: unica fonte
 ROOT = Path(__file__).resolve().parent.parent
 PMN_HOME = Path(os.environ.get("PMN_HOME", Path.home() / ".pmn"))
 STATO = PMN_HOME / "stato"
@@ -36,16 +37,16 @@ RUN_SH = os.environ.get("PMN_RUN_SH", str(ROOT / "bin" / "run.sh"))   # sostitui
 ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi prima di riprovare il download
 TENTATIVI_RETE = 3
 CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
-                 "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
+                 "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
-PULIZIA_S_PER_M = 5.6          # fastp: 18 s per 3,24 M coppie (17/10)
+PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
 OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 230   # per M coppie senza ospite (C03_1, S2.2); fissi: 357 s per 1,51 M (17/10)
-KRAKEN_COPPIE_MIN = {"completo": 37000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2)
+MPA_S_PER_M, MPA_FISSI_S = 86.2, 185   # per M coppie senza ospite (C03_1, S2.2); fissi: 230 s il 17/10, 45 s in meno con read_fastx.py sul disco della WSL (v1.1 VELOCITA)
+KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
 ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
@@ -68,10 +69,15 @@ COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"
                  ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
 NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
-             (r"trim_(.+)", "pulizia"), (r"(?:hf|idx)_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
-             (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r".+", "riepilogo")]
+             (r"trim_(.+)", "pulizia"), (r"idx_.+", "ospite"), (r"hf_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
+             (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r"alfa_mpa_(.+)", "riepilogo"), (r".+", "riepilogo")]
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
+    # VM B4-10a: un programma chiuso da Linux perché la memoria è finita ("Killed", codice 137 di bowtie2 o MetaPhlAn)
+    (r"(?m)^Killed|exited with value 137|exit status 137", "RAM_INSUFFICIENTE",
+     N_("L'analisi si è fermata perché la memoria del computer non basta."),
+     N_("Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha "
+        "meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.")),
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
      N_("Non riesco a scaricare le read: i server di ENA e NCBI non rispondono."),
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
@@ -79,6 +85,20 @@ ERRORI = [
      N_("Libera spazio sul disco e riprova.")),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
      N_("Non trovo le read di uno o più campioni."), N_("Controlla i codici SRR o la cartella delle read nel progetto.")),
+    # R8: genoma di un ospite non installato (vite, ospite aggiunto dalla persona), steps/11_host_index.sh
+    (r"datasets download failed", "DOWNLOAD_FALLITO", N_("Non riesco a scaricare da NCBI il genoma dell'ospite."),
+     N_("Controlla la connessione a internet e il codice dell'assembly, poi riprova.")),
+    (r"FASTA file not found|Not a FASTA file|genome file must end", "CONFIG_NON_VALIDA",
+     N_("Non riesco a usare il file FASTA dell'ospite aggiunto."),
+     N_("Controlla che il file ci sia ancora e che sia un genoma in formato FASTA; poi, nella pagina Campioni e "
+        "prodotto, aggiungi di nuovo l'ospite o scegline un altro.")),
+    (r"bowtie2-build failed|cannot move the index", "ERRORE_INTERNO",
+     N_("La costruzione dell'indice dell'ospite si è fermata."),
+     N_("Di solito mancano memoria o spazio sul disco: chiudi gli altri programmi, libera spazio e riprova. "
+        "L'indice riparte da capo.")),
+    (r"invalid ospiti_personali|unsafe FASTA path|invalid accession for host", "CONFIG_NON_VALIDA",
+     N_("L'ospite aggiunto in questo progetto non è valido."),
+     N_("Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.")),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
      N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa.")),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
@@ -107,6 +127,9 @@ CITAZIONI = {
     "ovis_aries": [N_("Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. "
                       "DOI 10.1093/gigascience/giab096")],
     "grch38": [N_("Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116")],
+    # R8 (30/10): GCF_030704535.1, BioProject PRJNA882193 collegato a PMID 37213686 (verificato su NCBI)
+    "vitis_vinifera": [N_("Shi et al. 2023, Hortic Res 10(5):uhad061: vite T2T PN40024 (GCF_030704535.1). "
+                          "DOI 10.1093/hr/uhad061")],
 }
 
 
@@ -128,8 +151,10 @@ def piano(camp, cfg, quote=None):
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
     velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
-    quota = OSPITE_QUOTA if cfg.get("hosts") else 0.0
+    quota = OSPITE_QUOTA if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] else 0.0
     out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
+    if installazione():   # R8: indice di un ospite non installato (vite, ospiti aggiunti), costruito alla prima analisi
+        out += [(f"idx_{h}", "ospite", 0, s) for h, s in ospiti.da_costruire(cfg, PMN_HOME / "ospiti_utente")]
     if sezione(cfg, "triage").get("enabled") is True:
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
@@ -143,8 +168,13 @@ def piano(camp, cfg, quote=None):
         if strumento in ("kraken", "both"):
             out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
     diversita = sezione(cfg, "analysis").get("diversity", True) is not False
-    alfa = ALFA_MPA_S * (len(camp) - 1) if strumento in ("metaphlan", "both") and diversita else 0
-    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"] + alfa), ("referto", "referto", 6, ALTRI_S["referto"])]
+    alfa = []
+    if strumento in ("metaphlan", "both") and diversita and len(camp) > 1:
+        # R1: run.sh rifà MetaPhlAn (alfa_mpa_<campione>) su un sottocampione di ogni campione oltre il più povero;
+        # un passo per campione nel piano, così la barra va avanti anche lì (VM B2-4a: ferma a 99 % per 15 minuti)
+        povero = min(camp, key=lambda x: x[1] * (1 - (quote or {}).get(x[0], quota)))[0]
+        alfa = [(f"alfa_mpa_{n}", "riepilogo", 5, ALFA_MPA_S) for n, _, _ in camp if n != povero]
+    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"])] + alfa + [("referto", "referto", 6, ALTRI_S["referto"])]
 
 
 def tempi(camp, cfg, quote=None):
@@ -286,8 +316,9 @@ def installazione():
 
 # campione d'esempio a un clic (A2): il mini-campione della verifica, già nel motore (installer/installa_motore.sh)
 ESEMPIO = {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000,
-           "frase": N_("Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel "
-                       "motore.")}
+           # verificato su ENA (campione S_7_A di PRJNA352236): fermentazione spontanea, giorno 7 di stagionatura
+           "frase": N_("200.000 coppie di read di SF3RAt7 (SRR4875279), un salame a fermentazione spontanea "
+                       "campionato al giorno 7 di stagionatura, già nel motore.")}
 
 
 def esempio(env):
@@ -443,7 +474,13 @@ class Motore:
                 n += 1
                 self.avanza("verifica", _("Controllo {n}: {nome}", n=n, nome=m.group(2).strip()[:60]),
                             5 + 90 * n / 16)
-        if p.wait() != 0:
+        uscita = p.wait()
+        if uscita == 3:   # B3-4: memoria + swap sotto 9 GB, o un programma chiuso da Linux per memoria (137)
+            raise Errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne usa "
+                                                "fino a 8,2 GB."),
+                         _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore qui "
+                           "non può lavorare: non serve reinstallarlo."))
+        if uscita != 0:
             raise Errore("VERIFICA_ROSSA", _("ROSSO: la prova del motore non ha dato il risultato atteso."),
                          _("Manda a noi il file {log}.", log=self.log))
         return "ok", {"esito": "verde", "controlli": controlli}, _("VERDE: il motore funziona.")
@@ -610,6 +647,11 @@ class Motore:
                     pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
                     testo = _(dict(PASSI)[passo])
+                    if m.group(1).startswith("idx_"):   # R8: indice di un ospite non installato, una volta sola
+                        testo = _("costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si "
+                                  "riusa)", nome=m.group(1)[len("idx_"):])
+                    elif m.group(1).startswith("alfa_mpa_"):   # R1, VM B2-4a: diversità alfa a profondità uguale
+                        testo = _("diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read")
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
@@ -692,7 +734,7 @@ class Motore:
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:
                 k, _tab, v = riga.partition("\t")   # non "_": qui sotto _() traduce
                 parametri[k] = v
-        ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
+        ospiti = list(dict.fromkeys([*(cfg.get("hosts") or []), *(["grch38"] if cfg.get("filter_human", True) else [])]))
         kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
         nome_db = _("PlusPF-8 del 26/06/2026") if "08gb" in kraken_db else _("PlusPF del 26/06/2026")
         citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp",
@@ -700,6 +742,10 @@ class Motore:
                                                         *(["multiqc"] if qc["multiqc"] else []), *ospiti] if k in CITAZIONI
                      and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")
                      for c in CITAZIONI[k]]
+        for h in ospiti:   # R8: ospite aggiunto dalla persona, col genoma usato davvero (steps/11, parameters.tsv)
+            if h not in CITAZIONI and parametri.get(f"host_index_{h}"):
+                citazioni.append(_("Genoma dell'ospite {nome}, aggiunto da chi ha fatto l'analisi: {fonte}", nome=h,
+                                   fonte=parametri[f"host_index_{h}"]))
         env = installazione()
         e = env.get("PMN_ENVS", "")
         triage, consigli = system_one.triage(r / "tabelle" / "triage.tsv", system_one.soglie_triage(cfg))
@@ -711,13 +757,22 @@ class Motore:
                 coppie = sum(int(c.split("\t")[1]) for c in rep.read_text(encoding="utf-8").splitlines()
                              if c.split("\t")[-1].strip() in ("unclassified", "root"))
             elenco.append({"nome": nome, "esito": "ok", "coppie_dopo_ospite": coppie, "file": file})
+            b = r / file["kraken"] if file.get("kraken") else None
+            if b and b.is_file() and len(b.read_text(encoding="utf-8").splitlines()) <= 1:   # solo l'intestazione
+                self.evento("avviso", _("Kraken: nessuna specie con almeno {n} read in {nome}; il profilo di Kraken di "
+                                        "questo campione è vuoto.", n=parametri.get("bracken_min_reads", "10"), nome=nome),
+                            codice="KRAKEN_VUOTO")
         import referto   # stessa cartella; qui serve solo la libreria standard
         try:
             soglia = float(parametri.get("abundance_threshold_pct") or 0)
         except ValueError:
             soglia = 0.0
         for c in elenco:   # sintesi pronta per l'interfaccia (v0.2): mostra, non calcola (D006)
-            c["sintesi"] = referto.sintesi(referto.leggi_campione(r, c["file"]), soglia)
+            dati = referto.leggi_campione(r, c["file"])
+            c["sintesi"] = referto.sintesi(dati, soglia)
+            if dati["metaphlan"] == []:   # profilo senza specie, valido (VM B3-3): lo si dice, l'analisi continua
+                self.evento("avviso", _("MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di "
+                                        "questo campione è vuoto.", nome=c["nome"]), codice="METAPHLAN_VUOTO")
         versioni = {"metaphlan": versione(e, "pmn_metaphlan", "metaphlan"), "database_metaphlan": parametri.get("metaphlan_index"),
                     "kraken2": versione(e, "pmn_kraken", "kraken2"), "bracken": versione(e, "pmn_kraken", "bracken"),
                     "database_kraken": kraken_db or None, "bowtie2": versione(e, "pmn_metaphlan", "bowtie2"),
@@ -833,11 +888,13 @@ def main():
     p.add_argument("--corsa", default="")
     p.add_argument("--ingresso", help="sicurezza: richiesta JSON (prodotto, temperature, conte)")
     p.add_argument("--lingua", choices=lingua.LINGUE, help="lingua dei testi per l'utente (predefinita: it)")
+    p.add_argument("--spazio-libero", type=int, help="installa: byte liberi veri del disco di Windows (v1.1, R3)")
     a = p.parse_args()
     if a.lingua:
         lingua.imposta(a.lingua)
     if a.comando == "installa":   # l'installatore parla gia' da solo il contratto (eventi propri, dall'inizio alla fine)
-        os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si"])
+        spazio = ["--spazio-libero", str(a.spazio_libero)] if a.spazio_libero is not None and a.spazio_libero >= 0 else []
+        os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si", *spazio])
     sys.stdout.reconfigure(encoding="utf-8")
     m = Motore(a)
     m.evento("inizio", _("Comando {comando} avviato.", comando=a.comando), comando=a.comando, corsa=m.corsa,

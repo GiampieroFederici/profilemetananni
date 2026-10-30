@@ -1,0 +1,6 @@
+#mpa_vJan25_CHOCOPhlAnSGB_202503
+#metaphlan CASUALE.mapout --input_type mapout --nproc 8 --index mpa_vJan25_CHOCOPhlAnSGB_202503 --offline --sample_id CASUALE -o CASUALE_profile.txt
+#40000 reads processed
+#SampleID	CASUALE
+#clade_name	NCBI_tax_id	relative_abundance	additional_species
+UNCLASSIFIED	-1	100.0	

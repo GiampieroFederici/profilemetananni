@@ -11,8 +11,8 @@ Se la pagina cambia contesto.info chiama self.info_cambiata.emit(): la testata a
 
 Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); il loro stile è in stile.qss.
 """
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QRadioButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QRadioButton, QVBoxLayout, QWidget
 
 from app import lingua
 from app.lingua import N_, _
@@ -29,6 +29,14 @@ class Contesto:
         self.progetto = None
         self.avvia_analisi = False
         self.progetto_in_analisi = None
+
+
+class Corpo(QVBoxLayout):
+    """Il corpo della pagina: tutto in alto, alto quanto serve con i testi e i pulsanti che vanno a capo (B4-7a).
+    Con setAlignment(Qt.AlignTop) Qt dava al contenuto l'altezza "su una riga" e schiacciava le righe in più."""
+    def setGeometry(self, r):
+        alto = self.heightForWidth(r.width()) if self.hasHeightForWidth() else self.sizeHint().height()
+        super().setGeometry(QRect(r.x(), r.y(), r.width(), min(r.height(), max(alto, self.minimumSize().height()))))
 
 
 class Pagina(QWidget):
@@ -51,10 +59,9 @@ class Pagina(QWidget):
         self.titolo, self.testo_principale = _(self.titolo), _(self.testo_principale)   # lingua di quando si crea
         self.principale_attivo = True
         self.secondari = []
-        self.corpo = QVBoxLayout(self)
+        self.corpo = Corpo(self)
         self.corpo.setContentsMargins(40, 28, 40, 28)
         self.corpo.setSpacing(12)
-        self.corpo.setAlignment(Qt.AlignTop)
         if self.titolo:
             self.corpo.addWidget(etichetta(self.titolo, "titolo"))
 
@@ -140,12 +147,141 @@ class Scelta(QFrame):
         self._ridisegna()
 
 
+class PulsanteACapo(QPushButton):
+    """Pulsante il cui testo va a capo quando la finestra è stretta (B2-2b): lo scrive una QLabel dentro, il
+    pulsante resta cliccabile, selezionabile e raggiungibile col Tab come prima."""
+    def __init__(self, testo="", **opzioni):
+        super().__init__(**opzioni)
+        self.scritta = QLabel()
+        self.scritta.setWordWrap(True)
+        self.scritta.setAttribute(Qt.WA_TransparentForMouseEvents)
+        s = QHBoxLayout(self)
+        s.setContentsMargins(0, 4, 0, 4)
+        s.addWidget(self.scritta)
+        politica = self.sizePolicy()
+        politica.setHeightForWidth(True)
+        self.setSizePolicy(politica)
+        self.setText(testo)
+
+    def setText(self, testo):
+        self.scritta.setText(testo)
+        self.setAccessibleName(testo)
+        self.updateGeometry()
+
+    def text(self):
+        return self.scritta.text()
+
+    def sizeHint(self):
+        return self.layout().sizeHint()
+
+    def minimumSizeHint(self):
+        return self.layout().minimumSize()
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, larghezza):
+        return self.layout().totalHeightForWidth(larghezza)
+
+    def _sottolinea(self, si):                 # come QPushButton#apri:hover/:focus di stile.qss
+        f = self.scritta.font()
+        f.setUnderline(si)
+        self.scritta.setFont(f)
+
+    def enterEvent(self, evento):
+        self._sottolinea(True)
+        super().enterEvent(evento)
+
+    def leaveEvent(self, evento):
+        self._sottolinea(self.hasFocus())
+        super().leaveEvent(evento)
+
+    def focusInEvent(self, evento):
+        self._sottolinea(True)
+        super().focusInEvent(evento)
+
+    def focusOutEvent(self, evento):
+        self._sottolinea(self.underMouse())
+        super().focusOutEvent(evento)
+
+
+class Flusso(QLayout):
+    """Una fila di pulsanti che va a capo quando non ci sta, come il testo (B4-1: la riga dei pulsanti del referto
+    teneva la pagina Risultati larga 1108 px). Da sinistra a destra, nell'ordine in cui si aggiungono."""
+    def __init__(self, spazio=12):
+        super().__init__()
+        self._voci, self._spazio = [], spazio
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, voce):
+        self._voci.append(voce)
+
+    def count(self):
+        return len(self._voci)
+
+    def itemAt(self, i):
+        return self._voci[i] if 0 <= i < len(self._voci) else None
+
+    def takeAt(self, i):
+        return self._voci.pop(i) if 0 <= i < len(self._voci) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, larghezza):
+        return self._disponi(QRect(0, 0, larghezza, 0), False)
+
+    def setGeometry(self, rettangolo):
+        super().setGeometry(rettangolo)
+        self._disponi(rettangolo, True)
+
+    def sizeHint(self):                        # tutti su una riga
+        visibili = [v.sizeHint() for v in self._voci if not v.isEmpty()]
+        return QSize(sum(d.width() for d in visibili) + self._spazio * max(0, len(visibili) - 1),
+                     max((d.height() for d in visibili), default=0))
+
+    def minimumSize(self):                     # il pulsante più largo: gli altri vanno a capo
+        s = QSize()
+        for v in self._voci:
+            if not v.isEmpty():
+                s = s.expandedTo(v.minimumSize())
+        return s
+
+    def _disponi(self, r, sposta):
+        x, y, alto = r.x(), r.y(), 0
+        for v in self._voci:
+            if v.isEmpty():                    # pulsante nascosto
+                continue
+            d = v.sizeHint()
+            if x > r.x() and x + d.width() > r.right() + 1:
+                x, y, alto = r.x(), y + alto + self._spazio, 0
+            if sposta:
+                v.setGeometry(QRect(QPoint(x, y), d))
+            x += d.width() + self._spazio
+            alto = max(alto, d.height())
+        return y + alto - r.y()
+
+
 def riga_di_scelte(*schede):
-    r = QHBoxLayout()
+    """Schede affiancate; se la pagina è troppo stretta per affiancarle, una sotto l'altra (impila, B2-2b)."""
+    r = QHBoxLayout(objectName="riga_di_scelte")
     r.setSpacing(16)
     for s in schede:
         r.addWidget(s, 1)
     return r
+
+
+def impila(pagina, larghezza):
+    """B2-2b: le righe di schede che a questa larghezza (spazio per il contenuto della pagina) non ci stanno
+    affiancate vanno una sotto l'altra; quelle che ci stanno tornano affiancate."""
+    for r in pagina.findChildren(QHBoxLayout, "riga_di_scelte"):
+        schede = [r.itemAt(i).widget() for i in range(r.count())
+                  if r.itemAt(i).widget() is not None and not r.itemAt(i).widget().isHidden()]
+        affiancate = sum(s.minimumSizeHint().width() for s in schede) + r.spacing() * (len(schede) - 1)
+        r.setDirection(QHBoxLayout.LeftToRight if affiancate <= larghezza else QHBoxLayout.TopToBottom)
 
 
 def pannello(titolo=None):
@@ -160,9 +296,14 @@ def pannello(titolo=None):
 
 
 def svuota(disposizione):
-    """Toglie i widget di un layout (per ridisegnare una zona della pagina)."""
+    """Toglie i widget di un layout (per ridisegnare una zona della pagina), anche quelli dei layout dentro
+    (B2-11a: la griglia della stima di prima restava visibile sotto quella nuova)."""
     while disposizione.count():
-        w = disposizione.takeAt(0).widget()
+        voce = disposizione.takeAt(0)
+        w, dentro = voce.widget(), voce.layout()
         if w:
             w.hide()
             w.deleteLater()
+        elif dentro is not None:
+            svuota(dentro)
+            dentro.deleteLater()

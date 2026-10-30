@@ -31,7 +31,7 @@
 | campo di validità del modello | range of the model | avvisi FUORI_CAMPO | "range of applicability" come in FSSP? |
 | psi (1 o più = non cresce) | psi (1 or more = no growth) | referto | |
 | salume / salume di maiale | cured meat product / pork product | campioni e prodotto | |
-| salame tipo Felino | Felino-type salami | campione d'esempio | |
+| salame a fermentazione spontanea, giorno 7 di stagionatura | spontaneously fermented salami, day 7 of ripening | campione d'esempio | |
 | bresaola, carne secca | bresaola, dried meat | campioni e prodotto | |
 
 ## 2. Nomi dei passi dell'analisi

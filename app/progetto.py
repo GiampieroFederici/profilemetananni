@@ -3,14 +3,18 @@
 Si scrive e si legge solo con yaml.safe_dump / yaml.safe_load. Il motore valida il contenuto
 (CONFIG_NON_VALIDA): qui si controlla solo il nome della cartella.
 """
+import gzip
+import json
 import os
 import re
 import tempfile
+from datetime import date
 from pathlib import Path
 
 import yaml
 from PySide6.QtCore import QStandardPaths
 
+from app import lingua
 from app.lingua import _
 
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
@@ -146,6 +150,179 @@ def campioni_locali(cartella):
                 out.append((nome, cartella / f, None))
     saltati = [f for f in file if f.endswith(suffissi) and f not in usati]
     return out, saltati
+
+
+# ---------------- ospiti aggiunti dalla persona (R8) ----------------
+# Stesse regole di motore/ospiti.py (il motore le ricontrolla): nome breve, codice dell'assembly NCBI, file FASTA.
+NOME_OSPITE = re.compile(r"[A-Za-z][A-Za-z0-9_]{1,39}")
+ACCESSION = re.compile(r"GC[AF]_[0-9]{9}\.[0-9]{1,3}")
+ESTENSIONI_FASTA = (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
+# nomi già usati dal motore (refs/hosts.tsv, che l'app impacchettata non ha: tests/test_ospiti_app.py li confronta)
+OSPITI_DEL_MOTORE = {"sus_scrofa", "bos_taurus", "gallus_gallus", "ovis_aries", "grch38", "chm13", "phix",
+                     "vitis_vinifera", "homo_sapiens"}
+# costo dell'indice Bowtie 2: stesse costanti e fonti di motore/ospiti.py (misure del 14/10 e del 30/10)
+MINUTI_PER_GBP, RAM_GB_PER_GBP, RAM_GB_FISSA = 8.0, 2.3, 0.2
+INDICE_BYTE_PER_BASE, TEMPORANEO_BYTE_PER_BASE, GZ_RAPPORTO = 1.45, 1.5, 3.3
+DOWNLOAD_BYTE_S, ZIP_BYTE_PER_BASE = 4.1e6, 0.30
+BASI_GRANDE = 3_100_000_000             # dimensione sconosciuta: come un genoma di mammifero, prudente
+NCBI_DATASETS = "https://api.ncbi.nlm.nih.gov/datasets/v2/genome/accession/{}/dataset_report"
+
+
+def stima_indice(basi, scaricare=False):
+    """Costo della costruzione dell'indice: {"secondi", "ram_gb", "disco_gb", "temporaneo_gb"} (non arrotondati:
+    i testi li scrivono basi_in_parole, durata_in_parole e spazio_in_parole)."""
+    gbp = basi / 1e9
+    secondi = 60 * MINUTI_PER_GBP * gbp + (basi * ZIP_BYTE_PER_BASE / DOWNLOAD_BYTE_S if scaricare else 0)
+    return {"secondi": secondi, "ram_gb": RAM_GB_FISSA + RAM_GB_PER_GBP * gbp,
+            "disco_gb": INDICE_BYTE_PER_BASE * basi / 1e9, "temporaneo_gb": TEMPORANEO_BYTE_PER_BASE * basi / 1e9}
+
+
+def _numero(x, cifre):
+    return lingua.separatori(f"{x:,.{cifre}f}")
+
+
+def basi_in_parole(basi):
+    """B2-8a: unità giusta. 5386 -> "5.386 basi"; 4641652 -> "4,6 milioni di basi"; 2e9 -> "2,0 miliardi di basi"."""
+    if basi < 1e6:
+        return _("{n} basi", n=_numero(basi, 0))
+    if basi < 1e9:
+        return _("{n} milioni di basi", n=_numero(basi / 1e6, 1))
+    return _("{n} miliardi di basi", n=_numero(basi / 1e9, 1))
+
+
+def durata_in_parole(secondi):
+    """B2-8a: singolare e plurale. 30 -> "meno di un minuto"; 70 -> "circa 1 minuto"; 300 -> "circa 5 minuti"."""
+    minuti = round(secondi / 60)
+    if minuti < 1:
+        return _("meno di un minuto")
+    return _("circa 1 minuto") if minuti == 1 else _("circa {n} minuti", n=minuti)
+
+
+def spazio_in_parole(gb):
+    """Memoria o disco: "meno di 1 MB", "15 MB", "1,3 GB"."""
+    if gb < 0.001:
+        return _("meno di 1 MB")
+    return f"{_numero(gb * 1000, 0)} MB" if gb < 1 else f"{_numero(gb, 1)} GB"
+
+
+def file_ospiti(radice=None):
+    """L'elenco degli ospiti aggiunti: nella cartella dei progetti, fuori da quella del programma (un aggiornamento
+    non lo tocca)."""
+    return Path(radice or cartella_progetti()) / "ospiti_personali.yaml"
+
+
+def ospiti_personali(radice=None):
+    """{nome: {"accession" o "fasta", "basi", "organismo", "aggiunto"}} degli ospiti aggiunti; voci non valide saltate."""
+    f = file_ospiti(radice)
+    try:
+        dati = yaml.safe_load(f.read_text(encoding="utf-8")) if f.is_file() else {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    return {n: v for n, v in (dati if isinstance(dati, dict) else {}).items() if isinstance(v, dict) and NOME_OSPITE.fullmatch(str(n))
+            and (ACCESSION.fullmatch(str(v.get("accession", ""))) or str(v.get("fasta", "")).lower().endswith(ESTENSIONI_FASTA))}
+
+
+def errore_nome_ospite(nome, radice=None):
+    """Il problema del nome breve di un ospite nuovo, o None se va bene."""
+    if not NOME_OSPITE.fullmatch(nome or ""):
+        return _("Il nome può avere solo lettere senza accenti, numeri e trattino basso (_), da 2 a 40, e deve "
+                 "iniziare con una lettera.")
+    if nome.lower() in OSPITI_DEL_MOTORE or nome in ospiti_personali(radice):
+        return _("Esiste già un ospite che si chiama {nome}: scegli un altro nome.", nome=nome)
+    return None
+
+
+def controlla_fasta(percorso):
+    """(basi stimate, None) di un genoma FASTA sul computer, o (None, problema in parole)."""
+    p = Path(percorso)
+    if not p.name.lower().endswith(ESTENSIONI_FASTA):
+        return None, _("Il file deve finire in .fa, .fasta o .fna (anche .gz).")
+    if not percorso_sicuro(p):
+        return None, _("Il nome di questo file (o di una cartella che lo contiene) ha un carattere che il motore non "
+                       "accetta, come ; & ! $: rinominalo e riprova.")
+    try:
+        with (gzip.open(p, "rb") if p.name.lower().endswith(".gz") else open(p, "rb")) as f:
+            inizio = f.read(4096).lstrip()
+        byte = p.stat().st_size
+    except (OSError, EOFError):
+        return None, _("Non riesco a leggere questo file.")
+    if not inizio.startswith(b">"):
+        return None, _("Questo file non è un genoma in formato FASTA (deve iniziare con il segno >).")
+    return round(byte * GZ_RAPPORTO) if p.name.lower().endswith(".gz") else byte, None
+
+
+class NcbiNonRaggiungibile(OSError):
+    """NCBI non ha risposto: rete assente o lenta (certificato False), o certificato HTTPS non verificato (True)."""
+    def __init__(self, dettaglio, certificato=False):
+        super().__init__(dettaglio)
+        self.certificato = certificato
+
+
+def _chiedi(url, attesa):
+    """(codice HTTP o None, byte della risposta, errore di Qt) con la rete di Qt.
+    B2-7a: urllib di Python verifica i certificati solo con le radici già nell'archivio di Windows. Una Windows appena
+    installata non le ha tutte (le scarica quando servono, per i browser); NCBI usa la radice Go Daddy G2, che sulla
+    VM mancava. Qt chiede a Windows di completare la catena e di scaricare la radice che manca (stessa cosa dei
+    browser), quindi funziona anche lì. Qt apre un suo ciclo di eventi: la finestra intanto resta viva."""
+    from PySide6.QtCore import QEventLoop, QUrl
+    from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+    rete = QNetworkAccessManager()
+    richiesta = QNetworkRequest(QUrl(url))
+    richiesta.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, "ProfileMetaNanni")
+    richiesta.setRawHeader(b"Accept", b"application/json")
+    richiesta.setTransferTimeout(int(attesa * 1000))
+    risposta = rete.get(richiesta)
+    giro = QEventLoop()
+    risposta.finished.connect(giro.quit)
+    if not risposta.isFinished():
+        giro.exec()
+    codice = risposta.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    corpo, errore = bytes(risposta.readAll().data()), risposta.error()
+    risposta.deleteLater()
+    return codice, corpo, errore
+
+
+def dimensione_ncbi(accession, attesa=15):
+    """(basi, organismo) dell'assembly da NCBI Datasets; None se NCBI non lo conosce (B2-9a: risponde 200 con {}
+    o 404); NcbiNonRaggiungibile se la rete non va o il certificato non si verifica."""
+    from PySide6.QtNetwork import QNetworkReply
+    if not ACCESSION.fullmatch(accession or ""):   # solo codici validi entrano nell'indirizzo
+        return None
+    codice, corpo, errore = _chiedi(NCBI_DATASETS.format(accession), attesa)
+    if codice in (400, 404):
+        return None
+    if errore != QNetworkReply.NetworkError.NoError or codice != 200:
+        certificato = errore == QNetworkReply.NetworkError.SslHandshakeFailedError
+        raise NcbiNonRaggiungibile(f"{errore} {codice}", certificato)
+    try:
+        dati = json.loads(corpo.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        raise NcbiNonRaggiungibile(str(e)) from e
+    for rep in (dati.get("reports") if isinstance(dati, dict) else None) or []:
+        basi = (rep.get("assembly_stats") or {}).get("total_sequence_length")
+        if basi:
+            return int(basi), (rep.get("organism") or {}).get("organism_name", "")
+    return None
+
+
+def aggiungi_ospite(nome, voce, radice=None):
+    """Aggiunge un ospite all'elenco (scrittura tutto o niente). voce: {"accession" o "fasta", "basi", ...}."""
+    problema = errore_nome_ospite(nome, radice)
+    if problema:
+        raise ValueError(problema)
+    elenco = ospiti_personali(radice)
+    elenco[nome] = {**voce, "aggiunto": date.today().isoformat()}
+    f = file_ospiti(radice)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=f.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as g:
+            yaml.safe_dump(elenco, g, allow_unicode=True, sort_keys=False)
+        os.replace(tmp, f)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    return elenco
 
 
 def percorso_sicuro(percorso):

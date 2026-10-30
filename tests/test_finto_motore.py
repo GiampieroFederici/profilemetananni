@@ -29,7 +29,7 @@ def progetto(tmp_path):
 
 
 CASI = [("info", "ok", 0), ("installa", "ok", 0), ("installa", "annullata", 3), ("verifica", "ok", 0),
-        ("verifica", "DB_MANCANTE", 2), ("stima", "ok", 0), ("stima", "TEMPO_LUNGO", 0), ("esegui", "ok", 0),
+        ("verifica", "DB_MANCANTE", 2), ("verifica", "RAM_INSUFFICIENTE", 1), ("stima", "ok", 0), ("stima", "TEMPO_LUNGO", 0), ("esegui", "ok", 0),
         ("esegui", "DB_MANCANTE", 2), ("esegui", "GIA_IN_CORSO", 1), ("esegui", "annullata", 3),
         ("esegui", "READ_NON_TROVATE", 1), ("esegui", "TEMPO_LUNGO", 0)]
 
@@ -78,6 +78,22 @@ def test_esegui_writes_the_results_of_a_real_run(progetto):
     assert passi[0] == "download" and passi[-2:] == ["riepilogo", "referto"]   # P15: referto ultimo, come il vero
     pct = [e["percentuale"] for e in ev if e["tipo"] == "avanzamento"]
     assert pct == sorted(pct)
+
+
+def test_installa_sends_the_new_optional_download_fields(progetto):
+    """v1.1 (contract section 4): periodic database progress with byte_fatti, byte_totali, velocita_mb_s, sorgente,
+    sorgenti, as installa_motore.sh does; only new fields, the old ones are all there."""
+    for lingua, testo in (("it", "Scarico i database: 32,3 di 129,3 GB (Kraken 3,1 MB/s"),
+                          ("en", "Downloading the databases: 32.3 of 129.3 GB (Kraken 3.1 MB/s")):
+        out, rc = lancia("installa", "--lingua", lingua)
+        ev = controlla(out, rc, "installa")
+        nuovi = [e for e in ev if e["tipo"] == "avanzamento" and "byte_fatti" in e]
+        assert len(nuovi) == 4 and all(e["passo"] == "database" for e in nuovi)
+        assert nuovi[0]["messaggio"].startswith(testo)
+        assert nuovi[-1]["byte_fatti"] == nuovi[-1]["byte_totali"] and nuovi[-1]["eta_s"] == 0
+        assert {s["sorgente"] for s in nuovi[0]["sorgenti"]} == {"kraken", "pmn"} and nuovi[0]["sorgente"] == "kraken"
+        pct = [e["percentuale"] for e in ev if e["tipo"] == "avanzamento"]
+        assert pct == sorted(pct)
 
 
 def test_annulla_stops_a_running_esegui(progetto):

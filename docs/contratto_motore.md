@@ -20,6 +20,11 @@
 > (eventi, referto, FSSP) nella lingua scelta. Senza l'opzione tutto resta come prima, in italiano: nessun campo nuovo,
 > tolto o rinominato. Aggiunte segnate **[lingua]**.
 
+> **[v1.1, 30/10/2026, installatore]** `installa` scarica a pezzi e più sorgenti insieme (D165): solo **campi nuovi
+> facoltativi** in `avanzamento` (`byte_fatti`, `byte_totali`, `velocita_mb_s`, `sorgente`, `sorgenti`) e nel risultato
+> di `--stima` (`spazio_necessario_byte`, `spazio_libero_byte`, `sorgenti`); nessun campo tolto o rinominato.
+> Aggiunte segnate **[v1.1]**.
+
 ---
 
 ## 1. Come si chiama il motore
@@ -42,7 +47,7 @@
 | Comando | Cosa fa | Ingresso | Uscita (evento `fine`, campo `risultato`) |
 |---|---|---|---|
 | `info` | descrive PC e installazione, senza calcoli lunghi | nessuno | §5.1 |
-| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | `{"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}`; con `--stima`: `{"da_scaricare_gb", "spazio_necessario_gb", "spazio_libero_gb", "velocita_mb_s", "tempo_stimato_s"}` |
+| `installa` | installa o completa programmi e database; riprende da dove era rimasto | `--catalogo <file o URL>` (predefinito: quello dell'installazione) | `{"programmi": 8, "database": [gruppi del catalogo], "verifica": "verde"}`; con `--stima`: `{"da_scaricare_gb", "spazio_necessario_gb", "spazio_libero_gb", "velocita_mb_s", "tempo_stimato_s"}`; **[v1.1]** in più `spazio_necessario_byte`, `spazio_libero_byte` (byte esatti: l'unica regola dello spazio, la legge anche `installa_pmn.ps1`) `da_scaricare_byte` (byte esatti di `da_scaricare_gb`: alla ripresa senza i pezzi già sul disco) e `sorgenti` (`[{"sorgente", "da_scaricare_gb", "da_scaricare_byte", "velocita_mb_s", "velocita_da_sola_mb_s", "tempo_stimato_s"}]`, `null` se non misurata); **[B1]** `velocita_mb_s` è misurata con tutte le sorgenti insieme, `velocita_da_sola_mb_s` con la sorgente da sola; `tempo_stimato_s` (totale e per sorgente) viene da una simulazione: le sorgenti vanno alla velocità misurata insieme, quando una finisce la sua banda passa alle altre ma nessuna supera la sua velocità da sola (vale sia se il limite è la linea del PC sia se è ogni connessione); lo stesso calcolo dà `eta_s` durante lo scarico |
 | `verifica` | MD5 dei database + mini-campione di regressione (D032) | nessuno | `{"esito": "verde" \| "rosso", "controlli": [...]}` |
 | `stima` | tempo e spazio previsti, prima di partire (D023, D034) | `--progetto <config.yaml>` | §5.2 |
 | `esegui` | analisi completa del progetto | `--progetto <config.yaml>` | §5.3 |
@@ -98,6 +103,14 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
 - `passo` per `esegui`: `download`, `controllo_qualita`, `pulizia`, `ospite`, `metaphlan`, `kraken`, `riepilogo`.
 - `passo` per `installa`: `controllo`, `programmi`, `database`, `verifica`, `fine`
   (già così in `installer/installa_motore.sh --json`).
+- **[v1.1]** In `installa`, durante lo scarico dei database, un `avanzamento` **almeno ogni 30 s** (il motore lo manda
+  ogni 15 s, anche dentro un file da 85 GB) con i campi nuovi facoltativi: `byte_fatti` e `byte_totali` (tutti i
+  database del catalogo, già scaricati compresi), `velocita_mb_s` (somma delle sorgenti, media degli ultimi ~60 s),
+  `sorgente` (quella che decide il tempo che manca, la più lenta, o `null`) e `sorgenti`
+  (`[{"sorgente", "byte_fatti", "byte_totali", "velocita_mb_s"}]`, una voce per sorgente del catalogo: `kraken`,
+  `pmn`). `eta_s` si ricalcola a ogni evento con la velocità vera di ogni sorgente; `percentuale` = 22 + 70 × byte
+  fatti / byte totali e non torna indietro. Gli eventi d'inizio file ("Scarico ...") restano senza questi campi.
+  Chi non li conosce li ignora.
 - **[v0.2]** `passo` `sicurezza` (un avanzamento per scenario) e `referto` (ultimo passo di `esegui`, e del comando `referto`).
 - L'interfaccia mostra `messaggio` così com'è; per la barra usa `percentuale` ed `eta_s`.
 - **[v0.2]** Testi per l'utente con le vere lettere accentate (è, à, ù, perché), mai l'apostrofo al posto dell'accento.
@@ -158,9 +171,12 @@ l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce semp
 | `FUORI_CAMPO` | avviso | `sicurezza`: un fattore è fuori dal campo di validità del modello (M8); uno per fattore e modello, con i campi `modello` (`listeria`, `listeria_lab`, `lab`) e `fattore`, testo già pronto ("Per il modello della Listeria: pH = 5.4: fuori dal campo...") |
 | `CAMPIONE_DA_CONTROLLARE`, `CAMPIONE_DA_RIFARE` | avviso | `esegui`: esito del triage (System One v0, §5.5) |
 | `REFERTO_PARZIALE` | avviso | `esegui`/`referto`: manca il PDF o l'Excel (la pagina HTML c'è sempre). **[v0.3]** Testo solo in italiano, per esempio "Il referto non è completo: manca l'Excel: nel motore non c'è il modulo che lo scrive (openpyxl). La pagina del referto si apre lo stesso."; il dettaglio tecnico va nel log |
+| `KRAKEN_VUOTO` | avviso | **[v1.1]** `esegui`/`referto`: in un campione nessuna specie arriva alle read minime di Bracken (`-t`), quindi il suo profilo di Kraken è vuoto ma valido e l'analisi continua (MetaPhlAn, referto). Esempio: "Kraken: nessuna specie con almeno 10 read in ERR2603036; il profilo di Kraken di questo campione è vuoto." |
+| `METAPHLAN_VUOTO` | avviso | **[v1.1]** `esegui`/`referto`: MetaPhlAn non trova specie in un campione (profilo con la sola riga UNCLASSIFIED, per esempio read casuali), quindi il suo profilo di MetaPhlAn è vuoto ma valido: il campione resta fuori dalla matrice di MetaPhlAn, dalla diversità e dal multicampione, il referto scrive una frase al suo posto e l'analisi continua. Esempio: "MetaPhlAn: nessuna specie trovata in CASUALE; il profilo di MetaPhlAn di questo campione è vuoto." |
 
 Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` possono arrivare come **avviso**
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
+**[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; sotto 16 GB l'analisi non può finire).
 In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
 
 ## 5. Uscite
@@ -197,7 +213,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 
 ```json
 "esempio": {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000, "cartella": "/home/pmn/.pmn/db/prova",
-            "frase": "Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel motore."}
+            "frase": "200.000 coppie di read di SF3RAt7 (SRR4875279), un salame a fermentazione spontanea campionato al giorno 7 di stagionatura, già nel motore."}
 ```
 
 ### 5.2 `stima`
