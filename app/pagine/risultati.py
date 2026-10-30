@@ -6,15 +6,17 @@ In fondo sempre le citazioni (R14). Testi e numeri arrivano dal motore: qui si f
 """
 import html
 import json
+import os
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHBoxLayout, QPushButton, QTabBar, QTextBrowser,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QPushButton, QTabBar,
+                               QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget)
 
 from app import lingua
 from app.lingua import N_, _
+from app.motore import MotoreClient, percorso_per_motore
 from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, riquadro
 
 OSPITI = {"sus_scrofa": N_("maiale (Sscrofa11.1)"), "bos_taurus": N_("bovino (ARS-UCD1.2)"),
@@ -58,6 +60,50 @@ def file_referto(progetto, d):
     return {k: (p if p is not None and p.suffix.lower() == attesa[k] else None) for k, p in trovati.items()}
 
 
+def leggi_multicampione(progetto):
+    """risultati/multicampione/riepilogo.json (R11, scritto dal motore con almeno 2 campioni), o None."""
+    try:
+        return json.loads((progetto.risultati / "multicampione" / "riepilogo.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+COLONNE_META = ("sample_id", "group", "subject", "timepoint", "covariate")   # come motore/multicampione.py
+
+
+def leggi_metadati_app(f):
+    """([colonne], {sample_id: {colonna: valore}}) di metadati.tsv per riempire la tabella; vuoto se manca o non ha
+    sample_id. Le colonne in più (scritte con Excel) si tengono e si riscrivono."""
+    try:
+        dati = Path(f).read_bytes()
+    except OSError:
+        return list(COLONNE_META), {}
+    try:
+        testo = dati.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        testo = dati.decode("cp1252")
+    righe = [r for r in testo.splitlines() if r.strip() and not r.lstrip().startswith("#")]
+    testa = [c.strip() for c in righe[0].split("\t")] if righe else []
+    if "sample_id" not in testa:
+        return list(COLONNE_META), {}
+    out = {}
+    for r in righe[1:]:
+        riga = dict(zip(testa, (c.strip() for c in r.split("\t"))))
+        if riga.get("sample_id"):
+            out.setdefault(riga["sample_id"], riga)
+    return list(COLONNE_META) + [c for c in testa if c and c not in COLONNE_META], out
+
+
+def scrivi_metadati_app(f, colonne, righe):
+    """metadati.tsv (UTF-8, tabulazioni: si apre anche con Excel) scritto tutto o niente: file temporaneo e poi
+    sostituzione. Tabulazioni e a capo dentro una cella diventano spazi."""
+    pulisci = lambda v: " ".join(str(v or "").split())  # noqa: E731
+    testo = "\t".join(colonne) + "\n" + "".join("\t".join(pulisci(r.get(c, "")) for c in colonne) + "\n" for r in righe)
+    tmp = Path(f).with_name(Path(f).name + ".tmp")
+    tmp.write_text(testo, encoding="utf-8", newline="\n")
+    os.replace(tmp, f)
+
+
 def corsivo(testo, nomi):
     """Testo del motore in HTML sicuro, con i nomi delle specie in corsivo."""
     testo = html.escape(testo)
@@ -91,13 +137,17 @@ class PaginaRisultati(Pagina):
         self.contenuto = None
         self.dati = None
         self._chiave = None
+        self.client = MotoreClient(self)           # R11: rifà il referto dopo che l'utente ha compilato metadati.tsv
+        self.client.finito.connect(self._multi_aggiornata)
 
     def mostrata(self):
         # P25: la pagina dipende solo dal progetto, da risultati.json e dai file del referto che ci sono; se nulla è
         # cambiato non si rifà (con 30 campioni costava circa 1 s) e torna solo alla prima scheda, come una nuova
         progetto = self.contesto.progetto
         dati = leggi_risultati(progetto)
-        chiave = None if dati is None else (str(progetto.cartella), dati, file_referto(progetto, dati))
+        chiave = None if dati is None else (str(progetto.cartella), dati, file_referto(progetto, dati),
+                                            leggi_multicampione(progetto),
+                                            leggi_metadati_app(progetto.cartella / "metadati.tsv"))
         if chiave is not None and chiave == self._chiave and self.contenuto is not None:
             self.linguette.setCurrentIndex(0)
             self.azioni_cambiate.emit()
@@ -159,8 +209,9 @@ class PaginaRisultati(Pagina):
                 self.lista.addWidget(riquadro(_("Da sapere"), c.get("messaggio", ""), "avviso"))
 
         self._referto(progetto, d)
+        self._multicampione(progetto, d)
 
-        self.linguette = QTabBar()                 # una scheda per metodo: MetaPhlAn e Kraken mai insieme (R12)
+        self.linguette = QTabBar()                # una scheda per metodo: MetaPhlAn e Kraken mai insieme (R12)
         self.linguette.setStyleSheet(SCHEDE)
         self.linguette.setDrawBase(False)
         self.linguette.setExpanding(False)
@@ -207,6 +258,102 @@ class PaginaRisultati(Pagina):
         self.lista.addLayout(riga)
         if mancano:
             self.lista.addWidget(etichetta(_("Non sono stati preparati: {file}.", file=", ".join(mancano)), "nota"))
+
+    def _multicampione(self, progetto, d):
+        """R11 e R18: riquadro dell'analisi multicampione (almeno 2 campioni). La persona scrive gruppo, soggetto,
+        tempo e una covariata in una tabella già riempita con i campioni; "Salva e aggiorna l'analisi" scrive
+        metadati.tsv e rifà solo il referto (mai l'analisi delle read). I problemi in parole arrivano dal motore."""
+        self.campioni_multi = [c["nome"] for c in d.get("campioni", [])]
+        if len(self.campioni_multi) < 2:
+            return
+        m = leggi_multicampione(progetto) or {}
+        md = m.get("metadati") or {}
+        if md.get("usati"):
+            testo = _("Confronti fra i gruppi scritti qui sotto: diversità alfa e beta, MetaPhlAn e Kraken separati. I "
+                      "test sono nel referto (sezione 4), tabelle e grafici nella cartella dell'analisi.")
+        else:
+            testo = _("Per confrontare i campioni scrivi qui sotto il gruppo di ognuno (per esempio il prodotto o il "
+                      "lotto), poi premi \"Salva e aggiorna l'analisi\". Senza gruppi ci sono solo grafici "
+                      "descrittivi, nessun test.")
+        r = riquadro(_("Analisi multicampione"), testo, "info")
+        r.layout().addWidget(etichetta(_("Soggetto (facoltativo): lo stesso nome per i campioni presi dallo stesso "
+                                         "salame o animale in momenti diversi. Tempo (facoltativo): per esempio 0, 30, "
+                                         "60 giorni. Covariata (facoltativa): un'informazione in più, che si riporta ma "
+                                         "non entra nei test. Si rifanno solo i confronti, non l'analisi delle read."),
+                                       "nota"))
+        self._colonne_meta, self._meta_vecchi = leggi_metadati_app(progetto.cartella / "metadati.tsv")
+        t = QTableWidget(len(self.campioni_multi), len(COLONNE_META))
+        t.setHorizontalHeaderLabels([_("Campione"), _("Gruppo"), _("Soggetto"), _("Tempo"), _("Covariata")])
+        t.verticalHeader().setVisible(False)
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        for i, s in enumerate(self.campioni_multi):
+            nome = QTableWidgetItem(s)
+            nome.setFlags(nome.flags() & ~Qt.ItemIsEditable)
+            t.setItem(i, 0, nome)
+            for j, col in enumerate(COLONNE_META[1:], 1):
+                t.setItem(i, j, QTableWidgetItem(self._meta_vecchi.get(s, {}).get(col, "")))
+        t.setFixedHeight(min(360, 34 + 30 * len(self.campioni_multi)))
+        self.tabella_meta = t
+        r.layout().addWidget(t)
+        problemi = list(md.get("problemi", []))
+        for p in (m.get("profiler") or {}).values():            # perché un confronto è senza test (dal motore)
+            problemi += [c["motivo"] for c in p.get("confronti", []) if c.get("solo_descrittive")]
+        for testo_p in dict.fromkeys(problemi):
+            r.layout().addWidget(riquadro("", testo_p, "avviso"))
+        riga = QHBoxLayout()
+        riga.setSpacing(12)
+        self.aggiorna = QPushButton(_("Salva e aggiorna l'analisi"), objectName="secondario")
+        self.aggiorna.clicked.connect(lambda: self.salva_metadati(progetto))
+        self.aggiorna.setEnabled(not self.client.in_corso() and self.contesto.progetto_in_analisi is None)
+        apri = QPushButton(_("Apri l'analisi multicampione"), objectName="secondario")
+        apri.clicked.connect(lambda: self.apri(progetto.risultati / "multicampione"))
+        apri.setEnabled((progetto.risultati / "multicampione").is_dir())
+        excel = QPushButton(_("Apri metadati.tsv (anche con Excel)"), objectName="link")
+        excel.clicked.connect(lambda: self.apri_metadati(progetto))
+        excel.setEnabled((progetto.cartella / "metadati.tsv").is_file())
+        for b in (self.aggiorna, apri, excel):
+            riga.addWidget(b)
+        riga.addStretch(1)
+        r.layout().addLayout(riga)
+        self.lista.addWidget(r)
+
+    def apri_metadati(self, progetto):
+        """metadati.tsv con il programma di Windows: solo se è davvero un .tsv dentro il progetto (P19)."""
+        p = dentro(progetto, progetto.cartella / "metadati.tsv")
+        if p is not None and p.suffix.lower() == ".tsv":
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
+
+    def salva_metadati(self, progetto):
+        """Scrive metadati.tsv dalla tabella (le colonne in più scritte con Excel restano), poi rifà il referto."""
+        if self.client.in_corso() or self.contesto.progetto_in_analisi is not None:
+            return
+        righe = []
+        for i, s in enumerate(self.campioni_multi):
+            riga = {**self._meta_vecchi.get(s, {}), "sample_id": s}
+            for j, col in enumerate(COLONNE_META[1:], 1):
+                cella = self.tabella_meta.item(i, j)
+                riga[col] = cella.text() if cella else ""
+            righe.append(riga)
+        try:
+            scrivi_metadati_app(progetto.cartella / "metadati.tsv", self._colonne_meta, righe)
+        except OSError:
+            self.lista.insertWidget(0, riquadro(_("Non riesco a salvare i dati dei campioni"),
+                                                _("Il file metadati.tsv è aperto in un altro programma (per esempio "
+                                                  "Excel): chiudilo e premi di nuovo \"Salva e aggiorna l'analisi\"."),
+                                                "errore"))
+            return
+        self.aggiorna.setEnabled(False)
+        self.aggiorna.setText(_("Aggiorno l'analisi..."))
+        self.respira.emit(True)
+        self.client.avvia("referto", "--progetto", percorso_per_motore(progetto.config))
+
+    def _multi_aggiornata(self, _codice, fine):
+        self.respira.emit(False)
+        self._chiave = None                    # rifà la pagina anche se risultati.json non è cambiato
+        self.mostrata()
+        if fine.get("esito") != "ok":
+            self.lista.insertWidget(0, riquadro(_("Analisi multicampione non aggiornata"),
+                                                fine.get("messaggio", ""), "errore"))
 
     def _barre(self, righe, colore):
         """Barre orizzontali: [(nome, percentuale)]; la lunghezza è solo disegno (la più grande = barra piena)."""

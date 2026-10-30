@@ -423,5 +423,21 @@
  "DNA da togliere: maiale": "DNA to remove: pig",
  "DNA da togliere: bovino": "DNA to remove: cattle",
  "DNA da togliere: pecora": "DNA to remove: sheep",
- "DNA da togliere: uomo": "DNA to remove: human"
+ "DNA da togliere: uomo": "DNA to remove: human",
+ "Confronti fra i gruppi scritti qui sotto: diversità alfa e beta, MetaPhlAn e Kraken separati. I test sono nel referto (sezione 4), tabelle e grafici nella cartella dell'analisi.": "Comparisons between the groups written below: alpha and beta diversity, MetaPhlAn and Kraken kept separate. The tests are in the report (section 4), tables and plots in the analysis folder.",
+ "Per confrontare i campioni scrivi qui sotto il gruppo di ognuno (per esempio il prodotto o il lotto), poi premi \"Salva e aggiorna l'analisi\". Senza gruppi ci sono solo grafici descrittivi, nessun test.": "To compare the samples, write the group of each one below (for example the product or the batch), then press \"Save and update the analysis\". Without groups there are only descriptive plots, no tests.",
+ "Analisi multicampione": "Multi-sample analysis",
+ "Salva e aggiorna l'analisi": "Save and update the analysis",
+ "Apri l'analisi multicampione": "Open the multi-sample analysis",
+ "Apri metadati.tsv (anche con Excel)": "Open metadati.tsv (also with Excel)",
+ "Aggiorno l'analisi...": "Updating the analysis...",
+ "Soggetto (facoltativo): lo stesso nome per i campioni presi dallo stesso salame o animale in momenti diversi. Tempo (facoltativo): per esempio 0, 30, 60 giorni. Covariata (facoltativa): un'informazione in più, che si riporta ma non entra nei test. Si rifanno solo i confronti, non l'analisi delle read.": "Subject (optional): the same name for samples taken from the same salami or animal at different times. Time (optional): for example 0, 30, 60 days. Covariate (optional): extra information, reported but not used in the tests. Only the comparisons are redone, not the analysis of the reads.",
+ "Campione": "Sample",
+ "Gruppo": "Group",
+ "Soggetto": "Subject",
+ "Tempo": "Time",
+ "Covariata": "Covariate",
+ "Analisi multicampione non aggiornata": "Multi-sample analysis not updated",
+ "Non riesco a salvare i dati dei campioni": "I cannot save the sample data",
+ "Il file metadati.tsv è aperto in un altro programma (per esempio Excel): chiudilo e premi di nuovo \"Salva e aggiorna l'analisi\".": "The file metadati.tsv is open in another program (for example Excel): close it and press \"Save and update the analysis\" again."
 }
