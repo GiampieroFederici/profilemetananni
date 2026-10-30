@@ -197,7 +197,7 @@ def test_il_tempo_scende_anche_dentro_un_passo_lungo(f, monkeypatch):
     es._scorre()
     assert es.eta.text() == "qualche minuto" and es.barra.value() == 99
     es._evento({**avanza, "passo": "riepilogo", "percentuale": 98, "eta_s": 20})
-    assert es.barra.value() == 99 and es.eta.text() == "20 secondi"   # la barra non torna indietro
+    assert es.barra.value() == 99 and es.eta.text() == "meno di un minuto"   # la barra non torna indietro; sotto 30 s niente secondi
     es._evento({**avanza, "eta_s": None})
     assert not es.orologio.isActive()                # senza stima l'orologio si ferma
 
