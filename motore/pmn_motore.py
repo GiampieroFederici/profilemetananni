@@ -860,11 +860,13 @@ def main():
     p.add_argument("--corsa", default="")
     p.add_argument("--ingresso", help="sicurezza: richiesta JSON (prodotto, temperature, conte)")
     p.add_argument("--lingua", choices=lingua.LINGUE, help="lingua dei testi per l'utente (predefinita: it)")
+    p.add_argument("--spazio-libero", type=int, help="installa: byte liberi veri del disco di Windows (v1.1, R3)")
     a = p.parse_args()
     if a.lingua:
         lingua.imposta(a.lingua)
     if a.comando == "installa":   # l'installatore parla gia' da solo il contratto (eventi propri, dall'inizio alla fine)
-        os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si"])
+        spazio = ["--spazio-libero", str(a.spazio_libero)] if a.spazio_libero is not None and a.spazio_libero >= 0 else []
+        os.execvp("bash", ["bash", str(ROOT / "installer" / "installa_motore.sh"), "--json", "--si", *spazio])
     sys.stdout.reconfigure(encoding="utf-8")
     m = Motore(a)
     m.evento("inizio", _("Comando {comando} avviato.", comando=a.comando), comando=a.comando, corsa=m.corsa,

@@ -170,7 +170,9 @@ class PaginaMotore(Pagina):
         self.messaggio.setText(_("Controllo il motore...") if comando == "verifica" else _("Preparo l'installazione..."))
         self._lavoro(True)
         self.respira.emit(True)
-        self.client.avvia(comando)
+        # R3 (v1.1): dentro la WSL il motore vede il disco virtuale; lo spazio vero di Windows decide se tenere i pezzi
+        libero = spazio_windows_gb() if comando == "installa" else None
+        self.client.avvia(comando, *(["--spazio-libero", str(int(libero * 1e9))] if libero is not None else []))
         self._barra_azioni()
 
     def ferma(self):

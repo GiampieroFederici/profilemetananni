@@ -403,6 +403,7 @@ def main():
     p.add_argument("--scenario", default="ok", choices=["ok", "DB_MANCANTE", "GIA_IN_CORSO", "annullata",
                                                          "READ_NON_TROVATE", "TEMPO_LUNGO", "CAMPIONE_DA_CONTROLLARE"])
     p.add_argument("--lingua", choices=lingua.LINGUE)
+    p.add_argument("--spazio-libero", type=int)   # come il motore vero (installa, v1.1)
     a = p.parse_args()
     if a.lingua:
         lingua.imposta(a.lingua)
