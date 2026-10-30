@@ -82,7 +82,9 @@ def tabella_metaphlan(profili, pari):
     validi = {n: v for n, v in profili.items() if v[1]}
     if not validi:
         return []
-    usate = min(v[1] for v in validi.values())
+    # profondità comune dai soli campioni con specie: un profilo senza specie (VM B3-3, read casuali) resta in tabella
+    # con 0 (P03) ma non abbassa gli altri alla sua profondità
+    usate = min((v[1] for v in validi.values() if v[0]), default=min(v[1] for v in validi.values()))
     out = []
     for n, (specie, letture) in sorted(validi.items()):
         if letture == usate:

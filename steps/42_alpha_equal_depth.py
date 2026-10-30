@@ -39,7 +39,8 @@ def profili(cartella):
 
 
 def sottocampiona(a):
-    prof = profili(a.metaphlan_dir)
+    # un profilo senza specie (VM B3-3) non entra: la sua profondita' farebbe scendere tutti gli altri
+    prof = {s: v for s, v in profili(a.metaphlan_dir).items() if v[0]}
     letture = {s: diversita.letture_mapout(m) if (m := mapout(a.metaphlan_dir, s)) else None for s in prof}
     if len(letture) < 2:
         print("[OK] one MetaPhlAn sample: nothing to equalize")
