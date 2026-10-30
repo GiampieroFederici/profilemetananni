@@ -516,7 +516,8 @@ def test_referto_con_metadati_sezione_e_cartelle_separate(tmp_path):
     assert "Confronto fra i campioni (analisi multicampione)" in sez
     mpa, krk = sez.split("<h4>MetaPhlAn</h4>")[1].split("<h4>Kraken + Bracken</h4>")
     for parte in (mpa, krk):
-        assert "Mann-Whitney" in parte and "R² " in parte and "PERMDISP, p" in parte and "999 permutazioni" in parte
+        assert "Mann-Whitney" in parte and "R² " in parte and "999 permutazioni" in parte
+        assert "PERMDISP</th>" in parte and "PERMDISP, p" not in parte                # B4-4: senza p, intestazione senza p
         assert "Bray-Curtis" in parte and "dispersione media: A: " in parte          # 4 + 4: D197, niente p
         assert "troppo pochi campioni per un valore p affidabile della dispersione" in parte
         assert "il p più piccolo possibile della PERMANOVA è" in parte

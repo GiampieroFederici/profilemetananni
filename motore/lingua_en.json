@@ -480,7 +480,6 @@
  "Distanza (beta)": "Distance (beta)",
  "<b>Confronto per {fattore}</b> ({livelli}).": "<b>Comparison by {fattore}</b> ({livelli}).",
  "I confronti a coppie fra i gruppi sono nel file {f}.": "The pairwise comparisons between the groups are in the file {f}.",
- "PERMDISP, p": "PERMDISP, p",
  "libere": "free",
  "ristrette dentro ogni soggetto (misure ripetute)": "restricted within each subject (repeated measures)",
  "dei soggetti (profilo medio di ogni soggetto)": "of the subjects (mean profile of each subject)",

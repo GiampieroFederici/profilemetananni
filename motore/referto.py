@@ -435,7 +435,7 @@ def html_multicampione(d):
                     permutazioni, p_min = pa["permutations"], pa.get("p_min") or p_min
                     note = [nota_r(r["note"]) for r in (pa, pd) if r and r["note"]]
                     if pd and pd["p"]:
-                        disp = p_testo(pd["p"])
+                        disp = f"p {p_testo(pd['p'])}"
                     elif pd and pd["note"] == POCHI_PERMDISP:   # D197: solo le dispersioni medie, niente p
                         disp = _("dispersione media: {valori}", valori=e(lingua.virgola(pd.get("group_dispersion", ""))))
                     else:
@@ -444,7 +444,8 @@ def html_multicampione(d):
                                     if pa["p"] else _("non definita"), disp,
                                     e("; ".join(dict.fromkeys(note))) if note else nota_dispersione(pa)])
             if righe_b:
-                h.append(tabella([_("Distanza (beta)"), "PERMANOVA", _("PERMDISP, p"), _("Nota")], righe_b, (1, 2),
+                # B4-4: intestazione "PERMDISP" (prima "PERMDISP, p"): sotto 5 per gruppo ci sono le dispersioni, non p
+                h.append(tabella([_("Distanza (beta)"), "PERMANOVA", "PERMDISP", _("Nota")], righe_b, (1, 2),
                                  [21, 24, 21, 34]))
                 h.append('<p class="piccolo">' + _("PERMANOVA: quanto la composizione media differisce fra i gruppi "
                                                    "(R² = parte della variabilità spiegata dai gruppi). PERMDISP: se "
