@@ -11,13 +11,13 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QPushButton, QTabBar,
+from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHeaderView, QPushButton, QTabBar,
                                QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget)
 
 from app import lingua
 from app.lingua import N_, _
 from app.motore import MotoreClient, percorso_per_motore
-from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, riquadro
+from app.pagine.base import PROTOTIPO, Flusso, Pagina, etichetta, numero, riquadro
 
 OSPITI = {"sus_scrofa": N_("maiale (Sscrofa11.1)"), "bos_taurus": N_("bovino (ARS-UCD1.2)"),
           "ovis_aries": N_("pecora (ARS-UI_Ramb_v2.0)"), "grch38": N_("uomo (GRCh38)")}
@@ -236,8 +236,7 @@ class PaginaRisultati(Pagina):
 
     def _referto(self, progetto, d):
         self.file = file_referto(progetto, d)
-        riga = QHBoxLayout()
-        riga.setSpacing(12)
+        riga = Flusso()                            # B4-1: i pulsanti vanno a capo se la finestra è stretta
         pulsanti = [(_("Apri il referto"), "html", self.apri_referto),
                     (_("Apri il referto in PDF"), "pdf", lambda: self.apri(self.file["pdf"])),
                     (_("Apri le tabelle in Excel"), "xlsx", lambda: self.apri(self.file["xlsx"])),
@@ -254,7 +253,6 @@ class PaginaRisultati(Pagina):
         cartella = QPushButton(_("Apri la cartella dei risultati"), objectName="link")
         cartella.clicked.connect(lambda: self.apri(dentro(progetto, progetto.risultati)))
         riga.addWidget(cartella)
-        riga.addStretch(1)
         self.lista.addLayout(riga)
         if mancano:
             self.lista.addWidget(etichetta(_("Non sono stati preparati: {file}.", file=", ".join(mancano)), "nota"))
@@ -302,8 +300,7 @@ class PaginaRisultati(Pagina):
             problemi += [p["errore"]] if p.get("errore") else []
         for testo_p in dict.fromkeys(problemi):
             r.layout().addWidget(riquadro("", testo_p, "avviso"))
-        riga = QHBoxLayout()
-        riga.setSpacing(12)
+        riga = Flusso()                            # B4-1: a capo se la finestra è stretta
         self.aggiorna = QPushButton(_("Salva e aggiorna l'analisi"), objectName="secondario")
         self.aggiorna.clicked.connect(lambda: self.salva_metadati(progetto))
         self.aggiorna.setEnabled(not self.client.in_corso() and self.contesto.progetto_in_analisi is None)
@@ -315,7 +312,6 @@ class PaginaRisultati(Pagina):
         excel.setEnabled((progetto.cartella / "metadati.tsv").is_file())
         for b in (self.aggiorna, apri, excel):
             riga.addWidget(b)
-        riga.addStretch(1)
         r.layout().addLayout(riga)
         self.lista.addWidget(r)
 

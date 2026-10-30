@@ -11,8 +11,8 @@ Se la pagina cambia contesto.info chiama self.info_cambiata.emit(): la testata a
 
 Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); il loro stile è in stile.qss.
 """
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QRadioButton, QVBoxLayout, QWidget
 
 from app import lingua
 from app.lingua import N_, _
@@ -196,6 +196,66 @@ class PulsanteACapo(QPushButton):
     def focusOutEvent(self, evento):
         self._sottolinea(self.underMouse())
         super().focusOutEvent(evento)
+
+
+class Flusso(QLayout):
+    """Una fila di pulsanti che va a capo quando non ci sta, come il testo (B4-1: la riga dei pulsanti del referto
+    teneva la pagina Risultati larga 1108 px). Da sinistra a destra, nell'ordine in cui si aggiungono."""
+    def __init__(self, spazio=12):
+        super().__init__()
+        self._voci, self._spazio = [], spazio
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, voce):
+        self._voci.append(voce)
+
+    def count(self):
+        return len(self._voci)
+
+    def itemAt(self, i):
+        return self._voci[i] if 0 <= i < len(self._voci) else None
+
+    def takeAt(self, i):
+        return self._voci.pop(i) if 0 <= i < len(self._voci) else None
+
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, larghezza):
+        return self._disponi(QRect(0, 0, larghezza, 0), False)
+
+    def setGeometry(self, rettangolo):
+        super().setGeometry(rettangolo)
+        self._disponi(rettangolo, True)
+
+    def sizeHint(self):                        # tutti su una riga
+        visibili = [v.sizeHint() for v in self._voci if not v.isEmpty()]
+        return QSize(sum(d.width() for d in visibili) + self._spazio * max(0, len(visibili) - 1),
+                     max((d.height() for d in visibili), default=0))
+
+    def minimumSize(self):                     # il pulsante più largo: gli altri vanno a capo
+        s = QSize()
+        for v in self._voci:
+            if not v.isEmpty():
+                s = s.expandedTo(v.minimumSize())
+        return s
+
+    def _disponi(self, r, sposta):
+        x, y, alto = r.x(), r.y(), 0
+        for v in self._voci:
+            if v.isEmpty():                    # pulsante nascosto
+                continue
+            d = v.sizeHint()
+            if x > r.x() and x + d.width() > r.right() + 1:
+                x, y, alto = r.x(), y + alto + self._spazio, 0
+            if sposta:
+                v.setGeometry(QRect(QPoint(x, y), d))
+            x += d.width() + self._spazio
+            alto = max(alto, d.height())
+        return y + alto - r.y()
 
 
 def riga_di_scelte(*schede):
