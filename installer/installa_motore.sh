@@ -196,6 +196,23 @@ url_di() {  # sorgente percorso
 # pezzo gia' scaricato e verificato: il segnalino contiene l'MD5 della riga e il file (o la cartella) c'e' ancora
 segnalino() { printf '%s/stato/%s.ok' "$PMN_HOME" "${1//\//__}"; }   # destinazione
 fatto() { [ "$(cat "$(segnalino "$1")" 2>/dev/null)" = "$2" ] && [ -e "$PMN_HOME/db/$1" ]; }   # destinazione md5
+# Aggiornamento da una 1.0 installata prima della Release (catalogo con Kraken a file singoli, PC di prova 30/10): un
+# archivio gia' estratto non ha il suo segnalino e si riscaricava (90 GB di Kraken). Si riconosce dai file elencati in
+# installer/md5/<gruppo>.md5: i segnalini per file con lo stesso MD5 bastano; se no md5sum -c, lo stesso controllo
+# che si fa dopo l'estrazione (circa un minuto ogni 10 GB). Poi il segnalino dell'archivio, come dopo uno scarico.
+riconosci() {  # gruppo destinazione md5
+  local lista=$PMN_ROOT/installer/md5/$1.md5 dir=$PMN_HOME/db/$2 x f
+  [ -s "$lista" ] && [ -d "$dir" ] || return 0
+  while read -r x f; do
+    [ -f "$dir/$f" ] || return 0
+    if [ "$(cat "$(segnalino "$2/$f")" 2> /dev/null)" != "$x" ]; then
+      (cd "$dir" && md5sum -c --quiet "$lista") >> "$LOG" 2>&1 || return 0
+      break
+    fi
+  done < "$lista"
+  echo "$3" > "$(segnalino "$2")"
+  echo "$(date -Iseconds) $2: gia' estratto da un'installazione precedente, non si riscarica" >> "$LOG"
+}
 connessioni() { if [ "$1" = kraken ] || [ -n "${2:-}" ]; then echo "$CONN"; else echo 1; fi; }   # sorgente url_alternativo
 dim_pezzo() {  # byte connessioni: almeno 8 pezzi per connessione (pochi pezzi in volo quando si cancellano), 1-128 MiB
   local d=$(( ($1 + 8 * $2 - 1) / (8 * $2) ))
@@ -232,6 +249,10 @@ if [ "$SOLO_DB" = 0 ] && [ "$MEM_KB" -lt "$MEM_MIN_KB" ]; then
   fallisci RAM_INSUFFICIENTE "$(T 'Memoria insufficiente: Linux ha %s GB (memoria più swap), MetaPhlAn ne usa fino a 8,2. Non ho scaricato nulla.' "$(num "$MEM_KB" 1048576 1)")" \
     "$(T 'Installa ProfileMetaNanni su un PC con almeno 16 GB di memoria.')"
 fi
+
+righe | while IFS=$'\t' read -r g t s p b bf m d alt; do   # archivi gia' estratti da una 1.0 (riconosci)
+  if [ "$t" = tar ] && ! fatto "$d" "$m"; then riconosci "$g" "$d" "$m"; fi
+done
 
 # --- spazio (v1.1, R3: l'unica regola, la legge anche installa_pmn.ps1 dal risultato di --stima) ---
 # servono: i byte finali di cio' che manca + pochi pezzi in volo dell'archivio piu' grande (estratto mentre arriva,

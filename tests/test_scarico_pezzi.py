@@ -508,3 +508,53 @@ def test_a6_virgola_anche_nel_primo_messaggio(cartella):
     periodici = [e["messaggio"] for e in ev if "byte_fatti" in e]
     assert len(periodici) >= 2
     assert not [m for m in periodici if re.search(r"\d\.\d", m)], periodici
+
+
+# ---------------- 1.0 installed before the Release (Kraken as single files): no new download ----------------
+def estratto_come_la_1_0(cartella, gruppo, per_file, segnalino_archivio=None):
+    """A Kraken archive already extracted in home/db/kraken/a, as a 1.0 left it: a marker per file (catalogue with
+    single files) or an archive marker with another MD5. Returns the catalogue row."""
+    tgz, estratto = archivio(cartella, gruppo, 3, 1)
+    servi(cartella, "kraken", "a.tar.gz", tgz)
+    home = cartella / "home"
+    dove = home / "db" / "kraken" / "a"
+    dove.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(tgz)) as t:
+        t.extractall(dove)
+    (home / "stato").mkdir(parents=True)
+    if per_file:
+        for f in dove.iterdir():
+            (home / "stato" / f"kraken__a__{f.name}.ok").write_text(md5(f.read_bytes()) + "\n", encoding="utf-8")
+    if segnalino_archivio:
+        (home / "stato" / "kraken__a.ok").write_text(segnalino_archivio + "\n", encoding="utf-8")
+    riga = (gruppo, "tar", "kraken", "a.tar.gz", len(tgz), estratto, md5(tgz), "kraken/a")
+    catalogo(cartella, [riga])
+    return riga
+
+
+@pytest.mark.parametrize("per_file, archivio_vecchio", [(True, None), (False, "d" * 32)])
+def test_kraken_gia_estratto_da_una_1_0_non_si_riscarica(cartella, per_file, archivio_vecchio):
+    """PC 30/10: the 1.0 had written stato/kraken__k2_pluspf_20260626__hash.k2d.ok (one per file) and, for the quick
+    index, an archive marker of an older archive; the 1.1 wanted 90 GB again (or stopped for the space)."""
+    riga = estratto_come_la_1_0(cartella, "kraken_prova", per_file, archivio_vecchio)
+    sp = Specchio(cartella / "servito")
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "4", stima=True)
+    finally:
+        sp.chiudi()
+    assert rc == 0 and ev[-1]["risultato"]["da_scaricare_byte"] == 0, ev[-1]
+    assert (cartella / "home" / "stato" / "kraken__a.ok").read_text(encoding="utf-8").strip() == riga[6]
+
+
+def test_kraken_estratto_rovinato_si_riscarica(cartella):
+    """A file with another content and no marker of its own: not recognised, the archive is downloaded."""
+    riga = estratto_come_la_1_0(cartella, "kraken_prova", per_file=False)
+    f = next((cartella / "home" / "db" / "kraken" / "a").iterdir())
+    f.write_bytes(b"x" + f.read_bytes()[1:])
+    sp = Specchio(cartella / "servito")
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "4", stima=True)
+    finally:
+        sp.chiudi()
+    assert rc == 0 and ev[-1]["risultato"]["da_scaricare_byte"] == riga[4]
+    assert not (cartella / "home" / "stato" / "kraken__a.ok").exists()
