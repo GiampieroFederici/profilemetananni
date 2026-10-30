@@ -167,3 +167,27 @@ def test_prima_di_partire_una_sola_stima(f, qtbot):
                 if not lab.isHidden()]
     testi = [t for t, _r in visibili]
     assert testi.count("Campioni") == 1 and testi.count("Tempo stimato") == 1, " | ".join(map(str, visibili))
+
+
+# ---------------- B4-1: pagina Risultati a 830 px con 6 campioni e la tabella dei metadati ----------------
+def test_risultati_stretti_sei_campioni(stile, f, qtbot, tmp_path):
+    sys.path.insert(0, str(RADICE / "tests"))
+    import json
+    from test_multicampione import progetto_referto
+    cartella = progetto_referto(tmp_path, metadati=True)
+    risultati = cartella / "risultati" / "risultati.json"
+    d = json.loads(risultati.read_text(encoding="utf-8"))
+    d["campioni"] = d["campioni"][:6]                          # come Multi_B2 sulla VM: 6 campioni
+    risultati.write_text(json.dumps(d), encoding="utf-8")
+    f.contesto.progetto = progetto.Progetto(cartella)
+    misura(f, qtbot, 830)
+    f.vai("risultati")
+    qtbot.wait(200)
+    pagina = f.pagine["risultati"]
+    assert pagina.tabella_meta.rowCount() == 6
+    s = f.pila.currentWidget()
+    larghi = sorted(((w.minimumSizeHint().width(), type(w).__name__, str(getattr(w, "text", lambda: "")())[:40])
+                     for w in pagina.findChildren(QPushButton) + pagina.findChildren(QLabel)
+                     if not w.isHidden()), reverse=True)[:5]
+    assert s.widget().minimumSizeHint().width() <= s.viewport().width(), larghi
+    assert f.width() <= 830 and tagliati(f.zona_testata) == []
