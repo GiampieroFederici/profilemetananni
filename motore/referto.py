@@ -316,7 +316,15 @@ LIMITI_MULTI = N_("<b>Limiti.</b> Un fattore alla volta: niente modelli con più
                   "relativo, non cellule vive per grammo.")
 
 
-NOTE_R = {"all values are equal: no test possible": N_("valori tutti uguali: nessun test possibile")}
+NOTE_R = {"all values are equal: no test possible": N_("valori tutti uguali: nessun test possibile"),
+          # 30/10 (VM B2-5a): statistiche non definite con campioni (quasi) identici, al posto di un valore p
+          "all samples are identical: no test possible": N_("i campioni sono identici: nessun test possibile"),
+          "samples are identical within each group: the statistic is not defined, no test":
+              N_("i campioni sono identici dentro ogni gruppo: il test non è definito, nessun valore p"),
+          "dispersion is zero in every group: the statistic is not defined, no test":
+              N_("la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p"),
+          "dispersion is the same within each group: the statistic is not defined, no test":
+              N_("la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p")}
 
 
 def nota_r(nota):
@@ -337,7 +345,8 @@ def righe_multi_excel(p):
             r["effect_size"], "", nota_r(r["note"])] for r in p["alfa"]]
     out += [[r["comparison"], _("beta"), _(DISTANZE.get(r["distance"], r["distance"])), r["test"], r["n"], "F", r["F"],
              r["p"], "R²" if r["R2"] else "", r["R2"], r["permutations"],
-             nota_dispersione(r) if r["test"] == "PERMANOVA" else r["note"]] for r in p["beta"]]
+             nota_dispersione(r) if r["test"] == "PERMANOVA" and r["dispersion_differs"] else nota_r(r["note"])]
+            for r in p["beta"]]
     return out
 
 
@@ -420,8 +429,11 @@ def html_multicampione(d):
                 pd = next((r for r in beta if r["distance"] == dist and r["test"] == "PERMDISP"), None)
                 if pa:
                     permutazioni = pa["permutations"]
+                    note = [nota_r(r["note"]) for r in (pa, pd) if r and r["note"]]
                     righe_b.append([e(_(DISTANZE[dist])), f"R² {p_testo(pa['R2'], 2)}; p {p_testo(pa['p'])}"
-                                    if pa["p"] else "", p_testo(pd["p"]) if pd else "", nota_dispersione(pa)])
+                                    if pa["p"] else _("non definita"),
+                                    p_testo(pd["p"]) if pd and pd["p"] else _("non definita"),
+                                    e("; ".join(dict.fromkeys(note))) if note else nota_dispersione(pa)])
             if righe_b:
                 h.append(tabella([_("Distanza (beta)"), "PERMANOVA", _("PERMDISP, p"), _("Nota")], righe_b, (1, 2),
                                  [21, 24, 21, 34]))

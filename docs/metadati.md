@@ -51,6 +51,11 @@ abbondanza non nulla, sostituzione moltiplicativa) e Bray-Curtis sulle abbondanz
 stesse permutazioni): se la dispersione differisce fra i gruppi, il referto lo scrive accanto alla PERMANOVA. R² è la
 dimensione dell'effetto.
 
+Quando la statistica non è definita (campioni identici, oppure identici dentro ogni gruppo, dispersione zero o uguale
+dentro ogni gruppo) non si scrive nessun valore p: la tabella dice "non definita" e la nota spiega perché in parole
+semplici. Con campioni quasi identici, prima, il rumore di arrotondamento dei numeri (circa 1e-17) diventava un F e un
+p di 0,001.
+
 Kraken: solo batteri, archei e funghi sopra la soglia del referto (D128), ed è un prototipo. MetaPhlAn: tutte le
 specie, nessuna soglia. Diversità alfa: i valori a profondità uguale del referto (`motore/diversita.py`).
 
