@@ -403,8 +403,9 @@ def test_nessun_p_sotto_il_minimo_del_disegno(tmp_path):
     righe = tsv(risultati / "multicampione" / "metaphlan" / "beta_tests.tsv")
     assert {(r["distance"], r["test"]) for r in righe} == {(x, y) for x in ("aitchison", "braycurtis")
                                                            for y in ("PERMANOVA", "PERMDISP")}
-    for r in righe:   # entrambe le distanze, PERMANOVA e PERMDISP
-        assert r["p"] and float(r["p"]) >= p_minimo([3, 3]) - 1e-9, r
+    for r in righe:   # entrambe le distanze; il minimo vale per la PERMANOVA (PERMDISP di vegan permuta i residui)
+        if r["test"] == "PERMANOVA":
+            assert r["p"] and float(r["p"]) >= p_minimo([3, 3]) - 1e-9, r
 
 
 @con_r
@@ -424,7 +425,7 @@ def test_campioni_identici_nel_gruppo_niente_p_e_parole_semplici(tmp_path):
 
 @con_r
 def test_permdisp_f_uguale_a_vegan(tmp_path):
-    """F di PERMDISP uguale a quello di vegan::permutest (cambia solo come si permuta per il p)."""
+    """F di PERMDISP uguale a quello di vegan::permutest."""
     risultati, d = due_gruppi_diversi(tmp_path)
     mc.esegui(risultati, d)
     cart = risultati / "multicampione" / "metaphlan"
