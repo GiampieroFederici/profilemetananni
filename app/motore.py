@@ -29,9 +29,10 @@ RADICE = Path(__file__).resolve().parent.parent
 DISTRO = "pmn"                                   # nome della WSL del motore (installer/windows/installa_pmn.ps1)
 MOTORE_WSL = "/home/pmn/.pmn/bin/pmn-motore"     # collegato dall'installatore (D053)
 
-
+    # nell'app impacchettata sys.executable è l'exe stesso: il finto la rilancerebbe a catena (30/10)
 def finto():
-    return os.environ.get("PMN_MOTORE") == "finto"
+    # nell app impacchettata sys.executable e l exe stesso: il finto la rilancerebbe a catena (30/10)
+    return os.environ.get("PMN_MOTORE") == "finto" and not getattr(sys, "frozen", False)
 
 
 def spazio_windows_gb():
