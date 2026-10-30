@@ -3,12 +3,16 @@
 
 Le misure prima/dopo sono in implementazione/v1.1/velocita/ (privata). Qui il comportamento nuovo degli script:
 - steps/20_trim.sh: FastQC 0.13.0 con più file in una sola chiamata li legge uno dopo l'altro su un solo core
-  (misura del 30/10: 4 file di SF3RAt7 in 2 min 14 s, 0,77 core); un FastQC per file, insieme, fino a --threads.
+  (misura del 30/10: 4 file di SF3RAt7 in 2 min 05 s, 0,77 core); un FastQC per file, insieme, fino a --threads; e
+  legge a pezzi piccoli, lentissimo da /mnt/c (84 s contro 18 s per un file): i file su v9fs si copiano in TMPDIR.
+- steps/32_kraken_bracken.sh: database piu' grande della RAM, 4 thread per processore (Kraken aspetta il disco).
+- motore/metaphlan_fette.sh: read preparate e file delle fette in PMN_TMP, non nella cartella del progetto.
 Gira con la suite del motore:  ~/miniforge3/envs/pmn_reports_py/bin/python -m pytest tests/test_velocita.py"""
 import gzip
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -32,21 +36,24 @@ open(mio, "w").close()
 time.sleep(0.6)
 with open(os.path.join(d, "chiamate.txt"), "a") as f:
     f.write(f"{len(o.files)} {len(glob.glob(os.path.join(d, 'in_corso.*')))}\\n")
+with open(os.path.join(d, "file.txt"), "a") as f:
+    f.write("".join(p + "\\n" for p in o.files))
 for p in o.files:
+    assert os.path.getsize(p) > 0
     b = os.path.basename(p).removesuffix(".gz").removesuffix(".fastq").removesuffix(".fq")
     open(os.path.join(o.outdir, b + "_fastqc.html"), "w").write("<html></html>")
 os.remove(mio)
 """
 
 
-def prepara(tmp_path):
+def prepara(tmp_path, raw=None):
     b = tmp_path / "bin"
     b.mkdir()
     for nome, testo in (("fastp", FASTP), ("fastqc", FASTQC)):
         (b / nome).write_text(testo, encoding="utf-8")
         (b / nome).chmod(0o755)
-    raw = tmp_path / "raw"
-    raw.mkdir()
+    raw = raw or tmp_path / "raw"
+    raw.mkdir(exist_ok=True)
     for i in (1, 2):
         with gzip.open(raw / f"S1_{i}.fastq.gz", "wt") as f:
             f.write(f"@r/{i}\n{'ACGT' * 25}\n+\n{'I' * 100}\n")
@@ -54,13 +61,14 @@ def prepara(tmp_path):
     return b, raw
 
 
-def trim(tmp_path, threads):
-    b, raw = prepara(tmp_path)
+def trim(tmp_path, threads, raw=None, out=None):
+    b, raw = prepara(tmp_path, raw)
+    (tmp_path / "tmpdir").mkdir()
     p = subprocess.run(["bash", str(RADICE / "steps" / "20_trim.sh"), "--sample", "S1", "--in1", str(raw / "S1_1.fastq.gz"),
-                        "--in2", str(raw / "S1_2.fastq.gz"), "--out", str(tmp_path / "trim"), "--threads", str(threads)],
+                        "--in2", str(raw / "S1_2.fastq.gz"), "--out", str(out or tmp_path / "trim"), "--threads", str(threads)],
                        capture_output=True, text=True,
                        env={**os.environ, "PATH": f"{b}:{os.environ['PATH']}", "NO_COLOR": "1",
-                            "TRACCIA": str(tmp_path / "traccia")})
+                            "TRACCIA": str(tmp_path / "traccia"), "TMPDIR": str(tmp_path / "tmpdir")})
     righe = (tmp_path / "traccia" / "chiamate.txt").read_text().split("\n")
     return p, [tuple(int(x) for x in r.split()) for r in righe if r]
 
@@ -79,6 +87,39 @@ def test_fastqc_non_piu_dei_processori_chiesti(tmp_path):
     p, chiamate = trim(tmp_path, 1)
     assert p.returncode == 0, p.stdout + p.stderr
     assert len(chiamate) == 4 and max(c for _, c in chiamate) == 1    # --threads 1: uno alla volta
+
+
+def tipo_fs(p):
+    return subprocess.run(["stat", "-f", "-c", "%T", str(p)], capture_output=True, text=True).stdout.strip()
+
+
+@linux
+def test_fastqc_legge_dal_disco_della_wsl_non_da_windows(tmp_path):
+    """Read e cartella di lavoro su /mnt/c (v9fs, come il progetto dell'app): FastQC riceve copie in TMPDIR, che alla
+    fine non restano. Sul disco della WSL (ext4) nessuna copia."""
+    if tipo_fs(RADICE) != "v9fs":
+        pytest.skip("serve la cartella del codice su /mnt/c (WSL di sviluppo)")
+    win = Path(tempfile.mkdtemp(dir=RADICE / "tests", prefix="_prova_v9fs_"))
+    try:
+        p, _ = trim(tmp_path, 8, raw=win / "raw", out=win / "trim")
+        assert p.returncode == 0, p.stdout + p.stderr
+        usati = (tmp_path / "traccia" / "file.txt").read_text().split()
+        assert len(usati) == 4 and all(u.startswith(str(tmp_path / "tmpdir") + "/pmn_fqc_S1.") for u in usati), usati
+        assert sorted(f.name for f in (win / "trim").glob("*_fastqc.html")) == \
+            ["S1_1_fastqc.html", "S1_2_fastqc.html", "S1_trim_1_fastqc.html", "S1_trim_2_fastqc.html"]
+        assert list((tmp_path / "tmpdir").iterdir()) == []
+    finally:
+        shutil.rmtree(win)
+
+
+@linux
+def test_fastqc_senza_copie_sul_disco_della_wsl(tmp_path):
+    if tipo_fs(tmp_path) == "v9fs":
+        pytest.skip("tmp su v9fs")
+    p, _ = trim(tmp_path, 8)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert all(u.startswith(str(tmp_path / "raw")) or u.startswith(str(tmp_path / "trim"))
+               for u in (tmp_path / "traccia" / "file.txt").read_text().split())
 
 
 # --- steps/32_kraken_bracken.sh: database piu' grande della RAM = Kraken aspetta il disco, piu' thread ---
