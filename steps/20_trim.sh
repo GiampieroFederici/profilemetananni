@@ -81,7 +81,25 @@ if command -v fastqc >/dev/null 2>&1; then
   done
   if [ "${#manca[@]}" -gt 0 ]; then
     info "$(say "FastQC on $SAMPLE (${#manca[@]} files) ..." "FastQC su $SAMPLE (${#manca[@]} file) ...")"
-    fastqc -q -t "$THREADS" --outdir "$OUT" "${manca[@]}" || die "fastqc failed for $SAMPLE"
+    # FastQC reads the gz in small pieces, and every read from the Windows disk (/mnt/c, v9fs) waits on WSL: one raw
+    # file of SF3RAt7 took 84 s from there, 18 s from a copy on the WSL disk (R10, 30/10). Files on v9fs are copied to
+    # TMPDIR first (same names, so the same reports), removed at the end.
+    # FastQC 0.13.0 with a list of files reads them one after the other on one core: one FastQC per file, up to
+    # --threads at the same time.
+    fq_tmp="$(mktemp -d "${TMPDIR:-/tmp}/pmn_fqc_${SAMPLE}.XXXXXX")" || die "mktemp failed"
+    trap 'rm -rf "$fq_tmp"' EXIT
+    da=()
+    for f in "${manca[@]}"; do
+      if [ "$(stat -f -c %T "$f")" = v9fs ]; then
+        cp "$f" "$fq_tmp/" || die "cannot copy $(sanitize_for_log "$f") to $fq_tmp"
+        da+=("$fq_tmp/$(basename "$f")")
+      else
+        da+=("$f")
+      fi
+    done
+    printf '%s\0' "${da[@]}" | xargs -0 -n 1 -P "$(( THREADS > 0 ? THREADS : 1 ))" fastqc -q -t 1 --outdir "$OUT" \
+      || die "fastqc failed for $SAMPLE"
+    rm -rf "$fq_tmp"
     for f in "${manca[@]}"; do
       b="$(basename "$f")"; b="${b%.gz}"; b="${b%.fastq}"; b="${b%.fq}"
       [ -s "$OUT/${b}_fastqc.html" ] || die "fastqc wrote no report for $(sanitize_for_log "$b")"
