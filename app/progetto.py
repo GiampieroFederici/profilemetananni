@@ -162,9 +162,9 @@ ESTENSIONI_FASTA = (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
 OSPITI_DEL_MOTORE = {"sus_scrofa", "bos_taurus", "gallus_gallus", "ovis_aries", "grch38", "chm13", "phix",
                      "vitis_vinifera", "homo_sapiens"}
 # costo dell'indice Bowtie 2: stesse costanti e fonti di motore/ospiti.py (misure del 14/10 e del 30/10)
-MINUTI_PER_GBP, RAM_GB_PER_GBP, RAM_GB_FISSA = 7.2, 2.3, 0.2
-INDICE_BYTE_PER_BASE, TEMPORANEO_BYTE_PER_BASE, GZ_RAPPORTO = 1.4, 1.3, 3.3
-DOWNLOAD_BYTE_S, ZIP_BYTE_PER_BASE = 4.1e6, 0.31
+MINUTI_PER_GBP, RAM_GB_PER_GBP, RAM_GB_FISSA = 8.0, 2.3, 0.2
+INDICE_BYTE_PER_BASE, TEMPORANEO_BYTE_PER_BASE, GZ_RAPPORTO = 1.45, 1.5, 3.3
+DOWNLOAD_BYTE_S, ZIP_BYTE_PER_BASE = 4.1e6, 0.30
 BASI_GRANDE = 3_100_000_000             # dimensione sconosciuta: come un genoma di mammifero, prudente
 NCBI_DATASETS = "https://api.ncbi.nlm.nih.gov/datasets/v2/genome/accession/{}/dataset_report"
 

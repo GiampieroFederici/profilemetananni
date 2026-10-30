@@ -29,17 +29,19 @@ INSTALLATI = {"sus_scrofa", "bos_taurus", "ovis_aries", "grch38"}   # indici gi�
 BASI = {"vitis_vinifera": 494_873_210}   # GCF_030704535.1, total_sequence_length di NCBI Datasets (30/10)
 
 # Costo dell'indice Bowtie 2 (bowtie2-build 2.5.5, opzioni predefinite, 8 processori), per miliardo di basi.
-# Misure: maiale Sscrofa11.1 2,47 Gbp 17 min 36 s di costruzione, RAM 5,3 GB; uomo GRCh38.p14 3,14 Gbp 22 min 30 s,
-# 7,2 GB (14/10, S22_logs/ospite_SF3RAt7.log); E. coli K-12 4,6 Mbp 1,7 s, 0,11 GB (30/10, incarico OSPITE).
-# Con 16 processori le fette di MetaPhlAn (2,5-3,0 Gbp) hanno preso 13-32 min: i processori contano poco.
-MINUTI_PER_GBP = 7.2
+# Misure (tempo di bowtie2-build, picco di RAM): maiale Sscrofa11.1 2,47 Gbp 17 min 36 s, 5,3 GB; uomo GRCh38.p14
+# 3,14 Gbp 22 min 30 s, 7,2 GB (14/10, S22_logs/ospite_SF3RAt7.log); vite GCF_030704535.1 0,50 Gbp 4 min 31 s,
+# 1,27 GB, indice 0,71 GB, disco massimo durante la costruzione 1,42 GB, zip NCBI 148 MB scaricato in 42 s; E. coli
+# K-12 4,6 Mbp 1,7 s, 0,11 GB (30/10, incarico OSPITE, WSL con altri lavori in corso). 8 min per Gbp sta entro il
+# 12 % delle tre misure grandi. Con 16 processori le fette di MetaPhlAn (2,5-3,0 Gbp) hanno preso 13-32 min.
+MINUTI_PER_GBP = 8.0
 RAM_GB_PER_GBP = 2.3
 RAM_GB_FISSA = 0.2
-INDICE_BYTE_PER_BASE = 1.4      # indice sul disco; il genoma da NCBI passa da TMPDIR (zip + FASTA) e poi si cancella
-TEMPORANEO_BYTE_PER_BASE = 1.3
+INDICE_BYTE_PER_BASE = 1.45     # indice sul disco; il genoma da NCBI passa da TMPDIR (zip + FASTA) e poi si cancella
+TEMPORANEO_BYTE_PER_BASE = 1.5
 GZ_RAPPORTO = 3.3               # un FASTA .gz è circa 3,3 volte più piccolo (E. coli: 4.641.652 basi, 1.424.030 byte)
-DOWNLOAD_BYTE_S = 4.1e6         # come motore/pmn_motore.py (rete di casa, 17/10)
-ZIP_BYTE_PER_BASE = 0.31        # pacchetto NCBI (zip del FASTA)
+DOWNLOAD_BYTE_S = 4.1e6         # come motore/pmn_motore.py (rete di casa, 17/10); vite: 148 MB in 42 s
+ZIP_BYTE_PER_BASE = 0.30        # pacchetto NCBI (zip del FASTA): vite 148 MB per 495.807.417 basi
 
 
 def noti():

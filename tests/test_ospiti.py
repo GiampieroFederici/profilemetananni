@@ -67,10 +67,12 @@ def test_personali_solo_quelli_in_hosts():
 
 
 def test_stima_dalle_misure():
-    """La formula ritrova le misure: maiale 2,47 Gbp 17,6 min e 5,3 GB; uomo 3,14 Gbp 22,5 min e 7,2 GB."""
-    maiale, uomo = ospiti.stima(2_472_047_704), ospiti.stima(3_136_819_154)
-    assert abs(maiale["secondi"] / 60 - 17.6) < 1.5 and abs(maiale["ram_gb"] - 5.3) < 0.8
-    assert abs(uomo["secondi"] / 60 - 22.5) < 1.5 and abs(uomo["ram_gb"] - 7.2) < 0.8
+    """La formula ritrova le misure (minuti di bowtie2-build, GB di RAM) entro il 15 %: maiale 2,47 Gbp 17,6 min e
+    5,3 GB; uomo 3,14 Gbp 22,5 min e 7,2 GB; vite 0,50 Gbp 4,52 min e 1,27 GB, indice 0,71 GB (30/10)."""
+    for basi, minuti, ram in [(2_472_047_704, 17.6, 5.3), (3_136_819_154, 22.5, 7.2), (495_807_417, 4.52, 1.27)]:
+        s = ospiti.stima(basi)
+        assert abs(s["secondi"] / 60 / minuti - 1) < 0.15 and abs(s["ram_gb"] / ram - 1) < 0.15, (basi, s)
+    assert abs(ospiti.stima(495_807_417)["disco_gb"] - 0.71) < 0.05
     assert ospiti.stima(10**9, scaricare=True)["secondi"] > ospiti.stima(10**9)["secondi"]
 
 
