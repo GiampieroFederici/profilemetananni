@@ -29,7 +29,7 @@ def progetto(tmp_path):
 
 
 CASI = [("info", "ok", 0), ("installa", "ok", 0), ("installa", "annullata", 3), ("verifica", "ok", 0),
-        ("verifica", "DB_MANCANTE", 2), ("stima", "ok", 0), ("stima", "TEMPO_LUNGO", 0), ("esegui", "ok", 0),
+        ("verifica", "DB_MANCANTE", 2), ("verifica", "RAM_INSUFFICIENTE", 1), ("stima", "ok", 0), ("stima", "TEMPO_LUNGO", 0), ("esegui", "ok", 0),
         ("esegui", "DB_MANCANTE", 2), ("esegui", "GIA_IN_CORSO", 1), ("esegui", "annullata", 3),
         ("esegui", "READ_NON_TROVATE", 1), ("esegui", "TEMPO_LUNGO", 0)]
 

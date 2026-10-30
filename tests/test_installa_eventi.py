@@ -175,6 +175,57 @@ def test_b1_prova_finale_rossa_per_memoria_non_generica():
     assert prova.index("verifica_motore.sh") < prova.index("pulisci_tmp verifica_") < prova.index("fallisci VERIFICA_ROSSA")
 
 
+def verifica_finta(tmp_path, fette="exit 0"):
+    """installazione.env pointing to a fake root: metaphlan_fette.sh does what `fette` says (no programs installed)."""
+    radice, home = tmp_path / "radice", tmp_path / "home_verifica"
+    (radice / "installer").mkdir(parents=True)
+    (radice / "motore").mkdir()
+    shutil.copy(os.path.join(ROOT, "installer", "riferimenti.tsv"), radice / "installer")
+    (radice / "motore" / "metaphlan_fette.sh").write_text(f"#!/usr/bin/env bash\n{fette}\n", encoding="utf-8")
+    home.mkdir()
+    (home / "tmp").mkdir()
+    (home / "installazione.env").write_text(f"PMN_ROOT={radice}\nPMN_ENVS={home / 'envs'}\nPMN_TMP={home / 'tmp'}\n"
+                                            f"PMN_PROVA={home / 'prova'}\n", encoding="utf-8")
+    return home
+
+
+def verifica(home, **env):
+    return subprocess.run(["bash", os.path.join(ROOT, "installer", "verifica_motore.sh")], capture_output=True,
+                          text=True, encoding="utf-8", timeout=120, env={**os.environ, "PMN_HOME": str(home), **env})
+
+
+def test_b3_verifica_con_poca_memoria_esce_con_3(tmp_path):
+    """B3-4 (VM 30/10, 8 GB): "Controlla il motore" was a generic RED (bowtie2 137) and proposed "Installa o completa".
+    verifica_motore.sh now says MEMORIA_INSUFFICIENTE and exits with 3: memory + swap below 9 GB, before the test..."""
+    home = verifica_finta(tmp_path)
+    r = verifica(home, PMN_MEMINFO=meminfo(tmp_path, 3984588, 1048576))
+    assert r.returncode == 3 and "MEMORIA_INSUFFICIENTE" in r.stdout and "DIVERSO" not in r.stdout
+
+
+def test_b3_verifica_programma_chiuso_per_memoria_esce_con_3(tmp_path):
+    """...or a program killed by Linux for memory during the mini-sample; nothing left in tmp."""
+    home = verifica_finta(tmp_path, 'echo "Error: bowtie2-align exited with value 137" >&2; exit 1')
+    r = verifica(home, PMN_MEMINFO=meminfo(tmp_path, 8165008, 4194304))
+    assert r.returncode == 3 and "MEMORIA_INSUFFICIENTE" in r.stdout
+    assert list((home / "tmp").iterdir()) == []
+    home = verifica_finta(tmp_path / "altro", 'echo "errore qualsiasi" >&2; exit 1')     # another error: RED as before
+    r = verifica(home, PMN_MEMINFO=meminfo(tmp_path, 8165008, 4194304))
+    assert r.returncode == 1 and "ROSSO" in r.stdout and list((home / "tmp").iterdir()) == []
+
+
+def test_b3_comando_verifica_da_ram_insufficiente_senza_installa(tmp_path):
+    """pmn-motore verifica: RAM_INSUFFICIENTE (exit 1: the person can act), never "premi Installa"."""
+    import sys
+    home = verifica_finta(tmp_path)
+    env = {**os.environ, "PMN_HOME": str(home), "PMN_MEMINFO": meminfo(tmp_path, 3984588, 1048576)}
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "motore", "pmn_motore.py"), "verifica"], capture_output=True,
+                       text=True, encoding="utf-8", timeout=120, env=env)
+    ev = controlla(r.stdout, r.returncode, "verifica")
+    assert r.returncode == 1 and ev[-2]["codice"] == "RAM_INSUFFICIENTE"
+    assert "memoria" in ev[-2]["messaggio"] and "Installa" not in ev[-2]["cosa_fare"]
+    assert "non serve reinstallarlo" in ev[-2]["cosa_fare"]
+
+
 def test_b1_resti_della_prova_finale_tolti(tmp_path):
     home, c = catalogo(tmp_path)
     morto = home / "tmp" / "verifica_999999"
