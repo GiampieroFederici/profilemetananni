@@ -235,6 +235,27 @@ if [ -z "$PMN_ENVS" ] && [ -z "${TMPDIR:-}" ]; then
   TMPDIR="$(cd "$PMN_WORK_DIR/tmp" && pwd)"; export TMPDIR
 fi
 
+# --- Hosts added by the person (R8): `ospiti_personali` of config.yaml, checked by motore/ospiti.py, then here.
+# Their index (and the one of any host not installed, e.g. vitis_vinifera, D167) is built once and reused: on the
+# desktop engine in PMN_HOME/ospiti_utente/<host>/ (outside the program folder: updates keep it), else in
+# work_dir/host_index as before. Their source enters the host stamp (same name, other genome = reads redone).
+declare -A OSPITE_TIPO=() OSPITE_FONTE=()
+OSPITI_TIMBRO=""
+ospiti_def="$("${parse_py[@]}" "$PMN_ROOT/motore/ospiti.py" fonti "$CONFIG")" || die "invalid ospiti_personali in config"
+while IFS=$'\t' read -r h tipo valore; do
+  [ -n "$h" ] || continue
+  validate_name "$h" || die "invalid host name: $(sanitize_for_log "$h")"
+  case "$tipo" in
+    accession) validate_accession "$valore" || die "invalid accession for host $h" ;;
+    fasta)     validate_path_safe "$valore" || die "unsafe FASTA path for host $h" ;;
+    *)         die "invalid source for host $h" ;;
+  esac
+  OSPITE_TIPO[$h]="$tipo"; OSPITE_FONTE[$h]="$valore"
+  OSPITI_TIMBRO+="$(printf '\nhost_%s=%s:%s' "$h" "$tipo" "$valore")"
+done <<< "$ospiti_def"
+if [ -n "$PMN_ENVS" ]; then HOST_IDX_DIR="$(dirname "$PMN_ENV_FILE")/ospiti_utente"; else HOST_IDX_DIR="$REF_DIR"; fi
+validate_path_safe "$HOST_IDX_DIR" || die "unsafe host index folder"
+
 # Call <callback> <sample> <r1> <r2|""> for every sample found in <dir>.
 for_each_sample() {  # for_each_sample <dir> <callback>
   local d="$1" cb="$2" f s mate pair r1suf r2suf
@@ -316,7 +337,7 @@ QW="$(pmn_glob_quote "$PMN_WORK_DIR")"; QN="$(pmn_glob_quote "$NONHOST_DIR")"; Q
 QM="$(pmn_glob_quote "$MPA_DIR")"; QK="$(pmn_glob_quote "$KRK_DIR")"; QR="$(pmn_glob_quote "$RES_DIR")"
 if [ "$DRY" -eq 0 ]; then
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
-    ospite_timbro="$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")"
+    ospite_timbro="$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")$OSPITI_TIMBRO"
     rifatti=1
     if [ "$NONHOST_TIMBRO" = "$NONHOST_DIR/.parametri" ]; then
       pmn_rifai_se_cambiati "$NONHOST_TIMBRO" "$ospite_timbro" \
@@ -470,27 +491,53 @@ host_installed() {
 }
 
 INDEX_LIST=()
+# Folder of a host index that is not installed: one folder per host in PMN_HOME/ospiti_utente, flat in host_index.
+host_out() { if [ "$HOST_IDX_DIR" = "$REF_DIR" ]; then printf '%s' "$REF_DIR"; else printf '%s' "$HOST_IDX_DIR/$1"; fi; }
 read -ra _PMN_HOST_ARR <<< "$PMN_HOSTS"   # split safely (no glob expansion)
 for h in "${_PMN_HOST_ARR[@]}"; do
   [ -n "$h" ] || continue           # skip empty tokens (e.g. trailing spaces)
   case "$h" in grch38|chm13) continue ;; esac   # human handled separately via filter_human
   validate_name "$h" || die "invalid host name: $(sanitize_for_log "$h")"
   if ready="$(host_installed "$h")"; then INDEX_LIST+=("$ready"); continue; fi
-  acc="$(host_accession "$h")"; [ -n "$acc" ] || die "no accession for host '$h' in refs/hosts.tsv"
+  acc="$(host_accession "$h")"
+  if [ -n "$acc" ]; then fonte=(--accession "$acc")
+  else
+    case "${OSPITE_TIPO[$h]:-}" in   # added by the person (ospiti_personali)
+      accession) fonte=(--accession "${OSPITE_FONTE[$h]}") ;;
+      fasta)     fonte=(--fasta "${OSPITE_FONTE[$h]}") ;;
+      *)         die "no accession for host '$h' in refs/hosts.tsv" ;;
+    esac
+  fi
   do_step pmn_hostfilter "idx_${h}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
-    --host "$h" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
-  INDEX_LIST+=("$REF_DIR/$h")
+    --host "$h" "${fonte[@]}" --out "$(host_out "$h")" --threads "$PMN_THREADS"
+  INDEX_LIST+=("$(host_out "$h")/$h")
 done
 if [ "$PMN_FILTER_HUMAN" = "yes" ]; then
   if ready="$(host_installed "$PMN_HUMAN_HOST")"; then INDEX_LIST+=("$ready")
   else
     acc="$(host_accession "$PMN_HUMAN_HOST")"; [ -n "$acc" ] || die "no $PMN_HUMAN_HOST accession in refs/hosts.tsv"
     do_step pmn_hostfilter "idx_${PMN_HUMAN_HOST}" -- bash "$PMN_ROOT/steps/11_host_index.sh" \
-      --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$REF_DIR" --threads "$PMN_THREADS"
-    INDEX_LIST+=("$REF_DIR/$PMN_HUMAN_HOST")
+      --host "$PMN_HUMAN_HOST" --accession "$acc" --out "$(host_out "$PMN_HUMAN_HOST")" --threads "$PMN_THREADS"
+    INDEX_LIST+=("$(host_out "$PMN_HUMAN_HOST")/$PMN_HUMAN_HOST")
   fi
 fi
 [ "${#INDEX_LIST[@]}" -ge 1 ] || die "no host to filter against (set 'hosts' and/or filter_human: true)"
+# The genome behind each index, next to the results (R8: the report says which host DNA was removed).
+if [ "$DRY" -eq 0 ]; then
+  for idx in "${INDEX_LIST[@]}"; do
+    n="$(basename "$idx")"; o="$idx.origine.tsv"
+    if [ -f "$o" ]; then
+      fonte_o="$(awk -F'\t' '$1 == "accession" { print $2 } $1 == "fasta" { print "file " $2 }' "$o" | head -n1)"
+      printf 'host_index_%s\t%s, MD5 %s, index of %s\n' "$n" "$fonte_o" \
+        "$(awk -F'\t' '$1 == "md5" { print $2 }' "$o")" "$(awk -F'\t' '$1 == "date" { print $2 }' "$o")"
+    else
+      acc="$(host_accession "$([ "$n" = homo_sapiens ] && echo grch38 || echo "$n")")"
+      quale="built earlier"
+      if [ -n "$PMN_OSPITE" ]; then case "$idx" in "$PMN_OSPITE"/*) quale="installed" ;; esac; fi
+      printf 'host_index_%s\t%s (%s)\n' "$n" "${acc:-index}" "$quale"
+    fi
+  done >> "$RES_DIR/parameters.tsv"
+fi
 
 # A3. Per-sample trimming + host filtering.
 hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">

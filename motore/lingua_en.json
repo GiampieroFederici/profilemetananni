@@ -484,5 +484,16 @@
  "dei soggetti (profilo medio di ogni soggetto)": "of the subjects (mean profile of each subject)",
  "PERMANOVA: quanto la composizione media differisce fra i gruppi (R² = parte della variabilità spiegata dai gruppi). PERMDISP: se i gruppi sono dispersi in modo diverso. {n} permutazioni {modo}, seme {seme}.": "PERMANOVA: how much the mean composition differs between groups (R² = share of the variability explained by the groups). PERMDISP: whether the groups are spread differently. {n} permutations {modo}, seed {seme}.",
  "Manca R (ambiente pmn_stats_r), quindi niente test né grafici. Apri la pagina Motore e premi Controlla il motore.": "R is missing (pmn_stats_r environment), so no tests and no plots. Open the Engine page and press Check the engine.",
- "Il calcolo statistico non è riuscito. Manda a noi il file {f}.": "The statistical calculation failed. Send us the file {f}."
+ "Il calcolo statistico non è riuscito. Manda a noi il file {f}.": "The statistical calculation failed. Send us the file {f}.",
+ "Non riesco a scaricare da NCBI il genoma dell'ospite.": "I cannot download the host genome from NCBI.",
+ "Controlla la connessione a internet e il codice dell'assembly, poi riprova.": "Check the internet connection and the assembly code, then try again.",
+ "Non riesco a usare il file FASTA dell'ospite aggiunto.": "I cannot use the FASTA file of the added host.",
+ "Controlla che il file ci sia ancora e che sia un genoma in formato FASTA; poi, nella pagina Campioni e prodotto, aggiungi di nuovo l'ospite o scegline un altro.": "Check that the file is still there and is a genome in FASTA format; then, on the Samples and product page, add the host again or choose another one.",
+ "La costruzione dell'indice dell'ospite si è fermata.": "The build of the host index stopped.",
+ "Di solito mancano memoria o spazio sul disco: chiudi gli altri programmi, libera spazio e riprova. L'indice riparte da capo.": "Usually memory or disk space is missing: close the other programs, free some space and try again. The index starts again from the beginning.",
+ "L'ospite aggiunto in questo progetto non è valido.": "The host added in this project is not valid.",
+ "Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.": "On the Samples and product page add the host again or choose another one.",
+ "Shi et al. 2023, Hortic Res 10(5):uhad061: vite T2T PN40024 (GCF_030704535.1). DOI 10.1093/hr/uhad061": "Shi et al. 2023, Hortic Res 10(5):uhad061: grapevine T2T PN40024 (GCF_030704535.1). DOI 10.1093/hr/uhad061",
+ "Genoma dell'ospite {nome}, aggiunto da chi ha fatto l'analisi: {fonte}": "Genome of the host {nome}, added by whoever ran the analysis: {fonte}",
+ "costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si riusa)": "I build the index of the DNA of the host {nome} (done only once, then reused)"
 }

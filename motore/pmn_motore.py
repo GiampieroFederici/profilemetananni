@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 import lingua       # stessa cartella (motore/)
+import ospiti
 import system_one
 from lingua import N_, _
 
@@ -68,7 +69,7 @@ COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"
                  ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
 NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
-             (r"trim_(.+)", "pulizia"), (r"(?:hf|idx)_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
+             (r"trim_(.+)", "pulizia"), (r"idx_.+", "ospite"), (r"hf_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
              (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r".+", "riepilogo")]
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
@@ -79,6 +80,20 @@ ERRORI = [
      N_("Libera spazio sul disco e riprova.")),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
      N_("Non trovo le read di uno o più campioni."), N_("Controlla i codici SRR o la cartella delle read nel progetto.")),
+    # R8: genoma di un ospite non installato (vite, ospite aggiunto dalla persona), steps/11_host_index.sh
+    (r"datasets download failed", "DOWNLOAD_FALLITO", N_("Non riesco a scaricare da NCBI il genoma dell'ospite."),
+     N_("Controlla la connessione a internet e il codice dell'assembly, poi riprova.")),
+    (r"FASTA file not found|Not a FASTA file|genome file must end", "CONFIG_NON_VALIDA",
+     N_("Non riesco a usare il file FASTA dell'ospite aggiunto."),
+     N_("Controlla che il file ci sia ancora e che sia un genoma in formato FASTA; poi, nella pagina Campioni e "
+        "prodotto, aggiungi di nuovo l'ospite o scegline un altro.")),
+    (r"bowtie2-build failed|cannot move the index", "ERRORE_INTERNO",
+     N_("La costruzione dell'indice dell'ospite si è fermata."),
+     N_("Di solito mancano memoria o spazio sul disco: chiudi gli altri programmi, libera spazio e riprova. "
+        "L'indice riparte da capo.")),
+    (r"invalid ospiti_personali|unsafe FASTA path|invalid accession for host", "CONFIG_NON_VALIDA",
+     N_("L'ospite aggiunto in questo progetto non è valido."),
+     N_("Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.")),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
      N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa.")),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
@@ -107,6 +122,9 @@ CITAZIONI = {
     "ovis_aries": [N_("Davenport et al. 2022, GigaScience 11:giab096: pecora ARS-UI_Ramb_v2.0. "
                       "DOI 10.1093/gigascience/giab096")],
     "grch38": [N_("Schneider et al. 2017, Genome Res 27(5):849-864: uomo GRCh38. DOI 10.1101/gr.213611.116")],
+    # R8 (30/10): GCF_030704535.1, BioProject PRJNA882193 collegato a PMID 37213686 (verificato su NCBI)
+    "vitis_vinifera": [N_("Shi et al. 2023, Hortic Res 10(5):uhad061: vite T2T PN40024 (GCF_030704535.1). "
+                          "DOI 10.1093/hr/uhad061")],
 }
 
 
@@ -128,8 +146,10 @@ def piano(camp, cfg, quote=None):
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
     velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
-    quota = OSPITE_QUOTA if cfg.get("hosts") else 0.0
+    quota = OSPITE_QUOTA if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] else 0.0
     out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
+    if installazione():   # R8: indice di un ospite non installato (vite, ospiti aggiunti), costruito alla prima analisi
+        out += [(f"idx_{h}", "ospite", 0, s) for h, s in ospiti.da_costruire(cfg, PMN_HOME / "ospiti_utente")]
     if sezione(cfg, "triage").get("enabled") is True:
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
@@ -610,6 +630,9 @@ class Motore:
                     pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
                     testo = _(dict(PASSI)[passo])
+                    if m.group(1).startswith("idx_"):   # R8: indice di un ospite non installato, una volta sola
+                        testo = _("costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si "
+                                  "riusa)", nome=m.group(1)[len("idx_"):])
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
@@ -692,7 +715,7 @@ class Motore:
             for riga in (res / "parameters.tsv").read_text(encoding="utf-8").splitlines()[1:]:
                 k, _tab, v = riga.partition("\t")   # non "_": qui sotto _() traduce
                 parametri[k] = v
-        ospiti = list(cfg.get("hosts") or []) + (["grch38"] if cfg.get("filter_human", True) else [])
+        ospiti = list(dict.fromkeys([*(cfg.get("hosts") or []), *(["grch38"] if cfg.get("filter_human", True) else [])]))
         kraken_db = os.path.basename(parametri.get("kraken_db", "").rstrip("/"))
         nome_db = _("PlusPF-8 del 26/06/2026") if "08gb" in kraken_db else _("PlusPF del 26/06/2026")
         citazioni = [_(c).format(db=nome_db) for k in ["metaphlan", "kraken", "bowtie2", "fastp",
@@ -700,6 +723,10 @@ class Motore:
                                                         *(["multiqc"] if qc["multiqc"] else []), *ospiti] if k in CITAZIONI
                      and not (k == "metaphlan" and strumento == "kraken") and not (k == "kraken" and strumento == "metaphlan")
                      for c in CITAZIONI[k]]
+        for h in ospiti:   # R8: ospite aggiunto dalla persona, col genoma usato davvero (steps/11, parameters.tsv)
+            if h not in CITAZIONI and parametri.get(f"host_index_{h}"):
+                citazioni.append(_("Genoma dell'ospite {nome}, aggiunto da chi ha fatto l'analisi: {fonte}", nome=h,
+                                   fonte=parametri[f"host_index_{h}"]))
         env = installazione()
         e = env.get("PMN_ENVS", "")
         triage, consigli = system_one.triage(r / "tabelle" / "triage.tsv", system_one.soglie_triage(cfg))

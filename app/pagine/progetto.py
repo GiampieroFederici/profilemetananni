@@ -1,19 +1,22 @@
 """Pagina "Campioni e prodotto" (S5b, docs/interfaccia_S4.md §3.1): da dove vengono le read e che prodotto è.
 
-Il prodotto decide l'ospite da togliere: la regola la dà il motore (`info.prodotti`, System One v0, contratto
-v0.3); la tabella PRODOTTI qui sotto dà i testi del menu e fa da ripiego se il motore non ha risposto. Salva in config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il
-motore (percorso_per_motore), perché il motore li legge così come sono.
+Il prodotto (o l'ambiente) propone l'ospite da togliere: la regola la dà il motore (`info.prodotti`, System One v0,
+contratto v0.3), con il testo del menu (`testo`) e il segno `sperimentale` degli ambienti nuovi; la tabella PRODOTTI
+qui sotto fa da ripiego se il motore non ha risposto. R8 (30/10): la persona può cambiare l'ospite proposto (ospiti
+pronti, "nessuno", o un ospite che aggiunge lei con il codice NCBI o un file FASTA, FinestraOspite). Salva in
+config.yaml con Progetto.scrivi; i percorsi vanno scritti come li vede il motore (percorso_per_motore), perché il
+motore li legge così come sono.
 """
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QStandardPaths
-from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QFrame, QHBoxLayout, QPlainTextEdit,
-                               QPushButton, QVBoxLayout)
+from PySide6.QtCore import QSettings, QStandardPaths, Qt
+from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLineEdit,
+                               QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from app import progetto
 from app.lingua import N_, _
 from app.motore import percorso_per_motore
-from app.pagine.base import Pagina, Scelta, etichetta, riga_di_scelte, riquadro, svuota
+from app.pagine.base import Pagina, Scelta, etichetta, numero, riga_di_scelte, riquadro, svuota
 
 # prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello);
 # ospiti, frase, perché e livello sono il ripiego di info.prodotti (stessi testi, motore/system_one.py)
@@ -38,13 +41,40 @@ PRODOTTI = {
 }
 
 
+# ospiti pronti (R8, D167): chiave scritta in hosts (refs/hosts.tsv) e testo del menu; NESSUNO = hosts vuoto.
+# L'uomo (GRCh38) si toglie sempre (filter_human): "Uomo" e "Nessuno" tolgono tutti e due solo il DNA umano.
+NESSUNO = "nessuno"
+OSPITI = [("sus_scrofa", N_("Maiale (Sus scrofa)")), ("bos_taurus", N_("Bovino (Bos taurus)")),
+          ("ovis_aries", N_("Pecora (Ovis aries)")), ("grch38", N_("Uomo (Homo sapiens)")),
+          ("vitis_vinifera", N_("Vite (Vitis vinifera)")), (NESSUNO, N_("Nessuno"))]
+INSTALLATI = {"sus_scrofa", "bos_taurus", "ovis_aries"}
+VITE_BASI = 494_873_210          # GCF_030704535.1 (NCBI Datasets, 30/10)
+
+
 def regola(info, chiave):
     """(ospiti, frase, perché, livello) del prodotto: da info.prodotti del motore, altrimenti da PRODOTTI."""
     for r in (info or {}).get("prodotti") or []:
         if r.get("prodotto") == chiave:
             return list(r["ospiti"]), r["frase"], r["perche"], r["livello"]
-    ospiti, frase, perche, livello = PRODOTTI[chiave][1:]
+    ospiti, frase, perche, livello = PRODOTTI.get(chiave, PRODOTTI["altro"])[1:]
     return ospiti, _(frase), _(perche), livello
+
+
+def voci_prodotti(info):
+    """[(chiave, testo del menu)]: da info.prodotti (ambienti nuovi compresi), altrimenti da PRODOTTI."""
+    regole = [r for r in (info or {}).get("prodotti") or [] if r.get("prodotto")]
+    if not regole:
+        return [(k, _(v[0])) for k, v in PRODOTTI.items()]
+    out = []
+    for r in regole:
+        k = r["prodotto"]
+        testo = r.get("testo") or (_(PRODOTTI[k][0]) if k in PRODOTTI else k)
+        out.append((k, testo + (_(" (sperimentale)") if r.get("sperimentale") else "")))
+    return out
+
+
+def stima_in_parole(stima):
+    return _("circa {minuti} minuti e {ram} GB di memoria", minuti=stima["minuti"], ram=numero(stima["ram_gb"]))
 
 
 def prodotto_da_ospiti(ospiti):
@@ -124,12 +154,29 @@ class PaginaCampioni(Pagina):
         self.prodotto = QComboBox()
         self.prodotto.setMaximumWidth(560)
         self.prodotto.setAccessibleName(_("Prodotto"))
-        for chiave, (testo, *_resto) in PRODOTTI.items():
-            self.prodotto.addItem(_(testo), chiave)
+        self._riempi_prodotti()
         self.prodotto.currentIndexChanged.connect(self._ospite)
         self.corpo.addWidget(self.prodotto)
         self.zona_ospite = QVBoxLayout()
         self.corpo.addLayout(self.zona_ospite)
+
+        # R8: l'ospite proposto dal prodotto si può cambiare
+        self.corpo.addWidget(etichetta(_("DNA dell'ospite da togliere"), "etichetta_campo"))
+        riga = QHBoxLayout()
+        self.ospite = QComboBox()
+        self.ospite.setMaximumWidth(400)
+        self.ospite.setAccessibleName(_("DNA dell'ospite da togliere"))
+        self.ospite.activated.connect(self._ospite_cambiato)
+        riga.addWidget(self.ospite, 1, Qt.AlignTop)     # stesso bordo in alto: per il Tab sono sulla stessa riga
+        self.pulsante_ospite = QPushButton(_("Aggiungi un ospite..."), objectName="secondario")
+        self.pulsante_ospite.clicked.connect(self.aggiungi_ospite)
+        riga.addWidget(self.pulsante_ospite, 0, Qt.AlignTop)
+        riga.addStretch(1)
+        self.corpo.addLayout(riga)
+        self.nota_ospite = etichetta("", "nota")
+        self.corpo.addWidget(self.nota_ospite)
+        self.ospite_scelto = None        # None = quello proposto dal prodotto
+        self.personali_progetto = {}     # ospiti_personali già nel config.yaml del progetto (come li vede il motore)
 
         self.scelta_pc.scelta.connect(self._fonte)
         self.scelta_ncbi.scelta.connect(self._fonte)
@@ -143,17 +190,22 @@ class PaginaCampioni(Pagina):
         self.testo_principale = _("Avanti: scelte dell'analisi") if p else _("Vai ai miei progetti")
         self.azioni_cambiate.emit()
         svuota(self.errore)
-        self._ospite()                                   # info.prodotti può essere arrivato dopo la costruzione
+        self._riempi_prodotti()                          # info.prodotti può essere arrivato dopo la costruzione
+        self._ospite()
         cfg = p.leggi() if p else {}
         app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
         self.esempio = bool(app.get("esempio"))
         self.avviso_esempio.setVisible(self.esempio)
-        for w in (self.scelta_pc, self.scelta_ncbi, self.prodotto):
+        for w in (self.scelta_pc, self.scelta_ncbi, self.prodotto, self.ospite, self.pulsante_ospite):
             w.setEnabled(not self.esempio)
         if p is None:
             return
         self.prodotto.setCurrentIndex(max(0, self.prodotto.findData(app.get("prodotto")
                                                                     or prodotto_da_ospiti(cfg.get("hosts", [])))))
+        voci = cfg.get("ospiti_personali")
+        self.personali_progetto = voci if isinstance(voci, dict) else {}
+        self.ospite_scelto = app.get("ospite") or None
+        self._riempi_ospiti()
         codici = p.codici_campioni.read_text(encoding="utf-8") if p.codici_campioni.is_file() else ""
         self.testo_codici.setPlainText(codici.strip())
         self.cartella = None
@@ -172,10 +224,104 @@ class PaginaCampioni(Pagina):
         self.zona_ncbi.setVisible(not pc)
         svuota(self.errore)
 
+    # ---------------- prodotto e ospite (R8) ----------------
+    def _riempi_prodotti(self):
+        attuale = self.prodotto.currentData()
+        self.prodotto.blockSignals(True)
+        self.prodotto.clear()
+        for chiave, testo in voci_prodotti(self.contesto.info):
+            self.prodotto.addItem(testo, chiave)
+        self.prodotto.setCurrentIndex(max(0, self.prodotto.findData(attuale)))
+        self.prodotto.blockSignals(False)
+
+    def _proposta(self):
+        """L'ospite che il prodotto propone (il primo dei suoi ospiti, o NESSUNO)."""
+        ospiti = regola(self.contesto.info, self.prodotto.currentData())[0]
+        return ospiti[0] if ospiti else NESSUNO
+
+    def _personali(self):
+        """{nome: voce} degli ospiti aggiunti: quelli già nel progetto, poi l'elenco della persona (che vince)."""
+        out = {n: v for n, v in self.personali_progetto.items() if isinstance(v, dict)}
+        out.update(progetto.ospiti_personali())
+        return out
+
+    def _riempi_ospiti(self):
+        proposta = self._proposta()
+        voci = [(k, _(t)) for k, t in OSPITI]
+        if proposta not in dict(voci):
+            voci.insert(0, (proposta, proposta))
+        voci += [(n, _("{nome} (aggiunto da te: {fonte})", nome=n,
+                       fonte=v.get("accession") or Path(str(v.get("fasta", ""))).name))
+                 for n, v in self._personali().items()]
+        if self.ospite_scelto not in dict(voci):         # ospite che non c'è più: torna a quello proposto
+            self.ospite_scelto = None
+        self.ospite.blockSignals(True)
+        self.ospite.clear()
+        for k, testo in voci:
+            self.ospite.addItem(testo + (_(" (consigliato)") if k == proposta else ""), k)
+        self.ospite.setCurrentIndex(max(0, self.ospite.findData(self.ospite_scelto or proposta)))
+        self.ospite.blockSignals(False)
+        self._mostra_ospite()
+
     def _ospite(self):
-        _, titolo, perche, livello = regola(self.contesto.info, self.prodotto.currentData())
+        """Prodotto cambiato: si torna all'ospite che propone."""
+        self.ospite_scelto = None
+        self._riempi_ospiti()
+
+    def _ospite_cambiato(self):
+        k = self.ospite.currentData()
+        self.ospite_scelto = None if k == self._proposta() else k
+        self._mostra_ospite()
+
+    def _mostra_ospite(self):
+        _ospiti, titolo, perche, livello = regola(self.contesto.info, self.prodotto.currentData())
         svuota(self.zona_ospite)
-        self.zona_ospite.addWidget(riquadro(titolo, perche, livello))
+        if self.ospite_scelto is None:
+            self.zona_ospite.addWidget(riquadro(titolo, perche, livello))
+        else:
+            self.zona_ospite.addWidget(riquadro(
+                _("Hai cambiato l'ospite proposto per questo prodotto."),
+                _("Va bene se sai che il campione contiene il DNA di un altro organismo. Il DNA dell'ospite che "
+                  "resta nelle read finisce assegnato per errore a qualche taxon."), "avviso"))
+        k = self.ospite.currentData()
+        voce = self._personali().get(k)
+        if k == NESSUNO:
+            testo = _("Non tolgo il DNA di nessun ospite: tolgo solo il DNA umano, che può arrivare da chi ha toccato "
+                      "il campione (per esempio nel suolo).")
+        elif k == "grch38":
+            testo = _("Tolgo il DNA umano (GRCh38), per esempio da feci o cute.")
+        elif k in INSTALLATI:
+            testo = _("L'indice di questo ospite è già nel motore. Tolgo anche il DNA umano.")
+        elif k == "vitis_vinifera":
+            testo = _("Alla prima analisi scarico il genoma della vite da NCBI e costruisco il suo indice ({costo}), "
+                      "una volta sola. Tolgo anche il DNA umano.",
+                      costo=stima_in_parole(progetto.stima_indice(VITE_BASI, scaricare=True)))
+        elif voce is not None:
+            basi = voce.get("basi") if isinstance(voce.get("basi"), int) else progetto.BASI_GRANDE
+            testo = _("Ospite aggiunto da te. Se il suo indice non è ancora pronto, la prima analisi lo costruisce "
+                      "({costo}), una volta sola. Tolgo anche il DNA umano.",
+                      costo=stima_in_parole(progetto.stima_indice(basi, scaricare=bool(voce.get("accession")))))
+        else:
+            testo = _("Tolgo anche il DNA umano.")
+        self.nota_ospite.setText(testo)
+
+    def aggiungi_ospite(self):
+        info = self.contesto.info or {}
+        finestra = FinestraOspite(info.get("ram_gb"), info.get("spazio_libero_gb"), self)
+        if finestra.exec() == QDialog.Accepted and finestra.aggiunto:
+            self.ospite_scelto = finestra.aggiunto
+            self._riempi_ospiti()
+
+    def _voce_progetto(self, nome):
+        """L'ospite aggiunto come va scritto nel config.yaml (il FASTA col percorso che vede il motore), o None."""
+        voce = progetto.ospiti_personali().get(nome)
+        if voce is None:                                 # non più nell'elenco: resta com'era nel progetto
+            return self.personali_progetto.get(nome)
+        out = {"accession": voce["accession"]} if voce.get("accession") else \
+            {"fasta": percorso_per_motore(voce["fasta"])}
+        if isinstance(voce.get("basi"), int):
+            out["basi"] = voce["basi"]
+        return out
 
     def _conta_codici(self):
         validi, scartati = progetto.codici(self.testo_codici.toPlainText())
@@ -273,9 +419,25 @@ class PaginaCampioni(Pagina):
             else:
                 cfg[chiave] = valore
         chiave = self.prodotto.currentData()
+        scelto = self.ospite_scelto
         cfg["project_name"] = p.nome
-        cfg["hosts"] = list(regola(self.contesto.info, chiave)[0])
+        if scelto is None:                               # l'ospite proposto: la regola del prodotto così com'è
+            cfg["hosts"] = list(regola(self.contesto.info, chiave)[0])
+        else:
+            cfg["hosts"] = [] if scelto == NESSUNO else [scelto]
         cfg["filter_human"] = True
+        cfg.pop("ospiti_personali", None)
+        if scelto is not None and scelto not in dict(OSPITI):
+            try:
+                voce = self._voce_progetto(scelto)
+            except ValueError:                           # FASTA su un disco di rete
+                voce = None
+            if not voce:
+                self.errore.addWidget(riquadro(_("Non riesco a usare l'ospite {nome}.", nome=scelto),
+                                               _("Il suo file FASTA deve stare su un disco di questo computer. "
+                                                 "Aggiungilo di nuovo con Aggiungi un ospite..."), "errore"))
+                return
+            cfg["ospiti_personali"] = {scelto: voce}
         cfg["data_source"] = "local" if locale else "ncbi"
         if locale:
             cfg["paths"]["local_reads_dir"] = percorso_per_motore(self.cartella)
@@ -291,5 +453,196 @@ class PaginaCampioni(Pagina):
             cfg["paths"]["srr_list"] = percorso_per_motore(p.codici_campioni)
             cfg["paths"]["local_reads_dir"] = ""
         cfg["app"] = {"prodotto": chiave, "cartella_read": str(self.cartella) if locale else ""}
+        if scelto is not None:                           # salumi con l'ospite proposto: config.yaml come prima
+            cfg["app"]["ospite"] = scelto
         p.scrivi(cfg)
         self.vai.emit("scelte")
+
+
+class FinestraOspite(QDialog):
+    """"Aggiungi un ospite" (R8): nome breve e genoma da NCBI (codice dell'assembly) o da un file FASTA del computer.
+    Controlla mostra quanto costa costruire l'indice (tempo, memoria, disco); Aggiungi lo mette nell'elenco della
+    persona (progetto.aggiungi_ospite). L'indice lo costruisce il motore alla prima analisi che usa l'ospite."""
+
+    def __init__(self, ram_gb=None, libero_gb=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(_("Aggiungi un ospite"))
+        self.resize(760, 660)
+        self.ram_gb, self.libero_gb = ram_gb, libero_gb
+        self.voce = None             # pronta dopo Controlla
+        self.aggiunto = None         # nome dell'ospite aggiunto
+        self.fasta = None
+        fuori = QVBoxLayout(self)    # come le pagine: il contenuto scorre (i testi a capo hanno l'altezza giusta)
+        fuori.setContentsMargins(0, 0, 0, 16)
+        contenuto = QWidget()
+        scorre = QScrollArea()
+        scorre.setWidgetResizable(True)
+        scorre.setFrameShape(QFrame.NoFrame)
+        scorre.setWidget(contenuto)
+        fuori.addWidget(scorre, 1)
+        s = QVBoxLayout(contenuto)
+        s.setSpacing(10)
+        s.setContentsMargins(24, 20, 24, 8)
+        s.setAlignment(Qt.AlignTop)
+        s.addWidget(etichetta(_("Se il campione contiene il DNA di un organismo che non è nell'elenco (un'altra pianta, "
+                                "un altro animale), aggiungilo qui. Il programma costruisce una volta sola l'indice "
+                                "per togliere il suo DNA, alla prima analisi, e poi lo riusa.")))
+        s.addWidget(etichetta(_("Nome breve"), "etichetta_campo"))
+        self.nome = QLineEdit()
+        self.nome.setPlaceholderText(_("per esempio olivo"))
+        self.nome.setAccessibleName(_("Nome breve"))
+        self.nome.textChanged.connect(self._cambiato)
+        s.addWidget(self.nome)
+        s.addWidget(etichetta(_("Solo lettere senza accenti, numeri e trattino basso (_)."), "nota"))
+        s.addWidget(etichetta(_("Da dove prendo il genoma?"), "etichetta_campo"))
+        gruppo = QButtonGroup(self)
+        self.scelta_ncbi = Scelta(_("Da NCBI"), _("Con il codice dell'assembly, che inizia con GCF_ o GCA_ (per "
+                                                  "esempio GCF_030704535.1). Lo scarico io."), gruppo)
+        self.scelta_file = Scelta(_("Da un file del mio computer"), _("Un genoma in formato FASTA: .fa, .fasta o "
+                                                                      ".fna, anche compresso .gz."), gruppo)
+        s.addLayout(riga_di_scelte(self.scelta_ncbi, self.scelta_file))
+        self.codice = QLineEdit()
+        self.codice.setPlaceholderText("GCF_000000000.1")
+        self.codice.setAccessibleName(_("Codice dell'assembly NCBI"))
+        self.codice.textChanged.connect(self._cambiato)
+        s.addWidget(self.codice)
+        self.zona_file = QFrame()
+        r = QHBoxLayout(self.zona_file)
+        r.setContentsMargins(0, 0, 0, 0)
+        b = QPushButton(_("Scegli il file..."), objectName="secondario")
+        b.clicked.connect(self.scegli_file)
+        r.addWidget(b)
+        self.nome_file = etichetta("")
+        r.addWidget(self.nome_file, 1)
+        s.addWidget(self.zona_file)
+        self.esito = QVBoxLayout()
+        s.addLayout(self.esito)
+        riga = QHBoxLayout()
+        riga.setContentsMargins(24, 0, 24, 0)
+        riga.addStretch(1)
+        annulla = QPushButton(_("Annulla"), objectName="secondario")
+        annulla.clicked.connect(self.reject)
+        self.pulsante_controlla = QPushButton(_("Controlla"), objectName="secondario")
+        self.pulsante_controlla.clicked.connect(self.controlla)
+        self.pulsante_aggiungi = QPushButton(_("Aggiungi l'ospite"))
+        self.pulsante_aggiungi.clicked.connect(self.aggiungi)
+        for w in (annulla, self.pulsante_controlla, self.pulsante_aggiungi):
+            riga.addWidget(w)
+        fuori.addLayout(riga)
+        self.scorre = scorre
+        self.scelta_ncbi.scelta.connect(self._fonte)
+        self.scelta_file.scelta.connect(self._fonte)
+        self.scelta_ncbi.pulsante.setChecked(True)
+        self._fonte()
+
+    def _adatta(self):
+        """L'esito di Controlla è in fondo: lo si porta in vista."""
+        self.scorre.ensureVisible(0, self.scorre.widget().sizeHint().height())
+
+    def _fonte(self):
+        ncbi = self.scelta_ncbi.pulsante.isChecked()
+        self.codice.setVisible(ncbi)
+        self.zona_file.setVisible(not ncbi)
+        self._cambiato()
+
+    def _cambiato(self):
+        """Ogni modifica chiede un nuovo Controlla prima di Aggiungi."""
+        self.voce = None
+        self.pulsante_aggiungi.setEnabled(False)
+        self.pulsante_controlla.setDefault(True)
+        svuota(self.esito)
+
+    def scegli_file(self):
+        documenti = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        scelta, _filtro = QFileDialog.getOpenFileName(
+            self, _("Scegli il genoma (FASTA)"), documenti,
+            _("Genomi FASTA") + " (*.fa *.fasta *.fna *.fa.gz *.fasta.gz *.fna.gz)")
+        if scelta:
+            self.usa_file(scelta)
+
+    def usa_file(self, percorso):
+        self.fasta = Path(percorso)
+        self.nome_file.setText(str(self.fasta))
+        self._cambiato()
+
+    def _errore(self, titolo, testo):
+        self.esito.addWidget(riquadro(titolo, testo, "errore"))
+        self._adatta()
+
+    def controlla(self):
+        """Controlla nome e genoma, poi mostra il costo dell'indice; se va tutto bene si può aggiungere."""
+        svuota(self.esito)
+        self.voce = None
+        self.pulsante_aggiungi.setEnabled(False)
+        nome = self.nome.text().strip()
+        problema = progetto.errore_nome_ospite(nome)
+        if problema:
+            self._errore(_("Il nome non va bene."), problema)
+            return
+        avvisi = []
+        if self.scelta_ncbi.pulsante.isChecked():
+            codice = self.codice.text().strip().upper()
+            if not progetto.ACCESSION.fullmatch(codice):
+                self._errore(_("Il codice non va bene."),
+                             _("Il codice dell'assembly inizia con GCF_ o GCA_, poi 9 cifre, un punto e la versione "
+                               "(per esempio GCF_030704535.1). Lo trovi nella pagina del genoma su NCBI."))
+                return
+            try:
+                trovato = progetto.dimensione_ncbi(codice)
+            except OSError:
+                trovato = False
+            if trovato is None:
+                self._errore(_("NCBI non conosce il codice {codice}.", codice=codice),
+                             _("Controlla il codice nella pagina del genoma su NCBI (www.ncbi.nlm.nih.gov/datasets)."))
+                return
+            if trovato:
+                basi, organismo = trovato
+                titolo = _("{organismo}: circa {milioni} milioni di basi.", organismo=organismo or codice,
+                           milioni=numero(basi / 1e6, 0))
+            else:   # rete assente: si può aggiungere, il motore controlla il codice alla prima analisi
+                basi = progetto.BASI_GRANDE
+                titolo = _("Non riesco a chiedere a NCBI quanto è grande questo genoma.")
+                avvisi.append(_("Controlla la connessione a internet. La stima qui sotto vale per un genoma grande come "
+                                "quello umano; il codice lo controllo alla prima analisi."))
+            voce = {"accession": codice, "basi": basi, **({"organismo": organismo} if trovato and organismo else {})}
+            costo = progetto.stima_indice(basi, scaricare=True)
+        else:
+            if self.fasta is None:
+                self._errore(_("Manca il file del genoma."), _("Premi Scegli il file... e scegli il genoma in formato "
+                                                               "FASTA."))
+                return
+            basi, problema = progetto.controlla_fasta(self.fasta)
+            if problema:
+                self._errore(_("Non posso usare questo file."), problema)
+                return
+            titolo = _("Genoma di circa {milioni} milioni di basi.", milioni=numero(basi / 1e6, 0))
+            voce = {"fasta": str(self.fasta), "basi": basi}
+            costo = progetto.stima_indice(basi)
+        testo = _("Costruire l'indice richiede {costo}, più {disco} GB sul disco (e {tmp} GB solo durante la "
+                  "costruzione). Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.",
+                  costo=stima_in_parole(costo), disco=numero(costo["disco_gb"]), tmp=numero(costo["temporaneo_gb"]))
+        if self.ram_gb and costo["ram_gb"] > self.ram_gb:
+            avvisi.append(_("Il motore vede solo {ram} GB di memoria: la costruzione potrebbe fermarsi. Chiudi gli "
+                            "altri programmi prima dell'analisi o usa un computer con più memoria.",
+                            ram=numero(self.ram_gb)))
+        if self.libero_gb is not None and costo["disco_gb"] + costo["temporaneo_gb"] > self.libero_gb:
+            avvisi.append(_("Sul disco ci sono solo {libero} GB liberi: libera spazio prima dell'analisi.",
+                            libero=numero(self.libero_gb)))
+        self.esito.addWidget(riquadro(titolo, " ".join([testo, *avvisi]), "avviso" if avvisi else "info"))
+        self._adatta()
+        self.voce = voce
+        self.pulsante_aggiungi.setEnabled(True)
+        self.pulsante_aggiungi.setDefault(True)
+
+    def aggiungi(self):
+        if self.voce is None:
+            return
+        nome = self.nome.text().strip()
+        try:
+            progetto.aggiungi_ospite(nome, self.voce)
+        except (ValueError, OSError) as e:
+            svuota(self.esito)
+            self._errore(_("Non riesco ad aggiungere l'ospite."), str(e))
+            return
+        self.aggiunto = nome
+        self.accept()
