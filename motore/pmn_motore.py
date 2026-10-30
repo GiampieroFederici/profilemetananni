@@ -756,7 +756,11 @@ class Motore:
         except ValueError:
             soglia = 0.0
         for c in elenco:   # sintesi pronta per l'interfaccia (v0.2): mostra, non calcola (D006)
-            c["sintesi"] = referto.sintesi(referto.leggi_campione(r, c["file"]), soglia)
+            dati = referto.leggi_campione(r, c["file"])
+            c["sintesi"] = referto.sintesi(dati, soglia)
+            if dati["metaphlan"] == []:   # profilo senza specie, valido (VM B3-3): lo si dice, l'analisi continua
+                self.evento("avviso", _("MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di "
+                                        "questo campione è vuoto.", nome=c["nome"]), codice="METAPHLAN_VUOTO")
         versioni = {"metaphlan": versione(e, "pmn_metaphlan", "metaphlan"), "database_metaphlan": parametri.get("metaphlan_index"),
                     "kraken2": versione(e, "pmn_kraken", "kraken2"), "bracken": versione(e, "pmn_kraken", "bracken"),
                     "database_kraken": kraken_db or None, "bowtie2": versione(e, "pmn_metaphlan", "bowtie2"),

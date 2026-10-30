@@ -524,5 +524,7 @@
  "la dispersione è zero in ogni gruppo (campioni identici): il test non è definito, nessun valore p": "the dispersion is zero in every group (identical samples): the test is not defined, no p value",
  "la dispersione è uguale dentro ogni gruppo: il test non è definito, nessun valore p": "the dispersion is the same within each group: the test is not defined, no p value",
  "non definita": "not defined",
- "diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read": "alpha diversity at equal depth: re-running MetaPhlAn on a subsample of the reads"
+ "diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read": "alpha diversity at equal depth: re-running MetaPhlAn on a subsample of the reads",
+ "MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found; the MetaPhlAn profile of this sample is empty.",
+ "MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found in {nome}; the MetaPhlAn profile of this sample is empty."
 }
