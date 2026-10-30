@@ -176,6 +176,7 @@ l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce semp
 
 Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` possono arrivare come **avviso**
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
+**[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; sotto 16 GB l'analisi non può finire).
 In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
 
 ## 5. Uscite

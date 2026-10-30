@@ -73,6 +73,11 @@ ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)
              (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r"alfa_mpa_(.+)", "riepilogo"), (r".+", "riepilogo")]
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
+    # VM B4-10a: un programma chiuso da Linux perché la memoria è finita ("Killed", codice 137 di bowtie2 o MetaPhlAn)
+    (r"(?m)^Killed|exited with value 137|exit status 137", "RAM_INSUFFICIENTE",
+     N_("L'analisi si è fermata perché la memoria del computer non basta."),
+     N_("Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha "
+        "meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.")),
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
      N_("Non riesco a scaricare le read: i server di ENA e NCBI non rispondono."),
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),

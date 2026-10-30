@@ -26,6 +26,7 @@ for l in ${STUB_ETICHETTE:-size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 k
     lento) sleep 1 ;;
     spazio) [ "$l" = size ] && { echo "[FAIL] Not enough space: need ~9.0 GB, have 1.0 GB."; exit 1; } ;;
     rete) [ "$l" = size ] && { echo "[FAIL] ENA and NCBI could not be reached - nothing to download."; exit 1; } ;;
+    memoria) [ "$l" = mpa_S1 ] && { echo "Killed"; echo "(ERR): bowtie2-align exited with value 137"; echo "[FAIL] step failed: mpa_S1"; exit 1; } ;;
     ospite) case "$l" in hf_*) mkdir -p "$work/hostfilter_logs"   # come steps/21: 80 % delle coppie e' ospite
       printf '1000000 reads; of these:\n  1000000 (100.00%%) were paired; of these:\n    200000 (20.00%%) aligned concordantly 0 times\n' \
         > "$work/hostfilter_logs/${l#hf_}.sus_scrofa.bowtie2.log" ;; esac ;;
@@ -96,6 +97,14 @@ def test_spazio_e_rete(ambiente):
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="rete")
     assert codice == 1 and ev[-2]["codice"] == "DOWNLOAD_FALLITO"
     assert [e["codice"] for e in ev if e["tipo"] == "avviso"] == ["RETE_INTERROTTA", "RETE_INTERROTTA"]   # 3 tentativi
+
+
+def test_memoria_finita_non_e_errore_imprevisto(ambiente):
+    """VM B4-10a: bowtie2 chiuso da Linux per memoria (Killed, 137) era "errore imprevisto"."""
+    env, progetto = ambiente
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="memoria")
+    assert codice == 1 and ev[-2]["codice"] == "RAM_INSUFFICIENTE" and ev[-2]["passo"] == "metaphlan"
+    assert "memoria" in ev[-2]["messaggio"] and "16 GB" in ev[-2]["cosa_fare"]
 
 
 def test_gia_in_corso_e_annulla(ambiente):

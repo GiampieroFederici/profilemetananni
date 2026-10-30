@@ -531,5 +531,7 @@
  "MetaPhlAn: nessuna specie trovata in {nome}; il profilo di MetaPhlAn di questo campione è vuoto.": "MetaPhlAn: no species found in {nome}; the MetaPhlAn profile of this sample is empty.",
  "troppo pochi campioni per un valore p affidabile della dispersione": "too few samples for a reliable p value of the dispersion",
  "dispersione media: {valori}": "mean dispersion: {valori}",
- "Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 campioni).": "With these samples the smallest possible PERMANOVA p is {p}: 1 divided by the number of distinct ways to split the samples into the groups (for example 0.1 with 3 + 3 samples)."
+ "Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 campioni).": "With these samples the smallest possible PERMANOVA p is {p}: 1 divided by the number of distinct ways to split the samples into the groups (for example 0.1 with 3 + 3 samples).",
+ "L'analisi si è fermata perché la memoria del computer non basta.": "The analysis stopped because the computer does not have enough memory.",
+ "Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.": "Close the other programs and press \"Retry the analysis\": the steps already finished are kept. If the PC has less than 16 GB of memory, the analysis cannot finish here: there is no need to install the engine again."
 }
