@@ -632,8 +632,8 @@ class FinestraOspite(QDialog):
             titolo = _("Genoma di circa {basi}.", basi=progetto.basi_in_parole(basi))
             voce = {"fasta": str(self.fasta), "basi": basi}
             costo = progetto.stima_indice(basi)
-        testo = _("Costruire l'indice richiede {costo}, più {disco} sul disco (e {tmp} solo durante la "
-                  "costruzione). Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.",
+        testo = _("Costruire l'indice richiede {costo}; sul disco occupa {disco}, e durante la costruzione ne servono "
+                  "{tmp} in più. Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.",
                   costo=stima_in_parole(costo), disco=progetto.spazio_in_parole(costo["disco_gb"]),
                   tmp=progetto.spazio_in_parole(costo["temporaneo_gb"]))
         if self.ram_gb and costo["ram_gb"] > self.ram_gb:

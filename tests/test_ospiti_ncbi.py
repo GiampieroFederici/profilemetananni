@@ -137,7 +137,8 @@ def test_finestra_codice_valido_phix(qtbot, ncbi):
     w = finestra(qtbot, "GCF_000819615.1")
     testo = scritte(w)
     assert "Escherichia phage phiX174: circa 5.386 basi." in testo
-    assert "meno di un minuto e 200 MB di memoria, più meno di 1 MB sul disco" in testo
+    assert "meno di un minuto e 200 MB di memoria; sul disco occupa meno di 1 MB, e durante la costruzione ne " \
+           "servono meno di 1 MB in più" in testo
     assert "milioni" not in testo and "1 minuti" not in testo and "Non riesco" not in testo
     assert w.pulsante_aggiungi.isEnabled() and w.voce == {"accession": "GCF_000819615.1", "basi": 5386,
                                                           "organismo": "Escherichia phage phiX174"}

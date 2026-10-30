@@ -544,11 +544,11 @@
  "circa {n} minuti": "about {n} minutes",
  "meno di 1 MB": "less than 1 MB",
  "{tempo} e {ram} di memoria": "{tempo} and {ram} of memory",
- "Costruire l'indice richiede {costo}, più {disco} sul disco (e {tmp} solo durante la costruzione). Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.": "Building the index takes {costo}, plus {disco} on the disk (and {tmp} only while it is built). It is done only once, at the first analysis that uses this host; then it is reused.",
  "Genoma di circa {basi}.": "Genome of about {basi}.",
  "{organismo}: circa {basi}.": "{organismo}: about {basi}.",
  "Non riesco a verificare il certificato del sito di NCBI.": "I cannot verify the certificate of the NCBI site.",
  "Puoi aggiungere l'ospite lo stesso: alla prima analisi scarico il genoma e controllo il codice. La stima vale per un genoma grande come quello umano.": "You can add the host anyway: at the first analysis I download the genome and check the code. The estimate is for a genome as large as the human one.",
  "Controlla la data e l'ora del computer e la connessione a internet.": "Check the date and time of the computer and the internet connection.",
- "Controlla la connessione a internet.": "Check the internet connection."
+ "Controlla la connessione a internet.": "Check the internet connection.",
+ "Costruire l'indice richiede {costo}; sul disco occupa {disco}, e durante la costruzione ne servono {tmp} in più. Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.": "Building the index takes {costo}; on the disk it takes {disco}, and while it is built {tmp} more are needed. It is done only once, at the first analysis that uses this host; then it is reused."
 }
