@@ -108,6 +108,10 @@ declare -A EN=(
   ["VERDE: il motore è installato e funziona."]="GREEN: the engine is installed and works."
   ["ROSSO: la prova finale non ha dato il risultato atteso."]="RED: the final test did not give the expected result."
   ["Manda a noi il file %s."]="Send us the file %s."
+  ["Memoria insufficiente: Linux ha %s GB (memoria più swap), MetaPhlAn ne usa fino a 8,2. Non ho scaricato nulla."]="Not enough memory: Linux has %s GB (memory plus swap), MetaPhlAn uses up to 8.2. I have not downloaded anything."
+  ["Installa ProfileMetaNanni su un PC con almeno 16 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 16 GB of memory."
+  ["La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn."]="The final test stopped because there is not enough memory: Linux closed a MetaPhlAn program."
+  ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 16 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 16 GB of memory. If it happens again, send us the file %s."
   ["ERRORE"]="ERROR"
   ["Cosa fare"]="What to do"
   ["Attenzione"]="Warning"
@@ -208,11 +212,26 @@ sul_disco() {  # tipo percorso byte md5 destinazione: byte gia' scaricati e anco
   base=$(base_di "$1" "$2" "$5")
   { stat -c %s -- "$base.parziale" "$base".pezzo.* 2> /dev/null || true; } | awk -v b="$3" '{s += $1} END {printf "%.0f\n", (s > b ? b : s)}'
 }
-# A6 (VM 30/10): il primo giro fermato con "wsl --terminate" non passa da alla_fine e lascia scarico_<pid>: si toglie
-# alla corsa dopo, se quel processo non c'e' piu' (una corsa ancora viva, per esempio una --stima, non si tocca)
-for d in "$PMN_HOME"/tmp/scarico_*; do
-  if [ -d "$d" ] && [ ! -e "/proc/${d##*_}" ]; then rm -rf "$d"; fi
-done
+# A6 (VM 30/10): il primo giro fermato con "wsl --terminate" non passa da alla_fine e lascia scarico_<pid>; la prova
+# finale fermata da un errore lascia verifica_<pid> (B1). Si tolgono se quel processo non c'e' piu' (una corsa ancora
+# viva, per esempio una --stima o una verifica dall'app, non si tocca)
+pulisci_tmp() {  # prefisso
+  local d
+  for d in "$PMN_HOME"/tmp/"$1"*; do
+    if [ -d "$d" ] && [ ! -e "/proc/${d##*_}" ]; then rm -rf "$d"; fi
+  done
+}
+pulisci_tmp scarico_; pulisci_tmp verifica_
+
+# B1-b (VM 30/10): con 8 GB la WSL vede 3,8 GB + 1 di swap; si scaricavano 44 GB e poi la prova finale era ROSSO
+# (bowtie2 chiuso da Linux, 137). Picco di MetaPhlAn a fette: 8,2 GB (S2.1). Soglia: memoria + swap di Linux >= 9 GB
+# (un PC da 16 GB da' alla WSL circa 7,8 GB + 4 di swap). PMN_MEMINFO solo per le prove.
+MEM_MIN_KB=$((9 * 1024 * 1024))
+MEM_KB=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")
+if [ "$SOLO_DB" = 0 ] && [ "$MEM_KB" -lt "$MEM_MIN_KB" ]; then
+  fallisci RAM_INSUFFICIENTE "$(T 'Memoria insufficiente: Linux ha %s GB (memoria più swap), MetaPhlAn ne usa fino a 8,2. Non ho scaricato nulla.' "$(num "$MEM_KB" 1048576 1)")" \
+    "$(T 'Installa ProfileMetaNanni su un PC con almeno 16 GB di memoria.')"
+fi
 
 # --- spazio (v1.1, R3: l'unica regola, la legge anche installa_pmn.ps1 dal risultato di --stima) ---
 # servono: i byte finali di cio' che manca + pochi pezzi in volo dell'archivio piu' grande (estratto mentre arriva,
@@ -628,10 +647,16 @@ ln -sfn "$PMN_ROOT/motore/pmn-motore" "$PMN_HOME/bin/pmn-motore"   # il comando 
 # ===================== 5. prova finale =====================
 PASSO=verifica; FATTO=0; TOTALE=1; ETA=null
 evento avanzamento 93 "$(T 'Prova finale su un piccolo campione (alcuni minuti)...')"
-if PMN_HOME=$PMN_HOME bash "$PMN_ROOT/installer/verifica_motore.sh" >> "$LOG" 2>&1; then
+INIZIO_VERIFICA=$(wc -l < "$LOG")
+if PMN_HOME=$PMN_HOME bash "$PMN_ROOT/installer/verifica_motore.sh" >> "$LOG" 2>&1; then r=0; else r=$?; fi
+pulisci_tmp verifica_   # B1 (VM 30/10): una prova finale fermata da un errore lasciava verifica_<pid>
+if [ "$r" = 0 ]; then
   gruppi=$(righe | cut -f1 | awk '!visto[$0]++ {printf "%s\"%s\"", (n++ ? "," : ""), $0}')
   RISULTATO="{\"programmi\":${#ENVS[@]},\"database\":[$gruppi],\"verifica\":\"verde\"}"
   PASSO=fine; evento fine 100 "$(T 'VERDE: il motore è installato e funziona.')"
+elif tail -n +"$((INIZIO_VERIFICA + 1))" "$LOG" | grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory'; then
+  # B1-b: un programma chiuso da Linux per memoria non e' un ROSSO generico
+  fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 16 GB di memoria. Se si ripete, manda a noi il file %s." "$LOG")"
 else
   fallisci VERIFICA_ROSSA "$(T 'ROSSO: la prova finale non ha dato il risultato atteso.')" "$(T 'Manda a noi il file %s.' "$LOG")"
 fi

@@ -67,6 +67,8 @@ $TESTI = [ordered]@{
     pronto_app = @("Tutto pronto: profilemetananni è installato e funziona.`n`nOra apro il programma. Le prossime volte lo trovi sul desktop e nel menu Start: ProfileMetaNanni.",
                    "All ready: profilemetananni is installed and works.`n`nNow I open the program. Next time you will find it on the desktop and in the Start menu: ProfileMetaNanni.")
     pronto = @("Tutto pronto: profilemetananni è installato e funziona.", "All ready: profilemetananni is installed and works.")
+    memoria = @("Questo PC ha {0} GB di memoria: ProfileMetaNanni ne chiede almeno 16 (l'analisi con MetaPhlAn usa fino a 8 GB dentro Linux).`n`nNon ho installato né scaricato nulla. Installa ProfileMetaNanni su un PC con 16 GB di memoria o più.",
+                "This PC has {0} GB of memory: ProfileMetaNanni needs at least 16 (the analysis with MetaPhlAn uses up to 8 GB inside Linux).`n`nI have not installed or downloaded anything. Install ProfileMetaNanni on a PC with 16 GB of memory or more.")
     durata_minuti = @("{0} minuti", "{0} minutes")
     durata_ore = @("{0} ore", "{0} hours")
     coperchio_domanda = @("Lo scarico durerà circa {0}. Se chiudi il coperchio del portatile, Windows lo mette in sospensione e lo scarico si ferma.`n`nVuoi che imposti la chiusura del coperchio su `"Non fare nulla`" finché l'installazione finisce? Alla fine rimetto l'impostazione di adesso.`n`nSe rispondi No, tieni il coperchio aperto.",
@@ -203,6 +205,27 @@ function ChiediRiavvio {   # chiede il riavvio; al prossimo accesso riparte da s
     exit 0
 }
 function Evento($r) { if ($r -like '{*') { try { $r | ConvertFrom-Json } catch { $null } } }   # evento JSON del motore (docs/contratto_motore.md)
+# B1-b (VM 30/10, 8 GB): si scaricavano 44 GB e poi la prova finale era ROSSO per memoria. Soglia 14 GB: un PC da 16 GB ne
+# mostra 15,2-15,6 (una parte la tiene la scheda video integrata); 14 lascia questo margine e ferma i PC da 8 e 12 GB.
+function MemoriaInsufficiente($byte, $soglia = 14GB) {   # $null se basta, altrimenti il messaggio per la persona
+    if ([double]$byte -ge $soglia) { return $null }
+    (T 'memoria') -f [Math]::Round([double]$byte / 1GB)
+}
+function MemoriaDelPC { [double](Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory }
+# B1-a: i messaggi del motore citano il suo log con il percorso di Linux, che da Windows non si apre. Alla fine (errore)
+# il log si copia accanto a quello di Windows e il messaggio dice quel percorso.
+$LogMotoreWin = Join-Path $Cartella 'installazione_motore.log'
+function PercorsoWsl($linux, $distro = 'pmn') { "\\wsl.localhost\$distro" + ($linux -replace '/', '\') }
+function CopiaLogMotore($linux, $dest = $LogMotoreWin, $sorgente = (PercorsoWsl $linux)) {   # il percorso da dare alla persona
+    if (-not $linux) { return $null }
+    try { Copy-Item -LiteralPath $sorgente -Destination $dest -Force -ErrorAction Stop; return $dest }
+    catch { Scrivi "log del motore non copiato ($sorgente): $_"; return $sorgente }   # \\wsl.localhost si apre lo stesso da Esplora file
+}
+function TestoErrore($e, $logLinux) {   # messaggio + cosa fare dell'errore del motore, con il log in un percorso di Windows
+    $t = (T 'cosa_fare') -f $e.messaggio, $e.cosa_fare
+    if ($logLinux -and $t.Contains($logLinux)) { $t = $t.Replace($logLinux, (CopiaLogMotore $logLinux)) }
+    $t
+}
 
 function ArgomentiMotore($Conf, $Lingua) {   # la riga per wsl.exe che lancia il motore; D170: prova.conf con la sola riga
     # "catalogo=..." usa le sorgenti vere (GitHub e S3) con un altro catalogo
@@ -303,6 +326,9 @@ New-Item -ItemType Directory -Force $Cartella | Out-Null
 [Windows.Forms.Application]::EnableVisualStyles()
 if (-not (UnaSolaInstallazione)) { Scrivi "=== fase ${Fase}: l'installazione è già aperta, questa copia esce"; exit 0 }
 Scrivi "=== fase $Fase, cartella $Radice"
+$ram = MemoriaDelPC; Scrivi "memoria del PC: $ram byte"
+$m = MemoriaInsufficiente $ram   # B1-b: prima di attivare WSL, copiare l'app o scaricare qualsiasi cosa
+if ($m) { Ferma $m }
 
 # ===================== fase 1: WSL =====================
 # v1.1 (R7, §1.6): l'app e le icone non si copiano piu' qui ma in fase 2, dopo il controllo dello spazio e il Si' della
@@ -351,7 +377,8 @@ MostraBarra (T 'rete_barra') $null
 $script:Eventi = @()
 $c = Attendi (Avvia "$motore --stima") { param($r) $e = Evento $r; if ($e) { $script:Eventi += $e } }
 $errore = $script:Eventi | Where-Object tipo -eq 'errore' | Select-Object -Last 1
-if ($c -ne 0) { Ferma $(if ($errore) { (T 'cosa_fare') -f $errore.messaggio, $errore.cosa_fare } else { (T 'preparazione_ferma') -f $c }) }
+$logStima = ($script:Eventi | Where-Object tipo -eq 'inizio' | Select-Object -First 1).log
+if ($c -ne 0) { Ferma $(if ($errore) { TestoErrore $errore $logStima } else { (T 'preparazione_ferma') -f $c }) }
 $stima = ($script:Eventi | Where-Object tipo -eq 'fine' | Select-Object -Last 1).risultato
 $gb = [Math]::Round($stima.da_scaricare_gb)   # P12: il numero, non il testo
 $tempo = ($script:Eventi | Where-Object { $_.passo -eq 'controllo' -and $_.percentuale -eq 2 }).messaggio   # velocita' e tempo per sorgente
@@ -404,7 +431,7 @@ $giro = {
 }
 $c = Attendi (Avvia "$motore --si --spazio-libero $([long]$s.Liberi)") { param($r) $e = Evento $r   # i messaggi del controllo li ha gia' visti
     if ($e) {
-        if ($e.tipo -eq 'inizio') { $script:Corsa = $e.corsa }
+        if ($e.tipo -eq 'inizio') { $script:Corsa = $e.corsa; $script:LogMotore = $e.log }
         if ($e.tipo -eq 'errore') { $script:Errore = $e }
         if ($null -ne $e.byte_totali) { $script:Ultimo = $e }
         if ($e.passo -ne 'controllo' -and -not $script:Fermando) { MostraBarra $e.messaggio $e.percentuale -Interrompi }
@@ -415,7 +442,7 @@ if ($c -ne 0) {
         Avviso (T 'fermata'); exit 3
     }
     if ($script:Fermando -eq 'spazio') { Ferma ((T 'spazio_finito') -f $s.Disco, [Math]::Floor($script:LiberiFine / 1GB), 10) }
-    Ferma $(if ($script:Errore) { (T 'cosa_fare') -f $script:Errore.messaggio, $script:Errore.cosa_fare } else { (T 'installazione_ferma') -f $c })
+    Ferma $(if ($script:Errore) { TestoErrore $script:Errore $script:LogMotore } else { (T 'installazione_ferma') -f $c })
 }
 ChiudiBarra; NonRiprendere; RipristinaCoperchio
 Scrivi 'Tutto pronto'

@@ -203,6 +203,39 @@ def test_a0_una_sola_installazione_alla_volta():
     assert TESTO.index("if (-not (UnaSolaInstallazione))") < TESTO.index('Scrivi "=== fase $Fase, cartella $Radice"')
 
 
+def test_b1_memoria_del_pc_controllata_prima_di_tutto():
+    """B1-b (VM 30/10, 8 GB): 44 GB scaricati, poi ROSSO per memoria. Ora si ferma subito, prima di WSL e dell'app."""
+    it = powershell(f". '{PS1}'; $Lingua = 'it'; MemoriaInsufficiente 8GB")
+    assert it.startswith("Questo PC ha 8 GB di memoria: ProfileMetaNanni ne chiede almeno 16") and "Non ho installato" in it
+    en = powershell(f". '{PS1}'; $Lingua = 'en'; MemoriaInsufficiente 12GB")
+    assert en.startswith("This PC has 12 GB of memory: ProfileMetaNanni needs at least 16")
+    # un PC da 16 GB ne mostra 15,2-15,6 (la scheda video integrata ne tiene una parte): passa
+    assert powershell(f". '{PS1}'; (MemoriaInsufficiente 15.6GB) -eq $null; (MemoriaInsufficiente 14.2GB) -eq $null").split() == ["True", "True"]
+    i = TESTO.index("$m = MemoriaInsufficiente $ram")
+    assert i < TESTO.index("# ===================== fase 1") < TESTO.index("InstallaApp $AppPacchetto")
+    assert float(powershell(f". '{PS1}'; MemoriaDelPC")) > 1e9
+
+
+def test_b1_log_del_motore_con_un_percorso_di_windows(tmp_path):
+    """B1-a: il ROSSO diceva di mandare /home/pmn/.pmn/log/..., che da Windows non si apre."""
+    linux = "/home/pmn/.pmn/log/installazione_20261030_111200.log"
+    assert powershell(f". '{PS1}'; PercorsoWsl '{linux}'") == \
+        "\\\\wsl.localhost\\pmn\\home\\pmn\\.pmn\\log\\installazione_20261030_111200.log"
+    sorgente = tmp_path / "motore.log"
+    sorgente.write_text("riga del motore", encoding="utf-8")
+    dest = tmp_path / "installazione_motore.log"
+    assert powershell(f". '{PS1}'; CopiaLogMotore '{linux}' '{dest}' '{sorgente}'") == str(dest)
+    assert dest.read_text(encoding="utf-8") == "riga del motore"
+    e = json.dumps({"messaggio": "ROSSO: la prova finale non ha dato il risultato atteso.",
+                    "cosa_fare": f"Manda a noi il file {linux}."})
+    t = powershell(f". '{PS1}'; $Lingua = 'it'; $LogMotoreWin = '{tmp_path / 'copia.log'}'; "
+                   f"TestoErrore ('{e}' | ConvertFrom-Json) '{linux}'")
+    assert linux not in t and "Manda a noi il file " in t
+    assert str(tmp_path / "copia.log") in t or "\\\\wsl.localhost\\pmn\\home\\pmn" in t    # copia, o il percorso di rete
+    for riga in ("TestoErrore $errore $logStima", "TestoErrore $script:Errore $script:LogMotore"):
+        assert riga in FASE2
+
+
 def test_spazio_di_windows_controllato_ogni_minuto():
     giro = FASE2[FASE2.index("$giro = {"):FASE2.index("$c = Attendi (Avvia \"$motore --si")]
     assert "AddMinutes(1)" in giro and "SpazioBasso" in giro and "LiberiSu $s.Disco" in giro
