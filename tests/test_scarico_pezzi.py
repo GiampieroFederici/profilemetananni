@@ -395,3 +395,72 @@ def test_opzioni_non_valide_si_fermano_subito(cartella):
         p = avvia(cartella, "http://127.0.0.1:9", *arg, stima=True)
         out, _ = p.communicate(timeout=30)
         assert p.returncode == 1 and out == ""
+
+
+# ---------------- VM 30/10, part A: resume estimate, leftovers, decimal comma ----------------
+def test_a6_la_stima_alla_ripresa_toglie_i_pezzi_gia_scaricati(cartella):
+    """A6-1: after a stop the question still said 129 GB: --stima did not subtract the pieces already on disk."""
+    tgz, estratto = archivio(cartella, "kraken_prova", 2, 10)
+    servi(cartella, "kraken", "a.tar.gz", tgz)
+    d = os.urandom(8 * MB)
+    servi(cartella, "pmn", "p/f.bin", d)
+    catalogo(cartella, [("kraken_prova", "tar", "kraken", "a.tar.gz", len(tgz), estratto, md5(tgz), "kraken/a"),
+                        ("pacchetti", "file", "pmn", "p/f.bin", len(d), len(d), md5(d), "p/f.bin")])
+    tmp = cartella / "home" / "tmp"
+    tmp.mkdir(parents=True)
+    pezzi = [(0, 4 * MB - 1), (4 * MB, len(tgz) - 1)]
+    (tmp / "a.tar.gz.pezzi").write_text("".join(f"{a} {z}\n" for a, z in pezzi))
+    (tmp / "a.tar.gz.pezzo.0").write_bytes(tgz[:4 * MB])                 # a whole piece
+    (tmp / "a.tar.gz.pezzo.1").write_bytes(tgz[4 * MB:5 * MB])           # a piece half way
+    (tmp / "a.tar.gz.consumati").write_text(str(3 * MB))                 # stale: deleted pieces are downloaded again
+    f = cartella / "home" / "db" / "p" / "f.bin.parziale"
+    f.parent.mkdir(parents=True)
+    f.write_bytes(d[:2 * MB])                                            # a single-connection file half way
+    ev, rc = lancia(cartella, "http://127.0.0.1:9", stima=True)
+    assert rc == 0
+    r = ev[-1]["risultato"]
+    s = {x["sorgente"]: x for x in r["sorgenti"]}
+    resta = (len(tgz) - 5 * MB) + (len(d) - 2 * MB)
+    assert r["da_scaricare_byte"] == resta
+    assert s["kraken"]["da_scaricare_byte"] == len(tgz) - 5 * MB and s["pmn"]["da_scaricare_byte"] == len(d) - 2 * MB
+    # the same through the first periodic event of a real run: what is on disk, not the stale consumati
+    sp = Specchio(cartella / "servito", velocita={"/kraken/": 1 * MB, "/pmn/": 1 * MB})
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "2")
+    finally:
+        sp.chiudi()
+    assert rc == 0 and md5((cartella / "home" / "db" / "p" / "f.bin").read_bytes()) == md5(d)
+    primo = next(e for e in ev if "byte_fatti" in e)
+    assert primo["byte_fatti"] >= 7 * MB
+
+
+def test_a6_nessun_resto_di_un_giro_interrotto(cartella):
+    """A6: a scarico_<pid> folder of the first run (stopped with wsl --terminate: no trap) stayed in ~/.pmn/tmp."""
+    tmp = cartella / "home" / "tmp"
+    morto = tmp / "scarico_999999"
+    morto.mkdir(parents=True)
+    (morto / "stato").write_text("22 null 0")
+    vivo = tmp / f"scarico_{os.getpid()}"                                # another run still going: untouched
+    vivo.mkdir()
+    catalogo(cartella, [])
+    ev, rc = lancia(cartella, "http://127.0.0.1:9", stima=True)
+    assert rc == 0
+    assert not morto.exists() and vivo.exists()
+    assert sorted(p.name for p in tmp.iterdir()) == [vivo.name]          # ours removed at the end too
+
+
+def test_a6_virgola_anche_nel_primo_messaggio(cartella):
+    """A6: the first progress message had "0.2 di 129.2 GB (Kraken 0.0 MB/s...)", then "1,6 di 129,2"."""
+    import re
+    dati = os.urandom(6 * MB)
+    servi(cartella, "kraken", "x.bin", dati)
+    catalogo(cartella, [("kraken_prova", "file", "kraken", "x.bin", len(dati), len(dati), md5(dati), "kraken/x.bin")])
+    sp = Specchio(cartella / "servito", velocita={"/kraken/": 100_000})
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "2")
+    finally:
+        sp.chiudi()
+    assert rc == 0
+    periodici = [e["messaggio"] for e in ev if "byte_fatti" in e]
+    assert len(periodici) >= 2
+    assert not [m for m in periodici if re.search(r"\d\.\d", m)], periodici

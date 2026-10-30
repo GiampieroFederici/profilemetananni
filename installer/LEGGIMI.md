@@ -19,7 +19,9 @@
 
 **Spazio.** Servono circa **176 GB** liberi sul disco (installazione completa, da zero): a installazione finita ne
 restano occupati circa 168. Prima della versione 1.1 servivano 257 GB, perché l'archivio di Kraken (85 GB) restava sul
-disco insieme ai file estratti: ora si estrae mentre arriva. Se lo spazio è poco l'installatore lo dice prima di
+disco insieme ai file estratti: ora si estrae mentre arriva. Se invece lo spazio c'è, durante lo scarico di Kraken
+l'installatore tiene i pezzi già estratti fino al controllo finale, così se si ferma non riscarica nulla: per qualche
+ora Kraken occupa circa il doppio (fino a 85 GB in più), poi i pezzi si cancellano da soli. Se lo spazio è poco l'installatore lo dice prima di
 scaricare e dice quanti GB liberare. Durante lo scarico controlla lo spazio ogni minuto: se il disco sta per riempirsi
 (meno di 5 GB liberi) si ferma e dice di liberare spazio; poi riapri l'installazione e riprende.
 
