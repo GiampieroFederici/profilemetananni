@@ -62,7 +62,7 @@ def test_stima_reports_the_numbers(tmp_path):
     r = ev[-1]["risultato"]
     assert r["da_scaricare_gb"] == 0 and r["tempo_stimato_s"] == 0 and r["spazio_libero_gb"] > 0
     # Italian by default, as before (since B2 the Windows part reads the number from the result, not this text)
-    assert any(e["messaggio"].startswith("Da scaricare: circa 0 GB") for e in ev)
+    assert any(e["messaggio"].startswith("Niente da scaricare: i database sono già tutti installati") for e in ev)
 
 
 def errore(home, *arg):
@@ -243,5 +243,5 @@ def test_stima_in_english(tmp_path):
     home, c = catalogo(tmp_path)
     out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO, "--lingua", "en")
     ev = controlla(out, rc, "installa")
-    assert rc == 0 and any(e["messaggio"].startswith("To download: about 0 GB") for e in ev)
+    assert rc == 0 and any(e["messaggio"].startswith(("To download: less than 1 GB", "Nothing to download")) for e in ev)
     assert ev[-1]["messaggio"] == "Estimate ready: I have not downloaded anything."

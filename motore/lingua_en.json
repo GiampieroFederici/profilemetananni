@@ -24,7 +24,7 @@
  "Non trovo le read di uno o più campioni.": "I cannot find the reads of one or more samples.",
  "Controlla i codici SRR o la cartella delle read nel progetto.": "Check the SRR codes or the reads folder in the project.",
  "Manca un database o un programma del motore.": "A database or a program of the engine is missing.",
- "Apri la pagina Motore e premi Installa.": "Open the Engine page and press Install.",
+ "Apri la pagina Motore e premi Installa o completa.": "Open the Engine page and press Install or complete.",
  "Il progetto contiene un valore non valido.": "The project contains an invalid value.",
  "Controlla le impostazioni del progetto.": "Check the project settings.",
  "Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice Bowtie2, costruito da profilemetananni)": "MetaPhlAn database mpa_vJan25_CHOCOPhlAnSGB_202503 (the 6 slices are derived from its Bowtie2 index, built by profilemetananni)",
@@ -532,5 +532,7 @@
  "dispersione media: {valori}": "mean dispersion: {valori}",
  "Con questi campioni il p più piccolo possibile della PERMANOVA è {p}: 1 diviso il numero di modi distinti di dividere i campioni nei gruppi (per esempio 0,1 con 3 + 3 campioni).": "With these samples the smallest possible PERMANOVA p is {p}: 1 divided by the number of distinct ways to split the samples into the groups (for example 0.1 with 3 + 3 samples).",
  "L'analisi si è fermata perché la memoria del computer non basta.": "The analysis stopped because the computer does not have enough memory.",
- "Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.": "Close the other programs and press \"Retry the analysis\": the steps already finished are kept. If the PC has less than 16 GB of memory, the analysis cannot finish here: there is no need to install the engine again."
+ "Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.": "Close the other programs and press \"Retry the analysis\": the steps already finished are kept. If the PC has less than 16 GB of memory, the analysis cannot finish here: there is no need to install the engine again.",
+ "Kraken: nessun taxon sopra la soglia.": "Kraken: no taxa above the threshold.",
+ "Kraken: nessun taxon sopra la soglia ({soglia} %).": "Kraken: no taxa above the threshold ({soglia} %)."
 }

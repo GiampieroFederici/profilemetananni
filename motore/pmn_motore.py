@@ -11,6 +11,7 @@ Solo libreria standard: gira anche col python3 di sistema quando il motore non �
 """
 import argparse
 import csv
+import gzip
 import importlib.util
 import json
 import os
@@ -21,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zlib
 from datetime import datetime
 from pathlib import Path
 
@@ -100,7 +102,7 @@ ERRORI = [
      N_("L'ospite aggiunto in questo progetto non è valido."),
      N_("Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.")),
     (r"kraken_db is empty|metaphlan_db|PMN_ENVS missing|No such file or directory.*(?:k2d|bt2|pkl)", "DB_MANCANTE",
-     N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa.")),
+     N_("Manca un database o un programma del motore."), N_("Apri la pagina Motore e premi Installa o completa.")),
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      N_("Il progetto contiene un valore non valido."), N_("Controlla le impostazioni del progetto.")),
 ]
@@ -332,7 +334,7 @@ def esempio(env):
 def serve_installazione():
     env = installazione()
     if not env:
-        raise Errore("DB_MANCANTE", _("Il motore non è ancora installato."), _("Apri la pagina Motore e premi Installa."))
+        raise Errore("DB_MANCANTE", _("Il motore non è ancora installato."), _("Apri la pagina Motore e premi Installa o completa."))
     return env
 
 
@@ -395,6 +397,34 @@ def campioni_locali(cartella):
             if NOME_VALIDO.fullmatch(nome):
                 out.append((nome, [f]))
     return out
+
+
+COPPIE_ESATTE_MAX = 64 * 2 ** 20   # fino a 64 MB di read compresse per campione si contano tutte (l'esempio: 0,2 s)
+CAMPIONE_GZ = 4 * 2 ** 20          # oltre, i byte per read si misurano sui primi 4 MB compressi del file stesso
+
+
+def coppie_locali(cartella, file):
+    """Coppie di read di un campione sul computer (a lettura singola: le read). VM B4-f: dalla dimensione dei file con i
+    164,6 byte per coppia di SF3RAt7, le read casuali di Casuale erano 12.514 coppie invece di 20.000: ogni file si
+    comprime a modo suo. Fino a 64 MB si contano; oltre, la misura sui primi 4 MB; un .gz rovinato, come prima."""
+    r1 = Path(cartella) / file[0]
+    try:
+        if sum((Path(cartella) / f).stat().st_size for f in file) <= COPPIE_ESATTE_MAX:
+            righe = 0
+            with gzip.open(r1, "rb") as g:
+                for pezzo in iter(lambda: g.read(2 ** 20), b""):
+                    righe += pezzo.count(b"\n")
+            return righe // 4
+        with open(r1, "rb") as f:
+            dati = f.read(CAMPIONE_GZ)
+        righe, resto = 0, dati
+        while resto:                       # anche i .gz fatti di piu' blocchi (bgzip)
+            d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            righe += d.decompress(resto).count(b"\n")
+            resto = d.unused_data
+        return round(r1.stat().st_size * righe / 4 / len(dati))
+    except (OSError, EOFError, zlib.error):
+        return round(sum((Path(cartella) / f).stat().st_size for f in file) / BYTE_PER_COPPIA)
 
 
 def messaggio_fine(messaggio, cosa_fare, passo):
@@ -514,8 +544,7 @@ class Motore:
             if not cartella.is_dir():
                 raise Errore("READ_NON_TROVATE", _("Non trovo la cartella delle read."), _("Controlla il progetto."))
             for nome, file in campioni_locali(cartella):   # nomi come in run.sh: "C1", non "C1_R1" (v0.3)
-                byte = sum((cartella / f).stat().st_size for f in file)
-                out.append((nome, round(byte / BYTE_PER_COPPIA), 0))
+                out.append((nome, coppie_locali(cartella, file), 0))
         if not out:
             raise Errore("READ_NON_TROVATE", _("Il progetto non contiene campioni."), _("Aggiungi le read al progetto."))
         return out

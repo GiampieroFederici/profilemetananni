@@ -55,7 +55,7 @@ def test_errore_con_cosa_fare_e_codice_di_uscita(qtbot, monkeypatch):
     contratto.controlla(righe(eventi), uscita, "verifica")
     errore = [e for e in eventi if e["tipo"] == "errore"][0]
     assert uscita == 2 and errore["codice"] == "DB_MANCANTE"
-    assert errore["cosa_fare"] == "Apri la pagina Motore e premi Installa."
+    assert errore["cosa_fare"] == "Apri la pagina Motore e premi Installa o completa."
 
 
 def test_annulla_ferma_la_corsa(qtbot, monkeypatch, tmp_path):

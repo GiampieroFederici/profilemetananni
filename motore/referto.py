@@ -194,17 +194,20 @@ def sintesi(d, soglia):
     if d.get("metaphlan") is not None:
         specie = d["metaphlan"]
         nc = d.get("non_classificato") or 0.0
-        frase = (_("MetaPhlAn: {n} specie trovate", n=len(specie)) +
-                 (_("; dominano {specie}.", specie=elenca(specie[:3], _(" delle read"))) if specie else ".") +
-                 _(" {art}{pct} % delle read non è assegnato a specie note.", art=articolo(pct(nc, 1)), pct=pct(nc, 1)))
+        frase = ((_("MetaPhlAn: {n} specie trovate", n=len(specie)) +
+                  _("; dominano {specie}.", specie=elenca(specie[:3], _(" delle read"))) +
+                  _(" {art}{pct} % delle read non è assegnato a specie note.", art=articolo(pct(nc, 1)), pct=pct(nc, 1)))
+                 if specie else   # B4-c: era "MetaPhlAn: 0 specie trovate."
+                 _("MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è vuoto."))
         out["metaphlan"] = {"specie": len(specie), "dominanti": [{"nome": n, "pct": v} for n, v in specie[:DOMINANTI]],
                             "non_assegnata_pct": nc, "frase": frase}
     if d.get("kraken") is not None:
         micro = [r for r in d["kraken"] if r["categoria"] in MICROBI and r["pct"] >= soglia]
         altri = [r for r in d["kraken"] if r["categoria"] not in MICROBI]
-        frase = (_("Kraken: {n} taxa sopra la soglia", n=len(micro)) +
-                 (_("; dominano {specie}.", specie=elenca([(r['nome'], r['pct_microbi']) for r in micro[:3]],
-                                                           _(" fra i taxa"))) if micro else ".") +
+        frase = ((_("Kraken: {n} taxa sopra la soglia", n=len(micro)) +
+                  _("; dominano {specie}.", specie=elenca([(r['nome'], r['pct_microbi']) for r in micro[:3]],
+                                                          _(" fra i taxa")))) if micro else
+                 _("Kraken: nessun taxon sopra la soglia.")) + (   # B4-c: era "Kraken: 0 taxa sopra la soglia."
                  (_(" Segnalati a parte (non del prodotto, o virus): ") +
                   ", ".join(f"{r['nome']} {pct(r['pct'], 3)} %" for r in altri) + "." if altri else ""))
         out["kraken"] = {"microbi": len(micro),
@@ -722,11 +725,14 @@ def html_referto(d):
         micro = [r for r in c["kraken"] if r["categoria"] in MICROBI]
         sopra = [r for r in micro if r["pct"] >= s]
         h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
-        h.append('<p class="piccolo">' + _("Taxa mostrati: {n} su {tot} (soglia di Kraken {soglia} %).", n=len(sopra),
-                                           tot=len(micro), soglia=pct(s, 3)) + "</p>")
-        h.append(tabella([_("Specie"), _("Gruppo"), _("% fra i taxa"), _("% sul totale assegnato")],
-                         [[f"<i>{e(r['nome'])}</i>", e(_(r["categoria"])), pct(r["pct_microbi"], 2), pct(r["pct"], 3)]
-                          for r in sopra], (2, 3), [44, 16, 20, 20]))
+        if sopra:
+            h.append('<p class="piccolo">' + _("Taxa mostrati: {n} su {tot} (soglia di Kraken {soglia} %).",
+                                               n=len(sopra), tot=len(micro), soglia=pct(s, 3)) + "</p>")
+            h.append(tabella([_("Specie"), _("Gruppo"), _("% fra i taxa"), _("% sul totale assegnato")],
+                             [[f"<i>{e(r['nome'])}</i>", e(_(r["categoria"])), pct(r["pct_microbi"], 2),
+                               pct(r["pct"], 3)] for r in sopra], (2, 3), [44, 16, 20, 20]))
+        else:   # B4-c: era "Taxa mostrati: 0 su ..." con una tabella vuota
+            h.append("<p>" + _("Kraken: nessun taxon sopra la soglia ({soglia} %).", soglia=pct(s, 3)) + "</p>")
         altri = [r for r in c["kraken"] if r["categoria"] not in MICROBI]
         if altri:
             h.append(_("<p><b>Segnalati a parte (non del prodotto, o non validati)</b>, campione {nome}:</p>",

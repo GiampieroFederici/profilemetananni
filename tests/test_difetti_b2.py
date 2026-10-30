@@ -282,3 +282,48 @@ def test_b4c_errore_della_verifica_in_vista(stile, f, qtbot):
     QCoreApplication.processEvents()
     y, alto = esito.mapTo(scorre.viewport(), QPoint(0, 0)).y(), scorre.viewport().height()
     assert 0 <= y and y + min(esito.height(), alto) <= alto, (y, esito.height(), alto)
+
+
+def test_b4c_casuale_nessun_conteggio_a_zero(stile, f, qtbot):
+    """B4-c: con i profili vuoti di Casuale la pagina Risultati scriveva "Qui tutte le 0 specie trovate."."""
+    import json
+    import re
+    p = nuovo("Casuale")
+    p.risultati.mkdir(parents=True, exist_ok=True)
+    sintesi = {"metaphlan": {"specie": 0, "dominanti": [], "non_assegnata_pct": 100.0,
+                             "frase": "MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è vuoto."},
+               "kraken": {"microbi": 0, "dominanti": [], "non_microbi": [],
+                          "frase": "Kraken: nessun taxon sopra la soglia."}}
+    (p.risultati / "risultati.json").write_text(json.dumps({
+        "motore": "1.1.0", "campioni": [{"nome": "CASUALE", "esito": "ok", "sintesi": sintesi}]}),   # B4-d: come
+        encoding="utf-8")                                                                         # il motore, senza consigli
+    f.contesto.progetto = p
+    f.vai("risultati")
+    qtbot.wait(200)
+    pag = f.pagine["risultati"]
+    testi = " | ".join(lab.text() for w in pag.schede for lab in w.findChildren(QLabel))
+    assert not re.search(r"\b0 (specie|taxa)\b", testi), testi
+    assert "MetaPhlAn non ha trovato specie" in testi and "Kraken non ha trovato taxa sopra la soglia" in testi
+    assert "Da sapere" not in testi       # B4-d: rimandava a un riquadro "Da sapere" che in questa pagina non c'è
+
+
+def test_b4d_spazio_zero_in_parole():
+    """B4-d: "Spazio: 0 GB" nelle scelte di Casuale (progetto rifatto, nessuno spazio nuovo)."""
+    from app.pagine.scelte import gb
+    assert gb(0) == gb(0.2) == "meno di 1 GB" and gb(12.4) == "12 GB"
+
+
+def test_b4d_durate_e_coppie_mai_a_zero():
+    """Passata sui testi dopo B4-d: "0 secondi" quando il tempo che manca arriva a zero, "0,0 milioni di coppie di
+    read" per un campione piccolo, "pulsante Aggiorna" e "premi Installa" per pulsanti che si chiamano diversamente."""
+    from app import aggiorna
+    from app.pagine import esecuzione, scelte
+    for durata in (esecuzione.durata, scelte.durata):
+        assert durata(0) == durata(12) == "meno di un minuto" and durata(45) == "45 secondi"
+    assert scelte.campioni_in_parole(1, ": CASUALE", 3200) == "1: CASUALE (3.200 coppie di read)"
+    assert scelte.campioni_in_parole(1, "", 200000) == "1 (0,2 milioni di coppie di read)"
+    assert scelte.campioni_in_parole(2, "", 0) == "2"
+    sorgente = (RADICE / "app" / "aggiorna.py").read_text(encoding="utf-8")
+    assert "pulsante Aggiorna" not in sorgente and "pulsante Cerca aggiornamenti" in sorgente
+    for f in ("motore/pmn_motore.py", "installer/finto_motore.py"):
+        assert "premi Installa." not in (RADICE / f).read_text(encoding="utf-8")

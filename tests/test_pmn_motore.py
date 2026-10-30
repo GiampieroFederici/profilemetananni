@@ -178,7 +178,7 @@ def due_campioni(tmp_path, nome, prima=()):
     progetto.write_text(f"data_source: local\npaths:\n  work_dir: {lavoro}\n  local_reads_dir: {read}\n", encoding="utf-8")
     sys.path.insert(0, os.path.join(ROOT, "motore"))
     import pmn_motore as pm
-    camp = [(n, round(sum((read / x).stat().st_size for x in file) / pm.BYTE_PER_COPPIA), 0)
+    camp = [(n, pm.coppie_locali(read, file), 0)
             for n, file in pm.campioni_locali(read)]
     return progetto, {e: s for e, _, _, s in pm.piano(camp, {})}
 
@@ -231,7 +231,7 @@ def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_ETICHETTE=ETICHETTE_2, STUB_MODO="ospite")
     import pmn_motore as pm
     read = tmp_path / "read"
-    camp = [(n, round(sum((read / x).stat().st_size for x in file) / pm.BYTE_PER_COPPIA), 0)
+    camp = [(n, pm.coppie_locali(read, file), 0)
             for n, file in pm.campioni_locali(read)]
     cfg = {"hosts": ["sus_scrofa"]}
     prima = {e: s for e, _, _, s in pm.piano(camp, cfg)}                         # quota fissa, 53 %

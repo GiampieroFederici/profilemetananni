@@ -10,7 +10,11 @@
 
 **You need** Windows 11 (not Mac), 16 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
+**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0) too.
+
 **Serve** Windows 11 (non Mac), 16 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
+
+**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -126,7 +130,7 @@ The installer enables WSL2 (it asks once for administrator permission and one re
 
 ## Status
 
-Version 1.0. Installation from scratch was tested on a clean Windows 11 virtual machine: 14 user interactions, no terminal, no help. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one.
+Version 1.1. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads: Stop and resume, restart, the engine check GREEN, analyses of one and six samples, added hosts, invalid inputs, out of memory at 8 GB, update check, then each correction checked again on the same machine before this release. The update from 1.0 was tested on a real PC: the databases already there are recognised, nothing is downloaded again. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one. The installation of the full Kraken index up to GREEN was not repeated on the virtual machine (no disk space left on the test PC): its download and resume were tested on the first 10.5 GB.
 
 | Validation | Result |
 |---|---|
@@ -138,6 +142,7 @@ Version 1.0. Installation from scratch was tested on a clean Windows 11 virtual 
 
 ## Documents
 
+- First analysis, step by step, on the example sample: [`docs/guida_analisi_esempio_EN.md`](docs/guida_analisi_esempio_EN.md)
 - User guide (Italian): [`docs/Manuale_uso_ProfileMetaNanni.pdf`](docs/Manuale_uso_ProfileMetaNanni.pdf)
 - App and engine contract: [`docs/contratto_motore.md`](docs/contratto_motore.md)
 - Installer: [`installer/LEGGIMI.md`](installer/LEGGIMI.md)
@@ -260,7 +265,7 @@ L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un 
 
 ## Stato
 
-Versione 1.0. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale: 14 interazioni dell'utente, nessun terminale, nessun aiuto. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno.
+Versione 1.1. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri: Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi di uno e sei campioni, ospiti aggiunti, input non validi, memoria finita a 8 GB, controllo degli aggiornamenti; poi ogni correzione è stata riprovata sulla stessa macchina prima di questa Release. L'aggiornamento dalla 1.0 è stato provato su un PC vero: i database già presenti vengono riconosciuti e non si scarica nulla di nuovo. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno. L'installazione dell'indice Kraken completo fino al VERDE non è stata ripetuta sulla macchina virtuale (il PC di prova non aveva più spazio): scarico e ripresa sono stati provati sui primi 10,5 GB.
 
 | Validazione | Risultato |
 |---|---|
@@ -272,6 +277,7 @@ Versione 1.0. L'installazione da zero è stata provata su Windows 11 pulito in u
 
 ## Documenti
 
+- Prima analisi, passo passo, sul campione d'esempio: [`docs/guida_analisi_esempio_IT.md`](docs/guida_analisi_esempio_IT.md)
 - Guida per l'utente: [`docs/Manuale_uso_ProfileMetaNanni.pdf`](docs/Manuale_uso_ProfileMetaNanni.pdf)
 - Contratto fra app e motore: [`docs/contratto_motore.md`](docs/contratto_motore.md)
 - Installatore: [`installer/LEGGIMI.md`](installer/LEGGIMI.md)

@@ -218,7 +218,7 @@ class Motore:
                     campione=None, fatto=0, totale=1, percentuale=10, eta_s=None)
         if self.a.scenario == "DB_MANCANTE":
             return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
-                               _("Apri la pagina Motore e premi Installa."))
+                               _("Apri la pagina Motore e premi Installa o completa."))
         if self.a.scenario == "RAM_INSUFFICIENTE":   # B3-4: come il vero (pmn_motore.py verifica), niente "Installa"
             return self.errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne "
                                                       "usa fino a 8,2 GB."),
@@ -285,7 +285,7 @@ class Motore:
                                    _("Controlla il codice SRR nel progetto."), passo="download")
             if passo == "kraken" and self.a.scenario == "DB_MANCANTE":
                 return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
-                                   _("Apri la pagina Motore e premi Installa."), passo="kraken")
+                                   _("Apri la pagina Motore e premi Installa o completa."), passo="kraken")
             if passo == "metaphlan" and self.a.scenario == "annullata":
                 raise Annullata
             for i, m in enumerate(messaggi):

@@ -235,7 +235,7 @@ def estrai(zip_, cartella):
                              _("Scaricala dalla pagina della Release e installala con il doppio clic."))
     radice = dentro / "profilemetananni"
     if not (radice.joinpath(*PS1).is_file() and radice.joinpath(*APP_EXE).is_file()):
-        raise ErroreAggiorna("INCOMPATIBILE", _("Questa versione non si installa dal pulsante Aggiorna."),
+        raise ErroreAggiorna("INCOMPATIBILE", _("Questa versione non si installa dal pulsante Cerca aggiornamenti."),
                              _("Scaricala dalla pagina della Release e installala con il doppio clic."))
     return radice
 

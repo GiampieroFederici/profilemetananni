@@ -164,7 +164,7 @@ Lettura degli eventi in PySide6: `QProcess` con `readyReadStandardOutput`, una r
 > `esegui` usa i dati dello screening rapido (17 min).
 
 1. `errore` con il campo `passo` (oggi non si sa in quale passo si è fermato).
-2. `cosa_fare`: "Apri la pagina Motore e premi Installa." (nell'app non esiste una pagina "Impostazioni").
+2. `cosa_fare`: "Apri la pagina Motore e premi Installa o completa." (nell'app non esiste una pagina "Impostazioni").
 3. `esegui` vero: `eta_s` oggi sempre null; calcolarlo con le regole di `stima`.
 4. FSSP: avvisi fuori campo con il campo `modello` (oggi escono doppi, Listeria e lattici, con campi diversi) e numeri all'italiana (oggi "13.9875").
 5. Finto motore: messaggi "database completo" ma dati PlusPF-8 (rapido): allineare.
