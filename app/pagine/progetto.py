@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QSettings, QStandardPaths, Qt
 from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLineEdit,
-                               QPlainTextEdit, QPushButton, QVBoxLayout)
+                               QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from app import progetto
 from app.lingua import N_, _
@@ -467,13 +467,23 @@ class FinestraOspite(QDialog):
     def __init__(self, ram_gb=None, libero_gb=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(_("Aggiungi un ospite"))
-        self.setMinimumWidth(620)
+        self.resize(760, 660)
         self.ram_gb, self.libero_gb = ram_gb, libero_gb
         self.voce = None             # pronta dopo Controlla
         self.aggiunto = None         # nome dell'ospite aggiunto
         self.fasta = None
-        s = QVBoxLayout(self)
+        fuori = QVBoxLayout(self)    # come le pagine: il contenuto scorre (i testi a capo hanno l'altezza giusta)
+        fuori.setContentsMargins(0, 0, 0, 16)
+        contenuto = QWidget()
+        scorre = QScrollArea()
+        scorre.setWidgetResizable(True)
+        scorre.setFrameShape(QFrame.NoFrame)
+        scorre.setWidget(contenuto)
+        fuori.addWidget(scorre, 1)
+        s = QVBoxLayout(contenuto)
         s.setSpacing(10)
+        s.setContentsMargins(24, 20, 24, 8)
+        s.setAlignment(Qt.AlignTop)
         s.addWidget(etichetta(_("Se il campione contiene il DNA di un organismo che non è nell'elenco (un'altra pianta, "
                                 "un altro animale), aggiungilo qui. Il programma costruisce una volta sola l'indice "
                                 "per togliere il suo DNA, alla prima analisi, e poi lo riusa.")))
@@ -508,6 +518,7 @@ class FinestraOspite(QDialog):
         self.esito = QVBoxLayout()
         s.addLayout(self.esito)
         riga = QHBoxLayout()
+        riga.setContentsMargins(24, 0, 24, 0)
         riga.addStretch(1)
         annulla = QPushButton(_("Annulla"), objectName="secondario")
         annulla.clicked.connect(self.reject)
@@ -517,11 +528,16 @@ class FinestraOspite(QDialog):
         self.pulsante_aggiungi.clicked.connect(self.aggiungi)
         for w in (annulla, self.pulsante_controlla, self.pulsante_aggiungi):
             riga.addWidget(w)
-        s.addLayout(riga)
+        fuori.addLayout(riga)
+        self.scorre = scorre
         self.scelta_ncbi.scelta.connect(self._fonte)
         self.scelta_file.scelta.connect(self._fonte)
         self.scelta_ncbi.pulsante.setChecked(True)
         self._fonte()
+
+    def _adatta(self):
+        """L'esito di Controlla è in fondo: lo si porta in vista."""
+        self.scorre.ensureVisible(0, self.scorre.widget().sizeHint().height())
 
     def _fonte(self):
         ncbi = self.scelta_ncbi.pulsante.isChecked()
@@ -551,6 +567,7 @@ class FinestraOspite(QDialog):
 
     def _errore(self, titolo, testo):
         self.esito.addWidget(riquadro(titolo, testo, "errore"))
+        self._adatta()
 
     def controlla(self):
         """Controlla nome e genoma, poi mostra il costo dell'indice; se va tutto bene si può aggiungere."""
@@ -612,6 +629,7 @@ class FinestraOspite(QDialog):
             avvisi.append(_("Sul disco ci sono solo {libero} GB liberi: libera spazio prima dell'analisi.",
                             libero=numero(self.libero_gb)))
         self.esito.addWidget(riquadro(titolo, " ".join([testo, *avvisi]), "avviso" if avvisi else "info"))
+        self._adatta()
         self.voce = voce
         self.pulsante_aggiungi.setEnabled(True)
         self.pulsante_aggiungi.setDefault(True)

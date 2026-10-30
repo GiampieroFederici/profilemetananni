@@ -177,6 +177,19 @@ def test_11_accession_senza_rete_non_lascia_indici(finto, tmp_path):
 
 
 # ---------------- bin/run.sh ----------------
+# datasets e unzip finti: il pacchetto NCBI è uno zip con il FASTA dentro (come il vero)
+DATASETS = f"""#!/bin/sh
+# datasets download genome accession ACC --include genome --filename FILE
+{sys.executable} -c "import sys, zipfile
+z = zipfile.ZipFile(sys.argv[2], 'w')
+z.writestr('ncbi_dataset/data/' + sys.argv[1] + '/genoma.fna', '>chr1\\nACGTACGT\\n')" "$4" "$8"
+"""
+UNZIP = f"""#!/bin/sh
+# unzip -q -o FILE -d DIR
+{sys.executable} -m zipfile -e "$3" "$5"
+"""
+
+
 def installazione_finta(tmp_path):
     """Motore installato finto (come tests/test_revisione_g2.py): maiale e uomo pronti, bowtie2-build finto, fastp
     che fallisce (la corsa si ferma alla prima pulizia, dopo gli indici)."""
@@ -184,7 +197,8 @@ def installazione_finta(tmp_path):
     (envs / "pmn_reports_py" / "bin").mkdir(parents=True)
     os.symlink(sys.executable, envs / "pmn_reports_py" / "bin" / "python")
     for env, nome, testo in [("pmn_trim", "fastp", "#!/bin/sh\nexit 1\n"),
-                             ("pmn_hostfilter", "bowtie2-build", BOWTIE2_BUILD)]:
+                             ("pmn_hostfilter", "bowtie2-build", BOWTIE2_BUILD),
+                             ("pmn_hostfilter", "datasets", DATASETS), ("pmn_hostfilter", "unzip", UNZIP)]:
         (envs / env / "bin").mkdir(parents=True, exist_ok=True)
         (envs / env / "bin" / nome).write_text(testo)
         (envs / env / "bin" / nome).chmod(0o755)
@@ -229,6 +243,32 @@ def test_run_ospite_aggiunto_da_fasta(tmp_path):
     assert "host_index_homo_sapiens\tGCF_000001405.40 (installed)" in par
     testo, _lavoro = corsa(tmp_path, home, extra)
     assert "Index for olivo already exists" in testo
+
+
+def file_del_programma():
+    return {p: p.stat().st_mtime_ns for p in RADICE.rglob("*") if p.is_file() and ".git" not in p.parts
+            and "__pycache__" not in p.parts}
+
+
+@linux
+def test_run_vite_indice_fuori_dalla_cartella_del_programma(tmp_path):
+    """Vincolo di AGGIORNA (30/10): prepara_pmn.sh cancella e ricopia la cartella del programma a ogni aggiornamento.
+    L'indice della vite (D167, costruito alla prima analisi da NCBI) e quelli degli ospiti aggiunti stanno in
+    PMN_HOME/ospiti_utente: nella cartella del programma non si scrive nulla, e dopo un aggiornamento (cartella del
+    programma rifatta) l'indice si riusa."""
+    home = installazione_finta(tmp_path)
+    prima = file_del_programma()
+    testo, lavoro = corsa(tmp_path, home, "hosts: [vitis_vinifera]\n")
+    assert "step failed: trim_C1" in testo, testo
+    idx = home / "ospiti_utente" / "vitis_vinifera"
+    assert (idx / "vitis_vinifera.rev.2.bt2").is_file()
+    assert dict(r.split("\t") for r in (idx / "vitis_vinifera.origine.tsv").read_text().splitlines())["accession"] \
+        == "GCF_030704535.1"
+    assert "host_index_vitis_vinifera\tGCF_030704535.1, MD5 " in (lavoro / "results" / "parameters.tsv").read_text()
+    assert file_del_programma() == prima                       # niente indici, elenchi o FASTA nel programma
+    assert not list(RADICE.rglob("*.bt2"))
+    testo, _lavoro = corsa(tmp_path, home, "hosts: [vitis_vinifera]\n")
+    assert "Index for vitis_vinifera already exists" in testo   # seconda analisi: nessun download
 
 
 @linux
