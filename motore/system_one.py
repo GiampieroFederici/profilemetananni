@@ -69,13 +69,14 @@ AMBIENTI = [
         "finiscono assegnate per errore a qualche taxon. Molti lieviti del mosto (Hanseniaspora, Metschnikowia, "
         "Aureobasidium) non sono in nessuno dei due database: il profilo non li vede."), "avviso", True),
     ("vite_acino", N_("Vite: acino o grappolo"), ["vitis_vinifera"], _TOLGO_VITE,
-     N_("Sulla buccia i taxa sono pochi e il DNA della vite (nucleo, cloroplasti e mitocondri, tutti nel genoma "
-        "usato) può essere quasi tutte le read: servono molte read per avere un profilo. Molti lieviti della buccia "
-        "non sono nei database."), "avviso", True),
+     N_("Sulla buccia i taxa sono pochi e il DNA della vite può essere la gran parte delle read: servono molte read "
+        "per avere un profilo. Il genoma della vite usato contiene anche cloroplasto e mitocondrio, che si tolgono "
+        "insieme. Molti lieviti della buccia (Hanseniaspora, Metschnikowia, Aureobasidium) non sono in nessuno dei "
+        "due database: il profilo non li vede."), "avviso", True),
     ("vite_foglia", N_("Vite: foglia"), ["vitis_vinifera"], _TOLGO_VITE,
-     N_("Nella foglia il DNA della pianta, soprattutto quello dei cloroplasti, è di solito quasi tutte le read: "
-        "servono molte read per avere un profilo. Il genoma della vite usato contiene anche cloroplasto e "
-        "mitocondrio."), "avviso", True),
+     N_("Nella foglia il DNA della pianta è di solito la gran parte delle read: servono molte read per avere un "
+        "profilo. Il genoma della vite usato contiene anche cloroplasto e mitocondrio: si tolgono insieme, "
+        "altrimenti le read dei cloroplasti possono sembrare cianobatteri."), "avviso", True),
     ("vite_radice", N_("Vite: radice (superficie o interno)"), ["vitis_vinifera"], _TOLGO_VITE,
      N_("Sulla radice, e ancora di più al suo interno, il DNA della vite è molto: per questo alcuni studi fanno lo "
         "shotgun solo sulla superficie della radice e sul suolo attorno. Per il suolo attorno alla radice scegli "
