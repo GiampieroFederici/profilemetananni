@@ -61,7 +61,7 @@ def read_finte(cartella, nomi, righe=1000):
 # ---------------- 1. prodotto -> ospite (system_one, info) ----------------
 def test_1_regola_prodotto_ospite():
     p = {x["prodotto"]: x for x in system_one.prodotti()}
-    assert list(p) == ["maiale", "bovino", "pecora", "altro"]                   # ordine del menu (D074)
+    assert list(p)[:4] == ["maiale", "bovino", "pecora", "altro"]               # ordine del menu (D074); poi R9
     assert p["maiale"]["ospiti"] == ["sus_scrofa"] and p["maiale"]["genomi"] == ["Sscrofa11.1"]
     assert p["bovino"]["ospiti"] == ["bos_taurus"] and p["bovino"]["genomi"] == ["ARS-UCD1.2"]
     assert p["pecora"]["ospiti"] == ["ovis_aries"] and p["pecora"]["genomi"] == ["ARS-UI_Ramb_v2.0"]

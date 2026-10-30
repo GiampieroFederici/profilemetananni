@@ -71,6 +71,56 @@ def test_s1_ogni_consiglio_ha_fonte_e_codice_del_contratto(tmp_path):
         assert c["livello"] == "info" or c["codice"] in CODICI
 
 
+# ---------------- ambienti nuovi (v1.1, R9): voci dopo i 4 prodotti di carne ----------------
+SALUMI = [  # info.prodotti di v1.0 (italiano): devono restare identici voce per voce
+    {"prodotto": "maiale", "ospiti": ["sus_scrofa"], "genomi": ["Sscrofa11.1"],
+     "frase": "Toglierò il DNA del maiale e quello umano.",
+     "perche": "Sono la gran parte delle read di un salume e non dicono nulla dei taxa del prodotto. "
+               "Il DNA umano si toglie sempre.", "livello": "info", "fonte": so.FONTE_OSPITE},
+    {"prodotto": "bovino", "ospiti": ["bos_taurus"], "genomi": ["ARS-UCD1.2"],
+     "frase": "Toglierò il DNA del bovino e quello umano.", "perche": so._CARNE, "livello": "info",
+     "fonte": so.FONTE_OSPITE},
+    {"prodotto": "pecora", "ospiti": ["ovis_aries"], "genomi": ["ARS-UI_Ramb_v2.0"],
+     "frase": "Toglierò il DNA della pecora e quello umano.", "perche": so._CARNE, "livello": "info",
+     "fonte": so.FONTE_OSPITE},
+    {"prodotto": "altro", "ospiti": [], "genomi": [], "frase": "Toglierò solo il DNA umano.",
+     "perche": "Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read della "
+               "carne finiscono assegnate per errore a qualche taxon.", "livello": "avviso", "fonte": so.FONTE_OSPITE},
+]
+
+
+def test_ambienti_salumi_invariati():
+    assert so.prodotti()[:4] == SALUMI
+
+
+def test_ambienti_voci_e_ospiti():
+    p = {x["prodotto"]: x for x in so.prodotti()[4:]}
+    assert list(p) == ["feci_umane", "cute", "suolo", "vite_mosto", "vite_acino", "vite_foglia", "vite_radice"]
+    assert p["feci_umane"]["ospiti"] == p["cute"]["ospiti"] == ["grch38"]           # l'uomo è l'ospite
+    assert p["suolo"]["ospiti"] == []                                               # solo l'uomo (filter_human)
+    assert all(p[k]["ospiti"] == ["vitis_vinifera"] for k in p if k.startswith("vite_"))
+    assert p["vite_mosto"]["genomi"] == ["T2T-PN40024 (ASM3070453v1)"] and p["cute"]["genomi"] == ["GRCh38.p14"]
+    for x in p.values():
+        assert x["testo"] and x["frase"] and x["perche"] and x["fonte"]
+        assert x["livello"] in ("info", "avviso") and isinstance(x["sperimentale"], bool)
+        assert "—" not in x["perche"] + x["frase"] + x["testo"]                  # niente trattini lunghi
+    assert p["vite_acino"]["sperimentale"] and p["vite_foglia"]["sperimentale"]     # nessuna prova con dati veri
+
+
+def test_ambienti_ospiti_noti_al_motore():
+    # nomi di refs/hosts.tsv; vitis_vinifera arriva con l'incarico OSPITE (D167): qui basta che sia un nome valido
+    with open(os.path.join(ROOT, "refs", "hosts.tsv"), encoding="utf-8") as f:
+        noti = {r.split("\t")[0] for r in f if r.strip() and not r.startswith("#")} | {"vitis_vinifera"}
+    assert {o for x in so.prodotti() for o in x["ospiti"]} <= noti
+
+
+def test_ambienti_testi_in_inglese():
+    with open(os.path.join(ROOT, "motore", "lingua_en.json"), encoding="utf-8") as f:
+        en = json.load(f)
+    testi = {so.FONTE_AMBIENTI} | {t for _p, testo, _o, frase, perche, *_r in so.AMBIENTI for t in (testo, frase, perche)}
+    assert not [t for t in testi if t not in en]
+
+
 def lancia(*arg):
     r = subprocess.run([sys.executable, FINTO, *arg, "--velocita", "0"], capture_output=True, text=True,
                        encoding="utf-8", timeout=60)
