@@ -129,6 +129,77 @@ def test_interrompi_ferma_senza_ripresa_da_sola():
     assert FASE2.index("RipristinaCoperchio") < FASE2.index("DoveInstallare")      # alla ripresa dopo un'interruzione
 
 
+VOCE, ATTIVITA = "pmn_prova_A0", "pmn_prova_A0_attivita"
+
+
+def _togli_prove():
+    powershell(f"Remove-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce' -Name {VOCE} "
+               f"-ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName {ATTIVITA} -Confirm:$false "
+               "-ErrorAction SilentlyContinue; 'ok'")
+
+
+def test_a0_ripresa_con_runonce_e_attivita_di_riserva():
+    """A0 (VM 30/10): dopo il riavvio RunOnce ha lanciato conhost ma PowerShell non è mai partito. Ora Riprendi scrive
+    anche un'attività pianificata all'accesso di questo utente, 2 minuti dopo, senza amministratore; NonRiprendere
+    toglie tutte e due."""
+    try:
+        r = powershell(f". '{PS1}'; Riprendi '{VOCE}' '{ATTIVITA}'; "
+                       f"$v = (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce').{VOCE}; "
+                       f"$t = Get-ScheduledTask -TaskName '{ATTIVITA}'; "
+                       "@{ runonce = $v; exe = $t.Actions[0].Execute; arg = $t.Actions[0].Arguments; "
+                       "trigger = $t.Triggers[0].CimClass.CimClassName; ritardo = $t.Triggers[0].Delay; "
+                       "utente = $t.Triggers[0].UserId; livello = \"$($t.Principal.RunLevel)\" } | ConvertTo-Json")
+        d = json.loads(r)
+        atteso = f'--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{PS1}" -Fase 2'
+        assert d["runonce"] == f"conhost.exe {atteso}" and len(d["runonce"]) <= 260
+        assert (d["exe"], d["arg"]) == ("conhost.exe", atteso)
+        assert d["trigger"] == "MSFT_TaskLogonTrigger" and d["ritardo"] == "PT2M" and d["livello"] == "Limited"
+        assert d["utente"].lower().endswith(os.environ["USERNAME"].lower())
+        assert powershell(f". '{PS1}'; NonRiprendere '{VOCE}' '{ATTIVITA}'; "
+                          f"[bool](Get-ScheduledTask -TaskName '{ATTIVITA}' -ErrorAction SilentlyContinue); "
+                          f"[bool](Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce' -Name {VOCE} "
+                          "-ErrorAction SilentlyContinue)").split() == ["False", "False"]
+        assert powershell(f". '{PS1}'; NonRiprendere '{VOCE}' '{ATTIVITA}'; 'ok'") == "ok"     # due volte: niente errori
+    finally:
+        _togli_prove()
+
+
+def test_a0_l_attivita_di_riserva_lancia_davvero_la_fase_2(tmp_path):
+    """Lo stesso comando, avviato dal Pianificatore (nessuna console, come all'accesso): PowerShell parte con -Fase 2."""
+    prova = tmp_path / "prova fase 2.ps1"                         # con uno spazio nel percorso, come una cartella vera
+    esito = tmp_path / "esito.txt"
+    prova.write_text(f"param([int]$Fase)\n$p = Get-CimInstance Win32_Process -Filter \"ProcessId = $PID\"\n"
+                     f"$q = Get-CimInstance Win32_Process -Filter \"ProcessId = $($p.ParentProcessId)\"\n"
+                     f"\"fase=$Fase padre=$($q.Name)\" | Set-Content '{esito}'\n", encoding="utf-8")
+    try:
+        powershell(f". '{PS1}'; Riprendi '{VOCE}' '{ATTIVITA}' '{prova}'; Start-ScheduledTask -TaskName '{ATTIVITA}'; 'ok'")
+        import time
+        fine = time.monotonic() + 30
+        while not esito.exists() and time.monotonic() < fine:
+            time.sleep(0.5)
+        assert esito.read_text(encoding="utf-8-sig").strip() == "fase=2 padre=conhost.exe"
+    finally:
+        _togli_prove()
+
+
+def test_a0_una_sola_installazione_alla_volta():
+    """RunOnce e l'attività di riserva possono partire tutte e due: la seconda copia esce senza fare nulla."""
+    import time
+    nome = "Local\\pmn_prova_A0_unico"
+    prima = subprocess.Popen(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+                              f". '{PS1}'; if (UnaSolaInstallazione '{nome}') {{ 'presa' }}; Start-Sleep 10"],
+                             stdout=subprocess.PIPE, text=True)
+    try:
+        assert prima.stdout.readline().strip() == "presa"
+        assert powershell(f". '{PS1}'; UnaSolaInstallazione '{nome}'") == "False"
+    finally:
+        prima.kill()
+        prima.wait()
+    time.sleep(1)
+    assert powershell(f". '{PS1}'; UnaSolaInstallazione '{nome}'") == "True"           # copia morta: si riprende
+    assert TESTO.index("if (-not (UnaSolaInstallazione))") < TESTO.index('Scrivi "=== fase $Fase, cartella $Radice"')
+
+
 def test_spazio_di_windows_controllato_ogni_minuto():
     giro = FASE2[FASE2.index("$giro = {"):FASE2.index("$c = Attendi (Avvia \"$motore --si")]
     assert "AddMinutes(1)" in giro and "SpazioBasso" in giro and "LiberiSu $s.Disco" in giro

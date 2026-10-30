@@ -4,7 +4,8 @@
 
 1. Estrai lo zip (tasto destro, **Estrai tutto**) e fai doppio clic su **Installa profilemetananni**.
 2. Windows chiede il permesso di attivare **WSL** (un suo componente): rispondi **Sì**. Se chiede di riavviare, riavvia:
-   dopo il riavvio l'installazione riprende da sola.
+   dopo il riavvio l'installazione riprende da sola (al massimo 2 minuti dopo l'accesso). Se dopo 5 minuti non vedi
+   la finestra, fai di nuovo doppio clic su **Installa profilemetananni**: riprende da dove era.
 3. Prima di scaricare, l'installatore dice **quanto scarica, quanto spazio serve, quanto ce n'è** e **quanto tempo
    ci vorrà**, separato per Kraken e per gli altri database. Rispondi **Sì** per partire, **No** per non scaricare nulla
    (sul computer non resta niente: il programma e le icone si copiano solo dopo il Sì).
@@ -104,7 +105,11 @@ bash installer/installa_motore.sh
 
 ### Parte Windows (`windows/installa_pmn.ps1`)
 
-- Fase 1: attiva WSL (permesso di Windows), riavvio e ripresa da sola (RunOnce).
+- Fase 1: attiva WSL (permesso di Windows), riavvio e ripresa da sola: voce RunOnce e, come seconda via (A0, VM del
+  30/10: RunOnce ha lanciato conhost all'accesso ma PowerShell non è partito), un'attività pianificata "all'accesso"
+  di questo utente con 2 minuti di ritardo (`profilemetananni - continua installazione`, senza amministratore), tolta
+  a fine installazione, dopo un No o dopo Interrompi. Se partono tutte e due, la seconda copia trova l'installazione
+  aperta (lucchetto `Local\profilemetananni_installa`) ed esce.
 - Fase 2: WSL `pmn` sul disco interno con più spazio (D045), `prepara_pmn.sh`, poi `installa_motore.sh --stima`: lo
   spazio che serve viene dal motore e si confronta con lo spazio vero di Windows. Dopo il Sì copia l'app e le icone
   (v1.1: non prima, così un tentativo fermato non lascia resti), chiede del coperchio (`powercfg`, impostazione

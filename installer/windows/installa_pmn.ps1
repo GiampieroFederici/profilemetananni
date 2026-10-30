@@ -30,10 +30,10 @@ function SceltaLingua($cultura) { if ("$cultura" -like 'it*') { 'it' } else { 'e
 $Lingua = SceltaLingua (Get-UICulture).Name
 $TESTI = [ordered]@{
     dettagli = @("{0}`n`nDettagli tecnici nel file:`n{1}", "{0}`n`nTechnical details in the file:`n{1}")
-    riavvio_domanda = @("Serve un riavvio del computer. Dopo il riavvio l'installazione riprende da sola.`n`nRiavvio adesso?",
-                        "The computer needs a restart. After the restart the installation resumes by itself.`n`nRestart now?")
-    riavvio_dopo = @("Va bene. Quando riavvii il computer, l'installazione riprende da sola.",
-                     "All right. When you restart the computer, the installation resumes by itself.")
+    riavvio_domanda = @("Serve un riavvio del computer. Dopo il riavvio l'installazione riprende da sola (al massimo 2 minuti dopo l'accesso).`n`nSe dopo 5 minuti non vedi la finestra di profilemetananni, fai di nuovo doppio clic su `"Installa profilemetananni`": riprende da dove era.`n`nRiavvio adesso?",
+                        "The computer needs a restart. After the restart the installation resumes by itself (at most 2 minutes after you sign in).`n`nIf after 5 minutes you do not see the profilemetananni window, double-click `"Installa profilemetananni`" again: it resumes from where it was.`n`nRestart now?")
+    riavvio_dopo = @("Va bene. Quando riavvii il computer, l'installazione riprende da sola. Se non riprende, fai di nuovo doppio clic su `"Installa profilemetananni`".",
+                     "All right. When you restart the computer, the installation resumes by itself. If it does not, double-click `"Installa profilemetananni`" again.")
     spazio = @("Lo spazio sul disco non basta: servono circa {0} GB sul disco {1}, ce ne sono {2}.`n`nLibera almeno {3} GB e riapri l'installazione.",
                "There is not enough space on the disk: about {0} GB are needed on disk {1}, there are {2}.`n`nFree at least {3} GB and open the installation again.")
     app_copia = @("Non riesco a copiare il programma ProfileMetaNanni.`nSe è aperto, chiudilo e riapri l'installazione.",
@@ -96,12 +96,31 @@ function Finestra($t, $pulsanti = 'OK') {   # messaggio sempre in primo piano (i
 }
 function Avviso($t) { [void](Finestra $t) }
 function Domanda($t) { (Finestra $t 'YesNo') -eq 'Yes' }
-function Riprendi {   # al prossimo accesso di questo utente riparte da solo dalla fase 2
+$Attivita = 'profilemetananni - continua installazione'
+function Riprendi($voce = 'profilemetananni', $attivita = $Attivita, $file = $PSCommandPath) {   # al prossimo accesso di questo utente riparte da solo dalla fase 2
     # conhost --headless: nessuna finestra (Windows Terminal ignora -WindowStyle Hidden e lascia una finestra vuota, S3-W)
-    $cmd = "conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Fase 2"
-    New-ItemProperty -Path $RunOnce -Name 'profilemetananni' -Value $cmd -PropertyType String -Force | Out-Null
+    $argomenti = "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$file`" -Fase 2"
+    New-ItemProperty -Path $RunOnce -Name $voce -Value "conhost.exe $argomenti" -PropertyType String -Force | Out-Null
+    # A0 (VM 30/10): RunOnce ha lanciato conhost nei primi secondi dell'accesso e PowerShell non e' mai partito. Seconda via,
+    # senza amministratore: un'attivita' pianificata "all'accesso" di questo utente, 2 minuti dopo; se la fase 2 e' gia'
+    # partita da RunOnce, la seconda copia trova l'installazione aperta (UnaSolaInstallazione) ed esce. Tolta da NonRiprendere.
+    try {
+        $u = "$env:USERDOMAIN\$env:USERNAME"
+        $t = New-ScheduledTaskTrigger -AtLogOn -User $u; $t.Delay = 'PT2M'
+        Register-ScheduledTask -TaskName $attivita -Force -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument $argomenti) -Trigger $t `
+            -Principal (New-ScheduledTaskPrincipal -UserId $u -LogonType Interactive -RunLevel Limited) `
+            -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0) | Out-Null
+    } catch { Scrivi "attivita' di riserva non creata (resta RunOnce): $_" }
 }
-function NonRiprendere { Remove-ItemProperty -Path $RunOnce -Name 'profilemetananni' -ErrorAction SilentlyContinue }
+function NonRiprendere($voce = 'profilemetananni', $attivita = $Attivita) {
+    Remove-ItemProperty -Path $RunOnce -Name $voce -ErrorAction SilentlyContinue
+    try { Unregister-ScheduledTask -TaskName $attivita -Confirm:$false -ErrorAction Stop } catch { }   # non c'e': niente da togliere
+}
+function UnaSolaInstallazione($nome = 'Local\profilemetananni_installa') {   # A0: RunOnce e l'attivita' di riserva possono partire
+    # entrambe (o la persona riapre l'installazione mentre gira): solo la prima continua. Il lucchetto si libera all'uscita.
+    $script:Unico = New-Object Threading.Mutex($false, $nome)
+    try { $script:Unico.WaitOne(0) } catch [Threading.AbandonedMutexException] { $true }   # lasciato da una copia finita male: e' nostro
+}
 function NienteSospensione {   # B2: i download durano piu' del tempo dopo cui Windows sospende il PC; vale finche' questo processo e' vivo
     Add-Type -Namespace Pmn -Name Energia -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);'
     [void][Pmn.Energia]::SetThreadExecutionState(2147483649)   # 0x80000001 = ES_CONTINUOUS + ES_SYSTEM_REQUIRED (lo schermo si puo' spegnere)
@@ -280,6 +299,7 @@ if ($MyInvocation.InvocationName -eq '.') { return }   # caricato con ". install
 
 New-Item -ItemType Directory -Force $Cartella | Out-Null
 [Windows.Forms.Application]::EnableVisualStyles()
+if (-not (UnaSolaInstallazione)) { Scrivi "=== fase ${Fase}: l'installazione è già aperta, questa copia esce"; exit 0 }
 Scrivi "=== fase $Fase, cartella $Radice"
 
 # ===================== fase 1: WSL =====================
