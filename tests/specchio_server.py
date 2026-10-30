@@ -10,10 +10,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 class Specchio:
-    def __init__(self, radice, velocita=None, senza_range=(), cadute=None):
+    def __init__(self, radice, velocita=None, senza_range=(), cadute=None, linea=None):
         """velocita: {"/kraken/": byte/s per connection}; senza_range: path prefixes that ignore Range (always 200);
-        cadute: {path prefix: n} the first n answers for each path of that prefix stop after a quarter of the bytes."""
+        cadute: {path prefix: n} the first n answers for each path of that prefix stop after a quarter of the bytes;
+        linea: byte/s for all the connections together (the line of the PC), shared in the order the bytes are asked."""
         self.radice = str(radice)
+        self.linea = linea
+        self.prossimo = 0.0          # when the line is free again (time.monotonic)
         self.velocita = dict(velocita or {})
         self.senza_range = tuple(senza_range)
         self.cadute = dict(cadute or {})
@@ -82,6 +85,12 @@ class Specchio:
                             return
                         pos += len(blocco)
                         mandati += len(blocco)
+                        if specchio.linea:
+                            with specchio.lock:
+                                adesso = time.monotonic()
+                                specchio.prossimo = max(adesso, specchio.prossimo) + len(blocco) / specchio.linea
+                                attesa = specchio.prossimo - adesso
+                            time.sleep(attesa)
                         if v:
                             ritardo = mandati / v - (time.monotonic() - inizio)
                             if ritardo > 0:

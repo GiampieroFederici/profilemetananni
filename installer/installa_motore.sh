@@ -255,40 +255,72 @@ etichetta() { if [ "$1" = kraken ]; then printf 'Kraken'; else T 'altri database
 prova_range() {  # url: codice HTTP di una richiesta Range di 1 byte (206 = il server da' i pezzi)
   curl -fsL --connect-timeout 30 --max-time 60 -r 0-0 -o /dev/null -w '%{http_code}' "$1" 2>> "$LOG" || true
 }
-misura_una() { curl -fsL --connect-timeout 15 --max-time 15 -r "$2" -o /dev/null -w '%{speed_download}\n' "$1" 2> /dev/null || true; }   # url intervallo
-misura() {  # sorgente: byte/s con le connessioni vere (kraken: CONN pezzi dello stesso file; altre: i primi file insieme)
+misura_una() { curl -fsL --connect-timeout 15 --max-time "$3" -r "$2" -o /dev/null -w '%{speed_download}\n' "$1" 2> /dev/null || true; }   # url intervallo secondi
+misura() {  # sorgente secondi: byte/s con le connessioni vere (kraken: CONN pezzi dello stesso file; altre: i primi file insieme)
   local s=$1 g t s2 p b bf m d alt n k=0 u
+  rm -f "$ST/misura.$s".*
   while IFS=$'\t' read -r g t s2 p b bf m d alt; do
     [ "$s2" = "$s" ] && ! fatto "$d" "$m" || continue
     u=$(url_di "$s2" "$p"); n=$(connessioni "$s2" "$alt")
     if [ "$n" -gt 1 ]; then
       [ "$(prova_range "$u")" = 206 ] || n=1
-      for ((k = 0; k < n; k++)); do misura_una "$u" "$(( b * k / n ))-$(( b * k / n + 8388607 ))" > "$ST/misura.$s.$k" & done
+      for ((k = 0; k < n; k++)); do misura_una "$u" "$(( b * k / n ))-$(( b * k / n + 8388607 ))" "$2" > "$ST/misura.$s.$k" & done
       break
     fi
-    misura_una "$u" 0-8388607 > "$ST/misura.$s.$k" &
+    misura_una "$u" 0-8388607 "$2" > "$ST/misura.$s.$k" &
     k=$((k + 1)); [ "$k" -lt "$FILE_INSIEME" ] || break
   done < <(righe)
   wait
   cat "$ST/misura.$s".* 2> /dev/null | awk '{v += $1} END {printf "%.0f\n", v}'
 }
-declare -A RESTA=() V0=()   # per sorgente: byte da scaricare, velocita' misurata all'inizio (byte/s)
+# B1 (VM 30/10): le sorgenti scaricano insieme e il limite puo' essere la linea del PC (finito Kraken, GitHub e' passato
+# da 1,1 a 7 MB/s) oppure ogni singola connessione (prova del 29/10: S3 0,17 MB/s per connessione). simula riceve per
+# ogni sorgente "nome resto velocita_insieme velocita_da_sola" e calcola quando finisce: le sorgenti vanno alla velocita'
+# misurata insieme; quando una finisce, la banda della linea (la somma insieme, o la piu' veloce da sola se e' di piu')
+# si divide fra quelle rimaste in proporzione, ma nessuna supera la sua velocita' da sola. Stampa "totale nome:fine ..."
+# in secondi, oppure "null" se una velocita' manca.
+simula() {
+  awk '$2 > 0 {n++; s[n] = $1; r[n] = $2; j[n] = $3; a[n] = ($4 > $3 ? $4 : $3)}
+       END {
+         if (n == 0) {print 0; exit}
+         c = 0; for (i = 1; i <= n; i++) {if (j[i] <= 0) {print "null"; exit}; c += j[i]}
+         for (i = 1; i <= n; i++) if (a[i] > c) c = a[i]
+         t = 0; vivi = n
+         while (vivi > 0) {
+           sj = 0; for (i = 1; i <= n; i++) if (r[i] > 0) sj += j[i]
+           dt = -1
+           for (i = 1; i <= n; i++) if (r[i] > 0) {v[i] = j[i] * c / sj; if (v[i] > a[i]) v[i] = a[i]; x = r[i] / v[i]; if (dt < 0 || x < dt) dt = x}
+           t += dt
+           for (i = 1; i <= n; i++) if (r[i] > 0) {r[i] -= v[i] * dt; if (r[i] <= v[i] * 0.001) {r[i] = 0; vivi--; f[i] = t}}
+         }
+         printf "%.0f", t; for (i = 1; i <= n; i++) printf " %s:%.0f", s[i], f[i]; print ""
+       }'
+}
+declare -A RESTA=() V0=() SOLA=() FINE_S=()   # per sorgente: byte da scaricare, velocita' misurata (insieme, da sola) in byte/s, fine simulata
 while IFS=$'\t' read -r g t s p b bf m d alt; do
   if fatto "$d" "$m"; then continue; fi
   RESTA[$s]=$(( ${RESTA[$s]:-0} + b - $(sul_disco "$t" "$p" "$b" "$m" "$d") ))
 done < <(righe)
 rm -rf "$ST"; mkdir -p "$ST"
 if [ "$DA_SCARICARE" -gt 0 ]; then
-  for s in "${!RESTA[@]}"; do misura "$s" > "$ST/v.$s" & done
-  wait
-  TEMPO=0; PARTI=""; VTOT=0
-  for s in $(printf '%s\n' "${!RESTA[@]}" | sort); do
-    V0[$s]=$(cat "$ST/v.$s" 2> /dev/null || echo 0); V0[$s]=${V0[$s]:-0}
-    if [ "${V0[$s]}" -gt 0 ]; then
-      ts=$(( RESTA[$s] / V0[$s] )); [ "$ts" -le "$TEMPO" ] || TEMPO=$ts; VTOT=$(( VTOT + V0[$s] ))
-      PARTI="$PARTI${PARTI:+, }$(etichetta "$s") $(mb_s "${V0[$s]}") MB/s ($(durata "$ts"))"
-    else TEMPO=null; fi
-  done
+  FONTI=$(for s in "${!RESTA[@]}"; do if [ "${RESTA[$s]}" -gt 0 ]; then echo "$s"; fi; done | sort)
+  if [ "$(echo "$FONTI" | wc -l)" -gt 1 ]; then   # ogni sorgente da sola per pochi secondi, poi tutte insieme
+    for s in $FONTI; do SOLA[$s]=$(misura "$s" 6); done
+    for s in $FONTI; do misura "$s" 10 > "$ST/v.$s" & done
+    wait
+    for s in $FONTI; do V0[$s]=$(cat "$ST/v.$s" 2> /dev/null || echo 0); done
+  else
+    for s in $FONTI; do V0[$s]=$(misura "$s" 15); SOLA[$s]=${V0[$s]}; done
+  fi
+  SIM=""; VTOT=0
+  for s in $FONTI; do V0[$s]=${V0[$s]:-0}; SIM="$SIM$s ${RESTA[$s]} ${V0[$s]} ${SOLA[$s]:-0}"$'\n'; VTOT=$(( VTOT + V0[$s] )); done
+  echo "$(date -Iseconds) velocita' (byte/s) sorgente resto insieme da_sola:"$'\n'"$SIM" >> "$LOG"
+  read -r TEMPO FINE <<< "$(printf '%s' "$SIM" | simula)"
+  for x in $FINE; do FINE_S[${x%%:*}]=${x##*:}; done
+  PARTI=""
+  if [ "$TEMPO" != null ]; then
+    for s in $FONTI; do PARTI="$PARTI${PARTI:+, }$(etichetta "$s") $(mb_s "${V0[$s]}") MB/s ($(durata "${FINE_S[$s]}"))"; done
+  fi
   if [ "$TEMPO" != null ]; then
     ETA=$TEMPO; evento avanzamento 2 "$(T 'Velocità misurata: %s. Tempo stimato per scaricare tutto: circa %s.' "$PARTI" "$(durata "$TEMPO")")"
   else
@@ -301,9 +333,11 @@ if [ "$STIMA" = 1 ]; then
   if [ "$DA_SCARICARE" = 0 ]; then tempo=0
   elif [ "$TEMPO" != null ]; then vel=$(awk -v v="$VTOT" 'BEGIN {printf "%.1f", v/1e6}'); tempo=$TEMPO; fi
   for s in $(printf '%s\n' "${!RESTA[@]}" | sort); do
-    v=null; ts=null
-    if [ "${V0[$s]:-0}" -gt 0 ]; then v=$(awk -v v="${V0[$s]}" 'BEGIN {printf "%.1f", v/1e6}'); ts=$(( RESTA[$s] / V0[$s] )); fi
-    sorgenti="$sorgenti${sorgenti:+,}{\"sorgente\":\"$s\",\"da_scaricare_gb\":$(GB1 "${RESTA[$s]}"),\"da_scaricare_byte\":${RESTA[$s]},\"velocita_mb_s\":$v,\"tempo_stimato_s\":$ts}"
+    v=null; ts=null; vs=null
+    if [ "${V0[$s]:-0}" -gt 0 ]; then v=$(awk -v v="${V0[$s]}" 'BEGIN {printf "%.1f", v/1e6}'); fi
+    if [ "${SOLA[$s]:-0}" -gt 0 ]; then vs=$(awk -v v="${SOLA[$s]}" 'BEGIN {printf "%.1f", v/1e6}'); fi
+    if [ "$tempo" != null ]; then ts=${FINE_S[$s]:-0}; fi
+    sorgenti="$sorgenti${sorgenti:+,}{\"sorgente\":\"$s\",\"da_scaricare_gb\":$(GB1 "${RESTA[$s]}"),\"da_scaricare_byte\":${RESTA[$s]},\"velocita_mb_s\":$v,\"velocita_da_sola_mb_s\":$vs,\"tempo_stimato_s\":$ts}"
   done
   RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s,"spazio_necessario_byte":%s,"spazio_libero_byte":%s,"da_scaricare_byte":%s,"sorgenti":[%s]}' \
     "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo" "$SERVONO" "$LIBERI" "$DA_SCARICARE" "$sorgenti")
@@ -518,7 +552,7 @@ presenti() {  # tipo percorso byte md5 destinazione: byte gia' sul disco per que
 }
 declare -A STORIA=(); PMAX=22
 conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media degli ultimi ~60 s), tempo che manca
-  local adesso fatti=0 nf=0 g t s p b bf m d alt x v r eta=0 lenta="" parti="" sorg="" vtot=0
+  local adesso fatti=0 nf=0 g t s p b bf m d alt x v r eta lenta parti="" sorg="" vtot=0 sim="" fine
   declare -A F=() B=()
   adesso=$(date +%s)
   while IFS=$'\t' read -r g t s p b bf m d alt; do
@@ -535,10 +569,12 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
     if [ "$r" -gt 0 ]; then
       parti="$parti${parti:+, }$(etichetta "$s") $(mb_s "$v") MB/s"
       [ "$v" -gt 0 ] || v=${V0[$s]:-0}   # non ancora partita o ferma: la velocita' misurata all'inizio
-      if [ "$eta" != null ] && [ "$v" -gt 0 ]; then x=$(( r / v )); if [ "$x" -ge "$eta" ]; then eta=$x; lenta=$s; fi; else eta=null; fi
+      sim="$sim$s $r $v ${SOLA[$s]:-0}"$'\n'
     fi
   done
-  [ -n "$lenta" ] || lenta=null; [ "$lenta" = null ] || lenta="\"$lenta\""
+  # B1: stesso calcolo della stima iniziale (simula), con le velocita' vere degli ultimi ~60 s
+  read -r eta fine <<< "$(printf '%s' "$sim" | simula)"
+  lenta=$(printf '%s\n' $fine | awk -F: '$2 > m {m = $2; s = $1} END {print (s == "" ? "null" : "\"" s "\"")}')
   P=$(awk -v f="$fatti" -v t="$TOT" 'BEGIN {printf "%d", 22 + 70 * (t > 0 ? f / t : 1)}')
   [ "$P" -ge "$PMAX" ] || P=$PMAX; PMAX=$P   # la barra non torna indietro (un MD5 sbagliato toglie byte gia' contati)
   echo "$P $eta $nf" > "$ST/stato.t" && mv -f "$ST/stato.t" "$ST/stato"

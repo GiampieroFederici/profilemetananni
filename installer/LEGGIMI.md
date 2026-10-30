@@ -99,9 +99,12 @@ bash installer/installa_motore.sh
 - **Spazio** (`--stima`, `spazio_necessario_byte`): byte finali di ciò che manca + i pezzi in volo dell'archivio più
   grande (`2N` × pezzo, ~4,3 GB con 16 connessioni) + 16 GB di programmi se un ambiente manca. Catalogo intero da zero:
   176 GB (prima 257).
-- **Stima e avanzamento**: velocità misurata per sorgente prima di partire, come si scaricherà davvero (16 pezzi di
-  Kraken insieme, i primi 4 file pmn insieme, 15 s); durante lo scarico velocità media degli ultimi ~60 s per sorgente e
-  `eta_s` ricalcolato ogni 15 s.
+- **Stima e avanzamento** (B1): prima di partire ogni sorgente si misura da sola (6 s) e poi tutte insieme (10 s), come
+  si scaricherà davvero (16 pezzi di Kraken, i primi 4 file pmn). Il tempo viene da una simulazione: le sorgenti vanno
+  alla velocità misurata insieme; quando una finisce, la sua banda passa alle altre, ma nessuna supera la sua velocità
+  da sola. Così la stima va bene sia se il limite è la linea del PC (VM del 30/10: GitHub da 1,1 a 7 MB/s finito
+  Kraken) sia se è ogni connessione (PC del 29/10: S3 0,17 MB/s per connessione). Durante lo scarico lo stesso calcolo,
+  con la velocità media degli ultimi ~60 s per sorgente, ricalcola `eta_s` ogni 15 s.
 - **Niente processi orfani**: all'uscita (fine, errore, annulla, segnale) si fermano code, curl e tar. Se nessuno legge
   più gli eventi (finestra di Windows chiusa a forza) il motore se ne accorge al primo evento (entro 15 s) e si ferma.
 
