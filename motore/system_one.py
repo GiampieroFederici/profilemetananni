@@ -43,9 +43,47 @@ PRODOTTI = [
      N_("Se il prodotto contiene carne di maiale, bovino o pecora, sceglila qui sopra: senza, molte read della carne "
         "finiscono assegnate per errore a qualche taxon."), "avviso"),
 ]
-GENOMI = {"sus_scrofa": "Sscrofa11.1", "bos_taurus": "ARS-UCD1.2", "ovis_aries": "ARS-UI_Ramb_v2.0"}
+GENOMI = {"sus_scrofa": "Sscrofa11.1", "bos_taurus": "ARS-UCD1.2", "ovis_aries": "ARS-UI_Ramb_v2.0",
+          "grch38": "GRCh38.p14", "vitis_vinifera": "T2T-PN40024 (ASM3070453v1)"}
 FONTE_OSPITE = N_("D021: gli stessi genomi dell'ospite dei profili pubblicati (maiale Sscrofa11.1, bovino ARS-UCD1.2, "
                   "pecora ARS-UI_Ramb_v2.0); il DNA umano (GRCh38) si toglie sempre. D074: i 4 prodotti dell'app")
+# Ambienti nuovi (v1.1, R9): stesse chiavi dei prodotti più "testo" (voce del menu) e "sperimentale" (True finché la
+# prova con dati pubblici non è finita e coerente con l'articolo: implementazione/validazione/ambienti/ESITO.md).
+# "grch38" fra gli ospiti: l'uomo È l'ospite (run.sh lo toglie con filter_human, nel ciclo degli ospiti lo salta).
+# Vite: genoma RefSeq con cloroplasto e mitocondrio (D167, refs/hosts.tsv). Scelte e fonti: docs/ambienti.md.
+_TOLGO_VITE = N_("Toglierò il DNA della vite e quello umano.")
+AMBIENTI = [
+    ("feci_umane", N_("Feci umane (intestino)"), ["grch38"], N_("Toglierò il DNA umano."),
+     N_("Nelle feci il DNA umano è di solito poco, ma si toglie sempre: non dice nulla dei taxa e protegge la privacy "
+        "della persona. MetaPhlAn e Kraken conoscono bene i taxa dell'intestino umano."), "info", True),
+    ("cute", N_("Cute (pelle)"), ["grch38"], N_("Toglierò il DNA umano."),
+     N_("Sulla pelle i taxa sono pochi: il DNA umano può essere gran parte delle read e il DNA dei reagenti e del "
+        "laboratorio pesa molto. Leggi i taxa rari solo accanto a un controllo negativo (bianco di estrazione)."),
+     "avviso", True),
+    ("suolo", N_("Suolo o rizosfera (anche del vigneto)"), [],
+     N_("Qui non c'è un ospite: toglierò solo il DNA umano, che arriva da chi ha raccolto e lavorato il campione."),
+     N_("Nel suolo la gran parte delle specie non ha un genoma di riferimento: MetaPhlAn ne riconosce poche e Kraken "
+        "lascia senza nome molte read. Il profilo descrive i taxa noti, non tutta la comunità."), "avviso", True),
+    ("vite_mosto", N_("Vite: mosto o vino in fermentazione"), ["vitis_vinifera"], _TOLGO_VITE,
+     N_("Nel mosto c'è DNA dell'acino e nessuno dei due database contiene la vite: senza toglierlo, quelle read "
+        "finiscono assegnate per errore a qualche taxon. Molti lieviti del mosto (Hanseniaspora, Metschnikowia, "
+        "Aureobasidium) non sono in nessuno dei due database: il profilo non li vede."), "avviso", True),
+    ("vite_acino", N_("Vite: acino o grappolo"), ["vitis_vinifera"], _TOLGO_VITE,
+     N_("Sulla buccia i taxa sono pochi e il DNA della vite (nucleo, cloroplasti e mitocondri, tutti nel genoma "
+        "usato) può essere quasi tutte le read: servono molte read per avere un profilo. Molti lieviti della buccia "
+        "non sono nei database."), "avviso", True),
+    ("vite_foglia", N_("Vite: foglia"), ["vitis_vinifera"], _TOLGO_VITE,
+     N_("Nella foglia il DNA della pianta, soprattutto quello dei cloroplasti, è di solito quasi tutte le read: "
+        "servono molte read per avere un profilo. Il genoma della vite usato contiene anche cloroplasto e "
+        "mitocondrio."), "avviso", True),
+    ("vite_radice", N_("Vite: radice (superficie o interno)"), ["vitis_vinifera"], _TOLGO_VITE,
+     N_("Sulla radice, e ancora di più al suo interno, il DNA della vite è molto: per questo alcuni studi fanno lo "
+        "shotgun solo sulla superficie della radice e sul suolo attorno. Per il suolo attorno alla radice scegli "
+        "'Suolo o rizosfera'."), "avviso", True),
+]
+FONTE_AMBIENTI = N_("docs/ambienti.md: ospite, database e limiti di ogni ambiente con le fonti; prova con dati "
+                    "pubblici piccoli in implementazione/validazione/ambienti/ESITO.md. 'Sperimentale' finché la "
+                    "prova non è finita e coerente con l'articolo")
 
 _spec = importlib.util.spec_from_file_location("triage_report", ROOT / "steps" / "17_triage_report.py")
 _triage = importlib.util.module_from_spec(_spec)
@@ -78,9 +116,13 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
 
 def prodotti():
     """Regola prodotto -> ospite per l'interfaccia (info.prodotti), nell'ordine del menu:
-    [{prodotto, ospiti, genomi, frase, perche, livello, fonte}]."""
-    return [{"prodotto": p, "ospiti": o, "genomi": [GENOMI[x] for x in o], "frase": _(frase), "perche": _(perche),
-             "livello": livello, "fonte": _(FONTE_OSPITE)} for p, o, frase, perche, livello in PRODOTTI]
+    [{prodotto, ospiti, genomi, frase, perche, livello, fonte}]; dopo i 4 prodotti di carne (invariati) gli ambienti
+    nuovi, con in più {testo, sperimentale}."""
+    return ([{"prodotto": p, "ospiti": o, "genomi": [GENOMI[x] for x in o], "frase": _(frase), "perche": _(perche),
+              "livello": livello, "fonte": _(FONTE_OSPITE)} for p, o, frase, perche, livello in PRODOTTI]
+            + [{"prodotto": p, "testo": _(testo), "ospiti": o, "genomi": [GENOMI[x] for x in o], "frase": _(frase),
+                "perche": _(perche), "livello": livello, "fonte": _(FONTE_AMBIENTI), "sperimentale": sperimentale}
+               for p, testo, o, frase, perche, livello, sperimentale in AMBIENTI])
 
 
 def tempo(tempo_s):
