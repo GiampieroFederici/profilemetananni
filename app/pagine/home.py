@@ -9,10 +9,9 @@ in `info.esempio`: si arriva alle scelte già pronte, e un clic su "Avvia l'anal
 "Aggiorna adesso" solo dopo il Sì, "Torna alla versione precedente" se c'è; tutto spento mentre il motore lavora.
 """
 import shutil
-import threading
 from datetime import date, datetime
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLineEdit, QMessageBox, QProgressDialog, QPushButton, QVBoxLayout
 
 from app import aggiorna, progetto
@@ -23,24 +22,16 @@ from app.pagine.progetto import regola
 NOME_ESEMPIO = "esempio_SF3RAt7"
 
 
-class _Rete(QObject):
-    """Il lavoro in rete gira in un filo a parte; questi segnali portano i risultati alla pagina (filo dell'interfaccia)."""
-    controllato = Signal(object)        # dict di aggiorna.controlla() oppure ErroreAggiorna
-    scaricato = Signal(object)          # cartella del pacchetto estratto oppure ErroreAggiorna
-    passo = Signal(int, int)            # byte scaricati, byte totali
-
-
-def _in_filo(funzione, segnale):
-    def lavora():
-        try:
-            r = funzione()
-        except aggiorna.ErroreAggiorna as e:
-            r = e
-        except Exception:               # imprevisto: lo si dice, l'app non si ferma
-            r = aggiorna.ErroreAggiorna("RISPOSTA", _("Il controllo degli aggiornamenti non è riuscito."),
-                                        _("Riprova più tardi."))
-        segnale.emit(r)
-    threading.Thread(target=lavora, daemon=True).start()
+def _prova(funzione):
+    """Il risultato di funzione() oppure l'ErroreAggiorna da mostrare (anche per un errore imprevisto). La rete è
+    quella di Qt (punto 6): aspetta con un suo ciclo di eventi, la finestra resta viva senza fili a parte."""
+    try:
+        return funzione()
+    except aggiorna.ErroreAggiorna as e:
+        return e
+    except Exception:                   # imprevisto: lo si dice, l'app non si ferma
+        return aggiorna.ErroreAggiorna("RISPOSTA", _("Il controllo degli aggiornamenti non è riuscito."),
+                                       _("Riprova più tardi."))
 
 
 class PaginaHome(Pagina):
@@ -98,10 +89,6 @@ class PaginaHome(Pagina):
         self.zona_aggiorna = QVBoxLayout()
         s.addLayout(self.zona_aggiorna)
         self.corpo.addWidget(p)
-        self.rete = _Rete(self)
-        self.rete.controllato.connect(self._controllato)
-        self.rete.scaricato.connect(self._scaricato)
-        self.rete.passo.connect(self._passo)
         self.release, self.barra_scarico, self._in_rete, self._fermo = None, None, False, False
 
     def mostrata(self):
@@ -161,7 +148,8 @@ class PaginaHome(Pagina):
         for colonna, testo in enumerate((_("Progetto"), _("Stato"), _("Ultima modifica"))):
             griglia.addWidget(etichetta(testo, "etichetta_campo"), 0, colonna)
         for riga, pr in enumerate(progetti, start=1):
-            apri = QPushButton(pr.nome, objectName="apri")
+            apri = QPushButton(objectName="apri")
+            apri.setText(pr.nome if len(pr.nome) <= 26 else f"{pr.nome[:12]}…{pr.nome[-12:]}")   # B2-2b: nomi lunghi
             apri.setToolTip(_("Apri il progetto"))
             apri.setAccessibleName(_("Apri il progetto {nome}", nome=pr.nome))
             apri.clicked.connect(lambda _=False, q=pr: self.apri(q))
@@ -279,7 +267,7 @@ class PaginaHome(Pagina):
         self._in_rete = True
         self._stato_aggiorna()
         self.zona_aggiorna.addWidget(etichetta(_("Controllo su GitHub..."), "nota"))
-        _in_filo(aggiorna.controlla, self.rete.controllato)
+        self._controllato(_prova(lambda: aggiorna.controlla()))
 
     def _controllato(self, r):
         self._in_rete = False
@@ -344,9 +332,9 @@ class PaginaHome(Pagina):
 
         def scarica_ed_estrai():
             shutil.rmtree(lavoro, ignore_errors=True)            # resti di un aggiornamento passato
-            zip_ = aggiorna.scarica(pacchetto, lavoro, lambda f, t: self.rete.passo.emit(f, t), lambda: self._fermo)
+            zip_ = aggiorna.scarica(pacchetto, lavoro, self._passo, lambda: self._fermo)
             return aggiorna.estrai(zip_, lavoro)
-        _in_filo(scarica_ed_estrai, self.rete.scaricato)
+        self._scaricato(_prova(scarica_ed_estrai))
 
     def _annulla_scarico(self):
         self._fermo = True

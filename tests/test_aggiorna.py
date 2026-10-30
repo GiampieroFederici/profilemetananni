@@ -28,6 +28,24 @@ PS1 = RADICE / "installer" / "windows" / "aggiorna_pmn.ps1"
 
 from app import aggiorna  # noqa: E402
 
+pytest.importorskip("pytestqt")
+
+
+@pytest.fixture(autouse=True)
+def rete_di_qt(qapp):
+    """Punto 6: aggiorna.py usa la rete di Qt, che vuole l'applicazione Qt."""
+    return qapp
+
+
+def test_errore_di_certificato_distinto_dalla_rete():
+    from PySide6.QtNetwork import QNetworkReply
+    assert aggiorna.errore_rete(QNetworkReply.NetworkError.SslHandshakeFailedError).codice == "CERTIFICATO"
+    for altro in (QNetworkReply.NetworkError.ConnectionRefusedError, QNetworkReply.NetworkError.HostNotFoundError,
+                  QNetworkReply.NetworkError.OperationCanceledError):
+        assert aggiorna.errore_rete(altro).codice == "RETE"
+    e = aggiorna.errore_rete(QNetworkReply.NetworkError.SslHandshakeFailedError)
+    assert "data e ora" in e.cosa_fare and e.messaggio != aggiorna.errore_rete(altro).messaggio
+
 
 # ---------------- Release finta ----------------
 def zip_pacchetto(con_script=True, extra=None):
@@ -220,7 +238,6 @@ def test_versione_nello_zip():
 
 
 # ---------------- la pagina ----------------
-pytestqt = pytest.importorskip("pytestqt")
 from app import finestra, progetto  # noqa: E402
 from app.pagine import home  # noqa: E402
 from PySide6.QtCore import Qt  # noqa: E402

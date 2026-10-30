@@ -8,7 +8,8 @@ Kraken dura anche mezz'ora): parte dagli ultimi eta_s e percentuale del motore, 
 import time
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QGridLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
 from app.lingua import N_, _
@@ -108,6 +109,10 @@ class PaginaEsecuzione(Pagina):
         self.dettagli.toggled.connect(self._dettagli)
         self.registro = etichetta("", "nota")
         self.registro.hide()
+        self.percorso_log = ""                    # B2-13: il registro si apre con un clic, senza copiare percorsi
+        self.apri_registro = QPushButton(_("Apri il registro"), objectName="secondario")
+        self.apri_registro.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.percorso_log)))
+        self.apri_registro.hide()
         self.invito = etichetta("")
 
         for w in (self.messaggio, self.barra, self.numeri):
@@ -117,6 +122,7 @@ class PaginaEsecuzione(Pagina):
             self.corpo.addWidget(w)
         self.corpo.addWidget(self.dettagli, 0, Qt.AlignLeft)
         self.corpo.addWidget(self.registro)
+        self.corpo.addWidget(self.apri_registro, 0, Qt.AlignLeft)
         self._mostra()
 
     # ---------------- avvio ----------------
@@ -138,6 +144,7 @@ class PaginaEsecuzione(Pagina):
         self.contesto.progetto_in_analisi = self.progetto_corsa      # intanto non se ne apre un altro
         self.progetto_corsa.segno_analisi.write_text(f"{datetime.now():%d/%m/%Y %H:%M}\n", encoding="utf-8")   # P11
         self.registro.setText("")
+        self.percorso_log = ""
         self._svuota_avvisi()
         self._passi(None)
         self.messaggio.setText(_("Avvio l'analisi..."))
@@ -154,6 +161,7 @@ class PaginaEsecuzione(Pagina):
         tipo = e["tipo"]
         if tipo == "inizio":
             self.registro.setText(_("Registro tecnico, da mandarci se c'è un problema:") + f"\n{e.get('log', '')}")
+            self.percorso_log = e.get("log", "")
         elif tipo == "avanzamento":
             self.messaggio.setText(e["messaggio"])
             pct = max(e.get("percentuale") or 0, self.barra.value())   # la barra non torna indietro
@@ -241,6 +249,7 @@ class PaginaEsecuzione(Pagina):
     def _dettagli(self, aperto):
         self.dettagli.setText(("▾" if aperto else "▸") + " " + _("Dettagli tecnici"))
         self.registro.setVisible(aperto and bool(self.registro.text()))
+        self.apri_registro.setVisible(aperto and bool(self.percorso_log))
 
     def _mostra(self):
         s = self.stato
