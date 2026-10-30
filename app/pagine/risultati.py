@@ -297,7 +297,9 @@ class PaginaRisultati(Pagina):
         r.layout().addWidget(t)
         problemi = list(md.get("problemi", []))
         for p in (m.get("profiler") or {}).values():            # perché un confronto è senza test (dal motore)
-            problemi += [c["motivo"] for c in p.get("confronti", []) if c.get("solo_descrittive")]
+            problemi += [c["motivo"] for c in p.get("confronti", [])
+                         if "none" in (c.get("test_alfa"), c.get("permutazioni"))]
+            problemi += [p["errore"]] if p.get("errore") else []
         for testo_p in dict.fromkeys(problemi):
             r.layout().addWidget(riquadro("", testo_p, "avviso"))
         riga = QHBoxLayout()

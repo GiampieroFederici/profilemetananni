@@ -322,6 +322,26 @@ def test_friedman_e_soggetti_annidati(tmp_path):
 
 
 @con_r
+def test_soggetti_annidati_nei_gruppi_unita_soggetto(tmp_path):
+    """3 + 3 salami, 2 fette ciascuno: l'unità è il salame (6 unità, non 12 campioni), sia per l'alfa sia per la beta."""
+    rnd = random.Random(9)
+    camp, meta = {}, []
+    for g, base in (("A", [40, 30, 15, 5, 4, 2, 1, 1, 1, 1]), ("B", [1, 1, 1, 2, 4, 5, 15, 30, 40, 1])):
+        for s in range(3):
+            for k in range(2):
+                camp[f"{g}{s}_{k}"] = composizione(base, rnd, 0.3)
+                meta.append((f"{g}{s}_{k}", g, f"{g}{s}", ""))
+    risultati, d = progetto(tmp_path, camp, meta)
+    rie = mc.esegui(risultati, d)
+    assert rie["profiler"]["metaphlan"]["confronti"][0]["permutazioni"] == "subject_mean"
+    cart = risultati / "multicampione" / "metaphlan"
+    assert {r["n"] for r in tsv(cart / "alpha_tests.tsv")} == {"6"}
+    pa = beta(cart, "aitchison", "PERMANOVA")
+    assert pa["n"] == "6" and pa["restriction"] == "subject_mean" and pa["permutations"] == "719"   # 6! - 1
+    assert float(pa["R2"]) > 0.5
+
+
+@con_r
 def test_un_campione_per_gruppo_niente_test(tmp_path):
     rnd = random.Random(1)
     camp = {s: composizione([10] * 10, rnd, 0.5) for s in ("A", "B", "C")}

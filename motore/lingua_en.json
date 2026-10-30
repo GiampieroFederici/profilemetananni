@@ -431,14 +431,12 @@
  "Queste righe non corrispondono a nessun campione del progetto e non si usano: {nomi}. Controlla che il nome sia scritto come nel progetto.": "These rows do not match any sample of the project and are not used: {nomi}. Check that the name is written as in the project.",
  "{k} gruppi di campioni indipendenti: test di Mann-Whitney; PERMANOVA con permutazioni libere.": "{k} groups of independent samples: Mann-Whitney test; PERMANOVA with free permutations.",
  "{k} gruppi di campioni indipendenti: test di Kruskal-Wallis, poi confronti a coppie di Dunn con la correzione di Benjamini-Hochberg; PERMANOVA con permutazioni libere.": "{k} groups of independent samples: Kruskal-Wallis test, then pairwise Dunn comparisons with the Benjamini-Hochberg correction; PERMANOVA with free permutations.",
- "manca R (ambiente pmn_stats_r): niente test né grafici": "R is missing (pmn_stats_r environment): no tests and no plots",
  "il file {file} è vuoto": "the file {file} is empty",
  "in {file} manca la colonna obbligatoria sample_id": "{file} lacks the required column sample_id",
  "Questi campioni non hanno il {cosa} e restano fuori dal confronto per {cosa}: {nomi}. Scrivi il loro {cosa}, oppure lascialo vuoto per tutti.": "These samples have no {cosa} and are left out of the comparison by {cosa}: {nomi}. Write their {cosa}, or leave it empty for all.",
  "Tutti i campioni hanno lo stesso {cosa} ({valore}): per un confronto servono almeno 2 valori diversi.": "All samples have the same {cosa} ({valore}): a comparison needs at least 2 different values.",
  "Per un test servono almeno {m} campioni per ogni {cosa}; ne hanno meno: {valori}. Aggiungi campioni oppure unisci questi valori a un altro {cosa}: intanto si mostrano solo grafici e valori.": "A test needs at least {m} samples for each {cosa}; these have fewer: {valori}. Add samples or merge these values with another {cosa}: meanwhile only plots and values are shown.",
  "Diversità beta: nessuna PERMANOVA, perché servono almeno {m} unità per gruppo (qui meno di {m} in: {gruppi}); si mostra solo il grafico.": "Beta diversity: no PERMANOVA, because at least {m} units per group are needed (here fewer than {m} in: {gruppi}); only the plot is shown.",
- "il calcolo statistico non è riuscito (dettaglio in {f})": "the statistical calculation failed (details in {f})",
  "{file} deve avere le colonne separate da tabulazioni (salvalo come \"Testo delimitato da tabulazione\"), non da punto e virgola o virgola": "{file} must have its columns separated by tabs (save it as \"Text (Tab delimited)\"), not by semicolons or commas",
  "Diversità alfa: nessun test, perché servono almeno {m} unità indipendenti per gruppo (qui meno di {m} in: {gruppi}); con così pochi dati un valore p non è affidabile, si mostrano solo i valori.": "Alpha diversity: no test, because at least {m} independent units per group are needed (here fewer than {m} in: {gruppi}); with so few data a p value is not reliable, only the values are shown.",
  "Diversità alfa: nessun test, perché servono almeno {m} soggetti con tutte le condizioni (qui {n}); si mostrano solo i valori.": "Alpha diversity: no test, because at least {m} subjects with all the conditions are needed (here {n}); only the values are shown.",
@@ -482,5 +480,7 @@
  "libere": "free",
  "ristrette dentro ogni soggetto (misure ripetute)": "restricted within each subject (repeated measures)",
  "dei soggetti (profilo medio di ogni soggetto)": "of the subjects (mean profile of each subject)",
- "PERMANOVA: quanto la composizione media differisce fra i gruppi (R² = parte della variabilità spiegata dai gruppi). PERMDISP: se i gruppi sono dispersi in modo diverso. {n} permutazioni {modo}, seme {seme}.": "PERMANOVA: how much the mean composition differs between groups (R² = share of the variability explained by the groups). PERMDISP: whether the groups are spread differently. {n} permutations {modo}, seed {seme}."
+ "PERMANOVA: quanto la composizione media differisce fra i gruppi (R² = parte della variabilità spiegata dai gruppi). PERMDISP: se i gruppi sono dispersi in modo diverso. {n} permutazioni {modo}, seme {seme}.": "PERMANOVA: how much the mean composition differs between groups (R² = share of the variability explained by the groups). PERMDISP: whether the groups are spread differently. {n} permutations {modo}, seed {seme}.",
+ "Manca R (ambiente pmn_stats_r), quindi niente test né grafici. Apri la pagina Motore e premi Controlla il motore.": "R is missing (pmn_stats_r environment), so no tests and no plots. Open the Engine page and press Check the engine.",
+ "Il calcolo statistico non è riuscito. Manda a noi il file {f}.": "The statistical calculation failed. Send us the file {f}."
 }

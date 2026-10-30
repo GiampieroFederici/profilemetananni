@@ -336,15 +336,16 @@ def esegui(risultati, d):
         scrivi_ingressi(cartella, mat, alfa.get(profiler, []), meta, confronti, profiler, d.get("soglia", 0.0))
         p = {"campioni": len(mat), "esclusi": sorted(set(nomi) - set(mat)), "confronti": confronti, "errore": None}
         if r is None:
-            p["errore"] = _("manca R (ambiente pmn_stats_r): niente test né grafici")
+            p["errore"] = _("Manca R (ambiente pmn_stats_r), quindi niente test né grafici. Apri la pagina Motore e "
+                            "premi Controlla il motore.")
         else:
             esito = subprocess.run([r, str(ROOT / "motore" / "multicampione.R"), "--dir", str(cartella), "--seed",
                                     str(SEME), "--permutations", str(PERMUTAZIONI), "--profiler", profiler],
                                    capture_output=True, text=True, encoding="utf-8", errors="replace")
             (cartella / "R_log.txt").write_text(esito.stdout + esito.stderr, encoding="utf-8")
             if esito.returncode != 0:
-                p["errore"] = _("il calcolo statistico non è riuscito (dettaglio in {f})",
-                                f=f"multicampione/{profiler}/R_log.txt")
+                p["errore"] = _("Il calcolo statistico non è riuscito. Manda a noi il file {f}.",
+                                f=f"risultati/multicampione/{profiler}/R_log.txt")
         p["alfa"] = _leggi(cartella / "alpha_tests.tsv")
         p["coppie"] = _leggi(cartella / "alpha_posthoc.tsv")
         p["beta"] = _leggi(cartella / "beta_tests.tsv")
