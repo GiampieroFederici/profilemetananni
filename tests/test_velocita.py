@@ -236,3 +236,54 @@ def test_fette_read_da_windows_lette_da_una_copia(tmp_path):
         assert list(tmp.iterdir()) == []
     finally:
         shutil.rmtree(win)
+
+
+# --- motore/metaphlan_mapout.py: il .pkl (11,4 M di dizionari) si legge col raccoglitore dei cicli spento (VM B2-4) ---
+FINTO_METAPHLAN = {
+    "metaphlan/__init__.py": "",
+    "metaphlan/metaphlan.py": "def main():\n    return 0\n",
+    "metaphlan/utils/__init__.py": "",
+    "metaphlan/utils/database_controller.py": "class MetaphlanDatabaseController:\n    pass\n",
+}
+LETTORE = """import bz2, gc, importlib.util, json, pickle, sys
+spec = importlib.util.spec_from_file_location("mm", sys.argv[1]); mm = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mm)
+attivo = []
+class Pickle:   # pickle.load di prova: annota se il raccoglitore era acceso mentre leggeva
+    @staticmethod
+    def load(f):
+        attivo.append(gc.isenabled())
+        return pickle.load(f)
+mm.pickle = Pickle
+class Db:
+    db_dir, index = sys.argv[2], "mpa_prova"
+d = Db()
+print(json.dumps({"ok": mm.check_database(d), "dati": d.database_pkl, "acceso_durante": attivo,
+                  "acceso_dopo": gc.isenabled(), "congelati": gc.get_freeze_count() > 0}))
+"""
+
+
+def test_pkl_letto_col_raccoglitore_spento_e_poi_congelato(tmp_path):
+    """MetaPhlAn da mapout su 66.000 read (VM B2-4, 30/10): 1:27-1:37 -> 1:00-1:02, stessa memoria (8,24 GB),
+    stesso profilo. Qui: stesso contenuto letto, raccoglitore spento durante pickle.load, poi riacceso e oggetti
+    congelati."""
+    import bz2
+    import json
+    import pickle
+    import sys
+    for nome, testo in FINTO_METAPHLAN.items():
+        (tmp_path / "finto" / nome).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "finto" / nome).write_text(testo, encoding="utf-8")
+    dati = {"markers": {"m1": {"clade": "t__SGB1", "ext": [], "len": 10, "taxon": "k__Bacteria"}}, "taxonomy": {},
+            "merged_taxon": {}}
+    with bz2.BZ2File(tmp_path / "mpa_prova.pkl", "w") as f:
+        pickle.dump(dati, f)
+    (tmp_path / "lettore.py").write_text(LETTORE, encoding="utf-8")
+    p = subprocess.run([sys.executable, str(tmp_path / "lettore.py"), str(RADICE / "motore" / "metaphlan_mapout.py"),
+                        str(tmp_path)], capture_output=True, text=True,
+                       env={**os.environ, "PYTHONPATH": str(tmp_path / "finto")})
+    assert p.returncode == 0, p.stdout + p.stderr
+    r = json.loads(p.stdout)
+    assert r["ok"] and r["dati"] == dati                       # stesso contenuto del .pkl
+    assert r["acceso_durante"] == [False]                       # raccoglitore spento mentre si legge
+    assert r["acceso_dopo"] and r["congelati"]                  # poi riacceso, oggetti del .pkl congelati
