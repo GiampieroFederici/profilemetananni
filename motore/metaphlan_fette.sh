@@ -11,14 +11,19 @@ MPA=$PMN_ENVS/pmn_metaphlan/bin
 PY=$PMN_ENVS/pmn_reports_py/bin/python
 export TMPDIR=$PMN_TMP   # /tmp di WSL sta in RAM
 mkdir -p "$O"
+# File di passaggio (read preparate, ~1 GB per 1,5 M di coppie, lette 6 volte; SAM e tabelle delle fette) nel disco
+# della WSL, non nella cartella del progetto: questa sta su Windows (/mnt/c), dove scriverle costava ~1 minuto a
+# campione (R10, misura del 30/10). Stessi file, stesso contenuto; tolti anche se la corsa si ferma.
+T=$(mktemp -d "$PMN_TMP/pmn_mpa_$S.XXXXXX")
+trap 'rm -rf "$T"' EXIT
 
-PATH=$MPA:$PATH read_fastx.py -l 70 --split_reads 0 "$R1${R2:+,$R2}" > "$O/reads.fq" 2> "$O/nreads.txt"
+PATH=$MPA:$PATH read_fastx.py -l 70 --split_reads 0 "$R1${R2:+,$R2}" > "$T/reads.fq" 2> "$T/nreads.txt"
 for n in 1 2 3 4 5 6; do
-  "$MPA/bowtie2" --seed 1992 --quiet --no-unal --very-sensitive -p "$TH" -x "$PMN_FETTE/idx$n/fetta$n" -U "$O/reads.fq" -S "$O/$n.sam"
-  "$PY" "$M/arbitro_fette.py" compatta < "$O/$n.sam" > "$O/$n.tsv"; rm -f "$O/$n.sam"
+  "$MPA/bowtie2" --seed 1992 --quiet --no-unal --very-sensitive -p "$TH" -x "$PMN_FETTE/idx$n/fetta$n" -U "$T/reads.fq" -S "$T/$n.sam"
+  "$PY" "$M/arbitro_fette.py" compatta < "$T/$n.sam" > "$T/$n.tsv"; rm -f "$T/$n.sam"
 done
-rm -f "$O/reads.fq"
-"$PY" "$M/arbitro_fette.py" unisci "$O/nreads.txt" "$O/$S.mapout" "$O"/{1,2,3,4,5,6}.tsv
-rm -f "$O"/{1,2,3,4,5,6}.tsv
+rm -f "$T/reads.fq"
+"$PY" "$M/arbitro_fette.py" unisci "$T/nreads.txt" "$O/$S.mapout" "$T"/{1,2,3,4,5,6}.tsv
+rm -f "$T"/{1,2,3,4,5,6}.tsv
 "$MPA/python" "$M/metaphlan_mapout.py" "$O/$S.mapout" --input_type mapout --nproc "$TH" \
   --db_dir "$PMN_MPA_DB" --index mpa_vJan25_CHOCOPhlAnSGB_202503 --offline --sample_id "$S" -o "$O/${S}_profile.txt"

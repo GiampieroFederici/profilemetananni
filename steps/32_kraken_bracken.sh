@@ -62,7 +62,14 @@ if [ -s "$brk" ]; then
   exit 0
 fi
 
-k2args=(--db "$DB" --memory-mapping --threads "$THREADS" --confidence "$CONFIDENCE"
+# A database larger than the RAM (PlusPF, 118 GB, on a 16 GB PC) is read from the disk piece by piece while Kraken
+# classifies: it waits for the disk most of the time (R10, 30/10: 0.6 of 8 processors busy for 52 min on SF3RAt7).
+# 4 threads per processor keep more disk reads in flight (150,000 pairs, 8 processors: 5:17 -> 3:49, same report).
+K_THREADS=$THREADS
+hash_b="$(stat -c %s "$DB/hash.k2d" 2> /dev/null || echo 0)"
+ram_b="$(awk '/^MemTotal:/ { printf "%d", $2 * 1024 }' /proc/meminfo)"
+[ "$hash_b" -gt "$ram_b" ] && K_THREADS=$(( THREADS * 4 ))
+k2args=(--db "$DB" --memory-mapping --threads "$K_THREADS" --confidence "$CONFIDENCE"
         --report "$k2report" --output "$k2out" --gzip-compressed)
 if [ -n "$IN2" ]; then
   validate_path_safe "$IN2" || die "Unsafe input path (in2)"

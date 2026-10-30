@@ -81,7 +81,10 @@ if command -v fastqc >/dev/null 2>&1; then
   done
   if [ "${#manca[@]}" -gt 0 ]; then
     info "$(say "FastQC on $SAMPLE (${#manca[@]} files) ..." "FastQC su $SAMPLE (${#manca[@]} file) ...")"
-    fastqc -q -t "$THREADS" --outdir "$OUT" "${manca[@]}" || die "fastqc failed for $SAMPLE"
+    # FastQC 0.13.0 with a list of files reads them one after the other on one core (R10, 30/10: the 4 files of
+    # SF3RAt7 in 2 min, 0.8 cores used of 8): one FastQC per file, up to --threads at the same time. Same reports.
+    printf '%s\0' "${manca[@]}" | xargs -0 -n 1 -P "$(( THREADS > 0 ? THREADS : 1 ))" fastqc -q -t 1 --outdir "$OUT" \
+      || die "fastqc failed for $SAMPLE"
     for f in "${manca[@]}"; do
       b="$(basename "$f")"; b="${b%.gz}"; b="${b%.fastq}"; b="${b%.fq}"
       [ -s "$OUT/${b}_fastqc.html" ] || die "fastqc wrote no report for $(sanitize_for_log "$b")"
