@@ -70,7 +70,7 @@ COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"
 NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
              (r"trim_(.+)", "pulizia"), (r"idx_.+", "ospite"), (r"hf_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
-             (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r".+", "riepilogo")]
+             (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r"alfa_mpa_(.+)", "riepilogo"), (r".+", "riepilogo")]
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
@@ -163,8 +163,13 @@ def piano(camp, cfg, quote=None):
         if strumento in ("kraken", "both"):
             out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
     diversita = sezione(cfg, "analysis").get("diversity", True) is not False
-    alfa = ALFA_MPA_S * (len(camp) - 1) if strumento in ("metaphlan", "both") and diversita else 0
-    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"] + alfa), ("referto", "referto", 6, ALTRI_S["referto"])]
+    alfa = []
+    if strumento in ("metaphlan", "both") and diversita and len(camp) > 1:
+        # R1: run.sh rifà MetaPhlAn (alfa_mpa_<campione>) su un sottocampione di ogni campione oltre il più povero;
+        # un passo per campione nel piano, così la barra va avanti anche lì (VM B2-4a: ferma a 99 % per 15 minuti)
+        povero = min(camp, key=lambda x: x[1] * (1 - (quote or {}).get(x[0], quota)))[0]
+        alfa = [(f"alfa_mpa_{n}", "riepilogo", 5, ALFA_MPA_S) for n, _, _ in camp if n != povero]
+    return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"])] + alfa + [("referto", "referto", 6, ALTRI_S["referto"])]
 
 
 def tempi(camp, cfg, quote=None):
@@ -633,6 +638,8 @@ class Motore:
                     if m.group(1).startswith("idx_"):   # R8: indice di un ospite non installato, una volta sola
                         testo = _("costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si "
                                   "riusa)", nome=m.group(1)[len("idx_"):])
+                    elif m.group(1).startswith("alfa_mpa_"):   # R1, VM B2-4a: diversità alfa a profondità uguale
+                        testo = _("diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read")
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo

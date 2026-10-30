@@ -57,7 +57,7 @@ def test_piano_nell_ordine_di_run_sh():
     due = [("A", 1_000_000, 1), ("B", 2_000_000, 1)]
     etichette = [e for e, _, _, _ in pm.piano(due, {**CFG, "triage": {"enabled": True}})]
     assert etichette == ["size", "dl_A", "dl_B", "tq_A", "th_A", "tq_B", "th_B", "triage", "trim_A", "hf_A", "trim_B",
-                         "hf_B", "multiqc", "mpa_A", "krk_A", "mpa_B", "krk_B", "riepilogo", "referto"]
+                         "hf_B", "multiqc", "mpa_A", "krk_A", "mpa_B", "krk_B", "riepilogo", "alfa_mpa_B", "referto"]
     gruppi = [g for _, _, g, _ in pm.piano(due, CFG)]
     assert gruppi == sorted(gruppi)
 

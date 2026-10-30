@@ -187,12 +187,30 @@ def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
     pct = [e["percentuale"] for e in av]
     assert pct == sorted(pct) and pct[0] == 0 and pct[-1] < 100
     per = {(e["passo"], e["campione"]): e for e in av}
-    resto = sec["krk_S1"] + sec["mpa_S2"] + sec["krk_S2"] + sec["riepilogo"] + sec["referto"]
+    resto = sec["krk_S1"] + sec["mpa_S2"] + sec["krk_S2"] + sec["riepilogo"] + sec["alfa_mpa_S2"] + sec["referto"]
     assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                       # Kraken di S1 non e' gia' fatto
     assert per[("kraken", "S1")]["passo_s"] == round(sec["krk_S1"])                # 17/10: durata del passo
     assert per[("controllo_qualita", None)]["eta_s"] < per[("ospite", "S2")]["eta_s"]   # MultiQC: l'ospite non torna
     assert av[-1]["passo"] == "referto" and av[-1]["eta_s"] == round(sec["referto"])
     assert abs(av[0]["eta_s"] - sum(sec.values())) <= 1                           # niente e' fatto
+
+
+def test_eta_avanza_durante_la_diversita_alfa(ambiente, tmp_path):
+    """VM B2-4a (30/10): MetaPhlAn rifatto sul sottocampione di ogni campione oltre il piu' povero (alfa_mpa_*) non
+    era nel piano e la barra restava a "99 %, 10 secondi" per 15 minuti. Ora e' un passo per campione, col suo testo."""
+    env, _ = ambiente
+    progetto, sec = due_campioni(tmp_path, "alfa")
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto),
+                        STUB_ETICHETTE=ETICHETTE_2 + " alfa_sotto alfa_mpa_S2 alfa mpa_matrix")
+    import pmn_motore as pm
+    av = [e for e in ev if e["tipo"] == "avanzamento"]
+    assert codice == 0 and "alfa_mpa_S1" not in sec and sec["alfa_mpa_S2"] == pm.ALFA_MPA_S   # S1 e' il piu' povero
+    alfa = [e for e in av if "profondità uguale" in e["messaggio"]]
+    assert len(alfa) == 1 and alfa[0]["passo"] == "riepilogo" and alfa[0]["campione"] == "S2", alfa
+    assert abs(alfa[0]["eta_s"] - sec["alfa_mpa_S2"] - sec["referto"]) <= 1
+    assert alfa[0]["passo_s"] == round(sec["alfa_mpa_S2"])
+    riepilogo = next(e for e in av if e["passo"] == "riepilogo")
+    assert riepilogo["eta_s"] > alfa[0]["eta_s"] and riepilogo["percentuale"] < alfa[0]["percentuale"] < 100
 
 
 def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):
@@ -212,7 +230,7 @@ def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):
     per = {(e["passo"], e["campione"]): e for e in ev if e["tipo"] == "avanzamento"}
     assert codice == 0
     assert abs(per[("ospite", "S1")]["eta_s"] - sum(prima.values()) + prima["trim_S1"]) <= 1   # prima: quota fissa
-    resto = dopo["krk_S1"] + dopo["mpa_S2"] + dopo["krk_S2"] + dopo["riepilogo"] + dopo["referto"]
+    resto = dopo["krk_S1"] + dopo["mpa_S2"] + dopo["krk_S2"] + dopo["riepilogo"] + dopo["alfa_mpa_S2"] + dopo["referto"]
     assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                                       # dopo: coppie vere
 
 
