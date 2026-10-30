@@ -17,7 +17,14 @@ mkdir -p "$O"
 T=$(mktemp -d "$PMN_TMP/pmn_mpa_$S.XXXXXX")
 trap 'rm -rf "$T"' EXIT
 
-PATH=$MPA:$PATH read_fastx.py -l 70 --split_reads 0 "$R1${R2:+,$R2}" > "$T/reads.fq" 2> "$T/nreads.txt"
+# read_fastx.py legge il gz a pezzi piccoli, e ogni lettura da /mnt/c (v9fs) aspetta la WSL: SF3RAt7 57 s da li',
+# 1,7 + 12,5 s da una copia sul disco della WSL, stesse read preparate (R10, 30/10). I file su v9fs si copiano in $T.
+IN=()
+for f in "$R1" ${R2:+"$R2"}; do
+  if [ "$(stat -f -c %T "$f")" = v9fs ]; then cp "$f" "$T/"; IN+=("$T/$(basename "$f")"); else IN+=("$f"); fi
+done
+PATH=$MPA:$PATH read_fastx.py -l 70 --split_reads 0 "$(IFS=,; echo "${IN[*]}")" > "$T/reads.fq" 2> "$T/nreads.txt"
+for f in "${IN[@]}"; do case "$f" in "$T"/*) rm -f "$f" ;; esac; done
 for n in 1 2 3 4 5 6; do
   "$MPA/bowtie2" --seed 1992 --quiet --no-unal --very-sensitive -p "$TH" -x "$PMN_FETTE/idx$n/fetta$n" -U "$T/reads.fq" -S "$T/$n.sam"
   "$PY" "$M/arbitro_fette.py" compatta < "$T/$n.sam" > "$T/$n.tsv"; rm -f "$T/$n.sam"

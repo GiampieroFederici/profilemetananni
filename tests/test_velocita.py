@@ -169,6 +169,7 @@ def test_kraken_database_che_sta_in_ram_thread_chiesti(tmp_path):
 
 # --- motore/metaphlan_fette.sh: file di passaggio in PMN_TMP (disco della WSL), non nella cartella del progetto ---
 READ_FASTX = """#!/usr/bin/env bash
+for f in ${5//,/ }; do [ -s "$f" ] || exit 8; echo "$f" >> "$TRACCIA/read_fastx.txt"; done
 printf '@r1__1\\nACGT\\n+\\nIIII\\n'
 echo "2 100.0 0" >&2
 """
@@ -186,8 +187,8 @@ while [ $# -gt 0 ]; do [ "$1" = -o ] && echo profilo > "$2"; shift; done
 """
 
 
-@linux
-def test_fette_file_di_passaggio_fuori_dal_progetto(tmp_path):
+def fette(tmp_path, cartella_read):
+    """metaphlan_fette.sh con strumenti finti; read C1_1/C1_2 in cartella_read. -> (processo, pmn_tmp, uscita, traccia)"""
     envs, tmp, out, tr = tmp_path / "envs", tmp_path / "pmn_tmp", tmp_path / "progetto" / "metaphlan", tmp_path / "traccia"
     for d in (envs / "pmn_metaphlan" / "bin", envs / "pmn_reports_py" / "bin", tmp, tr):
         d.mkdir(parents=True)
@@ -199,12 +200,39 @@ def test_fette_file_di_passaggio_fuori_dal_progetto(tmp_path):
     (tmp_path / "home").mkdir()
     (tmp_path / "home" / "installazione.env").write_text(
         f"PMN_ENVS={envs}\nPMN_FETTE={tmp_path / 'fette'}\nPMN_MPA_DB={tmp_path / 'db'}\nPMN_TMP={tmp}\n", encoding="utf-8")
-    p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette.sh"), "C1", "r1.fq.gz", "", str(out), "2"],
-                       capture_output=True, text=True,
+    cartella_read.mkdir(parents=True, exist_ok=True)
+    for i in (1, 2):
+        (cartella_read / f"C1_{i}.fastq.gz").write_bytes(gzip.compress(b"@r\nACGT\n+\nIIII\n"))
+    p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette.sh"), "C1", str(cartella_read / "C1_1.fastq.gz"),
+                        str(cartella_read / "C1_2.fastq.gz"), str(out), "2"], capture_output=True, text=True,
                        env={**os.environ, "PMN_HOME": str(tmp_path / "home"), "TRACCIA": str(tr)})
+    return p, tmp, out, tr
+
+
+@linux
+def test_fette_file_di_passaggio_fuori_dal_progetto(tmp_path):
+    p, tmp, out, tr = fette(tmp_path, tmp_path / "nonhost")
     assert p.returncode == 0, p.stdout + p.stderr
+    assert (tr / "read_fastx.txt").read_text().split() == [str(tmp_path / "nonhost" / f"C1_{i}.fastq.gz") for i in (1, 2)]
     usate = (tr / "read_usate.txt").read_text().split()
     assert len(usate) == 6 and all(Path(u).parent.parent == tmp for u in usate), usate   # read preparate in PMN_TMP
     assert sorted(f.name for f in out.iterdir()) == ["C1.mapout", "C1_profile.txt"]      # nel progetto solo le uscite
     assert list(tmp.iterdir()) == []                                                      # passaggio tolto alla fine
     assert (out / "C1.mapout").read_text().startswith("r1__1\tGeneID:1\n")
+
+
+@linux
+def test_fette_read_da_windows_lette_da_una_copia(tmp_path):
+    """Read senza ospite su /mnt/c (v9fs, cartella del progetto dell'app): read_fastx.py legge copie in PMN_TMP."""
+    if tipo_fs(RADICE) != "v9fs":
+        pytest.skip("serve la cartella del codice su /mnt/c (WSL di sviluppo)")
+    win = Path(tempfile.mkdtemp(dir=RADICE / "tests", prefix="_prova_v9fs_"))
+    try:
+        p, tmp, out, tr = fette(tmp_path, win / "nonhost")
+        assert p.returncode == 0, p.stdout + p.stderr
+        lette = (tr / "read_fastx.txt").read_text().split()
+        assert [Path(f).name for f in lette] == ["C1_1.fastq.gz", "C1_2.fastq.gz"]
+        assert all(Path(f).parent.parent == tmp for f in lette), lette
+        assert list(tmp.iterdir()) == []
+    finally:
+        shutil.rmtree(win)
