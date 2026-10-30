@@ -322,6 +322,50 @@ def test_due_sorgenti_insieme_stima_entro_30_per_cento_ed_eventi_ogni_30_s(carte
     assert min(i for p, i in t if p.startswith("/pmn/")) < max(i for p, i in t if p.startswith("/kraken/"))
 
 
+def stima_e_vero(cartella, kraken_mb, pmn_mb, **specchio):
+    """--stima, then the real download, with a tar of kraken_mb on kraken (4 connections) and two pmn files of pmn_mb."""
+    tgz, estratto = archivio(cartella, "kraken_prova", 1, kraken_mb)
+    servi(cartella, "kraken", "a.tar.gz", tgz)
+    righe = [("kraken_prova", "tar", "kraken", "a.tar.gz", len(tgz), estratto, md5(tgz), "kraken/a")]
+    for i in range(2):
+        d = os.urandom(pmn_mb * MB)
+        servi(cartella, "pmn", f"p/f{i}.bin", d)
+        righe.append(("pacchetti", "file", "pmn", f"p/f{i}.bin", len(d), len(d), md5(d), f"p/f{i}.bin"))
+    catalogo(cartella, righe)
+    sp = Specchio(cartella / "servito", **specchio)
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "4", stima=True)
+        assert rc == 0
+        stima = ev[-1]["risultato"]
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "4")
+    finally:
+        sp.chiudi()
+    assert rc == 0 and ev[-1]["esito"] == "ok"
+    vero = durata_database(ev)
+    print(f"\nstima {stima['tempo_stimato_s']} s, vero {vero:.0f} s; sorgenti {stima['sorgenti']}")
+    return stima, vero, ev
+
+
+def test_b1_limite_della_linea_la_banda_liberata_va_alle_altre(cartella):
+    """B1 (VM 30/10): the line of the PC is the limit (about 7 MB/s for everything). While Kraken downloads with its
+    connections GitHub gets little; when Kraken has finished GitHub goes fast. Old rule (slowest source at the speed
+    measured together): about 60 s instead of about 33 s."""
+    stima, vero, ev = stima_e_vero(cartella, 16, 12, linea=int(1.2 * MB))
+    assert abs(stima["tempo_stimato_s"] - vero) <= 0.3 * vero
+    s = {x["sorgente"]: x for x in stima["sorgenti"]}
+    assert s["pmn"]["velocita_da_sola_mb_s"] > 2 * s["pmn"]["velocita_mb_s"]        # alone much faster than together
+    # the estimate during the download follows the same rule: the first one is not far from the truth either
+    primo = next(e for e in ev if "byte_fatti" in e and e["eta_s"])
+    assert primo["eta_s"] <= 1.3 * vero
+
+
+def test_b1_limite_per_connessione_nessuna_banda_da_dividere(cartella):
+    """29/10 PC: the limit is each connection (S3 0,17 MB/s). When the pmn files have finished Kraken does not go
+    faster. A rule that only divided the line (all bytes / total speed) would say about 40 s instead of about 60 s."""
+    stima, vero, ev = stima_e_vero(cartella, 36, 6, velocita={"/kraken/": 150_000, "/pmn/": 300_000})
+    assert abs(stima["tempo_stimato_s"] - vero) <= 0.3 * vero
+
+
 # ---------------- R6: nobody reads the events any more ----------------
 def test_senza_nessuno_che_legge_il_motore_non_resta_a_scaricare(cartella):
     dati = os.urandom(40 * MB)
