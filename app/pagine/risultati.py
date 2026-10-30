@@ -9,8 +9,8 @@ import json
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QPainter
 from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QHeaderView, QPushButton, QTabBar,
                                QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget)
 
@@ -102,6 +102,26 @@ def scrivi_metadati_app(f, colonne, righe):
     tmp = Path(f).with_name(Path(f).name + ".tmp")
     tmp.write_text(testo, encoding="utf-8", newline="\n")
     os.replace(tmp, f)
+
+
+class Barra(QWidget):
+    """B4-1: barra lunga fino a 380 px che si accorcia con la finestra; la quota piena e' la specie piu' abbondante,
+    quindi le barre di una scheda restano in proporzione fra loro."""
+    def __init__(self, quota, colore):
+        super().__init__()
+        self.quota, self.colore = quota, QColor(colore)
+        self.setFixedHeight(18)
+        self.setMinimumWidth(60)
+
+    def sizeHint(self):
+        return QSize(380, 18)
+
+    def paintEvent(self, _evento):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(self.colore)
+        p.drawRoundedRect(0, 0, max(3, round(self.width() * self.quota)), self.height(), 3, 3)
 
 
 def corsivo(testo, nomi):
@@ -362,18 +382,14 @@ class PaginaRisultati(Pagina):
         g.setVerticalSpacing(6)
         massimo = max((v for _, v in righe), default=0) or 1
         for i, (nome, v) in enumerate(righe):
-            n = etichetta(f"<i>{html.escape(nome)}</i>")
+            n = etichetta(f"<i>{html.escape(nome)}</i>")     # B4-1: i nomi lunghi vanno a capo
             n.setTextFormat(Qt.RichText)
-            n.setWordWrap(False)
-            b = QFrame()
-            b.setFixedSize(max(3, round(380 * v / massimo)), 18)
-            b.setStyleSheet(f"background: {colore}; border-radius: 3px;")
             x = etichetta(f"{numero(v, 2)} %")
             x.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            x.setWordWrap(False)
             g.addWidget(n, i, 0)
-            g.addWidget(b, i, 1, Qt.AlignLeft | Qt.AlignVCenter)
+            g.addWidget(Barra(v / massimo, colore), i, 1, Qt.AlignVCenter)
             g.addWidget(x, i, 2)
-        g.setColumnMinimumWidth(1, 390)
         g.setColumnStretch(3, 1)
         return w
 

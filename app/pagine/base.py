@@ -31,6 +31,14 @@ class Contesto:
         self.progetto_in_analisi = None
 
 
+class Corpo(QVBoxLayout):
+    """Il corpo della pagina: tutto in alto, alto quanto serve con i testi e i pulsanti che vanno a capo (B4-7a).
+    Con setAlignment(Qt.AlignTop) Qt dava al contenuto l'altezza "su una riga" e schiacciava le righe in più."""
+    def setGeometry(self, r):
+        alto = self.heightForWidth(r.width()) if self.hasHeightForWidth() else self.sizeHint().height()
+        super().setGeometry(QRect(r.x(), r.y(), r.width(), min(r.height(), max(alto, self.minimumSize().height()))))
+
+
 class Pagina(QWidget):
     vai = Signal(str)               # chiave della pagina dove andare
     azioni_cambiate = Signal()      # la barra delle azioni va ridisegnata
@@ -51,10 +59,9 @@ class Pagina(QWidget):
         self.titolo, self.testo_principale = _(self.titolo), _(self.testo_principale)   # lingua di quando si crea
         self.principale_attivo = True
         self.secondari = []
-        self.corpo = QVBoxLayout(self)
+        self.corpo = Corpo(self)
         self.corpo.setContentsMargins(40, 28, 40, 28)
         self.corpo.setSpacing(12)
-        self.corpo.setAlignment(Qt.AlignTop)
         if self.titolo:
             self.corpo.addWidget(etichetta(self.titolo, "titolo"))
 

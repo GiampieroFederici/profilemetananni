@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
                                QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
@@ -268,12 +268,24 @@ class Finestra(QMainWindow):
                  + self.griglia_testata.horizontalSpacing() + 40)
         self._righe_testata(larghezza >= serve)
         stretta = larghezza < LARGA
-        percorso, margine = (PERCORSO_STRETTO, 20) if stretta else (PERCORSO_LARGO, 40)
+        percorso, margine = (self._percorso_stretto(), 20) if stretta else (PERCORSO_LARGO, 40)
         self.zona_percorso.setFixedWidth(percorso)
+        lato = 8 if stretta else 16                             # B4-1: stretta, meno margine e la voce non si taglia
+        self.zona_percorso.layout().setContentsMargins(lato, 24, lato, 24)
         contenuto = larghezza - percorso - 2 * margine - 20     # 20: barra di scorrimento verticale
         for p in self.pagine.values():
             p.corpo.setContentsMargins(*((20, 20, 20, 20) if stretta else (40, 28, 40, 28)))
             impila(p, contenuto)
+
+    def _percorso_stretto(self):
+        """B4-1: la colonna stretta è larga almeno quanto la voce più lunga in grassetto (la voce selezionata si
+        tagliava: "Campioni e prodott"), più margini (8 + 8), imbottitura (8 + 8) e bordo (2 + 2) dello stile."""
+        b = next(iter(self.passi.values()))[0]
+        grassetto = QFont(b.font())
+        grassetto.setBold(True)
+        m = QFontMetrics(grassetto)
+        testi = [f"✓   {testo}" for _b, _n, testo in self.passi.values()]
+        return max(PERCORSO_STRETTO, max(m.horizontalAdvance(t) for t in testi) + 36)
 
     def resizeEvent(self, evento):
         super().resizeEvent(evento)

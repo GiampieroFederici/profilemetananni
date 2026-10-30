@@ -191,3 +191,76 @@ def test_risultati_stretti_sei_campioni(stile, f, qtbot, tmp_path):
                      if not w.isHidden()), reverse=True)[:5]
     assert s.widget().minimumSizeHint().width() <= s.viewport().width(), larghi
     assert f.width() <= 830 and tagliati(f.zona_testata) == []
+
+
+# ---------------- B4-c (VM con aed57f0): finestra a 830 px con la scala di Windows al 125 % ----------------
+# 830 px veri = circa 655 px per l'app. Il progetto ha le frasi e le barre vere delle specie (installer/finto).
+def progetto_sei_campioni(tmp_path):
+    sys.path.insert(0, str(RADICE / "tests"))
+    import json
+    from test_multicampione import progetto_referto
+    cartella = progetto_referto(tmp_path, metadati=True)
+    risultati = cartella / "risultati" / "risultati.json"
+    d = json.loads(risultati.read_text(encoding="utf-8"))
+    vero = json.loads((RADICE / "installer" / "finto" / "risultati.json").read_text(encoding="utf-8"))
+    d["campioni"] = d["campioni"][:6]
+    for c in d["campioni"]:
+        c["sintesi"] = vero["campioni"][0]["sintesi"]
+    d["citazioni"] = vero["citazioni"]
+    risultati.write_text(json.dumps(d), encoding="utf-8")
+    return progetto.Progetto(cartella)
+
+
+@pytest.mark.parametrize("larghezza", [655, 819, 1024])
+def test_b4c_campioni_e_risultati_stretti(stile, f, qtbot, tmp_path, larghezza):
+    """B4-1: Risultati (barre fisse da 380 px: 743 px) e Campioni (tendine e riga dell'ospite: 559 px) uscivano a destra."""
+    f.contesto.progetto = progetto_sei_campioni(tmp_path)
+    misura(f, qtbot, larghezza)
+    for pagina in ("campioni", "risultati"):
+        f.vai(pagina)
+        qtbot.wait(200)
+        s = f.pila.currentWidget()
+        assert s.widget().minimumSizeHint().width() <= s.viewport().width(), (pagina, larghezza)
+
+
+@pytest.mark.parametrize("larghezza", [655, 1024])
+def test_b4c_voce_selezionata_intera(stile, f, qtbot, larghezza):
+    """B4-1: nella colonna stretta la voce selezionata (in grassetto) si tagliava: "Campioni e prodott"."""
+    from PySide6.QtGui import QFontMetrics
+    f.contesto.progetto = nuovo("progetto_b4c")
+    misura(f, qtbot, larghezza)
+    for pagina in ("campioni", "scelte", "esecuzione", "risultati", "sicurezza"):
+        f.vai(pagina)
+        qtbot.waitUntil(lambda: not f.occupato(), timeout=30000)
+        qtbot.wait(100)
+        b = f.passi[pagina][0]
+        assert b.font().bold()
+        assert QFontMetrics(b.font()).horizontalAdvance(b.text()) + 20 <= b.width(), (pagina, b.text(), b.width())
+
+
+@pytest.mark.parametrize("larghezza", [655, 819, 1024])
+def test_b4c_pulsanti_del_referto_non_sotto_le_schede(stile, f, qtbot, larghezza):
+    """B4-7a: i pulsanti del referto andati a capo finivano sotto la barra delle schede MetaPhlAn/Kraken (Casuale)."""
+    import json
+    from PySide6.QtCore import QPoint, QRect
+    p = nuovo("Casuale")
+    r = p.risultati
+    (r / "qc").mkdir(parents=True)
+    for nome in ("referto.html", "referto.pdf", "tabelle.xlsx", "qc/multiqc_report.html"):
+        (r / nome).write_text("x", encoding="utf-8")
+    (r / "risultati.json").write_text(json.dumps({
+        "motore": "1.1.0", "campioni": [{"nome": "CASUALE", "esito": "ok", "sintesi": {}}],
+        "referto": {"html": "referto.html", "pdf": "referto.pdf", "xlsx": "tabelle.xlsx"},
+        "qc": {"multiqc": "qc/multiqc_report.html"},
+        "consigli": [{"codice": "KRAKEN_VUOTO", "messaggio": "Kraken non ha trovato taxa sopra la soglia."},
+                     {"codice": "METAPHLAN_VUOTO", "messaggio": "MetaPhlAn non ha trovato specie."}]}),
+        encoding="utf-8")
+    f.contesto.progetto = p
+    misura(f, qtbot, larghezza)
+    f.vai("risultati")
+    qtbot.wait(300)
+    pag = f.pagine["risultati"]
+    schede = QRect(pag.linguette.mapTo(pag, QPoint(0, 0)), pag.linguette.size())
+    sotto = [b.text() for b in pag.findChildren(QPushButton)
+             if b.isVisible() and QRect(b.mapTo(pag, QPoint(0, 0)), b.size()).intersects(schede)]
+    assert sotto == [], (larghezza, sotto)

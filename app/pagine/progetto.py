@@ -86,6 +86,15 @@ def prodotto_da_ospiti(ospiti):
     return "altro"
 
 
+def stringibile(tendina):
+    """B4-1: la tendina si stringe con la finestra (la pagina Campioni restava larga 559 px); l'elenco che si apre
+    resta largo quanto la voce più lunga."""
+    tendina.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+    tendina.setMinimumContentsLength(12)
+    tendina.model().rowsInserted.connect(
+        lambda *_x: tendina.view().setMinimumWidth(tendina.view().sizeHintForColumn(0) + 24))
+
+
 class PaginaCampioni(Pagina):
     titolo = N_("Campioni e prodotto")
     testo_principale = N_("Avanti: scelte dell'analisi")
@@ -154,6 +163,7 @@ class PaginaCampioni(Pagina):
         self.corpo.addWidget(etichetta(_("Che prodotto è?"), "sottotitolo"))
         self.prodotto = QComboBox()
         self.prodotto.setMaximumWidth(560)
+        stringibile(self.prodotto)
         self.prodotto.setAccessibleName(_("Prodotto"))
         self._riempi_prodotti()
         self.prodotto.currentIndexChanged.connect(self._ospite)
@@ -163,9 +173,10 @@ class PaginaCampioni(Pagina):
 
         # R8: l'ospite proposto dal prodotto si può cambiare
         self.corpo.addWidget(etichetta(_("DNA dell'ospite da togliere"), "etichetta_campo"))
-        riga = QHBoxLayout()
+        riga = QHBoxLayout(objectName="riga_di_scelte")   # B4-1: stretta, il pulsante va sotto (impila)
         self.ospite = QComboBox()
         self.ospite.setMaximumWidth(400)
+        stringibile(self.ospite)
         self.ospite.setAccessibleName(_("DNA dell'ospite da togliere"))
         self.ospite.activated.connect(self._ospite_cambiato)
         riga.addWidget(self.ospite, 1, Qt.AlignTop)     # stesso bordo in alto: per il Tab sono sulla stessa riga
