@@ -501,7 +501,7 @@ presenti() {  # tipo percorso byte md5 destinazione: byte gia' sul disco per que
   c=$(leggi "$base.consumati")
   { stat -c %s -- "$base.parziale" "$base".pezzo.* 2> /dev/null || true; } | awk -v c="$c" -v b="$3" '{s += $1} END {s += c; printf "%.0f\n", (s > b ? b : s)}'
 }
-declare -A STORIA=()
+declare -A STORIA=(); PMAX=22
 conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media degli ultimi ~60 s), tempo che manca
   local adesso fatti=0 nf=0 g t s p b bf m d alt x v r eta=0 lenta="" parti="" sorg="" vtot=0
   declare -A F=() B=()
@@ -525,6 +525,7 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
   done
   [ -n "$lenta" ] || lenta=null; [ "$lenta" = null ] || lenta="\"$lenta\""
   P=$(awk -v f="$fatti" -v t="$TOT" 'BEGIN {printf "%d", 22 + 70 * (t > 0 ? f / t : 1)}')
+  [ "$P" -ge "$PMAX" ] || P=$PMAX; PMAX=$P   # la barra non torna indietro (un MD5 sbagliato toglie byte gia' contati)
   echo "$P $eta $nf" > "$ST/stato.t" && mv -f "$ST/stato.t" "$ST/stato"
   FATTO=$nf; ETA=$eta
   AV_EXTRA=",\"byte_fatti\":$fatti,\"byte_totali\":$TOT,\"velocita_mb_s\":$(awk -v v="$vtot" 'BEGIN {printf "%.2f", v/1e6}'),\"sorgente\":$lenta,\"sorgenti\":[$sorg]"

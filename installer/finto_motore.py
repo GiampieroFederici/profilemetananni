@@ -179,7 +179,10 @@ class Motore:
                             eta_s=None)
                 if self.a.scenario == "annullata" and passo == "database":
                     raise Annullata
-                self.attendi(sec)
+                if passo == "database":
+                    self._scarico_a_pezzi(sec)
+                else:
+                    self.attendi(sec)
         finally:
             blocco.unlink(missing_ok=True)
             (STATO / f"{self.corsa}.annulla").unlink(missing_ok=True)
@@ -188,6 +191,27 @@ class Motore:
         gruppi = list(dict.fromkeys(r.split("\t")[0] for r in righe if r.strip()))
         return "ok", {"programmi": 8, "database": gruppi, "verifica": "verde"}, \
             _("VERDE: il motore è installato e funziona.")
+
+    def _scarico_a_pezzi(self, sec):
+        """v1.1 (contratto §4): durante lo scarico un avanzamento periodico con i campi nuovi facoltativi, come il vero
+        (installa_motore.sh, ogni 15 s): byte_fatti, byte_totali, velocita_mb_s, sorgente (la più lenta), sorgenti."""
+        totali = {"kraken": 96_947_745_536, "pmn": 41_869_955_072}       # Kraken completo + rapido; pacchetti pmn
+        velocita = {"kraken": 3.1, "pmn": 7.0}                             # MB/s, misura del 30/10 (D165)
+        for k in range(1, 5):
+            fatti = {s: round(totali[s] * k / 4) for s in totali}
+            resto_s = max((totali[s] - fatti[s]) / (velocita[s] * 1e6) for s in totali)
+            self.evento("avanzamento",
+                        _("Scarico i database: {fatti} di {totali} GB ({sorgenti}).",
+                          fatti=lingua.virgola(f"{sum(fatti.values()) / 2**30:.1f}"),
+                          totali=lingua.virgola(f"{sum(totali.values()) / 2**30:.1f}"),
+                          sorgenti=_("Kraken {k} MB/s, altri database {p} MB/s", k=lingua.virgola(velocita["kraken"]),
+                                     p=lingua.virgola(velocita["pmn"]))),
+                        passo="database", campione=None, fatto=0, totale=1, percentuale=22 + 70 * k // 4 - (k == 4),
+                        eta_s=round(resto_s), byte_fatti=sum(fatti.values()), byte_totali=sum(totali.values()),
+                        velocita_mb_s=round(sum(velocita.values()), 2), sorgente="kraken",
+                        sorgenti=[{"sorgente": s, "byte_fatti": fatti[s], "byte_totali": totali[s],
+                                   "velocita_mb_s": velocita[s]} for s in totali])
+            self.attendi(sec / 4)
 
     def verifica(self):
         self.evento("avanzamento", _("Controllo i database e provo un piccolo campione..."), passo="verifica",
