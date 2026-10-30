@@ -213,7 +213,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 
 ```json
 "esempio": {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000, "cartella": "/home/pmn/.pmn/db/prova",
-            "frase": "Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel motore."}
+            "frase": "200.000 coppie di read di SF3RAt7 (SRR4875279), un salame a fermentazione spontanea campionato al giorno 7 di stagionatura, già nel motore."}
 ```
 
 ### 5.2 `stima`

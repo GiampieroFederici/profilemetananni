@@ -316,8 +316,9 @@ def installazione():
 
 # campione d'esempio a un clic (A2): il mini-campione della verifica, già nel motore (installer/installa_motore.sh)
 ESEMPIO = {"campione": "mini_SF3RAt7", "prodotto": "maiale", "coppie": 200000,
-           "frase": N_("Le prime 200.000 coppie di read di SF3RAt7, un salame tipo Felino (SRR4875279), già nel "
-                       "motore.")}
+           # verificato su ENA (campione S_7_A di PRJNA352236): fermentazione spontanea, giorno 7 di stagionatura
+           "frase": N_("200.000 coppie di read di SF3RAt7 (SRR4875279), un salame a fermentazione spontanea "
+                       "campionato al giorno 7 di stagionatura, già nel motore.")}
 
 
 def esempio(env):
