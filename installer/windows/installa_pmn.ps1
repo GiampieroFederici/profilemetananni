@@ -59,6 +59,8 @@ $TESTI = [ordered]@{
     preparazione_ferma = @("La preparazione si è fermata (codice {0}).", "The preparation stopped (code {0}).")
     domanda_scarico = @("profilemetananni scaricherà circa {0} GB di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1} circa {2} GB (liberi: {3} GB).`n{4}`n`nProcedo con l'installazione?",
                         "profilemetananni will download about {0} GB of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1} about {2} GB (free: {3} GB).`n{4}`n`nShall I go ahead with the installation?")
+    domanda_niente = @("I database di profilemetananni sono già tutti su questo PC: non li scarico di nuovo. Se manca qualche programma, lo scarico (al massimo circa 11 GB).`n`nProcedo con l'installazione?",
+                       "All the profilemetananni databases are already on this PC: I will not download them again. If a program is missing, I download it (about 11 GB at most).`n`nShall I go ahead with the installation?")
     niente_scaricato = @("Va bene: non ho scaricato nulla. Riapri l'installazione quando vuoi.",
                          "All right: I have not downloaded anything. Open the installation again when you like.")
     inizio_barra = @("Inizio l'installazione...", "Starting the installation...")
@@ -320,6 +322,10 @@ function InstallaApp($sorgente, $exe, $collegamenti) {   # copia l'app (PyInstal
         $l = $sh.CreateShortcut($c); $l.TargetPath = $exe; $l.WorkingDirectory = $dest; $l.Description = 'ProfileMetaNanni'; $l.Save()
     }
 }
+function DomandaScarico($gb, $s, $tempo) {   # B4-e: con i database gia' tutti sul PC era "circa 0 GB di database... circa 0 GB"
+    if ($gb -le 0) { return T 'domanda_niente' }
+    (T 'domanda_scarico') -f $gb, $s.Disco, [Math]::Ceiling($s.Serve / 1GB), [Math]::Floor($s.Liberi / 1GB), $tempo
+}
 if ($MyInvocation.InvocationName -eq '.') { return }   # caricato con ". installa_pmn.ps1" (prove): solo le funzioni
 
 New-Item -ItemType Directory -Force $Cartella | Out-Null
@@ -380,7 +386,7 @@ $errore = $script:Eventi | Where-Object tipo -eq 'errore' | Select-Object -Last 
 $logStima = ($script:Eventi | Where-Object tipo -eq 'inizio' | Select-Object -First 1).log
 if ($c -ne 0) { Ferma $(if ($errore) { TestoErrore $errore $logStima } else { (T 'preparazione_ferma') -f $c }) }
 $stima = ($script:Eventi | Where-Object tipo -eq 'fine' | Select-Object -Last 1).risultato
-$gb = [Math]::Round($stima.da_scaricare_gb)   # P12: il numero, non il testo
+$gb = [Math]::Ceiling($stima.da_scaricare_gb)   # P12: il numero, non il testo; B4-e: 0,3 GB = "circa 1 GB", non 0
 $tempo = ($script:Eventi | Where-Object { $_.passo -eq 'controllo' -and $_.percentuale -eq 2 }).messaggio   # velocita' e tempo per sorgente
 $s.Serve = [double]$stima.spazio_necessario_byte
 $s.Liberi = LiberiSu $s.Disco   # dopo la WSL nuova
@@ -388,7 +394,7 @@ Scrivi "spazio: servono $($s.Serve) byte (dal motore), liberi $($s.Liberi) su $(
 $m = MessaggioSpazio $s
 if ($m) { Ferma $m }
 ChiudiBarra
-$testo = (T 'domanda_scarico') -f $gb, $s.Disco, [Math]::Ceiling($s.Serve / 1GB), [Math]::Floor($s.Liberi / 1GB), $tempo
+$testo = DomandaScarico $gb $s $tempo
 if (-not (Domanda $testo)) { NonRiprendere; Avviso (T 'niente_scaricato'); exit 0 }
 
 if (Test-Path $AppPacchetto) {   # R7: l'app e le icone solo adesso, con lo spazio controllato e il Si' della persona

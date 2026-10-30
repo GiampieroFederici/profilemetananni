@@ -238,3 +238,13 @@ def test_disco_scritto_una_volta_sola():
     for lingua in ("it", "en"):
         t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; (T 'domanda_scarico') -f 26, 'C:', 40, 146, 'x'")
         assert "C::" not in t and "C: " in t, t
+
+
+def test_b4e_domanda_senza_zero_gb():
+    """VM B4-e: sopra un'installazione completa la domanda diceva "circa 0 GB di database... circa 0 GB"."""
+    s = "[pscustomobject]@{ Disco = 'C:'; Serve = 0.0; Liberi = 146GB }"
+    for lingua, si in (("it", "Procedo con l'installazione?"), ("en", "Shall I go ahead with the installation?")):
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico 0 ({s}) $null")
+        assert " 0 GB" not in t and si in t and "11 GB" in t, t
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico ([Math]::Ceiling(0.3)) ({s}) 'x'")
+        assert ("circa 1 GB" if lingua == "it" else "about 1 GB") in t, t
