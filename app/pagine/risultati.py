@@ -412,6 +412,10 @@ class PaginaRisultati(Pagina):
             if not m:
                 s.addWidget(etichetta(_("Profilo MetaPhlAn non disponibile per questo campione."), "nota"))
                 continue
+            if not m.get("specie"):                # B4-c: profilo vuoto ma valido (era "Qui tutte le 0 specie")
+                s.addWidget(etichetta(_("MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto. Il "
+                                        "perché è in \"Da sapere\", in cima alla pagina."), "nota"))
+                continue
             p = numero(m['non_assegnata_pct'])
             e = etichetta(_("Percentuale sul totale delle read del campione. {art}<b>{pct} %</b> non è assegnato a "
                             "nessuna specie del database: è normale (taxa non ancora nel database e DNA "
@@ -440,14 +444,17 @@ class PaginaRisultati(Pagina):
             if not k:
                 s.addWidget(etichetta(_("Profilo Kraken non disponibile per questo campione."), "nota"))
                 continue
-            s.addWidget(etichetta(_("Percentuale fra i soli taxa del prodotto (batteri, archei, funghi), dopo la "
-                                    "ridistribuzione di Bracken (il programma che stima le abbondanze).")))
             dom = k.get("dominanti", [])
-            s.addWidget(self._barre([(x["nome"], x["pct_microbi"]) for x in dom], "#2F5D7C"))
-            s.addWidget(etichetta(_("Qui tutti i {n} taxa sopra la soglia.", n=len(dom)) if len(dom) >= k["microbi"]
-                                  else _("Qui i {n} più abbondanti dei {tot} taxa sopra la soglia. Tutti gli altri "
-                                         "sono nel referto e nelle tabelle Excel.", n=len(dom), tot=k['microbi']),
-                                  "nota"))
+            if not k.get("microbi"):               # B4-c: nessun taxon sopra la soglia (era "Qui tutti i 0 taxa")
+                s.addWidget(etichetta(_("Kraken non ha trovato taxa sopra la soglia in questo campione."), "nota"))
+            else:
+                s.addWidget(etichetta(_("Percentuale fra i soli taxa del prodotto (batteri, archei, funghi), dopo la "
+                                        "ridistribuzione di Bracken (il programma che stima le abbondanze).")))
+                s.addWidget(self._barre([(x["nome"], x["pct_microbi"]) for x in dom], "#2F5D7C"))
+                s.addWidget(etichetta(_("Qui tutti i {n} taxa sopra la soglia.", n=len(dom)) if len(dom) >= k["microbi"]
+                                      else _("Qui i {n} più abbondanti dei {tot} taxa sopra la soglia. Tutti gli "
+                                             "altri sono nel referto e nelle tabelle Excel.", n=len(dom),
+                                             tot=k['microbi']), "nota"))
             nm = k.get("non_microbi", [])
             if nm:
                 elenco = ", ".join(f"<i>{html.escape(x['nome'])}</i> ({html.escape(_(x['gruppo']))}, "

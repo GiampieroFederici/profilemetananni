@@ -282,3 +282,26 @@ def test_b4c_errore_della_verifica_in_vista(stile, f, qtbot):
     QCoreApplication.processEvents()
     y, alto = esito.mapTo(scorre.viewport(), QPoint(0, 0)).y(), scorre.viewport().height()
     assert 0 <= y and y + min(esito.height(), alto) <= alto, (y, esito.height(), alto)
+
+
+def test_b4c_casuale_nessun_conteggio_a_zero(stile, f, qtbot):
+    """B4-c: con i profili vuoti di Casuale la pagina Risultati scriveva "Qui tutte le 0 specie trovate."."""
+    import json
+    import re
+    p = nuovo("Casuale")
+    p.risultati.mkdir(parents=True, exist_ok=True)
+    sintesi = {"metaphlan": {"specie": 0, "dominanti": [], "non_assegnata_pct": 100.0,
+                             "frase": "MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è vuoto."},
+               "kraken": {"microbi": 0, "dominanti": [], "non_microbi": [],
+                          "frase": "Kraken: nessun taxon sopra la soglia."}}
+    (p.risultati / "risultati.json").write_text(json.dumps({
+        "motore": "1.1.0", "campioni": [{"nome": "CASUALE", "esito": "ok", "sintesi": sintesi}],
+        "consigli": [{"codice": "METAPHLAN_VUOTO", "messaggio": "MetaPhlAn: nessuna specie trovata in CASUALE."}]}),
+        encoding="utf-8")
+    f.contesto.progetto = p
+    f.vai("risultati")
+    qtbot.wait(200)
+    pag = f.pagine["risultati"]
+    testi = " | ".join(lab.text() for w in pag.schede for lab in w.findChildren(QLabel))
+    assert not re.search(r"\b0 (specie|taxa)\b", testi), testi
+    assert "MetaPhlAn non ha trovato specie" in testi and "Kraken non ha trovato taxa sopra la soglia" in testi
