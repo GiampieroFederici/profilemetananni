@@ -10,8 +10,8 @@ motore li legge così come sono.
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QStandardPaths, Qt
-from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLineEdit,
-                               QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame, QHBoxLayout,
+                               QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from app import progetto
 from app.lingua import N_, _
@@ -74,7 +74,8 @@ def voci_prodotti(info):
 
 
 def stima_in_parole(stima):
-    return _("circa {minuti} minuti e {ram} GB di memoria", minuti=stima["minuti"], ram=numero(stima["ram_gb"]))
+    return _("{tempo} e {ram} di memoria", tempo=progetto.durata_in_parole(stima["secondi"]),
+             ram=progetto.spazio_in_parole(stima["ram_gb"]))
 
 
 def prodotto_da_ospiti(ospiti):
@@ -587,24 +588,37 @@ class FinestraOspite(QDialog):
                              _("Il codice dell'assembly inizia con GCF_ o GCA_, poi 9 cifre, un punto e la versione "
                                "(per esempio GCF_030704535.1). Lo trovi nella pagina del genoma su NCBI."))
                 return
+            self.pulsante_controlla.setEnabled(False)          # la domanda a NCBI può durare qualche secondo
+            QApplication.setOverrideCursor(Qt.WaitCursor)
             try:
                 trovato = progetto.dimensione_ncbi(codice)
-            except OSError:
-                trovato = False
-            if trovato is None:
+                certificato = False
+            except progetto.NcbiNonRaggiungibile as e:
+                trovato, certificato = False, e.certificato
+            finally:
+                QApplication.restoreOverrideCursor()
+                self.pulsante_controlla.setEnabled(True)
+            if trovato is None:                                # B2-9a: NCBI ha risposto che non lo conosce
                 self._errore(_("NCBI non conosce il codice {codice}.", codice=codice),
                              _("Controlla il codice nella pagina del genoma su NCBI (www.ncbi.nlm.nih.gov/datasets)."))
                 return
             if trovato:
                 basi, organismo = trovato
-                titolo = _("{organismo}: circa {milioni} milioni di basi.", organismo=organismo or codice,
-                           milioni=numero(basi / 1e6, 0))
-            else:   # rete assente: si può aggiungere, il motore controlla il codice alla prima analisi
+                titolo = _("{organismo}: circa {basi}.", organismo=organismo or codice,
+                           basi=progetto.basi_in_parole(basi))
+                voce = {"accession": codice, "basi": basi, **({"organismo": organismo} if organismo else {})}
+            else:
+                # NCBI non risponde: si può aggiungere lo stesso (il codice ha la forma giusta, il motore lo scarica e lo
+                # controlla alla prima analisi e dice in parole semplici se non esiste), senza basi: la stima resta
+                # quella prudente di un genoma grande come quello umano, anche nel motore
                 basi = progetto.BASI_GRANDE
-                titolo = _("Non riesco a chiedere a NCBI quanto è grande questo genoma.")
-                avvisi.append(_("Controlla la connessione a internet. La stima qui sotto vale per un genoma grande come "
-                                "quello umano; il codice lo controllo alla prima analisi."))
-            voce = {"accession": codice, "basi": basi, **({"organismo": organismo} if trovato and organismo else {})}
+                titolo = (_("Non riesco a verificare il certificato del sito di NCBI.") if certificato else
+                          _("Non riesco a chiedere a NCBI quanto è grande questo genoma."))
+                avvisi.append(_("Controlla la data e l'ora del computer e la connessione a internet.") if certificato
+                              else _("Controlla la connessione a internet."))
+                avvisi.append(_("Puoi aggiungere l'ospite lo stesso: alla prima analisi scarico il genoma e controllo "
+                                "il codice. La stima vale per un genoma grande come quello umano."))
+                voce = {"accession": codice}
             costo = progetto.stima_indice(basi, scaricare=True)
         else:
             if self.fasta is None:
@@ -615,12 +629,13 @@ class FinestraOspite(QDialog):
             if problema:
                 self._errore(_("Non posso usare questo file."), problema)
                 return
-            titolo = _("Genoma di circa {milioni} milioni di basi.", milioni=numero(basi / 1e6, 0))
+            titolo = _("Genoma di circa {basi}.", basi=progetto.basi_in_parole(basi))
             voce = {"fasta": str(self.fasta), "basi": basi}
             costo = progetto.stima_indice(basi)
-        testo = _("Costruire l'indice richiede {costo}, più {disco} GB sul disco (e {tmp} GB solo durante la "
-                  "costruzione). Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.",
-                  costo=stima_in_parole(costo), disco=numero(costo["disco_gb"]), tmp=numero(costo["temporaneo_gb"]))
+        testo = _("Costruire l'indice richiede {costo}; sul disco occupa {disco}, e durante la costruzione ne servono "
+                  "{tmp} in più. Si fa una volta sola, alla prima analisi che usa questo ospite; poi si riusa.",
+                  costo=stima_in_parole(costo), disco=progetto.spazio_in_parole(costo["disco_gb"]),
+                  tmp=progetto.spazio_in_parole(costo["temporaneo_gb"]))
         if self.ram_gb and costo["ram_gb"] > self.ram_gb:
             avvisi.append(_("Il motore vede solo {ram} GB di memoria: la costruzione potrebbe fermarsi. Chiudi gli "
                             "altri programmi prima dell'analisi o usa un computer con più memoria.",

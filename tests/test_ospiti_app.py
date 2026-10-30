@@ -35,8 +35,8 @@ def test_stima_come_il_motore():
     import ospiti
     for basi in (4_641_652, 494_873_210, 3_136_819_154):
         a, m = progetto.stima_indice(basi, scaricare=True), ospiti.stima(basi, scaricare=True)
-        assert a["minuti"] == max(1, round(m["secondi"] / 60)) and a["ram_gb"] == m["ram_gb"]
-        assert a["disco_gb"] == m["disco_gb"] and a["temporaneo_gb"] == m["temporaneo_gb"]
+        assert round(a["secondi"]) == m["secondi"] and round(a["ram_gb"], 1) == m["ram_gb"]
+        assert round(a["disco_gb"], 1) == m["disco_gb"] and round(a["temporaneo_gb"], 1) == m["temporaneo_gb"]
 
 
 def test_controlla_fasta(tmp_path):
@@ -70,7 +70,7 @@ def test_nome_e_elenco(ambiente):
 
 def test_dimensione_ncbi_non_chiama_codici_non_validi(monkeypatch):
     chiamate = []
-    monkeypatch.setattr(progetto.urllib.request, "urlopen", lambda *a, **k: chiamate.append(a))
+    monkeypatch.setattr(progetto, "_chiedi", lambda *a, **k: chiamate.append(a))
     assert progetto.dimensione_ncbi("GCF_1; rm -rf /") is None and chiamate == []
 
 
@@ -146,7 +146,7 @@ def test_finestra_ncbi_stima_e_aggiunge(qtbot, f, monkeypatch, ambiente):
     w.codice.setText("GCF_902713115.1")
     w.controlla()
     testo = scritte(w)
-    assert "Olea europaea: circa 2.000 milioni di basi." in testo
+    assert "Olea europaea: circa 2,0 miliardi di basi." in testo
     assert "4,8 GB di memoria" in testo and "vede solo 3,0 GB" in testo     # avviso RAM
     assert w.pulsante_aggiungi.isEnabled()
     w.codice.setText("GCF_902713115.2")                               # cambiato: va ricontrollato
@@ -167,7 +167,7 @@ def test_finestra_codice_sconosciuto_e_rete_assente(qtbot, f, monkeypatch):
     assert "NCBI non conosce il codice GCF_000000009.1." in scritte(w) and not w.pulsante_aggiungi.isEnabled()
 
     def senza_rete(acc):
-        raise OSError("rete")
+        raise progetto.NcbiNonRaggiungibile("rete")
     monkeypatch.setattr(progetto, "dimensione_ncbi", senza_rete)
     w.controlla()
     assert "Non riesco a chiedere a NCBI" in scritte(w) and w.pulsante_aggiungi.isEnabled()
@@ -189,7 +189,8 @@ def test_finestra_fasta_e_pagina(qtbot, f, monkeypatch, tmp_path):
         assert "Manca il file del genoma." in scritte(finestra)
         finestra.usa_file(genoma)
         finestra.controlla()
-        assert "Genoma di circa 0 milioni di basi." in scritte(finestra)
+        assert f"Genoma di circa {progetto.basi_in_parole(genoma.stat().st_size)}." in scritte(finestra)
+        assert "4.0" in progetto.basi_in_parole(genoma.stat().st_size)          # "4.007 basi" (o 4.009 con CRLF)
         finestra.aggiungi()
         return finestra.result()
     monkeypatch.setattr(pagina.FinestraOspite, "exec", esegui)

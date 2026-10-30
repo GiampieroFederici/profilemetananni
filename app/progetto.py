@@ -8,14 +8,13 @@ import json
 import os
 import re
 import tempfile
-import urllib.error
-import urllib.request
 from datetime import date
 from pathlib import Path
 
 import yaml
 from PySide6.QtCore import QStandardPaths
 
+from app import lingua
 from app.lingua import _
 
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
@@ -170,12 +169,40 @@ NCBI_DATASETS = "https://api.ncbi.nlm.nih.gov/datasets/v2/genome/accession/{}/da
 
 
 def stima_indice(basi, scaricare=False):
-    """Costo della costruzione dell'indice: {"minuti", "ram_gb", "disco_gb", "temporaneo_gb"}."""
+    """Costo della costruzione dell'indice: {"secondi", "ram_gb", "disco_gb", "temporaneo_gb"} (non arrotondati:
+    i testi li scrivono basi_in_parole, durata_in_parole e spazio_in_parole)."""
     gbp = basi / 1e9
     secondi = 60 * MINUTI_PER_GBP * gbp + (basi * ZIP_BYTE_PER_BASE / DOWNLOAD_BYTE_S if scaricare else 0)
-    return {"minuti": max(1, round(secondi / 60)), "ram_gb": round(RAM_GB_FISSA + RAM_GB_PER_GBP * gbp, 1),
-            "disco_gb": round(INDICE_BYTE_PER_BASE * basi / 1e9, 1),
-            "temporaneo_gb": round(TEMPORANEO_BYTE_PER_BASE * basi / 1e9, 1)}
+    return {"secondi": secondi, "ram_gb": RAM_GB_FISSA + RAM_GB_PER_GBP * gbp,
+            "disco_gb": INDICE_BYTE_PER_BASE * basi / 1e9, "temporaneo_gb": TEMPORANEO_BYTE_PER_BASE * basi / 1e9}
+
+
+def _numero(x, cifre):
+    return lingua.separatori(f"{x:,.{cifre}f}")
+
+
+def basi_in_parole(basi):
+    """B2-8a: unità giusta. 5386 -> "5.386 basi"; 4641652 -> "4,6 milioni di basi"; 2e9 -> "2,0 miliardi di basi"."""
+    if basi < 1e6:
+        return _("{n} basi", n=_numero(basi, 0))
+    if basi < 1e9:
+        return _("{n} milioni di basi", n=_numero(basi / 1e6, 1))
+    return _("{n} miliardi di basi", n=_numero(basi / 1e9, 1))
+
+
+def durata_in_parole(secondi):
+    """B2-8a: singolare e plurale. 30 -> "meno di un minuto"; 70 -> "circa 1 minuto"; 300 -> "circa 5 minuti"."""
+    minuti = round(secondi / 60)
+    if minuti < 1:
+        return _("meno di un minuto")
+    return _("circa 1 minuto") if minuti == 1 else _("circa {n} minuti", n=minuti)
+
+
+def spazio_in_parole(gb):
+    """Memoria o disco: "meno di 1 MB", "15 MB", "1,3 GB"."""
+    if gb < 0.001:
+        return _("meno di 1 MB")
+    return f"{_numero(gb * 1000, 0)} MB" if gb < 1 else f"{_numero(gb, 1)} GB"
 
 
 def file_ospiti(radice=None):
@@ -224,20 +251,54 @@ def controlla_fasta(percorso):
     return round(byte * GZ_RAPPORTO) if p.name.lower().endswith(".gz") else byte, None
 
 
+class NcbiNonRaggiungibile(OSError):
+    """NCBI non ha risposto: rete assente o lenta (certificato False), o certificato HTTPS non verificato (True)."""
+    def __init__(self, dettaglio, certificato=False):
+        super().__init__(dettaglio)
+        self.certificato = certificato
+
+
+def _chiedi(url, attesa):
+    """(codice HTTP o None, byte della risposta, errore di Qt) con la rete di Qt.
+    B2-7a: urllib di Python verifica i certificati solo con le radici già nell'archivio di Windows. Una Windows appena
+    installata non le ha tutte (le scarica quando servono, per i browser); NCBI usa la radice Go Daddy G2, che sulla
+    VM mancava. Qt chiede a Windows di completare la catena e di scaricare la radice che manca (stessa cosa dei
+    browser), quindi funziona anche lì. Qt apre un suo ciclo di eventi: la finestra intanto resta viva."""
+    from PySide6.QtCore import QEventLoop, QUrl
+    from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+    rete = QNetworkAccessManager()
+    richiesta = QNetworkRequest(QUrl(url))
+    richiesta.setHeader(QNetworkRequest.KnownHeaders.UserAgentHeader, "ProfileMetaNanni")
+    richiesta.setRawHeader(b"Accept", b"application/json")
+    richiesta.setTransferTimeout(int(attesa * 1000))
+    risposta = rete.get(richiesta)
+    giro = QEventLoop()
+    risposta.finished.connect(giro.quit)
+    if not risposta.isFinished():
+        giro.exec()
+    codice = risposta.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    corpo, errore = bytes(risposta.readAll().data()), risposta.error()
+    risposta.deleteLater()
+    return codice, corpo, errore
+
+
 def dimensione_ncbi(accession, attesa=15):
-    """(basi, organismo) dell'assembly da NCBI Datasets, None se NCBI non lo conosce; OSError se la rete non va."""
+    """(basi, organismo) dell'assembly da NCBI Datasets; None se NCBI non lo conosce (B2-9a: risponde 200 con {}
+    o 404); NcbiNonRaggiungibile se la rete non va o il certificato non si verifica."""
+    from PySide6.QtNetwork import QNetworkReply
     if not ACCESSION.fullmatch(accession or ""):   # solo codici validi entrano nell'indirizzo
         return None
+    codice, corpo, errore = _chiedi(NCBI_DATASETS.format(accession), attesa)
+    if codice in (400, 404):
+        return None
+    if errore != QNetworkReply.NetworkError.NoError or codice != 200:
+        certificato = errore == QNetworkReply.NetworkError.SslHandshakeFailedError
+        raise NcbiNonRaggiungibile(f"{errore} {codice}", certificato)
     try:
-        with urllib.request.urlopen(NCBI_DATASETS.format(accession), timeout=attesa) as r:
-            dati = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        if e.code in (400, 404):
-            return None
-        raise OSError(str(e)) from e
-    except ValueError as e:
-        raise OSError(str(e)) from e
-    for rep in dati.get("reports") or []:
+        dati = json.loads(corpo.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        raise NcbiNonRaggiungibile(str(e)) from e
+    for rep in (dati.get("reports") if isinstance(dati, dict) else None) or []:
         basi = (rep.get("assembly_stats") or {}).get("total_sequence_length")
         if basi:
             return int(basi), (rep.get("organism") or {}).get("organism_name", "")
