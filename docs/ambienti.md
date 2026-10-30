@@ -150,9 +150,32 @@ study analysed reads "pre-filtered to remove grapevine matches" [V1]), so they t
 works, not a sample rich in plant DNA. No public shotgun run of grape berry or leaf was used: those two
 matrices stay experimental.
 
-The results of each run (host share, main taxa of MetaPhlAn and of Kraken, agreement with the article,
-time and memory) are in the project validation folder (`validazione/ambienti/ESITO.md`, not
-distributed); the status shown in the app (`sperimentale`) follows that table.
+Results (30/10/2026; every run took 3 to 4 minutes, with a memory peak of 7.9 GiB from MetaPhlAn in
+slices). MetaPhlAn and Kraken are reported separately; Kraken shares are Bracken species shares.
+
+| Environment | Host removed | MetaPhlAn, main taxa | Kraken + Bracken, main taxa | Agrees with the article? | Outcome |
+|---|---|---|---|---|---|
+| Faeces | human 0.00 % | Firmicutes 52.8 %, Bacteroidota 44.9 %; *Segatella hominis* 28.6 % | *S. hominis* 33.7 %, *S. copri* 11.3 %, *Faecalibacterium prausnitzii* 4.3 % (91 % of reads unclassified) | yes: the two phyla compared in [E1], typical gut genera, the two tools agree | passed |
+| Skin | human 0.03 % | *Cutibacterium acnes* 93.4 %, *Staphylococcus epidermidis* 3.8 %, *Malassezia restricta* 0.1 % | *C. acnes* 93.1 %, *S. epidermidis* 4.7 %, *M. restricta* 0.6 % | yes: *P. acnes* and *M. restricta* are abundant at sebaceous sites [E2] | passed |
+| Topsoil | human 0.00 % | 97 % unclassified; 2 unnamed SGBs | 99.86 % unclassified (677 pairs classified) | phyla as expected, but the run stopped: no species reached Bracken's 10 reads | **failed** |
+| Rhizosphere soil (vineyard) | human 0.00 % | 93 % unclassified; *Nitrososphaerales* archaea 5.2 %, *Pseudomonas* 0.7 % | 99 % unclassified; *Pseudomonas* 75 % of the classified species | yes for the known part: *Pseudomonas* enriched in this compartment [V2] | passed |
+| Must (onset of fermentation) | grapevine 0.04 %, human 0.00 % | *Saccharomyces cerevisiae* 27.2 %, *Tatumella ptyseos* 21.2 % (52 % unclassified) | *S. cerevisiae* 83.7 %, *T. ptyseos* 11.1 %, *Torulaspora delbrueckii* 3.0 % | no for the dominant taxa: *Metschnikowia* and *Hanseniaspora* dominate this ferment [V1] and are in neither database | limit shown |
+| Root surface (rhizoplane) | grapevine 0.31 %, human 0.02 % | 86 % unclassified; *Variovorax*, *Mycolicibacterium*, *Pseudomonas*, *Rhizobium* | *Pseudomonas* 55 %, *Paraburkholderia phytofirmans* 11.8 % | yes: *Pseudomonas* enriched on the rhizoplane at flowering [V2] | passed |
+| Berry, leaf | not tested | | | | not tested |
+
+What the tests show:
+- Human faeces and skin give the expected dominant taxa with both tools. The public reads were already
+  almost free of human DNA, so the removal of a large human share was not put to the test.
+- Soil: with 500,000 pairs and PlusPF-8 so few reads are classified that no species reaches Bracken's
+  minimum of 10 reads; Bracken stops with an error and the whole analysis stops. Low-yield soil samples
+  can therefore end in an error instead of an empty Kraken profile (MetaPhlAn still finishes).
+- Must: the result is exactly the database limit described in section 3.4: the visible taxa are right,
+  the dominant yeasts are missing.
+- Grapevine host: the index works on real reads, but these public reads carried very little plant DNA.
+
+In version 1.1.0 every new environment stays "experimental" in the app. Proposed for 1.1.1: remove the
+mark from human faeces and skin; keep it for soil (until the Bracken stop is handled), must, berry and
+leaf; root only with the note that the inside of the root was not tested.
 
 ## Riassunto in italiano
 
