@@ -32,7 +32,7 @@ from lingua import N_, _  # noqa: E402
 
 OSPITI = {"sus_scrofa": N_("maiale (Sscrofa11.1)"), "bos_taurus": N_("bovino (ARS-UCD1.2)"),
           "ovis_aries": N_("pecora (ARS-UI_Ramb_v2.0)"), "grch38": N_("uomo (GRCh38)"),
-          "homo_sapiens": N_("uomo (GRCh38)")}
+          "homo_sapiens": N_("uomo (GRCh38)"), "vitis_vinifera": N_("vite (T2T-PN40024)")}
 MICROBI = ("batteri", "archei", "funghi")   # categorie: chiavi, si traducono solo quando si mostrano
 CATEGORIE = [N_("batteri"), N_("archei"), N_("funghi"), N_("virus"), N_("altri eucarioti"), N_("altro"),
              N_("buono"), N_("da controllare"), N_("da rifare"), N_("migliorata"), N_("fssp")]
@@ -538,12 +538,16 @@ def righe_parametri(d):
         out.append((_("Lunghezza delle read per Bracken (-r)"), p["bracken_readlen"], _("lunghezza tipica delle read"),
                     _("impostazione della pipeline")))
     ospiti = [o for o in p.get("hosts", "").replace(",", " ").split() if o]
-    if p.get("filter_human") in ("yes", "true", "True", "1"):
+    if p.get("filter_human") in ("yes", "true", "True", "1") and "grch38" not in ospiti:
         ospiti.append("grch38")
     if ospiti:
         out.append((_("DNA tolto prima dell'analisi (ospite)"), ", ".join(_(OSPITI.get(o, o)) for o in ospiti),
                     _("genomi di riferimento usati per togliere il DNA dell'ospite e dell'uomo"),
                     _("D021 (stesse versioni dei profili pubblicati)")))
+    for chiave in sorted(k for k in p if k.startswith("host_index_")):   # ospiti costruiti dal motore (v1.1, R8)
+        out.append((_("Genoma dell'ospite {nome}", nome=chiave[len("host_index_"):]), p[chiave],
+                    _("da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice"),
+                    "steps/11_host_index.sh"))
     return out
 
 

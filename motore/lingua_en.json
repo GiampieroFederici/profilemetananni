@@ -495,5 +495,8 @@
  "Nella pagina Campioni e prodotto aggiungi di nuovo l'ospite o scegline un altro.": "On the Samples and product page add the host again or choose another one.",
  "Shi et al. 2023, Hortic Res 10(5):uhad061: vite T2T PN40024 (GCF_030704535.1). DOI 10.1093/hr/uhad061": "Shi et al. 2023, Hortic Res 10(5):uhad061: grapevine T2T PN40024 (GCF_030704535.1). DOI 10.1093/hr/uhad061",
  "Genoma dell'ospite {nome}, aggiunto da chi ha fatto l'analisi: {fonte}": "Genome of the host {nome}, added by whoever ran the analysis: {fonte}",
- "costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si riusa)": "I build the index of the DNA of the host {nome} (done only once, then reused)"
+ "costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si riusa)": "I build the index of the DNA of the host {nome} (done only once, then reused)",
+ "vite (T2T-PN40024)": "grapevine (T2T-PN40024)",
+ "Genoma dell'ospite {nome}": "Host genome {nome}",
+ "da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice": "where the index comes from: NCBI accession or file with its MD5, and the index date"
 }
