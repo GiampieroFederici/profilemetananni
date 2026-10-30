@@ -230,13 +230,13 @@ def test_installatore_passa_la_lingua_al_motore():
     leggono dal risultato della stima (un numero), non dal testo italiano."""
     testo = PS1.read_text(encoding="utf-8-sig")
     assert "if ($Lingua -ne 'it') { $motore += \" --lingua $Lingua\" }" in testo
-    assert "Da scaricare: circa" not in testo and "da_scaricare_gb" in testo
+    assert "Da scaricare:" not in testo and "da_scaricare_byte" in testo
 
 
 def test_disco_scritto_una_volta_sola():
     """B2 (L6a sulla VM del 19/10): "sul disco C:: circa 40 GB": la lettera del disco ha già i suoi due punti."""
     for lingua in ("it", "en"):
-        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; (T 'domanda_scarico') -f 26, 'C:', 40, 146, 'x'")
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico 26GB ([pscustomobject]@{{ Disco = 'C:'; Serve = 40GB; Liberi = 146GB }}) 'x'")
         assert "C::" not in t and "C: " in t, t
 
 
@@ -246,5 +246,8 @@ def test_b4e_domanda_senza_zero_gb():
     for lingua, si in (("it", "Procedo con l'installazione?"), ("en", "Shall I go ahead with the installation?")):
         t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico 0 ({s}) $null")
         assert " 0 GB" not in t and si in t and "11 GB" in t, t
-        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico ([Math]::Ceiling(0.3)) ({s}) 'x'")
-        assert ("circa 1 GB" if lingua == "it" else "about 1 GB") in t, t
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; DomandaScarico 0.3GB ([pscustomobject]@{{ Disco = 'C:'; Serve = 0.4GB; Liberi = 0.5GB }}) 'x'")
+        assert ("meno di 1 GB" if lingua == "it" else "less than 1 GB") in t and " 0 GB" not in t, t
+        t = powershell(f". '{PS1}'; $Lingua = '{lingua}'; MessaggioSpazio ([pscustomobject]@{{ Disco = 'C:'; Serve = 40GB; Liberi = 0.2GB }})")
+        assert ("meno di 1 GB" if lingua == "it" else "less than 1 GB") in t and " 0 GB" not in t and " 0." not in t, t
+        assert powershell(f". '{PS1}'; $Lingua = '{lingua}'; Durata 10").strip() == ("1 minuto" if lingua == "it" else "1 minute")

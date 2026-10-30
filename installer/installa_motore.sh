@@ -70,8 +70,12 @@ declare -A EN=(
   ["Su Ubuntu: sudo apt install %s"]="On Ubuntu: sudo apt install %s"
   ["Non trovo il catalogo dei database (%s)."]="I cannot find the database catalogue (%s)."
   ["Riscarica profilemetananni."]="Download profilemetananni again."
-  ["Da scaricare: circa %s GB. Spazio necessario: %s GB. Spazio libero: %s GB."]="To download: about %s GB. Space needed: %s GB. Free space: %s GB."
-  ["Lo spazio libero non basta: servono %s GB, ce ne sono %s."]="The free space is not enough: %s GB are needed, there are %s."
+  ["Da scaricare: %s. Spazio necessario: %s. Spazio libero: %s."]="To download: %s. Space needed: %s. Free space: %s."
+  ["Niente da scaricare: i database sono già tutti installati. Spazio libero: %s."]="Nothing to download: all the databases are already installed. Free space: %s."
+  ["Lo spazio libero non basta: servono %s, ce ne sono %s."]="The free space is not enough: %s are needed, there are %s."
+  ["circa %s GB"]="about %s GB"
+  ["meno di 1 GB"]="less than 1 GB"
+  ["meno di 1 MB"]="less than 1 MB"
   ["Libera spazio sul disco e rilancia."]="Free some space on the disk and run it again."
   ["1 minuto"]="1 minute"
   ["%s minuti"]="%s minutes"
@@ -91,17 +95,20 @@ declare -A EN=(
   ["L'ambiente %s non corrisponde alle versioni previste."]="The environment %s does not match the expected versions."
   ["Programmi installati (%s ambienti, MetaPhlAn %s)."]="Programs installed (%s environments, MetaPhlAn %s)."
   ["La connessione si è interrotta: riprovo fra %s secondi (tentativo %s di 30)."]="The connection was interrupted: I try again in %s seconds (attempt %s of 30)."
-  ["Scarico %s: %s (%s GB)..."]="Downloading %s: %s (%s GB)..."
+  ["Scarico %s: %s (%s)..."]="Downloading %s: %s (%s)..."
   ["Non riesco a scaricare %s."]="I cannot download %s."
   ["Il file %s scaricato è rovinato (MD5 diverso)."]="The downloaded file %s is damaged (different MD5)."
   ["Ho già riscaricato una volta. Riapri l'installazione più tardi; se si ripete, manda a noi il file %s."]="I have already downloaded it again once. Open the installation again later; if it happens again, send us the file %s."
-  ["Scarico %s (%s GB, archivio da estrarre)..."]="Downloading %s (%s GB, archive to extract)..."
+  ["Scarico %s (%s, archivio da estrarre)..."]="Downloading %s (%s, archive to extract)..."
   ["L'archivio %s scaricato è rovinato (MD5 diverso)."]="The downloaded archive %s is damaged (different MD5)."
   ["Estraggo e controllo %s..."]="Extracting and checking %s..."
   ["Non riesco a estrarre %s."]="I cannot extract %s."
   ["Controlla lo spazio libero e rilancia."]="Check the free space and run it again."
   ["I file di %s non hanno l'MD5 atteso."]="The files of %s do not have the expected MD5."
   ["Scarico i database: %s di %s GB (%s)."]="Downloading the databases: %s of %s GB (%s)."
+  ["Scarico i database: %s di %s MB (%s)."]="Downloading the databases: %s of %s MB (%s)."
+  ["Scarico i database (%s)."]="Downloading the databases (%s)."
+  ["in attesa"]="waiting"
   ["Spazio stretto: estraggo gli archivi mentre arrivano e cancello ogni pezzo appena letto. Se l'installazione si interrompe, l'archivio in corso riparte da capo."]="Little space: I extract the archives while they arrive and delete every piece as soon as it is read. If the installation stops, the archive in progress starts again from the beginning."
   ["Database scaricati e controllati."]="Databases downloaded and checked."
   ["Prova finale su un piccolo campione (alcuni minuti)..."]="Final test on a small sample (a few minutes)..."
@@ -267,6 +274,13 @@ read -r DA_SCARICARE FINALI MARGINE ARCHIVIO < <(
 SERVONO=$((FINALI + MARGINE))
 GIB=1073741824   # 22/10: GB mostrati come Esplora file e installa_pmn.ps1 (1.024^3 byte)
 GB() { awk -v b="$1" -v g="$GIB" 'BEGIN {printf "%.0f", b/g}'; }
+# B4-e: mai "0 GB" o "0,00 GB" nei testi per la persona (un file piccolo in MB, sotto 1 GB "meno di 1 GB")
+gb_parole() { if [ "$1" -lt "$GIB" ]; then T 'meno di 1 GB'; else T 'circa %s GB' "$(GB "$1")"; fi; }   # byte
+peso() {  # byte -> "5,9 GB", "16 MB", "meno di 1 MB"
+  if [ "$1" -ge "$GIB" ]; then printf '%s GB' "$(num "$1" "$GIB" 1)"
+  elif [ "$1" -ge 1048576 ]; then printf '%s MB' "$(num "$1" 1048576 0)"
+  else T 'meno di 1 MB'; fi
+}
 LIBERI=$(( $(df -Pk "$PMN_HOME" | awk 'NR==2 {print $4}') * 1024 ))
 if [ -n "$SPAZIO_VERO" ] && [ "$SPAZIO_VERO" -lt "$LIBERI" ]; then LIBERI=$SPAZIO_VERO; fi
 export MAMBA_ROOT_PREFIX=$PMN_HOME/mamba
@@ -282,9 +296,13 @@ if [ "$SOLO_DB" = 0 ]; then
   done
 fi
 RISPARMIO=0; [ "$LIBERI" -gt $(( SERVONO - MARGINE + ARCHIVIO )) ] || RISPARMIO=1
-evento avanzamento 1 "$(T 'Da scaricare: circa %s GB. Spazio necessario: %s GB. Spazio libero: %s GB.' "$(GB "$DA_SCARICARE")" "$(GB "$SERVONO")" "$(GB "$LIBERI")")"
+if [ "$DA_SCARICARE" -gt 0 ]; then
+  evento avanzamento 1 "$(T 'Da scaricare: %s. Spazio necessario: %s. Spazio libero: %s.' "$(gb_parole "$DA_SCARICARE")" "$(gb_parole "$SERVONO")" "$(gb_parole "$LIBERI")")"
+else
+  evento avanzamento 1 "$(T 'Niente da scaricare: i database sono già tutti installati. Spazio libero: %s.' "$(gb_parole "$LIBERI")")"
+fi
 [ "$LIBERI" -gt "$SERVONO" ] \
-  || fallisci SPAZIO_INSUFFICIENTE "$(T 'Lo spazio libero non basta: servono %s GB, ce ne sono %s.' "$(GB "$SERVONO")" "$(GB "$LIBERI")")" "$(T 'Libera spazio sul disco e rilancia.')"
+  || fallisci SPAZIO_INSUFFICIENTE "$(T 'Lo spazio libero non basta: servono %s, ce ne sono %s.' "$(gb_parole "$SERVONO")" "$(gb_parole "$LIBERI")")" "$(T 'Libera spazio sul disco e rilancia.')"
 
 # --- velocita' della rete per sorgente (v1.1, R4): come si scarichera' davvero, le sorgenti insieme (D034) ---
 durata() {  # secondi -> "12 minuti", "8,1 ore"
@@ -535,7 +553,7 @@ uno() {  # gruppo tipo sorgente percorso byte md5 destinazione url_alternativo: 
   if [ "$t" = file ]; then
     f=$PMN_HOME/db/$d; nome=$(basename "$d"); mkdir -p "$(dirname "$f")"
     for prova in 1 2; do
-      annuncia "$(T 'Scarico %s: %s (%s GB)...' "$g" "$nome" "$(num "$b" "$GIB" 2)")"
+      annuncia "$(T 'Scarico %s: %s (%s)...' "$g" "$nome" "$(peso "$b")")"
       if [ "$c" = 1 ]; then
         scarica "$url" "$f.parziale" "$b" || fallisci DOWNLOAD_FALLITO "$(T 'Non riesco a scaricare %s.' "$nome")" "$(T 'Controlla la connessione e rilancia.')"
         [ "$(md5sum < "$f.parziale" | cut -d' ' -f1)" = "$m" ] && break
@@ -555,7 +573,7 @@ uno() {  # gruppo tipo sorgente percorso byte md5 destinazione url_alternativo: 
   else
     base=$PMN_HOME/tmp/$(basename "$p"); dir=$PMN_HOME/db/$d; nome=$(basename "$p")
     for prova in 1 2; do
-      annuncia "$(T 'Scarico %s (%s GB, archivio da estrarre)...' "$g" "$(num "$b" "$GIB" 1)")"
+      annuncia "$(T 'Scarico %s (%s, archivio da estrarre)...' "$g" "$(peso "$b")")"
       prepara_pezzi "$base" "$b" "$c" "$url" || fallisci DOWNLOAD_FALLITO "$(T 'Non riesco a scaricare %s.' "$nome")" "$(T 'Controlla la connessione e rilancia.')"
       rm -rf "$dir"; mkdir -p "$dir"
       r=0; flusso "$base" "$b" "$c" "$url" "$alt" tar -xz -C "$dir" || r=$?
@@ -607,7 +625,8 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
     vtot=$(( vtot + v ))
     sorg="$sorg${sorg:+,}{\"sorgente\":\"$s\",\"byte_fatti\":${F[$s]},\"byte_totali\":${B[$s]},\"velocita_mb_s\":$(awk -v v="$v" 'BEGIN {printf "%.2f", v/1e6}')}"
     if [ "$r" -gt 0 ]; then
-      parti="$parti${parti:+, }$(etichetta "$s") $(mb_s "$v") MB/s"
+      if [ "$v" -gt 0 ]; then parti="$parti${parti:+, }$(etichetta "$s") $(mb_s "$v") MB/s"   # B4-e: mai "0,0 MB/s"
+      else parti="$parti${parti:+, }$(etichetta "$s") $(T 'in attesa')"; fi
       [ "$v" -gt 0 ] || v=${V0[$s]:-0}   # non ancora partita o ferma: la velocita' misurata all'inizio
       sim="$sim$s $r $v ${SOLA[$s]:-0}"$'\n'
     fi
@@ -620,7 +639,15 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
   echo "$P $eta $nf" > "$ST/stato.t" && mv -f "$ST/stato.t" "$ST/stato"
   FATTO=$nf; ETA=$eta
   AV_EXTRA=",\"byte_fatti\":$fatti,\"byte_totali\":$TOT,\"velocita_mb_s\":$(awk -v v="$vtot" 'BEGIN {printf "%.2f", v/1e6}'),\"sorgente\":$lenta,\"sorgenti\":[$sorg]"
-  if [ -n "$parti" ]; then evento avanzamento "$P" "$(T 'Scarico i database: %s di %s GB (%s).' "$(num "$fatti" "$GIB" 1)" "$(num "$TOT" "$GIB" 1)" "$parti")"; fi
+  if [ -n "$parti" ]; then   # B4-e: un totale piccolo era "0,0 di 0,0 GB": in MB, sotto 1 MB senza numeri
+    if [ "$TOT" -ge "$GIB" ]; then
+      evento avanzamento "$P" "$(T 'Scarico i database: %s di %s GB (%s).' "$(num "$fatti" "$GIB" 1)" "$(num "$TOT" "$GIB" 1)" "$parti")"
+    elif [ "$TOT" -ge 1048576 ]; then
+      evento avanzamento "$P" "$(T 'Scarico i database: %s di %s MB (%s).' "$(num "$fatti" 1048576 0)" "$(num "$TOT" 1048576 0)" "$parti")"
+    else
+      evento avanzamento "$P" "$(T 'Scarico i database (%s).' "$parti")"
+    fi
+  fi
   AV_EXTRA=""
 }
 if [ "$RISPARMIO" = 1 ] && [ "$ARCHIVIO" -gt 0 ]; then

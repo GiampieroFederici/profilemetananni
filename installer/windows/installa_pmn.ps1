@@ -34,8 +34,8 @@ $TESTI = [ordered]@{
                         "The computer needs a restart. After the restart the installation resumes by itself (at most 2 minutes after you sign in).`n`nIf after 5 minutes you do not see the profilemetananni window, double-click `"Installa profilemetananni`" again: it resumes from where it was.`n`nRestart now?")
     riavvio_dopo = @("Va bene. Quando riavvii il computer, l'installazione riprende da sola. Se non riprende, fai di nuovo doppio clic su `"Installa profilemetananni`".",
                      "All right. When you restart the computer, the installation resumes by itself. If it does not, double-click `"Installa profilemetananni`" again.")
-    spazio = @("Lo spazio sul disco non basta: servono circa {0} GB sul disco {1}, ce ne sono {2}.`n`nLibera almeno {3} GB e riapri l'installazione.",
-               "There is not enough space on the disk: about {0} GB are needed on disk {1}, there are {2}.`n`nFree at least {3} GB and open the installation again.")
+    spazio = @("Lo spazio sul disco non basta: servono {0} sul disco {1}, ce ne sono {2}.`n`nLibera almeno {3} GB e riapri l'installazione.",
+               "There is not enough space on the disk: {0} are needed on disk {1}, there are {2}.`n`nFree at least {3} GB and open the installation again.")
     app_copia = @("Non riesco a copiare il programma ProfileMetaNanni.`nSe è aperto, chiudilo e riapri l'installazione.",
                   "I cannot copy the ProfileMetaNanni program.`nIf it is open, close it and open the installation again.")
     wsl_serve = @("Per funzionare, profilemetananni ha bisogno di un componente di Windows (WSL).`n`nTra poco Windows ti chiederà il permesso: rispondi Sì.",
@@ -57,8 +57,10 @@ $TESTI = [ordered]@{
     rete_barra = @("Misuro la velocità della rete...", "Measuring the speed of the network...")
     cosa_fare = @("{0}`n`nCosa fare: {1}", "{0}`n`nWhat to do: {1}")
     preparazione_ferma = @("La preparazione si è fermata (codice {0}).", "The preparation stopped (code {0}).")
-    domanda_scarico = @("profilemetananni scaricherà circa {0} GB di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1} circa {2} GB (liberi: {3} GB).`n{4}`n`nProcedo con l'installazione?",
-                        "profilemetananni will download about {0} GB of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1} about {2} GB (free: {3} GB).`n{4}`n`nShall I go ahead with the installation?")
+    domanda_scarico = @("profilemetananni scaricherà {0} di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1} {2} (liberi: {3}).`n{4}`n`nProcedo con l'installazione?",
+                        "profilemetananni will download {0} of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1} {2} (free: {3}).`n{4}`n`nShall I go ahead with the installation?")
+    circa_gb = @("circa {0} GB", "about {0} GB")
+    meno_di_1_gb = @("meno di 1 GB", "less than 1 GB")
     domanda_niente = @("I database di profilemetananni sono già tutti su questo PC: non li scarico di nuovo. Se manca qualche programma, lo scarico (al massimo circa 11 GB).`n`nProcedo con l'installazione?",
                        "All the profilemetananni databases are already on this PC: I will not download them again. If a program is missing, I download it (about 11 GB at most).`n`nShall I go ahead with the installation?")
     niente_scaricato = @("Va bene: non ho scaricato nulla. Riapri l'installazione quando vuoi.",
@@ -71,6 +73,7 @@ $TESTI = [ordered]@{
     pronto = @("Tutto pronto: profilemetananni è installato e funziona.", "All ready: profilemetananni is installed and works.")
     memoria = @("Questo PC ha {0} GB di memoria: ProfileMetaNanni ne chiede almeno 16 (l'analisi con MetaPhlAn usa fino a 8 GB dentro Linux).`n`nNon ho installato né scaricato nulla. Installa ProfileMetaNanni su un PC con 16 GB di memoria o più.",
                 "This PC has {0} GB of memory: ProfileMetaNanni needs at least 16 (the analysis with MetaPhlAn uses up to 8 GB inside Linux).`n`nI have not installed or downloaded anything. Install ProfileMetaNanni on a PC with 16 GB of memory or more.")
+    durata_minuto = @("1 minuto", "1 minute")
     durata_minuti = @("{0} minuti", "{0} minutes")
     durata_ore = @("{0} ore", "{0} hours")
     coperchio_domanda = @("Lo scarico durerà circa {0}. Se chiudi il coperchio del portatile, Windows lo mette in sospensione e lo scarico si ferma.`n`nVuoi che imposti la chiusura del coperchio su `"Non fare nulla`" finché l'installazione finisce? Alla fine rimetto l'impostazione di adesso.`n`nSe rispondi No, tieni il coperchio aperto.",
@@ -82,8 +85,8 @@ $TESTI = [ordered]@{
                            "Do you want to stop the installation?`n`nWhat is already downloaded stays on the computer: when you open the installation again, it resumes from here.")
     fermando = @("Fermo l'installazione...", "Stopping the installation...")
     fermata = @("Fermato: riapri l'installazione quando vuoi, riprende da qui.", "Stopped: open the installation again when you like, it resumes from here.")
-    spazio_finito = @("Sul disco {0} restano solo {1} GB liberi: ho fermato l'installazione per non riempirlo.`n`nLibera almeno {2} GB (per esempio svuota il Cestino o disinstalla un programma che non usi) e riapri l'installazione: riprende da qui.",
-                      "Only {1} GB are left free on disk {0}: I stopped the installation so as not to fill it.`n`nFree at least {2} GB (for example empty the Recycle Bin or uninstall a program you do not use) and open the installation again: it resumes from here.")
+    spazio_finito = @("Sul disco {0} restano solo {1} liberi: ho fermato l'installazione per non riempirlo.`n`nLibera almeno {2} GB (per esempio svuota il Cestino o disinstalla un programma che non usi) e riapri l'installazione: riprende da qui.",
+                      "Only {1} are left free on disk {0}: I stopped the installation so as not to fill it.`n`nFree at least {2} GB (for example empty the Recycle Bin or uninstall a program you do not use) and open the installation again: it resumes from here.")
 }
 function T($chiave) { $TESTI[$chiave][[int]($Lingua -ne 'it')] }
 function ImpostaLinguaApp($codice, $chiave = 'HKCU:\Software\ProfileMetaNanni\app') {   # come QSettings("ProfileMetaNanni", "app") dell'app
@@ -240,6 +243,7 @@ function ArgomentiMotore($Conf, $Lingua) {   # la riga per wsl.exe che lancia il
 function Durata($secondi) {   # "40 minuti", "8,1 ore"; $null se il tempo non si sa
     if ($null -eq $secondi) { return $null }
     $min = [Math]::Floor([double]$secondi / 60) + 1
+    if ($min -eq 1) { return T 'durata_minuto' }   # non "1 minuti"
     if ($min -lt 60) { return (T 'durata_minuti') -f $min }
     $ore = ([Math]::Round($min / 60, 1)).ToString([Globalization.CultureInfo]::InvariantCulture)
     if ($Lingua -eq 'it') { $ore = $ore -replace '\.', ',' }
@@ -307,7 +311,7 @@ function DoveInstallare {   # disco e cartella della WSL "pmn" (quella che c'e' 
 }
 function MessaggioSpazio($s) {   # $null se lo spazio basta; GB come li mostra Esplora file (1.024^3 byte)
     if ($s.Liberi -ge $s.Serve) { return $null }
-    (T 'spazio') -f [Math]::Ceiling($s.Serve / 1GB), $s.Disco, [Math]::Floor($s.Liberi / 1GB), [Math]::Ceiling(($s.Serve - $s.Liberi) / 1GB)
+    (T 'spazio') -f (GbParole $s.Serve -Circa), $s.Disco, (GbParole $s.Liberi), [Math]::Ceiling(($s.Serve - $s.Liberi) / 1GB)
 }
 function Collegamenti {   # icona sul desktop e nel menu Start di questo utente (B1)
     'Desktop', 'Programs' | ForEach-Object { Join-Path ([Environment]::GetFolderPath($_)) 'ProfileMetaNanni.lnk' }
@@ -322,9 +326,14 @@ function InstallaApp($sorgente, $exe, $collegamenti) {   # copia l'app (PyInstal
         $l = $sh.CreateShortcut($c); $l.TargetPath = $exe; $l.WorkingDirectory = $dest; $l.Description = 'ProfileMetaNanni'; $l.Save()
     }
 }
-function DomandaScarico($gb, $s, $tempo) {   # B4-e: con i database gia' tutti sul PC era "circa 0 GB di database... circa 0 GB"
-    if ($gb -le 0) { return T 'domanda_niente' }
-    (T 'domanda_scarico') -f $gb, $s.Disco, [Math]::Ceiling($s.Serve / 1GB), [Math]::Floor($s.Liberi / 1GB), $tempo
+function GbParole($byte, [switch]$Circa) {   # B4-e: mai "0 GB": "meno di 1 GB", "circa 40 GB" (in su), "146 GB" (in giu')
+    if ([double]$byte -lt 1GB) { return T 'meno_di_1_gb' }
+    if ($Circa) { return (T 'circa_gb') -f [Math]::Ceiling([double]$byte / 1GB) }
+    "{0} GB" -f [Math]::Floor([double]$byte / 1GB)
+}
+function DomandaScarico($byte, $s, $tempo) {   # B4-e: con i database gia' tutti sul PC era "circa 0 GB di database... circa 0 GB"
+    if ([double]$byte -le 0) { return T 'domanda_niente' }
+    (T 'domanda_scarico') -f (GbParole $byte -Circa), $s.Disco, (GbParole $s.Serve -Circa), (GbParole $s.Liberi), $tempo
 }
 if ($MyInvocation.InvocationName -eq '.') { return }   # caricato con ". installa_pmn.ps1" (prove): solo le funzioni
 
@@ -386,7 +395,7 @@ $errore = $script:Eventi | Where-Object tipo -eq 'errore' | Select-Object -Last 
 $logStima = ($script:Eventi | Where-Object tipo -eq 'inizio' | Select-Object -First 1).log
 if ($c -ne 0) { Ferma $(if ($errore) { TestoErrore $errore $logStima } else { (T 'preparazione_ferma') -f $c }) }
 $stima = ($script:Eventi | Where-Object tipo -eq 'fine' | Select-Object -Last 1).risultato
-$gb = [Math]::Ceiling($stima.da_scaricare_gb)   # P12: il numero, non il testo; B4-e: 0,3 GB = "circa 1 GB", non 0
+$daScaricare = [double]$stima.da_scaricare_byte   # P12: il numero (byte), non il testo; B4-e: GbParole, mai "0 GB"
 $tempo = ($script:Eventi | Where-Object { $_.passo -eq 'controllo' -and $_.percentuale -eq 2 }).messaggio   # velocita' e tempo per sorgente
 $s.Serve = [double]$stima.spazio_necessario_byte
 $s.Liberi = LiberiSu $s.Disco   # dopo la WSL nuova
@@ -394,7 +403,7 @@ Scrivi "spazio: servono $($s.Serve) byte (dal motore), liberi $($s.Liberi) su $(
 $m = MessaggioSpazio $s
 if ($m) { Ferma $m }
 ChiudiBarra
-$testo = DomandaScarico $gb $s $tempo
+$testo = DomandaScarico $daScaricare $s $tempo
 if (-not (Domanda $testo)) { NonRiprendere; Avviso (T 'niente_scaricato'); exit 0 }
 
 if (Test-Path $AppPacchetto) {   # R7: l'app e le icone solo adesso, con lo spazio controllato e il Si' della persona
@@ -447,7 +456,7 @@ if ($c -ne 0) {
         ChiudiBarra; NonRiprendere; RipristinaCoperchio; Scrivi "fermata dalla persona (codice $c)"
         Avviso (T 'fermata'); exit 3
     }
-    if ($script:Fermando -eq 'spazio') { Ferma ((T 'spazio_finito') -f $s.Disco, [Math]::Floor($script:LiberiFine / 1GB), 10) }
+    if ($script:Fermando -eq 'spazio') { Ferma ((T 'spazio_finito') -f $s.Disco, (GbParole $script:LiberiFine), 10) }
     Ferma $(if ($script:Errore) { TestoErrore $script:Errore $script:LogMotore } else { (T 'installazione_ferma') -f $c })
 }
 ChiudiBarra; NonRiprendere; RipristinaCoperchio

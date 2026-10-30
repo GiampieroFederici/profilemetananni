@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -558,3 +559,22 @@ def test_kraken_estratto_rovinato_si_riscarica(cartella):
         sp.chiudi()
     assert rc == 0 and ev[-1]["risultato"]["da_scaricare_byte"] == riga[4]
     assert not (cartella / "home" / "stato" / "kraken__a.ok").exists()
+
+
+def test_testi_mai_zero_gb(cartella):
+    """VM B4-e: "Da scaricare: circa 0 GB", "Scarico ...: x.bin (0,00 GB)". Un file piccolo in MB, sotto 1 GB "meno di
+    1 GB", e con tutto gia' scaricato "Niente da scaricare"."""
+    dati = os.urandom(20 * 1024)
+    servi(cartella, "pmn", "p/x.bin", dati)
+    catalogo(cartella, [("pacchetti", "file", "pmn", "p/x.bin", len(dati), len(dati), md5(dati), "p/x.bin")])
+    sp = Specchio(cartella / "servito")
+    try:
+        prima, rc1 = lancia(cartella, sp.url)
+        dopo, rc2 = lancia(cartella, sp.url, stima=True)
+    finally:
+        sp.chiudi()
+    assert rc1 == 0 and rc2 == 0
+    testi = [e["messaggio"] for e in prima + dopo]
+    assert not [t for t in testi if re.search(r"\b0([,.]0+)? (GB|MB)\b", t)], testi
+    assert any("meno di 1 MB" in t for t in testi) and any("Da scaricare: meno di 1 GB" in t for t in testi)
+    assert any(t.startswith("Niente da scaricare: i database sono già tutti installati") for t in testi)
