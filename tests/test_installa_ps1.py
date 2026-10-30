@@ -88,8 +88,11 @@ def test_riga_riassuntiva_per_il_log():
     e = {"tipo": "avanzamento", "byte_fatti": 12 * 2**30, "byte_totali": 133 * 2**30, "velocita_mb_s": 8.4, "eta_s": 15000,
          "sorgente": "kraken", "sorgenti": [{"sorgente": "kraken", "byte_fatti": 2**30, "byte_totali": 85 * 2**30,
                                               "velocita_mb_s": 1.4}]}
-    r = powershell(f". '{PS1}'; Riassunto ('{json.dumps(e)}' | ConvertFrom-Json)")
+    r = powershell(f". '{PS1}'; $Lingua = 'en'; Riassunto ('{json.dumps(e)}' | ConvertFrom-Json)")
     assert r == "RIASSUNTO: 12 di 133 GB, 8.4 MB/s, mancano 4 h 10 min (kraken 1/85 GB 1.4 MB/s)"
+    e["byte_fatti"] = int(0.2 * 2**30) + 1                     # A6 (VM 30/10): "0.2 di 129.2" in Italian is "0,2 di 129,2"
+    r = powershell(f". '{PS1}'; $Lingua = 'it'; Riassunto ('{json.dumps(e)}' | ConvertFrom-Json)")
+    assert r == "RIASSUNTO: 0,2 di 133 GB, 8,4 MB/s, mancano 4 h 10 min (kraken 1/85 GB 1,4 MB/s)"
     assert powershell(f". '{PS1}'; $null -eq (Riassunto ('{{\"tipo\": \"avanzamento\"}}' | ConvertFrom-Json))") == "True"
 
 

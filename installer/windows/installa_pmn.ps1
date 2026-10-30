@@ -253,10 +253,12 @@ function LiberiSu($disco) { [double](Get-Volume -DriveLetter $disco[0]).SizeRema
 function SpazioBasso($liberi, $soglia = 5GB) { [double]$liberi -lt $soglia }
 function Riassunto($e) {   # R4 (§2.5): una riga per il log ogni 5 minuti dall'ultimo avanzamento del motore
     if ($null -eq $e -or $null -eq $e.byte_totali) { return $null }
-    $gb = { param($b) ([Math]::Round([double]$b / 1GB, 1)).ToString([Globalization.CultureInfo]::InvariantCulture) }
+    # A6 (VM 30/10): numeri con la virgola in italiano, come la barra (la riga col punto sembrava un messaggio della barra)
+    $n = { param($x) $s = ([double]$x).ToString([Globalization.CultureInfo]::InvariantCulture); if ($Lingua -eq 'it') { $s -replace '\.', ',' } else { $s } }
+    $gb = { param($b) & $n ([Math]::Round([double]$b / 1GB, 1)) }
     $eta = if ($null -ne $e.eta_s) { "$([Math]::Floor($e.eta_s / 3600)) h $([Math]::Floor(($e.eta_s % 3600) / 60)) min" } else { '?' }
-    $parti = @($e.sorgenti | ForEach-Object { "$($_.sorgente) $(& $gb $_.byte_fatti)/$(& $gb $_.byte_totali) GB $($_.velocita_mb_s) MB/s" }) -join ', '
-    "RIASSUNTO: $(& $gb $e.byte_fatti) di $(& $gb $e.byte_totali) GB, $($e.velocita_mb_s) MB/s, mancano $eta ($parti)"
+    $parti = @($e.sorgenti | ForEach-Object { "$($_.sorgente) $(& $gb $_.byte_fatti)/$(& $gb $_.byte_totali) GB $(& $n $_.velocita_mb_s) MB/s" }) -join ', '
+    "RIASSUNTO: $(& $gb $e.byte_fatti) di $(& $gb $e.byte_totali) GB, $(& $n $e.velocita_mb_s) MB/s, mancano $eta ($parti)"
 }
 function DiscoMigliore {   # dischi interni (non USB, SD, rete), NTFS: quello con piu' spazio libero (D045)
     Get-Disk | Where-Object { $_.BusType -notin 'USB', 'SD', 'MMC', 'iSCSI', 'File Backed Virtual' } | Get-Partition |

@@ -198,6 +198,21 @@ dim_pezzo() {  # byte connessioni: almeno 8 pezzi per connessione (pochi pezzi i
   [ "$d" -ge 1048576 ] || d=1048576; [ "$d" -le "$PEZZO_MAX" ] || d=$PEZZO_MAX; echo "$d"
 }
 righe() { tail -n +2 "$CATALOGO" | while IFS=$'\t' read -r g t s p b bf m d alt; do printf '%s\t' "$g" "$t" "$s" "$p" "$b" "$bf" "$m" "$d"; printf '%s\n' "${alt:-}"; done; }
+dim() { stat -c %s -- "$1" 2> /dev/null || echo 0; }
+scrivi() { echo "$2" > "$1.t" && mv -f "$1.t" "$1"; }   # file numero: scritto tutto insieme (chi legge non lo vede a meta')
+leggi() { cat "$1" 2> /dev/null || echo 0; }
+base_di() { if [ "$1" = tar ]; then printf '%s/tmp/%s' "$PMN_HOME" "$(basename "$2")"; else printf '%s/db/%s' "$PMN_HOME" "$3"; fi; }   # tipo percorso destinazione
+sul_disco() {  # tipo percorso byte md5 destinazione: byte gia' scaricati e ancora sul disco (pezzi e .parziale), al massimo byte
+  local base
+  if fatto "$5" "$4"; then echo "$3"; return; fi
+  base=$(base_di "$1" "$2" "$5")
+  { stat -c %s -- "$base.parziale" "$base".pezzo.* 2> /dev/null || true; } | awk -v b="$3" '{s += $1} END {printf "%.0f\n", (s > b ? b : s)}'
+}
+# A6 (VM 30/10): il primo giro fermato con "wsl --terminate" non passa da alla_fine e lascia scarico_<pid>: si toglie
+# alla corsa dopo, se quel processo non c'e' piu' (una corsa ancora viva, per esempio una --stima, non si tocca)
+for d in "$PMN_HOME"/tmp/scarico_*; do
+  if [ -d "$d" ] && [ ! -e "/proc/${d##*_}" ]; then rm -rf "$d"; fi
+done
 
 # --- spazio (v1.1, R3: l'unica regola, la legge anche installa_pmn.ps1 dal risultato di --stima) ---
 # servono: i byte finali di cio' che manca + pochi pezzi in volo dell'archivio piu' grande (estratto mentre arriva,
@@ -205,9 +220,9 @@ righe() { tail -n +2 "$CATALOGO" | while IFS=$'\t' read -r g t s p b bf m d alt;
 # i pezzi si tengono fino all'MD5 giusto (ripresa completa); se no si cancellano appena letti (RISPARMIO=1).
 read -r DA_SCARICARE FINALI MARGINE ARCHIVIO < <(
   righe | while IFS=$'\t' read -r g t s p b bf m d alt; do
-    if fatto "$d" "$m"; then continue; fi
-    c=$(connessioni "$s" "$alt"); echo "$t $b $bf $(dim_pezzo "$b" "$c") $c"
-  done | awk '{s += $2; f += $3; if ($1 == "tar") {w = 2 * $5 * $4; if (w > $2) w = $2; if (w > m) m = w; if ($2 > a) a = $2}}
+    if fatto "$d" "$m"; then continue; fi   # A6: da scaricare = cio' che manca, senza i pezzi gia' sul disco
+    c=$(connessioni "$s" "$alt"); echo "$t $b $bf $(dim_pezzo "$b" "$c") $c $(sul_disco "$t" "$p" "$b" "$m" "$d")"
+  done | awk '{s += $2 - $6; f += $3; if ($1 == "tar") {w = 2 * $5 * $4; if (w > $2) w = $2; if (w > m) m = w; if ($2 > a) a = $2}}
               END {printf "%.0f %.0f %.0f %.0f\n", s, f, m, a}')
 SERVONO=$((FINALI + MARGINE))
 GIB=1073741824   # 22/10: GB mostrati come Esplora file e installa_pmn.ps1 (1.024^3 byte)
@@ -260,7 +275,7 @@ misura() {  # sorgente: byte/s con le connessioni vere (kraken: CONN pezzi dello
 declare -A RESTA=() V0=()   # per sorgente: byte da scaricare, velocita' misurata all'inizio (byte/s)
 while IFS=$'\t' read -r g t s p b bf m d alt; do
   if fatto "$d" "$m"; then continue; fi
-  RESTA[$s]=$(( ${RESTA[$s]:-0} + b ))
+  RESTA[$s]=$(( ${RESTA[$s]:-0} + b - $(sul_disco "$t" "$p" "$b" "$m" "$d") ))
 done < <(righe)
 rm -rf "$ST"; mkdir -p "$ST"
 if [ "$DA_SCARICARE" -gt 0 ]; then
@@ -288,10 +303,10 @@ if [ "$STIMA" = 1 ]; then
   for s in $(printf '%s\n' "${!RESTA[@]}" | sort); do
     v=null; ts=null
     if [ "${V0[$s]:-0}" -gt 0 ]; then v=$(awk -v v="${V0[$s]}" 'BEGIN {printf "%.1f", v/1e6}'); ts=$(( RESTA[$s] / V0[$s] )); fi
-    sorgenti="$sorgenti${sorgenti:+,}{\"sorgente\":\"$s\",\"da_scaricare_gb\":$(GB1 "${RESTA[$s]}"),\"velocita_mb_s\":$v,\"tempo_stimato_s\":$ts}"
+    sorgenti="$sorgenti${sorgenti:+,}{\"sorgente\":\"$s\",\"da_scaricare_gb\":$(GB1 "${RESTA[$s]}"),\"da_scaricare_byte\":${RESTA[$s]},\"velocita_mb_s\":$v,\"tempo_stimato_s\":$ts}"
   done
-  RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s,"spazio_necessario_byte":%s,"spazio_libero_byte":%s,"sorgenti":[%s]}' \
-    "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo" "$SERVONO" "$LIBERI" "$sorgenti")
+  RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s,"spazio_necessario_byte":%s,"spazio_libero_byte":%s,"da_scaricare_byte":%s,"sorgenti":[%s]}' \
+    "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo" "$SERVONO" "$LIBERI" "$DA_SCARICARE" "$sorgenti")
   PASSO=fine; evento fine null "$(T 'Stima pronta: non ho scaricato nulla.')"; exit 0
 fi
 if [ "$SI" != 1 ]; then
@@ -333,9 +348,9 @@ fi
 PASSO=database; FATTO=0; TOTALE=$(righe | wc -l); ETA=null
 TOT=$(righe | awk -F'\t' '{s+=$5} END {printf "%.0f", s}')
 echo "22 null 0" > "$ST/stato"
-dim() { stat -c %s -- "$1" 2> /dev/null || echo 0; }
-scrivi() { echo "$2" > "$1.t" && mv -f "$1.t" "$1"; }   # file numero: scritto tutto insieme (chi legge non lo vede a meta')
-leggi() { cat "$1" 2> /dev/null || echo 0; }
+# A6: i pezzi gia' letti e cancellati da un giro interrotto si riscaricano (il lettore riparte dal primo): il loro conto
+# non vale piu'. flusso() lo rimette a 0 quando parte; tolto anche qui, cosi' il primo avanzamento non li conta.
+find "$PMN_HOME/tmp" "$PMN_HOME/db" -name '*.consumati' -type f -delete 2> /dev/null || true
 annuncia() {  # messaggio: avanzamento da una coda, con percentuale, tempo e file fatti dell'ultimo conto
   local p e f; read -r p e f < "$ST/stato" || { p=22; e=null; f=0; }
   FATTO=$f; ETA=$e; AV_EXTRA=""; evento avanzamento "$p" "$1"
