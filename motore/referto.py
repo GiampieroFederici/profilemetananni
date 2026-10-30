@@ -674,7 +674,12 @@ def html_referto(d):
     if any(c["metaphlan"] for c in d["campioni"]):
         h.append("<p>" + _(LIMITE_METAPHLAN) + "</p>")
     for c in d["campioni"]:
-        if not c["metaphlan"]:
+        if c["metaphlan"] is None:
+            continue
+        if not c["metaphlan"]:   # profilo senza specie, valido (solo UNCLASSIFIED: VM B3-3, read casuali)
+            h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")
+            h.append("<p>" + _("MetaPhlAn: nessuna specie trovata; il profilo di MetaPhlAn di questo campione è "
+                               "vuoto.") + "</p>")
             continue
         somma = sum(v for _, v in c["metaphlan"]) or 1.0
         h.append("<h3>" + _("Campione {nome}", nome=e(c['nome'])) + "</h3>")

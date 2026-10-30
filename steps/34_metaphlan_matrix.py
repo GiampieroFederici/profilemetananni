@@ -37,12 +37,18 @@ def main() -> int:
 
     mask = df[clade_col].str.contains("s__", na=False) & ~df[clade_col].str.contains("t__", na=False)
     keep = df[mask].copy()
-    if keep.empty:
-        sys.exit("no species-level rows (s__) found in the MetaPhlAn table")
     keep["species"] = keep[clade_col].str.split("s__").str[-1]
     mat = keep[["species"] + sample_cols].set_index("species")
     mat = mat.apply(pd.to_numeric, errors="coerce").fillna(0.0)
     mat = mat.groupby(level=0).sum().sort_index()
+    # A profile with no species (only UNCLASSIFIED: random reads, VM B3-3) is valid: the sample stays out of the
+    # matrix (a column of zeros would enter the beta diversity), and with no species at all the matrix is empty.
+    vuoti = [c for c in sample_cols if not (mat[c] > 0).any()]
+    if vuoti:
+        print(f"[WARN] no species in the MetaPhlAn profile of {', '.join(vuoti)}: left out of the matrix", file=sys.stderr)
+        mat = mat.drop(columns=vuoti)
+        if mat.shape[1] == 0:
+            mat = mat.iloc[0:0]
 
     # re-normalize each sample column to 100% over detected species
     colsum = mat.sum(axis=0).replace(0, 1.0)
