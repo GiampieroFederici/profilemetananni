@@ -353,7 +353,8 @@ class Motore:
     def _referto(self, r, progetto):
         """motore/referto.py sul progetto: {file: percorso relativo o None}, None se la pagina non c'è."""
         p = subprocess.run([sys.executable, str(MOTORE / "referto.py"), "--risultati", str(r), "--progetto", str(progetto)],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, "PYTHONIOENCODING": "utf-8"})   # su Windows il figlio scriverebbe in cp1252
         try:
             esito = json.loads(p.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
