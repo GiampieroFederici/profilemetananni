@@ -20,8 +20,8 @@ from app.lingua import _
 NOME_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,59}")   # come project_name di config.example.yaml
 CODICE_VALIDO = re.compile(r"[SED]RR[0-9]{1,13}")               # come validate_srr (bin/lib/validate.sh)
 # coppie di file delle read come le trova il motore (contratto §3, motore/pmn_motore.py campioni_locali)
-COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"),
-                 ("_R1_001.fastq.gz", "_R2_001.fastq.gz"), ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
+COPPIE_LOCALI = [("_R1_001", "_R2_001"), ("_R1", "_R2"), ("_1", "_2")]
+ESTENSIONI_READ = (".fastq.gz", ".fq.gz", ".gz")   # le due read di una coppia possono averne due diverse
 NOME_CAMPIONE = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")      # validate_name di bin/lib/validate.sh
 PERCORSO_NON_SICURO = re.compile(r"[$`;|&<>!*?]|^-|[\x00-\x1f]")   # rifiutati da validate_path_safe del motore
 INDICE_METAPHLAN = "mpa_vJan25_CHOCOPhlAnSGB_202503"             # versione fissata (config.example.yaml)
@@ -135,20 +135,23 @@ def campioni_locali(cartella):
     ([(nome, primo file, secondo file o None)], [file di una coppia senza la sua compagna, che il motore salta])."""
     cartella = Path(cartella)
     file = sorted(f.name for f in cartella.iterdir() if f.is_file())
-    out, usati = [], set()
-    for s1, s2 in COPPIE_LOCALI:
-        for f in file:
-            nome = f[:-len(s1)]
-            if f.endswith(s1) and nome + s2 in file and NOME_CAMPIONE.fullmatch(nome):
-                out.append((nome, cartella / f, cartella / (nome + s2)))
-                usati |= {f, nome + s2}
+    out, usati, nomi = [], set(), set()
+    radici = {f: f[:-len(e)] for f in file for e in [next((e for e in ESTENSIONI_READ if f.endswith(e)), "")] if e}
     suffissi = tuple(s for coppia in COPPIE_LOCALI for s in coppia)
-    for f in file:
-        if f.endswith((".fastq.gz", ".fq.gz")) and not f.endswith(suffissi):
-            nome = f.removesuffix(".fastq.gz") if f.endswith(".fastq.gz") else f.removesuffix(".fq.gz")
-            if NOME_CAMPIONE.fullmatch(nome):
-                out.append((nome, cartella / f, None))
-    saltati = [f for f in file if f.endswith(suffissi) and f not in usati]
+    for f, radice in radici.items():
+        for s1, s2 in COPPIE_LOCALI:
+            if radice.endswith(s1):
+                nome = radice[:-len(s1)]
+                compagna = next((nome + s2 + e for e in ESTENSIONI_READ if nome + s2 + e in radici), None)
+                if compagna and nome not in nomi and NOME_CAMPIONE.fullmatch(nome):
+                    out.append((nome, cartella / f, cartella / compagna))
+                    usati |= {f, compagna}
+                    nomi.add(nome)
+                break
+    for f, radice in radici.items():
+        if f.endswith((".fastq.gz", ".fq.gz")) and not radice.endswith(suffissi) and NOME_CAMPIONE.fullmatch(radice):
+            out.append((radice, cartella / f, None))
+    saltati = [f for f, radice in radici.items() if radice.endswith(suffissi) and f not in usati]
     return out, saltati
 
 

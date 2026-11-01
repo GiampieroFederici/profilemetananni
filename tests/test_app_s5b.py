@@ -172,11 +172,12 @@ def test_nomi_locali_come_il_motore(tmp_path):
     sys.path.insert(0, str(RADICE / "motore"))
     import pmn_motore
     for n in ("C1_R1.fastq.gz", "C1_R2.fastq.gz", "D_R1_001.fastq.gz", "D_R2_001.fastq.gz", "E_1.fq.gz", "E_2.fq.gz",
-              "F.fq.gz", "G_R1.fastq.gz", "H_2.fastq.gz", "-x.fastq.gz"):
+              "F.fq.gz", "G_R1.fastq.gz", "H_2.fastq.gz", "-x.fastq.gz", "I_R1.gz", "I_R2.gz", "J_R2.gz"):
         (tmp_path / n).write_bytes(b"")
     trovati, saltati = progetto.campioni_locali(tmp_path)
     assert [n for n, _, _ in trovati] == [n for n, _ in pmn_motore.campioni_locali(tmp_path)]
-    assert saltati == ["G_R1.fastq.gz", "H_2.fastq.gz"]
+    assert "I" in [n for n, _, _ in trovati]
+    assert saltati == ["G_R1.fastq.gz", "H_2.fastq.gz", "J_R2.gz"]
 
 
 def test_prodotti_dal_motore(qtbot, f, monkeypatch):

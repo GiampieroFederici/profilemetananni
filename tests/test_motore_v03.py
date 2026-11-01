@@ -128,15 +128,16 @@ def test_3_referto_dice_se_e_scelto_nel_progetto():
 def test_4_nomi_locali_come_run_sh(tmp_path):
     read_finte(tmp_path / "read", ["A_R1.fastq.gz", "A_R2.fastq.gz", "B_1.fq.gz", "B_2.fq.gz", "C03_1_R1.fastq.gz",
                                    "C03_1_R2.fastq.gz", "D_R1_001.fastq.gz", "D_R2_001.fastq.gz", "solo.fastq.gz",
-                                   "orfano_R1.fastq.gz"])
+                                   "orfano_R1.fastq.gz", "E_R1.gz", "E_R2.gz"])
     (tmp_path / "read" / "note.txt").write_text("x", encoding="utf-8")
     nomi = dict(pmn_motore.campioni_locali(tmp_path / "read"))
-    assert sorted(nomi) == ["A", "B", "C03_1", "D", "solo"]          # orfano: senza compagna si salta, come run.sh
+    assert sorted(nomi) == ["A", "B", "C03_1", "D", "E", "solo"]     # orfano: senza compagna si salta, come run.sh
     assert nomi["C03_1"] == ["C03_1_R1.fastq.gz", "C03_1_R2.fastq.gz"] and nomi["solo"] == ["solo.fastq.gz"]
+    assert nomi["E"] == ["E_R1.gz", "E_R2.gz"]
     cfg = progetto(tmp_path, f"data_source: local\npaths:\n  local_reads_dir: {tmp_path / 'read'}\n")
     ev, rc = vero(tmp_path, "stima", "--progetto", str(cfg))
-    assert rc == 0 and sorted(ev[-1]["risultato"]["nomi_campioni"]) == ["A", "B", "C03_1", "D", "solo"]
-    assert ev[-1]["risultato"]["campioni"] == 5
+    assert rc == 0 and sorted(ev[-1]["risultato"]["nomi_campioni"]) == ["A", "B", "C03_1", "D", "E", "solo"]
+    assert ev[-1]["risultato"]["campioni"] == 6
 
 
 # ---------------- 5. fonti dei parametri in italiano ----------------

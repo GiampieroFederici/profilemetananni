@@ -258,31 +258,30 @@ validate_path_safe "$HOST_IDX_DIR" || die "unsafe host index folder"
 
 # Call <callback> <sample> <r1> <r2|""> for every sample found in <dir>.
 for_each_sample() {  # for_each_sample <dir> <callback>
-  local d="$1" cb="$2" f s mate pair r1suf r2suf
+  local d="$1" cb="$2" f s mate pair r1suf r2suf b ext e seen=" "
   [ -d "$d" ] || { warn "reads dir not found (yet): $d"; return 0; }
   shopt -s nullglob
   # --- Paired-end (EN): recognise the common R1/R2 naming conventions, not just _1/_2.
   #     (IT): riconosci le convenzioni R1/R2 piu' comuni, non solo _1/_2.
-  # Each entry is "R1-suffix|R2-suffix". The sample name is the FILENAME with the
-  # R1-suffix stripped; the mate is the same path with the R1-suffix swapped for R2.
-  # The default NCBI form (_1/_2.fastq.gz) stays first so existing batches behave identically.
-  # Suffixes are distinct (e.g. *_R1.fastq.gz never also matches *_R1_001.fastq.gz),
-  # so no file is picked up by two patterns.
-  local PAIR_SUFFIXES=(
-    "_1.fastq.gz|_2.fastq.gz"
-    "_R1.fastq.gz|_R2.fastq.gz"
-    "_R1_001.fastq.gz|_R2_001.fastq.gz"
-    "_1.fq.gz|_2.fq.gz"
-    "_R1.fq.gz|_R2.fq.gz"
-  )
-  for pair in "${PAIR_SUFFIXES[@]}"; do
-    r1suf="${pair%%|*}"; r2suf="${pair##*|}"
-    for f in "$d"/*"$r1suf"; do
-      # derive mate + sample by stripping/swapping the R1 token in the FILENAME
-      s="$(basename "${f%"$r1suf"}")"; mate="${f%"$r1suf"}$r2suf"
-      validate_name "$s" || { warn "skip odd sample name from $f"; continue; }
-      [ -f "$mate" ] || { warn "missing mate for $f"; continue; }
-      "$cb" "$s" "$f" "$mate"
+  # Each entry is "R1-token|R2-token". The sample name is the FILENAME without its extension
+  # (.fastq.gz, .fq.gz or .gz) and R1-token; the mate is the same name with the R2-token and
+  # any of those extensions (so "C1_R1.fq.gz" + "C1_R2.gz" is a pair too).
+  # Tokens are distinct (e.g. *_R1 never also matches *_R1_001), so no file is picked up twice.
+  # Same rules as campioni_locali in motore/pmn_motore.py and app/progetto.py.
+  local PAIR_TOKENS=("_R1_001|_R2_001" "_R1|_R2" "_1|_2") EXTS=(.fastq.gz .fq.gz .gz)
+  for f in "$d"/*.gz; do
+    b="$(basename "$f")"
+    for ext in "${EXTS[@]}"; do case "$b" in *"$ext") b="${b%"$ext"}"; break ;; esac; done
+    for pair in "${PAIR_TOKENS[@]}"; do
+      r1suf="${pair%%|*}"; r2suf="${pair##*|}"
+      case "$b" in *"$r1suf") ;; *) continue ;; esac
+      s="${b%"$r1suf"}"; mate=""
+      for e in "${EXTS[@]}"; do [ -f "$d/$s$r2suf$e" ] && { mate="$d/$s$r2suf$e"; break; }; done
+      if ! validate_name "$s"; then warn "skip odd sample name from $f"
+      elif [ -z "$mate" ]; then warn "missing mate for $f"
+      elif [[ "$seen" != *" $s "* ]]; then seen+="$s "; "$cb" "$s" "$f" "$mate"
+      fi
+      break
     done
   done
   # --- Single-end (EN): any *.fastq.gz / *.fq.gz that is NOT one of the paired mates above.
