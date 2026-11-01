@@ -67,8 +67,8 @@ NOMI_PASSI = {"download": N_("lo scaricamento delle read"), "controllo_qualita":
               "riepilogo": N_("il riepilogo"), "referto": N_("la preparazione del referto"),
               "sicurezza": N_("la previsione di crescita"), "verifica": N_("la verifica del motore")}
 # read locali: stesse coppie di for_each_sample in bin/run.sh (nome = file senza il suffisso della prima read)
-COPPIE_LOCALI = [("_1.fastq.gz", "_2.fastq.gz"), ("_R1.fastq.gz", "_R2.fastq.gz"), ("_R1_001.fastq.gz", "_R2_001.fastq.gz"),
-                 ("_1.fq.gz", "_2.fq.gz"), ("_R1.fq.gz", "_R2.fq.gz")]
+COPPIE_LOCALI = [("_R1_001", "_R2_001"), ("_R1", "_R2"), ("_1", "_2")]
+ESTENSIONI_READ = (".fastq.gz", ".fq.gz", ".gz")   # le due read di una coppia possono averne due diverse
 NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
              (r"trim_(.+)", "pulizia"), (r"idx_.+", "ospite"), (r"hf_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
@@ -381,21 +381,24 @@ def sezione(cfg, nome):
 
 def campioni_locali(cartella):
     """[(nome, [file])] delle read in una cartella, con le regole di bin/run.sh: "C1_R1.fastq.gz" + "C1_R2.fastq.gz"
-    = campione "C1" (anche _1/_2, _R1_001/_R2_001, .fq.gz); un file senza la sua coppia si salta, come in run.sh;
-    gli altri .fastq.gz/.fq.gz sono campioni a lettura singola."""
+    = campione "C1" (anche _1/_2, _R1_001/_R2_001, .fq.gz, .gz, e "C1_R1.fq.gz" + "C1_R2.gz"); un file senza la sua
+    coppia si salta, come in run.sh; gli altri .fastq.gz/.fq.gz sono campioni a lettura singola."""
     file = sorted(f.name for f in Path(cartella).iterdir() if f.is_file())
-    out = []
-    for s1, s2 in COPPIE_LOCALI:
-        for f in file:
-            nome = f[:-len(s1)]
-            if f.endswith(s1) and nome + s2 in file and NOME_VALIDO.fullmatch(nome):
-                out.append((nome, [f, nome + s2]))
+    out, nomi = [], set()
+    radici = {f: f[:-len(e)] for f in file for e in [next((e for e in ESTENSIONI_READ if f.endswith(e)), "")] if e}
     suffissi = tuple(s for coppia in COPPIE_LOCALI for s in coppia)
-    for f in file:
-        if f.endswith((".fastq.gz", ".fq.gz")) and not f.endswith(suffissi):
-            nome = f[:-len(".fastq.gz")] if f.endswith(".fastq.gz") else f[:-len(".fq.gz")]
-            if NOME_VALIDO.fullmatch(nome):
-                out.append((nome, [f]))
+    for f, radice in radici.items():
+        for s1, s2 in COPPIE_LOCALI:
+            if radice.endswith(s1):
+                nome = radice[:-len(s1)]
+                compagna = next((nome + s2 + e for e in ESTENSIONI_READ if nome + s2 + e in radici), None)
+                if compagna and nome not in nomi and NOME_VALIDO.fullmatch(nome):
+                    out.append((nome, [f, compagna]))
+                    nomi.add(nome)
+                break
+    for f, radice in radici.items():
+        if f.endswith((".fastq.gz", ".fq.gz")) and not radice.endswith(suffissi) and NOME_VALIDO.fullmatch(radice):
+            out.append((radice, [f]))
     return out
 
 
