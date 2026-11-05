@@ -336,18 +336,31 @@ QW="$(pmn_glob_quote "$PMN_WORK_DIR")"; QN="$(pmn_glob_quote "$NONHOST_DIR")"; Q
 QM="$(pmn_glob_quote "$MPA_DIR")"; QK="$(pmn_glob_quote "$KRK_DIR")"; QR="$(pmn_glob_quote "$RES_DIR")"
 if [ "$DRY" -eq 0 ]; then
   if [ "$PHASE" = "all" ] || [ "$PHASE" = "a" ]; then
-    ospite_timbro="$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s' "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")$OSPITI_TIMBRO"
+    # The cleaning (fastp) and the pair rule (strict, KneadData 0.12.5) are in the stamp too: a project made with the
+    # 1.1 engine (--un-conc, fastp defaults) redoes host removal, MetaPhlAn and Kraken (D154), with its trimmed reads
+    # and their FastQC reports (the raw reads' reports stay).
+    ospite_timbro="$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s\nhost_pairs=strict\ntrim=fastp cut_right 4:20 length_required 70' \
+                       "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")$OSPITI_TIMBRO"
+    QT="$(pmn_glob_quote "$TRIM_DIR")"
+    trim_di() { printf '%s\n' "$QT/$1_trim_[12].fastq.gz" "$QT/$1_trim_[12]_fastqc.*" "$QT/$1_fastp.json" "$QT/$1_fastp.html"; }
     rifatti=1
     if [ "$NONHOST_TIMBRO" = "$NONHOST_DIR/.parametri" ]; then
+      if [ "$TRIM_DIR" = "$PMN_WORK_DIR/trim" ]; then mapfile -t trim_uscite < <(trim_di "*")
+      else   # trim_dir personalizzata: solo i campioni del progetto
+        trim_uscite=()
+        for s in ${PMN_CAMPIONI[@]+"${PMN_CAMPIONI[@]}"}; do mapfile -t -O "${#trim_uscite[@]}" trim_uscite < <(trim_di "$(pmn_glob_quote "$s")"); done
+      fi
       pmn_rifai_se_cambiati "$NONHOST_TIMBRO" "$ospite_timbro" \
-          "$QN/*_nonhost*.fastq.gz" "$QH/*.bowtie2.log" "$QW/triage/*.triage_host.tsv" && rifatti=0
+          "$QN/*_nonhost*.fastq.gz" "$QH/*.bowtie2.log" "$QH/*.coppie.tsv" "$QW/triage/*.triage_host.tsv" \
+          ${trim_uscite[@]+"${trim_uscite[@]}"} && rifatti=0
     else
       # read di un campione rifatte = rifatti anche i suoi profili, di qualunque corsa siano (altro ospite)
       for s in ${PMN_CAMPIONI[@]+"${PMN_CAMPIONI[@]}"}; do
         qs="$(pmn_glob_quote "$s")"
+        mapfile -t trim_uscite < <(trim_di "$qs")
         pmn_rifai_se_cambiati "$NONHOST_DIR/.$s.parametri" "$ospite_timbro" \
             "$QN/${qs}_nonhost_1.fastq.gz" "$QN/${qs}_nonhost_2.fastq.gz" "$QN/${qs}_nonhost.fastq.gz" \
-            "$QH/$qs.*.bowtie2.log" "$QW/triage/$qs.triage_host.tsv" \
+            "$QH/$qs.*.bowtie2.log" "$QH/$qs.*.coppie.tsv" "$QW/triage/$qs.triage_host.tsv" "${trim_uscite[@]}" \
             "$QM/${qs}_profile.txt" "$QM/$qs.mapout" "$QM/$qs.bowtie2.bz2" "$QM/$qs.sam.bz2" \
             "$QK/$qs.bracken" "$QK/$qs.k2report" "$QK/${qs}_bracken_species.k2report" "$QK/$qs.k2out" \
             "$QR/alpha_metaphlan_pari/${qs}_profile.txt" "$QR/alpha_metaphlan_pari/$qs.mapout" && rifatti=0

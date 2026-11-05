@@ -127,7 +127,7 @@ def test_strict_coppia_tolta_se_una_read_va_sull_ospite(tmp_path, genomi):
     assert [(s, qq) for _n, s, qq in n1] == [(coppie[n][0], q) for n in ("taxon_1", "taxon_2")]
     assert [(s, qq) for _n, s, qq in n2] == [(coppie[n][1], q) for n in ("taxon_1", "taxon_2")]
     # i log di Bowtie2 restano quelli di Bowtie2 (MultiQC); le coppie entrate e tenute per passo accanto
-    assert (log / "S.sus_scrofa.bowtie2.log").read_text().startswith("7 reads; of these:")
+    assert "7 reads; of these:" in (log / "S.sus_scrofa.bowtie2.log").read_text().splitlines()
     assert (log / "S.sus_scrofa.coppie.tsv").read_text() == "entrate\ttenute\n7\t3\n"
     assert (log / "S.grch38.coppie.tsv").read_text() == "entrate\ttenute\n3\t2\n"
 

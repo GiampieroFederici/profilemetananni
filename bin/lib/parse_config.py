@@ -54,7 +54,8 @@ def main():
     emit("PMN_LOGS_DIR", get(cfg, "paths", "logs_dir", default=""))
     emit("PMN_HOSTS", get(cfg, "hosts", default=[]))
     emit("PMN_FILTER_HUMAN", get(cfg, "filter_human", default=True))
-    emit("PMN_HOST_PRESET", get(cfg, "host_sensitivity", default="very-sensitive"))
+    # KneadData 0.12.5 default (bowtie2_options --very-sensitive-local); very-sensitive = end-to-end
+    emit("PMN_HOST_PRESET", get(cfg, "host_sensitivity", default="very-sensitive-local"))
     # cleanup / disk hygiene
     emit("PMN_KEEP_TRIMMED", get(cfg, "cleanup", "keep_trimmed", default=False))
     emit("PMN_KEEP_HOST_READS", get(cfg, "cleanup", "keep_host_reads", default=False))
