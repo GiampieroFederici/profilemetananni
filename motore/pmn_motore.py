@@ -636,9 +636,18 @@ class Motore:
         # senza dimensioni (rete giu') la barra va lo stesso, con campioni grandi come SF3RAt7; il tempo resta null
         campioni = camp or [(x, 3_240_847, 0) for x in self._nomi(cfg)]
         quote = lambda: {**quote_triage(lavoro), **quote_ospite(lavoro)}   # noqa: E731  (misurate: l'ospite vince)
-        unita = piano(campioni, cfg, quote())
-        secondi, gruppo = {e: s for e, _, _, s in unita}, {e: g for e, _, g, _ in unita}
-        totale = sum(secondi.values()) or 1
+        secondi, gruppo = {}, {}
+
+        def ripiano():
+            """Piano rifatto con le quote d'ospite di adesso: secondi e gruppi insieme. Il campione più povero può
+            cambiare dopo l'ospite, e con lui i passi alfa_mpa_* (K4-bis, 5/11: KeyError su un passo nuovo)."""
+            unita = piano(campioni, cfg, quote())
+            secondi.clear()
+            secondi.update((e, s) for e, _, _, s in unita)
+            gruppo.clear()
+            gruppo.update((e, g) for e, _, g, _ in unita)
+            return sum(secondi.values()) or 1
+        totale = ripiano()
         fatti = None   # corsa ripresa: i passi già finiti non si contano (gia_fatti al primo passo, vedi sotto)
         riletto = 0    # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
 
@@ -678,8 +687,7 @@ class Motore:
                     if fatti is None:
                         # al primo passo run.sh ha già cancellato le uscite fatte con altri parametri (timbri
                         # .parametri, P01): prima ci sono ancora, e Kraken o l'ospite vecchi sembrerebbero fatti
-                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
-                        totale = sum(secondi.values()) or 1
+                        totale = ripiano()
                         fatti = gia_fatti(lavoro, secondi)
                     campione = next((g for g in mm.groups() if g), None) if mm.groups() else None
                     i = visti.setdefault(passo, set())
@@ -689,8 +697,7 @@ class Motore:
                     g = min(gruppo.get(m.group(1), 0), 3)
                     if g >= 2 and g > riletto:   # triage o ospite finiti: quote misurate al posto di OSPITE_QUOTA
                         riletto = g
-                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
-                        totale = sum(secondi.values()) or 1
+                        totale = ripiano()
                     pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
                     testo = _(dict(PASSI)[passo])
