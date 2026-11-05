@@ -244,3 +244,49 @@ def test_l5_stima_usa_le_quote_di_una_corsa_precedente(tmp_path):
     assert kraken() == pytest.approx(prima * 0.1 / (1 - pm.OSPITE_QUOTA), abs=1)
 
 
+
+
+# --- N3 (prototipo, non usato da run.sh): prima la fetta, poi i campioni ---
+READ_FASTX_VERO = """#!/usr/bin/env bash
+n=0; for f in ${5//,/ }; do zcat "$f"; n=$((n + $(zcat "$f" | wc -l) / 4)); done
+echo "$n 100.0 0" >&2
+"""
+# bowtie2 finto ma deterministico per read: il marcatore e il punteggio dipendono dalla sequenza e dalla fetta
+BOWTIE2_PER_READ = r"""#!/usr/bin/env bash
+while [ $# -gt 0 ]; do case "$1" in -U) U="$2"; shift 2;; -S) SAM="$2"; shift 2;; -x) X="$2"; shift 2;;
+  --mm) echo mm >> "$TRACCIA/mm.txt"; shift;; *) shift;; esac; done
+n="${X##*fetta}"; echo "$n $U" >> "$TRACCIA/ordine.txt"
+awk -v n="$n" 'NR % 4 == 1 { nome = substr($1, 2) } NR % 4 == 2 { s = $0; a = (length(s) * n) % 7;
+  if ((length(s) + n) % 3) printf "%s\t0\tGeneID:%d|SGB%d\t1\t42\t4M\t*\t0\t0\t%s\tIIII\tAS:i:%d\n", nome, n, length(s) % 5, s, a }' "$U" > "$SAM"
+"""
+
+
+@linux
+def test_n3_fette_in_lotto_stessi_mapout_di_un_campione_alla_volta(tmp_path):
+    cfg, env = motore(tmp_path, ())
+    bin_ = tmp_path / "envs" / "pmn_metaphlan" / "bin"
+    for nome, testo in (("read_fastx.py", READ_FASTX_VERO), ("bowtie2", BOWTIE2_PER_READ)):
+        (bin_ / nome).write_text(testo, encoding="utf-8")
+    read = tmp_path / "rr"
+    read.mkdir()
+    for s in ("A", "B", "C"):
+        for i in (1, 2):
+            righe = "".join(f"@{s}{j}/{i}\n{'ACGT' * (j % 9 + 1 + i)}\n+\n{'I' * 4 * (j % 9 + 1 + i)}\n" for j in range(40))
+            (read / f"{s}_{i}.fastq.gz").write_bytes(gzip.compress(righe.encode()))
+    uno, lotto = tmp_path / "uno", tmp_path / "lotto"
+    for s in ("A", "B", "C"):
+        p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette.sh"), s, str(read / f"{s}_1.fastq.gz"),
+                            str(read / f"{s}_2.fastq.gz"), str(uno), "2", "solo_mapout"], capture_output=True, text=True,
+                           env=env)
+        assert p.returncode == 0, p.stdout + p.stderr
+    (tmp_path / "traccia" / "ordine.txt").unlink()
+    arg = [x for s in ("A", "B", "C") for x in (s, str(read / f"{s}_1.fastq.gz"), str(read / f"{s}_2.fastq.gz"))]
+    p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette_lotto.sh"), str(lotto), "2", *arg],
+                       capture_output=True, text=True, env={**env, "PMN_BT2_MM": "1"})
+    assert p.returncode == 0, p.stdout + p.stderr
+    for s in ("A", "B", "C"):
+        assert (lotto / f"{s}.mapout").read_text() == (uno / f"{s}.mapout").read_text()
+        assert (uno / f"{s}.mapout").read_text().count("\n") > 10
+    fette = [r.split()[0] for r in (tmp_path / "traccia" / "ordine.txt").read_text().splitlines()]
+    assert fette == [str(n) for n in range(1, 7) for _ in range(3)]          # prima la fetta, poi i campioni
+    assert len((tmp_path / "traccia" / "mm.txt").read_text().split()) == 18 and list((tmp_path / "pmn_tmp").iterdir()) == []
