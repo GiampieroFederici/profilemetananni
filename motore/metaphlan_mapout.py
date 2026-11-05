@@ -29,6 +29,11 @@ def check_database(self):
     pkl = os.path.join(self.db_dir, f"{self.index}.pkl")
     if not os.path.isfile(pkl):
         return False
+    ridotto = os.environ.get("PMN_MPA_RIDOTTO")   # prototipo N1 (F3), spento di serie: vedi metaphlan_ridotto.py
+    if ridotto:
+        import metaphlan_ridotto
+        self.database_pkl = metaphlan_ridotto.riduci(ridotto, pkl, sys.argv[1])
+        return True
     if pkl not in LETTI:
         # Il .pkl di vJan25 sono 11,4 M di marcatori, ognuno un dizionario: mentre si creano, il raccoglitore dei cicli
         # di Python li ripercorre tutti di continuo. Spento durante la lettura, poi gli oggetti letti si "congelano"
