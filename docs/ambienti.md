@@ -20,8 +20,9 @@ The analysis is the same for every environment; only the host genome changes.
   or SRA/ENA run accessions. Amplicon data (16S, ITS) are not supported in any environment.
 - **Quality control**: adapter and quality trimming with fastp [T1], MultiQC report, and the optional
   triage (host share, non-host fragments, Q30) with the same thresholds as for meat.
-- **Host removal**: Bowtie 2 [T2] in `--very-sensitive` mode against the host genome(s), then always
-  against the human genome GRCh38 (D021). The filter itself (`steps/21_hostfilter.sh`) is unchanged.
+- **Host removal**: Bowtie 2 [T2] in `--very-sensitive-local` mode against the host genome(s), then always
+  against the human genome GRCh38 (D021). A pair is removed if either read aligns (strict rule, as the
+  KneadData 0.12.5 defaults). The filter itself (`steps/21_hostfilter.sh`) is the same in every environment.
 - **Profiling**: MetaPhlAn 4 [T3] with the pinned database `mpa_vJan25_CHOCOPhlAnSGB_202503`, never
   filtered; Kraken 2 [T4] with Bracken [T5] on the PlusPF index (complete, or PlusPF-8 for the quick
   screening), abundance threshold on Kraken only. MetaPhlAn and Kraken results are always kept
