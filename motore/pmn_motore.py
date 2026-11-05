@@ -46,13 +46,15 @@ DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in 
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
 OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
-                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 185   # per M coppie senza ospite (C03_1, S2.2); fissi: 230 s il 17/10, 45 s in meno con read_fastx.py sul disco della WSL (v1.1 VELOCITA)
+                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
+                               # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
+MPA_S_PER_M, MPA_FISSI_S = 86.2, 135   # per M coppie senza ospite (C03_1, S2.2); fissi: 185 s (v1.1 VELOCITA) meno i 50 s
+                               # del profilo col database ridotto (F3, N1: 53 -> 3 s); prudente: 35-44 s sui 3 Ciauscolo (5/11)
 KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
-ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
-                               # il più povero; MetaPhlAn su un mapout a cache fredda 105-121 s (S2.3, 14/10)
+ALFA_MPA_S = 5                 # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
+                               # il più povero; col database ridotto (F3, N1) 2-3 s (5/11), prima 55-62 s
 TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
 # passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
 PASSI = [("download", N_("scarico le read da NCBI")), ("controllo_qualita", N_("controllo la qualità delle read")),
@@ -154,11 +156,15 @@ def processori(cfg):
 def piano(camp, cfg, quote=None):
     """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
     per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
-    contano le coppie senza ospite: quote {campione: quota dell'ospite} dal triage se c'è, se no OSPITE_QUOTA."""
+    contano le coppie senza ospite: quote {campione: quota dell'ospite} misurate (triage, ospite già tolto); un
+    campione non ancora misurato prende la media di quelle (F3, L5), se no OSPITE_QUOTA."""
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
     velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
-    quota = OSPITE_QUOTA if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] else 0.0
+    quote = quote or {}
+    quota = 0.0
+    if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]:
+        quota = sum(quote.values()) / len(quote) if quote else OSPITE_QUOTA
     out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
     if installazione():   # R8: indice di un ospite non installato (vite, ospiti aggiunti), costruito alla prima analisi
         out += [(f"idx_{h}", "ospite", 0, s) for h, s in ospiti.da_costruire(cfg, PMN_HOME / "ospiti_utente")]
@@ -168,18 +174,18 @@ def piano(camp, cfg, quote=None):
     for n, c, _ in camp:
         out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
-    for n, c, _ in camp:
-        resto = c * (1 - (quote or {}).get(n, quota))
+    resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
+    for n, _, _ in camp:
         if strumento in ("metaphlan", "both"):
-            out.append((f"mpa_{n}", "metaphlan", 4, resto / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
+            out.append((f"mpa_{n}", "metaphlan", 4, resto[n] / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
         if strumento in ("kraken", "both"):
-            out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
+            out.append((f"krk_{n}", "kraken", 4, resto[n] / velocita * 60))
     diversita = sezione(cfg, "analysis").get("diversity", True) is not False
     alfa = []
     if strumento in ("metaphlan", "both") and diversita and len(camp) > 1:
         # R1: run.sh rifà MetaPhlAn (alfa_mpa_<campione>) su un sottocampione di ogni campione oltre il più povero;
         # un passo per campione nel piano, così la barra va avanti anche lì (VM B2-4a: ferma a 99 % per 15 minuti)
-        povero = min(camp, key=lambda x: x[1] * (1 - (quote or {}).get(x[0], quota)))[0]
+        povero = min(camp, key=lambda x: resto[x[0]])[0]
         alfa = [(f"alfa_mpa_{n}", "riepilogo", 5, ALFA_MPA_S) for n, _, _ in camp if n != povero]
     return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"])] + alfa + [("referto", "referto", 6, ALTRI_S["referto"])]
 
@@ -568,7 +574,7 @@ class Motore:
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
-        tempo = tempi(camp, cfg, quote_triage(lavoro))
+        tempo = tempi(camp, cfg, {**quote_triage(lavoro), **quote_ospite(lavoro)})   # come esegui (F3, L5)
         scaricare = sum(b for _, _, b in camp)
         spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro

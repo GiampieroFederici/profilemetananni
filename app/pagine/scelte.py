@@ -14,6 +14,7 @@ from app import lingua
 from app.lingua import N_, _
 from app.motore import RADICE, MotoreClient, percorso_per_motore
 from app.pagine.base import Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
+from app.pagine.risultati import leggi_risultati
 
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
 CONFIDENZE = ["0", "0.05", "0.1", "0.2", "0.3", "0.5"]
@@ -87,6 +88,42 @@ def campioni_in_parole(campioni, elenco, coppie):
         return _("{campioni}{elenco} ({n} coppie di read)", campioni=campioni, elenco=elenco,
                  n=f"{coppie:,}".replace(",", lingua.migliaia()))
     return f"{campioni}{elenco}"
+
+
+def da_rifare(parametri, adesso):
+    """Che cosa rifà l'analisi se le scelte di adesso non sono quelle dei risultati che ci sono (F3, L6): "ospite"
+    (ospite, MetaPhlAn e Kraken: altri timbri in bin/run.sh), "kraken" (solo Kraken), "soglia" (solo tabelle e
+    referto: la soglia non entra nei timbri) o None. parametri: risultati.json["parametri"] (results/parameters.tsv);
+    adesso: le stesse chiavi con i valori di adesso. Un valore che i risultati non scrivono non si confronta."""
+    def diverso(k):
+        if k not in parametri or k not in adesso:
+            return False
+        try:
+            return float(parametri[k]) != float(adesso[k])
+        except (TypeError, ValueError):
+            return str(parametri[k]) != str(adesso[k])
+    if "hosts" in parametri and (set(str(parametri["hosts"]).replace(",", " ").split()) != set(adesso.get("hosts", []))
+                                 or diverso("filter_human")):
+        return "ospite"
+    if any(diverso(k) for k in ("kraken_profile", "kraken_confidence", "bracken_min_reads", "bracken_readlen")):
+        return "kraken"
+    return "soglia" if diverso("abundance_threshold_pct") else None
+
+
+def avviso_da_rifare(cosa, tempi):
+    """(titolo, testo) dell'avviso per da_rifare(); il tempo dalla stima del motore, per passo."""
+    t = tempi or {}
+    if cosa == "soglia":
+        return _("Hai cambiato la soglia dopo l'analisi"), _(
+            "Avviando l'analisi si rifanno solo le tabelle e il referto con la soglia nuova: bastano pochi secondi. "
+            "MetaPhlAn e Kraken restano come sono.")
+    if cosa == "kraken":
+        return _("Hai cambiato le scelte di Kraken dopo l'analisi"), _(
+            "Avviando l'analisi si rifà Kraken su tutti i campioni: circa {durata}. MetaPhlAn resta com'è.",
+            durata=durata(sum(t.get(k) or 0 for k in ("kraken", "riepilogo", "referto"))))
+    return _("Hai cambiato l'ospite dopo l'analisi"), _(
+        "Avviando l'analisi si rifanno la rimozione del DNA dell'ospite, MetaPhlAn e Kraken: circa {durata}.",
+        durata=durata(sum(v or 0 for k, v in t.items() if k != "download")))
 
 
 class PaginaScelte(Pagina):
@@ -386,6 +423,9 @@ class PaginaScelte(Pagina):
             titolo = _("Ci vorrà molto tempo.") if a.get("codice") == "TEMPO_LUNGO" else _("Attenzione")
             self.zona_stima.addWidget(riquadro(titolo, a["messaggio"], "avviso"))
         tempi = r.get("tempo_s") or {}
+        cosa = self._da_rifare()
+        if cosa:                                                  # F3, L6: risultati fatti con altre scelte
+            self.zona_stima.addWidget(riquadro(*avviso_da_rifare(cosa, tempi), "info"))
         totale = r.get("tempo_totale_s") or sum(v for v in tempi.values() if v)    # v0.3: totale del motore
         nomi = {"download": _("download"), "pulizia": _("pulizia"), "ospite": _("ospite"),
                 "controllo_qualita": _("controlli"), "metaphlan": "MetaPhlAn", "kraken": "Kraken",
@@ -424,6 +464,19 @@ class PaginaScelte(Pagina):
         secondari = [(_("Passa allo screening rapido"), self.passa_al_rapido)] \
             if lungo and self._profilo() == "completo" else []
         self._barra(_("Avvia l'analisi"), aiuto, "avviso" if self.avvisi else "", secondari)
+
+    def _da_rifare(self):
+        """da_rifare() fra i risultati del progetto (se ci sono) e le scelte di questa pagina."""
+        d = leggi_risultati(self.contesto.progetto)
+        if not d or not isinstance(d.get("parametri"), dict):
+            return None
+        cfg = self.contesto.progetto.leggi()
+        adesso = {"hosts": [str(h) for h in cfg.get("hosts") or []],
+                  "filter_human": "yes" if cfg.get("filter_human", True) else "no",
+                  "kraken_profile": self._profilo(), "kraken_confidence": self.confidenza.currentData(),
+                  "bracken_min_reads": self.letture.currentData(), "bracken_readlen": self.lunghezza.currentData(),
+                  "abundance_threshold_pct": self.soglia.currentData()}
+        return da_rifare(d["parametri"], adesso)
 
     def _errore(self, e):
         svuota(self.zona_stima)

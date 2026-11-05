@@ -138,7 +138,9 @@ fi
 # WSL sets 16 KB at every start (installer/windows/prepara_pmn.sh); elsewhere it needs root, so only a warning here.
 if [ "$PMN_KRK_PROFILO" = completo ] && [ -n "$PMN_KRK_DB" ] && { [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; }; then
   ra_dev="$(basename "$(findmnt -no SOURCE --target "$PMN_KRK_DB" 2> /dev/null)")"
-  [ -e "/sys/class/block/$ra_dev/queue" ] || ra_dev="$(lsblk -no PKNAME "/dev/$ra_dev" 2> /dev/null | head -n1)"
+  # || true: a database on a disk that is not a block device (tmpfs, network) has no read-ahead to check; lsblk fails
+  # there and, with pipefail and set -e, stopped run.sh without a word (exit 32)
+  [ -e "/sys/class/block/$ra_dev/queue" ] || ra_dev="$(lsblk -no PKNAME "/dev/$ra_dev" 2> /dev/null | head -n1 || true)"
   ra_file="/sys/class/block/$ra_dev/queue/read_ahead_kb"
   if [ -n "$ra_dev" ] && [ -r "$ra_file" ] && [ "$(cat "$ra_file")" -gt 16 ]; then
     warn "$(say "Disk read-ahead is $(cat "$ra_file") KB: Kraken with the full PlusPF was measured fast only at 16 KB (41 min for 1.5 M pairs; at 8192 KB it would take days). Set it with: echo 16 | sudo tee $ra_file, or use motore.kraken_db: rapido." \

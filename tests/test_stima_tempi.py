@@ -22,7 +22,8 @@ def test_sf3rat7_entro_il_25_per_cento_del_vero():
     t = pm.tempi(SF3RAT7, CFG)
     assert set(t) == {"download", "controllo_qualita", "pulizia", "ospite", "metaphlan", "kraken", "riepilogo", "referto"}
     assert abs(t["kraken"] - 1419) <= 0.25 * 1419          # Kraken + Bracken veri: 08:00:18 -> 08:23:57
-    assert abs(t["metaphlan"] - 357) <= 0.25 * 357         # 07:54:21 -> 08:00:18
+    # 07:54:21 -> 08:00:18 col .pkl intero, meno i 50 s del profilo col database ridotto (F3, N1: 53 -> 3 s, 5/11)
+    assert abs(t["metaphlan"] - (357 - 50)) <= 0.25 * (357 - 50)
     assert abs(t["download"] - 129) <= 0.25 * 129 and t["pulizia"] < 60
 
 

@@ -98,9 +98,9 @@ def test_da_nuovo_progetto_ad_avvia_l_analisi(qtbot, f, ambiente, monkeypatch):
     assert f.attuale == "scelte"
     assert "15,6 GB di memoria, 8 processori" in scritte(f.pagine["scelte"])
     aspetta_stima(qtbot, f)
-    assert f.aiuto.text() == "Tempo stimato: circa 48 minuti. Spazio: 12 GB."     # riassunto anche nella barra
+    assert f.aiuto.text() == "Tempo stimato: circa 47 minuti. Spazio: 12 GB."     # riassunto anche nella barra
     assert "1: SRR4875279 (3,2 milioni di coppie di read)" in scritte(f.pagine["scelte"])   # nomi_campioni (v0.3)
-    assert "circa 48 minuti (download 2 minuti, ospite 5 minuti, MetaPhlAn 5 minuti, Kraken 34 minuti)" in scritte(f.pagine["scelte"])
+    assert "circa 47 minuti (download 2 minuti, ospite 5 minuti, MetaPhlAn 4 minuti, Kraken 34 minuti)" in scritte(f.pagine["scelte"])
     assert f.principale.text() == "Avvia l'analisi"
     premi(f)
     assert f.attuale == "esecuzione" and avvio == [True]        # passaggio a S6 (Contesto.avvia_analisi)

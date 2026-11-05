@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # steps/16_triage_host.sh - triage, part 2: estimate the host share of ONE sample from its
 # first --reads fragments, BEFORE trimming and full host filtering.
-# Conda env: pmn_hostfilter (bowtie2). Same index chain as 21_hostfilter.sh (--index repeated,
+# Conda env: pmn_hostfilter (bowtie2, samtools). Same index chain as 21_hostfilter.sh (--index repeated,
 # human last), but Bowtie2 only reads the first N fragments (-u N). Raw reads may still carry
 # adapters, so the estimate uses --very-sensitive-local (soft-clips them) whatever the main
 # host-filter preset is. Writes <sample>.triage_host.tsv with two lines:
@@ -72,8 +72,11 @@ for index in "${INDEXES[@]}"; do
   lim=(); [ "$i" -eq 1 ] && lim=(-u "$READS")
   info "$(say "Triage $SAMPLE: host pass $i ($(basename "$index")) ..." "Triage $SAMPLE: passo host $i ($(basename "$index")) ...")"
   if [ -n "$cur2" ]; then
-    bowtie2 -x "$index" -1 "$cur1" -2 "$cur2" "${lim[@]}" -p "$THREADS" --very-sensitive-local \
-      --un-conc-gz "$tmp/p${i}_%.fastq.gz" -S /dev/null 2> "$tmp/p${i}.log" \
+    # Strict pairs, as in 21_hostfilter.sh (F1, KneadData 0.12.5): a pair is non-host only if both reads are
+    # unaligned (flags 4 and 8; 256 = secondary), not "not concordant" (--un-conc kept pairs with one read on the host)
+    bowtie2 -x "$index" -1 "$cur1" -2 "$cur2" "${lim[@]}" -p "$THREADS" --very-sensitive-local 2> "$tmp/p${i}.log" \
+      | samtools view -u -f 12 -F 256 - \
+      | samtools fastq -n -1 "$tmp/p${i}_1.fastq.gz" -2 "$tmp/p${i}_2.fastq.gz" -0 /dev/null -s /dev/null - 2> /dev/null \
       || { cat "$tmp/p${i}.log" >&2; die "bowtie2 triage pass $i failed for $SAMPLE"; }
     cur1="$tmp/p${i}_1.fastq.gz"; cur2="$tmp/p${i}_2.fastq.gz"
   else
