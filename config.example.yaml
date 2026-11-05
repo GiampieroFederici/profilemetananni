@@ -23,10 +23,11 @@ project_name: my_study       # chars A-Z a-z 0-9 . _ -   (used in folder names /
 hosts:
   - sus_scrofa
 filter_human: true
-# host_sensitivity: very-sensitive | very-sensitive-local
-#   very-sensitive-local soft-clips partial host reads (slightly higher host sensitivity,
-#   ~negligible microbial loss). Default keeps today's behaviour.
-host_sensitivity: very-sensitive
+# host_sensitivity: very-sensitive-local | very-sensitive
+#   very-sensitive-local (default) = Bowtie2 local mode, as the standard KneadData 0.12.5;
+#   very-sensitive = end-to-end. Either way a pair is removed if EITHER read aligns to a host
+#   (KneadData "strict" rule) / la coppia si toglie se anche una sola read si allinea.
+host_sensitivity: very-sensitive-local
 
 # ---------------------------------------------------------------------------
 # CLEANUP / PULIZIA DISCO  (asked during preprocessing / chiesto in preprocessing)
