@@ -536,5 +536,11 @@
  "L'analisi si è fermata perché la memoria del computer non basta.": "The analysis stopped because the computer does not have enough memory.",
  "Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.": "Close the other programs and press \"Retry the analysis\": the steps already finished are kept. If the PC has less than 16 GB of memory, the analysis cannot finish here: there is no need to install the engine again.",
  "Kraken: nessun taxon sopra la soglia.": "Kraken: no taxa above the threshold.",
- "Kraken: nessun taxon sopra la soglia ({soglia} %).": "Kraken: no taxa above the threshold ({soglia} %)."
+ "Kraken: nessun taxon sopra la soglia ({soglia} %).": "Kraken: no taxa above the threshold ({soglia} %).",
+ "Come si toglie l'ospite": "How the host is removed",
+ "una coppia di read si toglie se anche una sola read si allinea all'ospite o all'uomo; su comunità simulate funghi e lieviti perdono circa l'1 % delle loro coppie, i batteri meno dello 0,1 %": "a read pair is removed if even one read aligns to the host or to human; on simulated communities fungi and yeasts lose about 1 % of their pairs, bacteria less than 0.1 %",
+ "impostazioni predefinite di KneadData 0.12.5; Langmead & Salzberg 2012": "KneadData 0.12.5 defaults; Langmead & Salzberg 2012",
+ "Pulizia delle read": "Read cleaning",
+ "fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque": "fastp cuts the read tail where the mean quality over 4 bases drops below 20 and drops reads shorter than 70 bases, which MetaPhlAn would ignore anyway",
+ "Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)": "Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)"
 }

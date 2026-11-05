@@ -572,6 +572,17 @@ def righe_parametri(d):
         out.append((_("DNA tolto prima dell'analisi (ospite)"), ", ".join(_(OSPITI.get(o, o)) for o in ospiti),
                     _("genomi di riferimento usati per togliere il DNA dell'ospite e dell'uomo"),
                     _("D021 (stesse versioni dei profili pubblicati)")))
+    if p.get("host_pairs"):   # 1.2 (F1): come si toglie l'ospite e come si puliscono le read
+        out.append((_("Come si toglie l'ospite"), f"Bowtie2 {p.get('host_sensitivity', '')}, {p['host_pairs']}",
+                    _("una coppia di read si toglie se anche una sola read si allinea all'ospite o all'uomo; su "
+                      "comunità simulate funghi e lieviti perdono circa l'1 % delle loro coppie, i batteri meno "
+                      "dello 0,1 %"),
+                    _("impostazioni predefinite di KneadData 0.12.5; Langmead & Salzberg 2012")))
+    if p.get("trim"):
+        out.append((_("Pulizia delle read"), p["trim"],
+                    _("fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le "
+                      "read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque"),
+                    _("Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)")))
     for chiave in sorted(k for k in p if k.startswith("host_index_")):   # ospiti costruiti dal motore (v1.1, R8)
         out.append((_("Genoma dell'ospite {nome}", nome=chiave[len("host_index_"):]), p[chiave],
                     _("da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice"),

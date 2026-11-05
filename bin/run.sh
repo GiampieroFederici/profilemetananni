@@ -416,6 +416,8 @@ fi
     printf 'bracken_min_reads\t%s\nbracken_readlen\t%s\nabundance_threshold_pct\t%s\n' "$PMN_KRK_MINREADS" "$PMN_BRACKEN_READLEN" "$PMN_THRESHOLD"
   fi
   printf 'hosts\t%s\nfilter_human\t%s\n' "$PMN_HOSTS" "$PMN_FILTER_HUMAN"
+  # How host and human DNA were removed and the reads cleaned (F1, KneadData 0.12.5 defaults): same values as the stamp.
+  printf 'host_sensitivity\t%s\nhost_pairs\tstrict\ntrim\tfastp cut_right 4:20, length_required 70\n' "$PMN_HOST_PRESET"
 } > "$RES_DIR/parameters.tsv"
 
 # Result matrix paths: computed unconditionally (not just inside Phase B) so Phase C can
