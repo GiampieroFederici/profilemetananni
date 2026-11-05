@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """F3 (PMN 1.2, 5/11/2026): più veloce senza cambiare i risultati. Proposte e criteri, fissati prima dei dati:
 implementazione/decisioni/2026-11-05_F3_proposte_velocita_RAM.md (privata).
-- L1: in bin/run.sh prima MetaPhlAn su tutti i campioni, poi Kraken su tutti (la cache del disco di Kraken resta).
-- L3: con le fette il .pkl di MetaPhlAn si legge una volta per tutti i campioni (lotto dei profili e dell'alfa), con
-  gli stessi argomenti di MetaPhlAn della chiamata singola; il mapout prende il suo nome solo quando è intero.
+- run.sh non si ferma più se il database di Kraken sta su un disco senza lettura anticipata (tmpfs, rete).
 - L5: la stima del tempo usa le quote d'ospite misurate (anche per i campioni non ancora filtrati).
 I test con bash girano nella WSL:  ~/miniforge3/envs/pmn_reports_py/bin/python -m pytest tests/test_f3_velocita.py"""
 import gzip
@@ -33,18 +31,13 @@ while [ $# -gt 0 ]; do case "$1" in -S) SAM="$2"; shift 2;; -x) X="$2"; shift 2;
 echo "$X" >> "$TRACCIA/bowtie2.txt"
 printf 'r1__1\\t0\\tGeneID:1\\t1\\t42\\t4M\\t*\\t0\\t0\\tACGT\\tIIII\\tAS:i:0\\n' > "$SAM"
 """
-# python di pmn_metaphlan (metaphlan_mapout.py): annota gli argomenti e scrive i profili (uno o un lotto)
+# python di pmn_metaphlan (metaphlan_mapout.py): annota gli argomenti e scrive il profilo
 MPA_PY = """#!/usr/bin/env python3
 import sys, os
 a = sys.argv[2:]
 with open(os.path.join(os.environ["TRACCIA"], "metaphlan.txt"), "a") as f:
     f.write(" ".join(a) + "\\n")
-if a[0] == "--lotto":
-    for r in open(a[1]):
-        m, s, o = r.rstrip("\\n").split("\\t")
-        open(o, "w").write("#metaphlan " + m + "\\n")
-else:
-    open(a[a.index("-o") + 1], "w").write("#metaphlan " + a[0] + "\\n")
+open(a[a.index("-o") + 1], "w").write("#metaphlan " + a[0] + "\\n")
 """
 MERGE = """#!/usr/bin/env bash
 cat "$@"
@@ -94,116 +87,13 @@ def passi(testo, prefisso):
 
 
 @linux
-def test_l1_prima_metaphlan_su_tutti_poi_kraken_su_tutti(tmp_path):
+def test_kraken_su_un_disco_senza_lettura_anticipata(tmp_path):
+    """Database di Kraken su tmpfs (qui tmp_path): lsblk falliva e run.sh si fermava senza un messaggio (uscita 32)."""
     cfg, env = motore(tmp_path, ("S1", "S2", "S3"), tool="both")
     p, testo = run_sh(cfg, env, "--dry-run")
     assert p.returncode == 0, testo
-    profilatori = [x for x in passi(testo, "DRY-RUN step:") if x.startswith(("mpa_", "krk_", "profili_mpa"))]
-    assert profilatori == ["mpa_S1", "mpa_S2", "mpa_S3", "profili_mpa", "krk_S1", "krk_S2", "krk_S3"]
-
-
-@linux
-def test_l3_pkl_letto_una_volta_per_tutti_i_campioni(tmp_path):
-    """Una sola chiamata di MetaPhlAn (un solo .pkl letto) per i profili di tutti i campioni, con gli stessi
-    argomenti che la chiamata singola di metaphlan_fette.sh dava a ognuno."""
-    cfg, env = motore(tmp_path)
-    p, testo = run_sh(cfg, env)
-    assert p.returncode == 0, testo
-    chiamate = (tmp_path / "traccia" / "metaphlan.txt").read_text().splitlines()
-    assert len(chiamate) == 1 and chiamate[0].startswith("--lotto "), chiamate
-    mpa = tmp_path / "lavoro" / "metaphlan"
-    for s in ("S1", "S2"):
-        assert (mpa / f"{s}_profile.txt").read_text() == f"#metaphlan {mpa}/{s}.mapout\n"
-        assert (mpa / f"{s}.mapout").read_text().startswith("r1__1\tGeneID:1\n")
-    assert len((tmp_path / "traccia" / "bowtie2.txt").read_text().split()) == 12      # 6 fette x 2 campioni
-    assert not list(mpa.glob(".*parziale")) and list((tmp_path / "pmn_tmp").iterdir()) == []
-
-
-@linux
-def test_l3_ripresa_profilo_e_mapout_gia_fatti(tmp_path):
-    """Corsa ripresa: S1 ha il profilo (niente), S2 il solo mapout (solo il profilo, nel lotto), S3 niente (fette e
-    profilo)."""
-    cfg, env = motore(tmp_path, ("S1", "S2", "S3"))
-    p, testo = run_sh(cfg, env)
-    assert p.returncode == 0, testo
-    mpa, tr = tmp_path / "lavoro" / "metaphlan", tmp_path / "traccia"
-    (mpa / "S2_profile.txt").unlink()
-    (mpa / "S3_profile.txt").unlink()
-    (mpa / "S3.mapout").unlink()
-    for f in tr.iterdir():
-        f.unlink()
-    p, testo = run_sh(cfg, env)
-    assert p.returncode == 0, testo
-    assert len((tr / "bowtie2.txt").read_text().split()) == 6                          # solo S3 sulle fette
-    lotto = (tr / "metaphlan.txt").read_text().split()
-    assert lotto[0] == "--lotto"
-    assert [s for s in ("S1", "S2", "S3") if (mpa / f"{s}_profile.txt").is_file()] == ["S1", "S2", "S3"]
-
-
-ELENCO_FINTO = {
-    "metaphlan/__init__.py": "",
-    "metaphlan/utils/__init__.py": "",
-    "metaphlan/utils/database_controller.py": "class MetaphlanDatabaseController:\n    pass\n",
-    # main() finto: usa check_database come MetaPhlAn, annota argomenti e database, lascia gli indici su TaxClade
-    "metaphlan/metaphlan.py": """import json, os, sys
-from metaphlan.utils.database_controller import MetaphlanDatabaseController
-class TaxClade:
-    markers2lens = markers2exts = taxa2clades = None
-def main():
-    c = MetaphlanDatabaseController()
-    c.db_dir, c.index = sys.argv[sys.argv.index("--db_dir") + 1], sys.argv[sys.argv.index("--index") + 1]
-    assert c.check_database()
-    with open(os.environ["TRACCIA"], "a") as f:
-        f.write(json.dumps({"argv": sys.argv, "db": id(c.database_pkl), "pulito": TaxClade.markers2lens is None}) + "\\n")
-    if "ROTTO" in sys.argv:
-        sys.exit(3)
-    TaxClade.markers2lens = TaxClade.markers2exts = TaxClade.taxa2clades = {"m": 1}
-    open(sys.argv[sys.argv.index("-o") + 1], "w").write("#" + " ".join(sys.argv) + "\\n")
-""",
-}
-
-
-def mapout_py(tmp_path, *argomenti):
-    import bz2
-    import pickle
-    for nome, testo in ELENCO_FINTO.items():
-        (tmp_path / "finto" / nome).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / "finto" / nome).write_text(testo, encoding="utf-8")
-    if not (tmp_path / f"{INDICE}.pkl").exists():
-        with bz2.BZ2File(tmp_path / f"{INDICE}.pkl", "w") as f:
-            pickle.dump({"markers": {}, "taxonomy": {}, "merged_taxon": {}}, f)
-    traccia = tmp_path / "traccia.jsonl"
-    traccia.unlink(missing_ok=True)
-    p = subprocess.run([sys.executable, str(RADICE / "motore" / "metaphlan_mapout.py"), *argomenti], capture_output=True,
-                       text=True, env={**os.environ, "PYTHONPATH": str(tmp_path / "finto"), "TRACCIA": str(traccia)})
-    return p, [json.loads(r) for r in traccia.read_text().splitlines()] if traccia.exists() else []
-
-
-COMUNI = ["--input_type", "mapout", "--nproc", "2", "--db_dir", "{db}", "--index", INDICE, "--offline"]
-
-
-def test_l3_lotto_stessi_argomenti_della_chiamata_singola(tmp_path):
-    comuni = [x.format(db=tmp_path) for x in COMUNI]
-    singoli = []
-    for s in ("A", "B"):
-        p, t = mapout_py(tmp_path, f"/m/{s}.mapout", *comuni, "--sample_id", s, "-o", str(tmp_path / f"{s}_uno.txt"))
-        assert p.returncode == 0, p.stderr
-        singoli.append(t[0]["argv"])
-    (tmp_path / "elenco.tsv").write_text("".join(f"/m/{s}.mapout\t{s}\t{tmp_path / f'{s}_uno.txt'}\n" for s in "AB"))
-    p, t = mapout_py(tmp_path, "--lotto", str(tmp_path / "elenco.tsv"), *comuni)
-    assert p.returncode == 0, p.stderr
-    assert [x["argv"] for x in t] == singoli                      # riga del comando del profilo uguale
-    assert len({x["db"] for x in t}) == 1                          # stesso database: letto una volta
-    assert all(x["pulito"] for x in t)                             # indici del campione prima tolti da TaxClade
-
-
-def test_l3_lotto_si_ferma_al_primo_errore(tmp_path):
-    comuni = [x.format(db=tmp_path) for x in COMUNI]
-    (tmp_path / "elenco.tsv").write_text(
-        "".join(f"/m/{s}.mapout\t{s}\t{tmp_path / f'{s}.txt'}\n" for s in ("A", "ROTTO", "C")))
-    p, t = mapout_py(tmp_path, "--lotto", str(tmp_path / "elenco.tsv"), *comuni)
-    assert p.returncode == 3 and len(t) == 2
-    assert (tmp_path / "A.txt").is_file() and not (tmp_path / "C.txt").exists()
+    profilatori = [x for x in passi(testo, "DRY-RUN step:") if x.startswith(("mpa_", "krk_"))]
+    assert profilatori == ["mpa_S1", "krk_S1", "mpa_S2", "krk_S2", "mpa_S3", "krk_S3"]
 
 
 # --- L5: stima del tempo con le quote d'ospite misurate ---
@@ -242,51 +132,3 @@ def test_l5_stima_usa_le_quote_di_una_corsa_precedente(tmp_path):
     (log / "A.sus_scrofa.bowtie2.log").write_text(
         "1000 reads; of these:\n  1000 (100.00%) were paired; of these:\n    100 (10.00%) aligned concordantly 0 times\n")
     assert kraken() == pytest.approx(prima * 0.1 / (1 - pm.OSPITE_QUOTA), abs=1)
-
-
-
-
-# --- N3 (prototipo, non usato da run.sh): prima la fetta, poi i campioni ---
-READ_FASTX_VERO = """#!/usr/bin/env bash
-n=0; for f in ${5//,/ }; do zcat "$f"; n=$((n + $(zcat "$f" | wc -l) / 4)); done
-echo "$n 100.0 0" >&2
-"""
-# bowtie2 finto ma deterministico per read: il marcatore e il punteggio dipendono dalla sequenza e dalla fetta
-BOWTIE2_PER_READ = r"""#!/usr/bin/env bash
-while [ $# -gt 0 ]; do case "$1" in -U) U="$2"; shift 2;; -S) SAM="$2"; shift 2;; -x) X="$2"; shift 2;;
-  --mm) echo mm >> "$TRACCIA/mm.txt"; shift;; *) shift;; esac; done
-n="${X##*fetta}"; echo "$n $U" >> "$TRACCIA/ordine.txt"
-awk -v n="$n" 'NR % 4 == 1 { nome = substr($1, 2) } NR % 4 == 2 { s = $0; a = (length(s) * n) % 7;
-  if ((length(s) + n) % 3) printf "%s\t0\tGeneID:%d|SGB%d\t1\t42\t4M\t*\t0\t0\t%s\tIIII\tAS:i:%d\n", nome, n, length(s) % 5, s, a }' "$U" > "$SAM"
-"""
-
-
-@linux
-def test_n3_fette_in_lotto_stessi_mapout_di_un_campione_alla_volta(tmp_path):
-    cfg, env = motore(tmp_path, ())
-    bin_ = tmp_path / "envs" / "pmn_metaphlan" / "bin"
-    for nome, testo in (("read_fastx.py", READ_FASTX_VERO), ("bowtie2", BOWTIE2_PER_READ)):
-        (bin_ / nome).write_text(testo, encoding="utf-8")
-    read = tmp_path / "rr"
-    read.mkdir()
-    for s in ("A", "B", "C"):
-        for i in (1, 2):
-            righe = "".join(f"@{s}{j}/{i}\n{'ACGT' * (j % 9 + 1 + i)}\n+\n{'I' * 4 * (j % 9 + 1 + i)}\n" for j in range(40))
-            (read / f"{s}_{i}.fastq.gz").write_bytes(gzip.compress(righe.encode()))
-    uno, lotto = tmp_path / "uno", tmp_path / "lotto"
-    for s in ("A", "B", "C"):
-        p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette.sh"), s, str(read / f"{s}_1.fastq.gz"),
-                            str(read / f"{s}_2.fastq.gz"), str(uno), "2", "solo_mapout"], capture_output=True, text=True,
-                           env=env)
-        assert p.returncode == 0, p.stdout + p.stderr
-    (tmp_path / "traccia" / "ordine.txt").unlink()
-    arg = [x for s in ("A", "B", "C") for x in (s, str(read / f"{s}_1.fastq.gz"), str(read / f"{s}_2.fastq.gz"))]
-    p = subprocess.run(["bash", str(RADICE / "motore" / "metaphlan_fette_lotto.sh"), str(lotto), "2", *arg],
-                       capture_output=True, text=True, env={**env, "PMN_BT2_MM": "1"})
-    assert p.returncode == 0, p.stdout + p.stderr
-    for s in ("A", "B", "C"):
-        assert (lotto / f"{s}.mapout").read_text() == (uno / f"{s}.mapout").read_text()
-        assert (uno / f"{s}.mapout").read_text().count("\n") > 10
-    fette = [r.split()[0] for r in (tmp_path / "traccia" / "ordine.txt").read_text().splitlines()]
-    assert fette == [str(n) for n in range(1, 7) for _ in range(3)]          # prima la fetta, poi i campioni
-    assert len((tmp_path / "traccia" / "mm.txt").read_text().split()) == 18 and list((tmp_path / "pmn_tmp").iterdir()) == []

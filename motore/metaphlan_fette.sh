@@ -2,11 +2,9 @@
 # motore/metaphlan_fette.sh - MetaPhlAn 4.2.4 + vJan25 "a fette" per i PC da 16 GB (D012, D016, D026, D028).
 # Read -> Bowtie2 su ognuna delle 6 fette -> arbitro (MAPQ ricalcolato come con l'indice intero) -> MetaPhlAn da mapout.
 # Stessi comandi validati in S1-bis, S2.2 e S2.3-bis (picco ~8,5 GB). Percorsi da $PMN_HOME/installazione.env.
-# Uso: metaphlan_fette.sh <campione> <R1.fastq.gz> <R2.fastq.gz o ""> <cartella di uscita> [processori] [solo_mapout]
-# solo_mapout (F3, L3): si ferma al mapout; il profilo lo fa poi metaphlan_da_mapout.sh --lotto per tutti i campioni
-# insieme, con il .pkl letto una volta sola.
+# Uso: metaphlan_fette.sh <campione> <R1.fastq.gz> <R2.fastq.gz o ""> <cartella di uscita> [processori]
 set -euo pipefail
-S=$1; R1=$2; R2=$3; O=$4; TH=${5:-8}; SOLO=${6:-}
+S=$1; R1=$2; R2=$3; O=$4; TH=${5:-8}
 . "${PMN_HOME:-$HOME/.pmn}/installazione.env"
 M=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 MPA=$PMN_ENVS/pmn_metaphlan/bin
@@ -32,11 +30,7 @@ for n in 1 2 3 4 5 6; do
   "$PY" "$M/arbitro_fette.py" compatta < "$T/$n.sam" > "$T/$n.tsv"; rm -f "$T/$n.sam"
 done
 rm -f "$T/reads.fq"
-# il mapout prende il suo nome solo quando è intero: una corsa fermata a metà non lascia un mapout tronco che la
-# ripresa userebbe per il profilo
-"$PY" "$M/arbitro_fette.py" unisci "$T/nreads.txt" "$O/.$S.mapout.parziale" "$T"/{1,2,3,4,5,6}.tsv
-mv -f "$O/.$S.mapout.parziale" "$O/$S.mapout"
+"$PY" "$M/arbitro_fette.py" unisci "$T/nreads.txt" "$O/$S.mapout" "$T"/{1,2,3,4,5,6}.tsv
 rm -f "$T"/{1,2,3,4,5,6}.tsv
-[ "$SOLO" = solo_mapout ] && exit 0
 "$MPA/python" "$M/metaphlan_mapout.py" "$O/$S.mapout" --input_type mapout --nproc "$TH" \
   --db_dir "$PMN_MPA_DB" --index mpa_vJan25_CHOCOPhlAnSGB_202503 --offline --sample_id "$S" -o "$O/${S}_profile.txt"

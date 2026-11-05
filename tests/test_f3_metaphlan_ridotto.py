@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""F3, prototipo N1 (non predefinito): MetaPhlAn 4.2.4 VERO con il database intero e con quello ridotto ai clade del
+"""F3, N1 (di serie dal 5/11): MetaPhlAn 4.2.4 VERO con il database intero e con quello ridotto ai clade del
 campione (motore/metaphlan_ridotto.py) deve scrivere lo stesso profilo, byte per byte. Database sintetico piccolo con i
 casi delicati: marcatori di una specie con "ext" verso una specie presente (filtro dei marcatori esterni), una specie
 esterna senza read, un marcatore il cui clade non segue la regola del nome, un marcatore che il database non ha, un
-marcatore di virus (VDB), un mapout senza read. La prova sul .pkl vero (6 Ciauscolo, sottocampioni dell'alfa, Zymo)
-si fa a parte, con lo stesso criterio. Serve l'ambiente pmn_metaphlan (WSL); senza, il test si salta."""
+marcatore di virus (VDB), un mapout senza read. La prova sul .pkl vero (6 Ciauscolo, 5 sottocampioni dell'alfa,
+Zymo, un campione senza read, il profilo classico del server di SF3RAt7) è in F3_velocita_RAM: identica al byte. Serve l'ambiente pmn_metaphlan (WSL); senza, il test si salta."""
 import bz2
 import os
 import pickle
@@ -56,8 +56,7 @@ def mapout(percorso, conteggi, extra=()):
 
 def profilo(tmp_path, m, ridotto):
     out = tmp_path / f"{m.stem}.{'ridotto' if ridotto else 'intero'}.txt"
-    env = {**os.environ, **({"PMN_MPA_RIDOTTO": str(tmp_path / "ridotto.sqlite")} if ridotto else {})}
-    env.pop("PMN_MPA_RIDOTTO", None) if not ridotto else None
+    env = {**os.environ, "PMN_MPA_RIDOTTO": str(tmp_path / "ridotto.sqlite") if ridotto else "no"}   # no = .pkl intero
     p = subprocess.run([MPA_PY, str(RADICE / "motore" / "metaphlan_mapout.py"), str(m), "--input_type", "mapout",
                         "--nproc", "1", "--db_dir", str(tmp_path / "db"), "--index", INDICE, "--offline",
                         "--sample_id", m.stem, "-o", str(tmp_path / "profilo.txt")],
@@ -114,8 +113,8 @@ def test_database_ridotto_rifiuta_un_pkl_diverso(tmp_path):
 
 
 def test_auto_costruisce_una_volta_e_rifa_se_il_pkl_cambia(tmp_path):
-    """PMN_MPA_RIDOTTO=auto: il file derivato nasce accanto al .pkl alla prima chiamata, poi si riusa; con un altro
-    .pkl si rifà da solo (chi usa PMN non deve fare passi a mano)."""
+    """Di serie (PMN_MPA_RIDOTTO non dato = auto): il file derivato nasce accanto al .pkl alla prima chiamata, poi si
+    riusa; con un altro .pkl si rifà da solo (chi usa PMN non deve fare passi a mano)."""
     (tmp_path / "db").mkdir()
     pkl = tmp_path / "db" / f"{INDICE}.pkl"
     with bz2.BZ2File(pkl, "w") as f:
@@ -128,7 +127,7 @@ def test_auto_costruisce_una_volta_e_rifa_se_il_pkl_cambia(tmp_path):
         p = subprocess.run([MPA_PY, str(RADICE / "motore" / "metaphlan_mapout.py"), str(m), "--input_type", "mapout",
                             "--nproc", "1", "--db_dir", str(tmp_path / "db"), "--index", INDICE, "--offline",
                             "--sample_id", "A", "-o", str(tmp_path / "p.txt")], capture_output=True, text=True,
-                           env={**os.environ, "PMN_MPA_RIDOTTO": "auto"}, timeout=300)
+                           env={k: v for k, v in os.environ.items() if k != "PMN_MPA_RIDOTTO"}, timeout=300)
         assert p.returncode == 0, p.stdout + p.stderr
         return p.stdout
     assert "marcatori 151" in chiama() and derivato.is_file()          # costruito alla prima chiamata

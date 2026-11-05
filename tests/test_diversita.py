@@ -236,6 +236,6 @@ def test_stima_conta_metaphlan_rifatto_per_i_campioni_in_piu():
     import pmn_motore as pm
     uno, due = [("A", 1_000_000, 0)], [("A", 1_000_000, 0), ("B", 2_000_000, 0)]
     assert pm.tempi(uno, {})["riepilogo"] == pm.ALTRI_S["riepilogo"]
-    assert pm.tempi(due, {})["riepilogo"] == pm.ALTRI_S["riepilogo"] + pm.MPA_PKL_S + pm.MPA_PROFILO_S   # F3, L3
+    assert pm.tempi(due, {})["riepilogo"] == pm.ALTRI_S["riepilogo"] + pm.ALFA_MPA_S
     assert pm.tempi(due, {"profiling": {"tool": "kraken"}})["riepilogo"] == pm.ALTRI_S["riepilogo"]
     assert pm.tempi(due, {"analysis": {"diversity": False}})["riepilogo"] == pm.ALTRI_S["riepilogo"]

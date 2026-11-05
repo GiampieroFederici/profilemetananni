@@ -678,20 +678,15 @@ fi
 
 # ============================ PHASE B — read-based profiling ============================
 
-# MetaPhlAn on every sample first, then Kraken on every sample (F3, L1): MetaPhlAn (slices of 3.6 GB, .pkl of 8 GB)
-# no longer empties the disk cache that Kraken fills between one Kraken and the next. Same commands, same outputs.
-run_metaphlan() {  # run_metaphlan <sample> <r1> <r2|"">
+run_profilers() {  # run_profilers <sample> <r1> <r2|"">
   local s="$1" r1="$2" r2="$3" a
   if [ "$PMN_MPA_MODO" = fette ]; then
-    # MetaPhlAn on the 6 slices (motore/, D012, D028): here only the mapout; the profiles of all samples follow in one
-    # batch, with the .pkl read once (F3, L3)
+    # MetaPhlAn on the 6 slices (motore/, D012, D028): profile and mapout land in $MPA_DIR
     if [ -s "$MPA_DIR/${s}_profile.txt" ]; then
       ok "$(say "$s already profiled (MetaPhlAn) -> skip" "$s già profilato (MetaPhlAn) -> salto")"
-    elif [ -s "$MPA_DIR/$s.mapout" ]; then
-      ok "$(say "$s already aligned on the 6 slices (MetaPhlAn) -> skip" "$s già allineato sulle 6 fette (MetaPhlAn) -> salto")"
     else
       mkdir -p "$MPA_DIR" || die "cannot create $MPA_DIR"
-      do_step pmn_metaphlan "mpa_${s}" -- bash "$PMN_ROOT/motore/metaphlan_fette.sh" "$s" "$r1" "$r2" "$MPA_DIR" "$PMN_THREADS" solo_mapout
+      do_step pmn_metaphlan "mpa_${s}" -- bash "$PMN_ROOT/motore/metaphlan_fette.sh" "$s" "$r1" "$r2" "$MPA_DIR" "$PMN_THREADS"
     fi
   elif [ "$PMN_TOOL" = "metaphlan" ] || [ "$PMN_TOOL" = "both" ]; then
     a=(--sample "$s" --in1 "$r1"); [ -n "$r2" ] && a+=(--in2 "$r2")
@@ -701,10 +696,6 @@ run_metaphlan() {  # run_metaphlan <sample> <r1> <r2|"">
     a+=(--out "$MPA_DIR" --threads "$PMN_THREADS")
     do_step pmn_metaphlan "mpa_${s}" -- bash "$PMN_ROOT/steps/30_metaphlan.sh" "${a[@]}"
   fi
-  return 0
-}
-run_kraken() {  # run_kraken <sample> <r1> <r2|"">
-  local s="$1" r1="$2" r2="$3" a
   if [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; then
     if [ -z "$PMN_KRK_DB" ] && [ "$DRY" -eq 0 ]; then
       die "profiling.tool includes kraken but profiling.kraken_db is empty"
@@ -715,8 +706,6 @@ run_kraken() {  # run_kraken <sample> <r1> <r2|"">
   fi
   return 0
 }
-P_S=(); P_1=(); P_2=()
-da_profilare() { P_S+=("$1"); P_1+=("$2"); P_2+=("$3"); }   # da_profilare <sample> <r1> <r2|"">
 
 # Only the samples of the project (revisione del 22/10): a shared nonhost folder holds other projects' samples, and the
 # outputs of samples taken out of the project would end in the merged tables, the beta and the depth of step 42.
@@ -732,34 +721,23 @@ if [ "$PMN_ELENCO_COMPLETO" -eq 1 ]; then
       continue
     fi
     if [ -s "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" ]; then
-      da_profilare "$s" "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" "$NONHOST_DIR/${s}_nonhost_2.fastq.gz"
+      run_profilers "$s" "$NONHOST_DIR/${s}_nonhost_1.fastq.gz" "$NONHOST_DIR/${s}_nonhost_2.fastq.gz"
     elif [ -s "$NONHOST_DIR/${s}_nonhost.fastq.gz" ]; then
-      da_profilare "$s" "$NONHOST_DIR/${s}_nonhost.fastq.gz" ""
+      run_profilers "$s" "$NONHOST_DIR/${s}_nonhost.fastq.gz" ""
     fi
   done
 elif [ -d "$NONHOST_DIR" ] || [ "$DRY" -eq 1 ]; then
   shopt -s nullglob
   for f in "$NONHOST_DIR"/*_nonhost_1.fastq.gz; do
     s="$(basename "${f%_nonhost_1.fastq.gz}")"
-    da_profilare "$s" "$f" "${f%_nonhost_1.fastq.gz}_nonhost_2.fastq.gz"
+    run_profilers "$s" "$f" "${f%_nonhost_1.fastq.gz}_nonhost_2.fastq.gz"
   done
   for f in "$NONHOST_DIR"/*_nonhost.fastq.gz; do
     s="$(basename "${f%_nonhost.fastq.gz}")"
-    da_profilare "$s" "$f" ""
+    run_profilers "$s" "$f" ""
   done
   shopt -u nullglob
 fi
-for i in "${!P_S[@]}"; do run_metaphlan "${P_S[$i]}" "${P_1[$i]}" "${P_2[$i]}"; done
-if [ "$PMN_MPA_MODO" = fette ]; then
-  lotto=()
-  for s in ${P_S[@]+"${P_S[@]}"}; do
-    [ -s "$MPA_DIR/${s}_profile.txt" ] && continue
-    { [ "$DRY" -eq 1 ] || [ -s "$MPA_DIR/$s.mapout" ]; } && lotto+=("$s")
-  done
-  [ "${#lotto[@]}" -eq 0 ] || do_step pmn_metaphlan profili_mpa -- bash "$PMN_ROOT/motore/metaphlan_da_mapout.sh" \
-    --lotto "$MPA_DIR" "$MPA_DIR" "$PMN_THREADS" "${lotto[@]}"
-fi
-for i in "${!P_S[@]}"; do run_kraken "${P_S[$i]}" "${P_1[$i]}" "${P_2[$i]}"; done
 
 # B2. Merge / matrices.
 MPA_MERGED=""; KRK_MATRIX=""
@@ -813,21 +791,18 @@ if [ "$PMN_DO_DIVERSITY" = "yes" ]; then
     PARI_DIR="$RES_DIR/alpha_metaphlan_pari"
     do_step pmn_reports_py alfa_sotto -- python "$PMN_ROOT/steps/42_alpha_equal_depth.py" sottocampiona --metaphlan-dir "$MPA_DIR" --out "$PARI_DIR"
     shopt -s nullglob
-    lotto=()
     for m in "$PARI_DIR"/*.mapout; do
       s="$(basename "$m" .mapout)"
       validate_name "$s" || die "invalid sample name: $(sanitize_for_log "$s")"
       [ "$PARI_DIR/${s}_profile.txt" -nt "$m" ] && continue   # already re-run on this subsample
       if [ "$PMN_MPA_MODO" = fette ]; then
-        lotto+=("$s")   # all in one batch below, the .pkl read once (F3, L3)
+        do_step pmn_metaphlan "alfa_mpa_${s}" -- bash "$PMN_ROOT/motore/metaphlan_da_mapout.sh" "$s" "$m" "$PARI_DIR" "$PMN_THREADS"
       else
         do_step pmn_metaphlan "alfa_mpa_${s}" -- metaphlan "$m" --input_type mapout --nproc "$PMN_THREADS" \
           ${PMN_MPA_DB:+--db_dir "$PMN_MPA_DB"} --index "$PMN_MPA_INDEX" --sample_id "$s" -o "$PARI_DIR/${s}_profile.txt"
       fi
     done
     shopt -u nullglob
-    [ "${#lotto[@]}" -eq 0 ] || do_step pmn_metaphlan alfa_mpa -- bash "$PMN_ROOT/motore/metaphlan_da_mapout.sh" \
-      --lotto "$PARI_DIR" "$PARI_DIR" "$PMN_THREADS" "${lotto[@]}"
     ALPHA_ARGS+=(--metaphlan-dir "$MPA_DIR" --pari-dir "$PARI_DIR")
   fi
   [ -n "$KRK_MATRIX" ] && ALPHA_ARGS+=(--kraken-dir "$KRK_DIR")
