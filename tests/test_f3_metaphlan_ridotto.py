@@ -111,3 +111,31 @@ def test_database_ridotto_rifiuta_un_pkl_diverso(tmp_path):
                         "--sample_id", "A", "-o", str(tmp_path / "p.txt")], capture_output=True, text=True,
                        env={**os.environ, "PMN_MPA_RIDOTTO": str(tmp_path / "ridotto.sqlite")}, timeout=300)
     assert p.returncode != 0 and "MD5 diverso" in p.stdout + p.stderr
+
+
+def test_auto_costruisce_una_volta_e_rifa_se_il_pkl_cambia(tmp_path):
+    """PMN_MPA_RIDOTTO=auto: il file derivato nasce accanto al .pkl alla prima chiamata, poi si riusa; con un altro
+    .pkl si rifà da solo (chi usa PMN non deve fare passi a mano)."""
+    (tmp_path / "db").mkdir()
+    pkl = tmp_path / "db" / f"{INDICE}.pkl"
+    with bz2.BZ2File(pkl, "w") as f:
+        pickle.dump(database(), f)
+    m = tmp_path / "A.mapout"
+    mapout(m, {f"UniRef90_M1_{i}|1__1|SGB1": 3 for i in range(30)})
+    derivato = tmp_path / "db" / f"{INDICE}.ridotto.sqlite"
+
+    def chiama():
+        p = subprocess.run([MPA_PY, str(RADICE / "motore" / "metaphlan_mapout.py"), str(m), "--input_type", "mapout",
+                            "--nproc", "1", "--db_dir", str(tmp_path / "db"), "--index", INDICE, "--offline",
+                            "--sample_id", "A", "-o", str(tmp_path / "p.txt")], capture_output=True, text=True,
+                           env={**os.environ, "PMN_MPA_RIDOTTO": "auto"}, timeout=300)
+        assert p.returncode == 0, p.stdout + p.stderr
+        return p.stdout
+    assert "marcatori 151" in chiama() and derivato.is_file()          # costruito alla prima chiamata
+    prima = derivato.stat().st_mtime_ns
+    assert "marcatori" not in chiama() and derivato.stat().st_mtime_ns == prima   # riusato
+    d = database()
+    d["markers"].popitem()
+    with bz2.BZ2File(pkl, "w") as f:
+        pickle.dump(d, f)
+    assert "marcatori 150" in chiama()                                  # .pkl cambiato: rifatto

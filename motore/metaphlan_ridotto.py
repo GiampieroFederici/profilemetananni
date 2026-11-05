@@ -75,12 +75,35 @@ def prepara(pkl, uscita):
     print(f"marcatori {len(db['markers'])}, clade {len(per_clade)}, eccezioni {len(eccezioni)} -> {uscita}")
 
 
+def viene_da(sqlite, pkl):
+    """True se il file derivato è stato costruito da questo .pkl (formato, dimensione e MD5)."""
+    try:
+        c = sqlite3.connect(f"file:{sqlite}?mode=ro", uri=True)
+        meta = dict(c.execute("SELECT chiave, valore FROM meta"))
+        c.close()
+    except sqlite3.Error:
+        return False
+    return (meta.get("formato") == FORMATO and meta.get("pkl_byte") == str(os.path.getsize(pkl))
+            and meta.get("pkl_md5") == md5(pkl))
+
+
+def pronto(pkl):
+    """Il file derivato accanto al .pkl (<indice>.ridotto.sqlite), costruito ora se manca o se il .pkl è cambiato.
+    Una costruzione alla volta (lock); serve una volta sola la memoria della lettura del .pkl intero."""
+    import fcntl
+    sqlite = pkl[:-len(".pkl")] + ".ridotto.sqlite"
+    with open(sqlite + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not viene_da(sqlite, pkl):
+            prepara(pkl, sqlite)
+    return sqlite
+
+
 def riduci(sqlite, pkl, mapout):
     """Il database con i soli marcatori dei clade che hanno read nel mapout (e tutto il resto intero)."""
-    c = sqlite3.connect(f"file:{sqlite}?mode=ro", uri=True)
-    meta = dict(c.execute("SELECT chiave, valore FROM meta"))
-    if meta.get("formato") != FORMATO or meta.get("pkl_byte") != str(os.path.getsize(pkl)) or meta["pkl_md5"] != md5(pkl):
+    if not viene_da(sqlite, pkl):
         raise SystemExit(f"metaphlan_ridotto: {sqlite} non viene da {pkl} (MD5 diverso): rifallo con 'prepara'")
+    c = sqlite3.connect(f"file:{sqlite}?mode=ro", uri=True)
     marcatori = set()
     with open(mapout, encoding="utf-8") as f:
         for riga in f:

@@ -32,6 +32,8 @@ def check_database(self):
     ridotto = os.environ.get("PMN_MPA_RIDOTTO")   # prototipo N1 (F3), spento di serie: vedi metaphlan_ridotto.py
     if ridotto:
         import metaphlan_ridotto
+        if ridotto == "auto":   # accanto al .pkl, costruito la prima volta (e rifatto se il .pkl cambia)
+            ridotto = metaphlan_ridotto.pronto(pkl)
         self.database_pkl = metaphlan_ridotto.riduci(ridotto, pkl, sys.argv[1])
         return True
     if pkl not in LETTI:
