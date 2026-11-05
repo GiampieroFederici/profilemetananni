@@ -106,7 +106,8 @@ ERRORI = [
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      N_("Il progetto contiene un valore non valido."), N_("Controlla le impostazioni del progetto.")),
 ]
-# verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21
+# verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21;
+# F2 (5/11): Portik 2022 e Galanis 2022 aggiunte, Edwin 2024 col suo valore finale (0,001 %), su PubMed e Crossref
 CITAZIONI = {
     "metaphlan": ["Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
                   N_("Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice "
@@ -116,7 +117,11 @@ CITAZIONI = {
                N_("Indici Kraken2/Bracken {db} di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)"),
                N_("Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di "
                   "Kraken2. DOI 10.1099/mgen.0.000949"),
-               N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. "
+               N_("Portik, Brown & Pierce-Ward 2022, BMC Bioinformatics 23:541: soglia di abbondanza 0,1 % delle "
+                  "read totali con Kraken 2, Bracken e il database PlusPF. DOI 10.1186/s12859-022-05103-0"),
+               N_("Galanis et al. 2022, Mol Ecol Resour 22(7):2506-2523: confidence 0,5 di Kraken 2 su comunità "
+                  "simulate del miele. DOI 10.1111/1755-0998.13626"),
+               N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza nel suolo, consigliata 0,001 %. "
                   "DOI 10.1186/s40793-024-00561-w")],
     "bowtie2": ["Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923"],
     "fastp": ["Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560"],

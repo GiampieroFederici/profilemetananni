@@ -560,8 +560,8 @@ def righe_parametri(d):
     da_profilo("bracken_min_reads", "min_reads", _("Letture minime di Bracken (-t)"),
                _("sotto questo numero di read una specie non si stima"))
     da_profilo("abundance_threshold_pct", "soglia", _("Soglia di abbondanza di Kraken (%)"),
-               _("sotto questa percentuale un taxon di Kraken non compare nelle tabelle del referto; MetaPhlAn non ha "
-                 "soglia"))
+               _("sotto questa percentuale delle read assegnate da Bracken un taxon di Kraken non compare nelle "
+                 "tabelle del referto; MetaPhlAn non ha soglia"))
     if p.get("bracken_readlen"):
         out.append((_("Lunghezza delle read per Bracken (-r)"), p["bracken_readlen"], _("lunghezza tipica delle read"),
                     _("impostazione della pipeline")))
@@ -631,7 +631,8 @@ PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le
 LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read assegnate da Bracken (non "
                    "classificate escluse; confidence {confidence}). Con i valori consigliati per il PlusPF completo "
                    "(confidence 0,5 e soglia 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
-                   "da 196 a 64 su 12 campioni, e nel campione di controllo Zymo da 10 a 0. I taxa sotto la soglia, "
+                   "da 196 a 64 su 12 campioni e nel campione di controllo Zymo da 10 a 0. Lo 0,1 % segue anche "
+                   "Portik, Brown e Pierce-Ward 2022, che però lo calcolano sulle read totali. I taxa sotto la soglia, "
                    "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la "
                    "<i>Listeria</i> serve un'analisi mirata.")
 LIMITE_METAPHLAN = N_("MetaPhlAn non usa soglie, ma con molto DNA dell'ospite restano poche read dei taxa e i taxa rari "

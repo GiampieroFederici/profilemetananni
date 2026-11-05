@@ -21,12 +21,19 @@ SOGLIE = ["0.001", "0.005", "0.01", "0.1"]
 LETTURE = ["0", "5", "10", "20", "50"]           # Bracken -t (profiling.bracken_min_reads, contratto v0.3)
 LUNGHEZZE = [100, 150, 250]
 LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_readlen)
+# F2 (5/11): fonti verificate su PubMed e Crossref (implementazione/validazione/F2_soglia_fonti/RISULTATO_F2.md)
 FONTE_CONFIDENZA = N_("Consigliato 0,5 con il database completo (taratura K4 su comunità simulate di salume, "
-                      "confermata sul campione Zymo) e 0,1 con lo screening rapido: per i database ridotti si "
+                      "confermata sul campione Zymo); anche su comunità simulate del miele Kraken 2 funziona meglio "
+                      "con 0,5 (Galanis et al. 2022). Con lo screening rapido 0,1: per i database ridotti si "
                       "consiglia fra 0,05 e 0,30 (Wright, Comeau e Langille 2023).")
 FONTE_SOGLIA = N_("Vale solo per Kraken: MetaPhlAn non ha soglia e mostra tutte le specie. Consigliato 0,1 % con il "
-                  "database completo (taratura K4) e 0,005 % con lo screening rapido (Edwin et al. 2024, campioni "
-                  "di suolo). Le specie sotto la soglia restano nel file Excel.")
+                  "database completo. Con Kraken 2 e Bracken sul database PlusPF, lo 0,1 % ha portato le specie false "
+                  "da centinaia a meno di 15 perdendo poche specie vere (Portik, Brown e Pierce-Ward 2022, comunità "
+                  "a composizione nota). La nostra taratura su salumi simulati e sul campione Zymo lo conferma. Da "
+                  "0,001 a 0,005 % sono valori per comunità molto complesse come il suolo (Edwin et al. 2024 "
+                  "consiglia 0,001 %) e lasciano più falsi positivi; lo screening rapido usa 0,005 %. La percentuale "
+                  "è calcolata sulle read che Bracken assegna a una specie; Portik la calcola sulle read totali. Le "
+                  "specie sotto la soglia restano nel file Excel.")
 FONTE_LETTURE = N_("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
                    "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
 FONTE_LUNGHEZZA = N_("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "

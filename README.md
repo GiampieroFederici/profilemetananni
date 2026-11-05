@@ -151,6 +151,8 @@ Version 1.1. Installation from scratch was tested on a clean Windows 11 virtual 
 
 If you use the results, cite the tools and databases you used: MetaPhlAn 4 (Blanco-Míguez et al. 2023, *Nat Biotechnol* 41:1633-1644), Kraken 2 (Wood et al. 2019, *Genome Biol*), Bracken (Lu et al. 2017, *PeerJ Comput Sci*), Bowtie 2 (Langmead and Salzberg 2012, *Nat Methods* 9:357-359), fastp (Chen et al. 2018, *Bioinformatics*), FSSP (Mejlholm and Dalgaard 2009, *J Food Prot* 72:2132-2143) and the host genomes. The full list with DOIs is in the "Come citare" page of the app and at the end of every report.
 
+The recommended Kraken settings come from the literature and from our calibration on simulated cured-meat communities and on the Zymo mock. The 0.1 % abundance threshold follows Portik, Brown and Pierce-Ward 2022 (*BMC Bioinformatics* 23:541): with Kraken 2, Bracken and PlusPF it cut the false species from hundreds to fewer than 15. They compute it on the total reads; ProfileMetaNanni computes it on the reads that Bracken assigns to a species. Confidence 0.5 is in line with Galanis et al. 2022 (*Mol Ecol Resour* 22:2506-2523). Lower thresholds, such as 0.001 %, are meant for very complex communities like soil (Edwin et al. 2024, *Environ Microbiome* 19:19).
+
 ## Licence
 
 MIT (see `LICENSE`).
@@ -285,6 +287,8 @@ Versione 1.1. L'installazione da zero è stata provata su Windows 11 pulito in u
 ## Come citare
 
 Se usi i risultati, cita gli strumenti e i database usati: MetaPhlAn 4 (Blanco-Míguez et al. 2023, *Nat Biotechnol* 41:1633-1644), Kraken 2 (Wood et al. 2019, *Genome Biol*), Bracken (Lu et al. 2017, *PeerJ Comput Sci*), Bowtie 2 (Langmead e Salzberg 2012, *Nat Methods* 9:357-359), fastp (Chen et al. 2018, *Bioinformatics*), FSSP (Mejlholm e Dalgaard 2009, *J Food Prot* 72:2132-2143) e i genomi dell'ospite. L'elenco completo, con i DOI, è nella pagina "Come citare" dell'app e in fondo a ogni referto.
+
+Le impostazioni consigliate di Kraken vengono dalla letteratura e dalla nostra taratura su comunità simulate di salume e sul campione Zymo. La soglia di abbondanza 0,1 % segue Portik, Brown e Pierce-Ward 2022 (*BMC Bioinformatics* 23:541): con Kraken 2, Bracken e PlusPF ha portato le specie false da centinaia a meno di 15. Loro la calcolano sulle read totali; ProfileMetaNanni sulle read che Bracken assegna a una specie. La confidence 0,5 è in accordo con Galanis et al. 2022 (*Mol Ecol Resour* 22:2506-2523). Soglie più basse, come 0,001 %, servono per comunità molto complesse come il suolo (Edwin et al. 2024, *Environ Microbiome* 19:19).
 
 ## Licenza
 
