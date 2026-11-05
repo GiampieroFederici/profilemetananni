@@ -57,18 +57,20 @@ def test_piano_nell_ordine_di_run_sh():
     due = [("A", 1_000_000, 1), ("B", 2_000_000, 1)]
     etichette = [e for e, _, _, _ in pm.piano(due, {**CFG, "triage": {"enabled": True}})]
     assert etichette == ["size", "dl_A", "dl_B", "tq_A", "th_A", "tq_B", "th_B", "triage", "trim_A", "hf_A", "trim_B",
-                         "hf_B", "multiqc", "mpa_A", "krk_A", "mpa_B", "krk_B", "riepilogo", "alfa_mpa_B", "referto"]
+                         "hf_B", "multiqc", "mpa_A", "mpa_B", "profili_mpa", "krk_A", "krk_B", "riepilogo", "alfa_mpa",
+                         "referto"]   # F3: prima MetaPhlAn su tutti (L1), il lotto dei profili e dell'alfa (L3)
     gruppi = [g for _, _, g, _ in pm.piano(due, CFG)]
     assert gruppi == sorted(gruppi)
 
 
 def test_gia_fatti_dalle_uscite_sul_disco(tmp_path):
-    for f in ("nonhost/A_nonhost_1.fastq.gz", "metaphlan/A_profile.txt", "kraken/B.bracken", "raw/B_1.fastq.gz"):
+    for f in ("nonhost/A_nonhost_1.fastq.gz", "metaphlan/A_profile.txt", "kraken/B.bracken", "raw/B_1.fastq.gz",
+              "metaphlan/B.mapout"):   # F3, L3: il mapout basta (il profilo viene nel lotto)
         (tmp_path / f).parent.mkdir(exist_ok=True)
         (tmp_path / f).write_text("x", encoding="utf-8")
     (tmp_path / "kraken" / "A.bracken").write_text("", encoding="utf-8")   # vuoto: run.sh lo rifà
     etichette = [e for e, _, _, _ in pm.piano([("A", 1, 1), ("B", 1, 1)], CFG)]
-    assert pm.gia_fatti(tmp_path, etichette) == {"trim_A", "hf_A", "mpa_A", "krk_B", "dl_B"}
+    assert pm.gia_fatti(tmp_path, etichette) == {"trim_A", "hf_A", "mpa_A", "mpa_B", "krk_B", "dl_B"}
 
 
 def test_quote_dal_triage(tmp_path):

@@ -46,13 +46,15 @@ DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in 
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
 OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
-                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 185   # per M coppie senza ospite (C03_1, S2.2); fissi: 230 s il 17/10, 45 s in meno con read_fastx.py sul disco della WSL (v1.1 VELOCITA)
+                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
+                               # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
+MPA_S_PER_M, MPA_FISSI_S = 86.2, 125   # per M coppie senza ospite (C03_1, S2.2); fissi per campione (fette e read): i 185 s
+                               # di prima (v1.1 VELOCITA) meno il profilo dal mapout, che ora si fa in un lotto (F3, L3)
+MPA_PKL_S, MPA_PROFILO_S = 45, 15   # lotto dei profili (F3, L3): .pkl letto una volta + ogni profilo; 1 campione = 60 s,
+                               # come MetaPhlAn da mapout del 4/11 (53-67 s a chiamata, 24 processori)
 KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
-ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
-                               # il più povero; MetaPhlAn su un mapout a cache fredda 105-121 s (S2.3, 14/10)
 TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
 # passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
 PASSI = [("download", N_("scarico le read da NCBI")), ("controllo_qualita", N_("controllo la qualità delle read")),
@@ -72,7 +74,8 @@ ESTENSIONI_READ = (".fastq.gz", ".fq.gz", ".gz")   # le due read di una coppia p
 NOME_VALIDO = re.compile(r"(?![-.])[A-Za-z0-9._-]{1,64}")   # validate_name di bin/lib/validate.sh
 ETICHETTE = [(r"size$", "download"), (r"dl_(.+)", "download"), (r"(?:tq|th)_(.+)|triage$|multiqc$", "controllo_qualita"),
              (r"trim_(.+)", "pulizia"), (r"idx_.+", "ospite"), (r"hf_(.+)", "ospite"), (r"mpa_matrix$", "riepilogo"),
-             (r"mpa_(.+)", "metaphlan"), (r"krk_(.+)", "kraken"), (r"alfa_mpa_(.+)", "riepilogo"), (r".+", "riepilogo")]
+             (r"mpa_(.+)", "metaphlan"), (r"profili_mpa$", "metaphlan"), (r"krk_(.+)", "kraken"),
+             (r"alfa_mpa(?:_(.+))?", "riepilogo"), (r".+", "riepilogo")]
 # righe del log di run.sh e dei suoi passi -> errore per l'utente (codice, messaggio, cosa fare)
 ERRORI = [
     # VM B4-10a: un programma chiuso da Linux perché la memoria è finita ("Killed", codice 137 di bowtie2 o MetaPhlAn)
@@ -153,12 +156,17 @@ def processori(cfg):
 
 def piano(camp, cfg, quote=None):
     """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
-    per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
-    contano le coppie senza ospite: quote {campione: quota dell'ospite} dal triage se c'è, se no OSPITE_QUOTA."""
+    per campione, MultiQC, poi MetaPhlAn su tutti i campioni, il lotto dei profili di MetaPhlAn, Kraken su tutti (F3, L1
+    e L3), riepilogo, referto. MetaPhlAn e Kraken contano le coppie senza ospite: quote {campione: quota dell'ospite}
+    misurate (triage, ospite già tolto); un campione non ancora misurato prende la media di quelle, se no OSPITE_QUOTA."""
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
     velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
-    quota = OSPITE_QUOTA if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] else 0.0
+    quote = quote or {}
+    quota = 0.0
+    if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]:
+        quota = sum(quote.values()) / len(quote) if quote else OSPITE_QUOTA
+    fette = sezione(cfg, "motore").get("metaphlan_modo", "fette") != "standard"
     out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
     if installazione():   # R8: indice di un ospite non installato (vite, ospiti aggiunti), costruito alla prima analisi
         out += [(f"idx_{h}", "ospite", 0, s) for h, s in ospiti.da_costruire(cfg, PMN_HOME / "ospiti_utente")]
@@ -168,19 +176,19 @@ def piano(camp, cfg, quote=None):
     for n, c, _ in camp:
         out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
-    for n, c, _ in camp:
-        resto = c * (1 - (quote or {}).get(n, quota))
-        if strumento in ("metaphlan", "both"):
-            out.append((f"mpa_{n}", "metaphlan", 4, resto / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
-        if strumento in ("kraken", "both"):
-            out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
+    resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
+    if strumento in ("metaphlan", "both"):
+        out += [(f"mpa_{n}", "metaphlan", 4, resto[n] / 1e6 * MPA_S_PER_M + MPA_FISSI_S) for n, _, _ in camp]
+        if fette and camp:
+            out.append(("profili_mpa", "metaphlan", 4, MPA_PKL_S + len(camp) * MPA_PROFILO_S))
+    if strumento in ("kraken", "both"):
+        out += [(f"krk_{n}", "kraken", 4, resto[n] / velocita * 60) for n, _, _ in camp]
     diversita = sezione(cfg, "analysis").get("diversity", True) is not False
     alfa = []
     if strumento in ("metaphlan", "both") and diversita and len(camp) > 1:
-        # R1: run.sh rifà MetaPhlAn (alfa_mpa_<campione>) su un sottocampione di ogni campione oltre il più povero;
-        # un passo per campione nel piano, così la barra va avanti anche lì (VM B2-4a: ferma a 99 % per 15 minuti)
-        povero = min(camp, key=lambda x: x[1] * (1 - (quote or {}).get(x[0], quota)))[0]
-        alfa = [(f"alfa_mpa_{n}", "riepilogo", 5, ALFA_MPA_S) for n, _, _ in camp if n != povero]
+        # R1: run.sh rifà MetaPhlAn su un sottocampione di ogni campione oltre il più povero, in un lotto col .pkl letto
+        # una volta (alfa_mpa, F3, L3); un passo nel piano, così la barra lo conta (VM B2-4a: ferma a 99 % per 15 minuti)
+        alfa = [("alfa_mpa", "riepilogo", 5, MPA_PKL_S + (len(camp) - 1) * MPA_PROFILO_S)]
     return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"])] + alfa + [("referto", "referto", 6, ALTRI_S["referto"])]
 
 
@@ -285,7 +293,7 @@ def controllo_qualita(lavoro, trim, r, nomi=()):
 
 
 # uscite di run.sh per etichetta (layout managed): se ci sono già, run.sh salta il passo (corsa ripresa)
-USCITE = {"dl": ("raw/{}_1.fastq.gz", "raw/{}.fastq.gz"), "mpa": ("metaphlan/{}_profile.txt",),
+USCITE = {"dl": ("raw/{}_1.fastq.gz", "raw/{}.fastq.gz"), "mpa": ("metaphlan/{}.mapout", "metaphlan/{}_profile.txt"),
           "krk": ("kraken/{}.bracken",), **dict.fromkeys(("tq", "th", "trim", "hf"),
                                                          ("nonhost/{}_nonhost_1.fastq.gz", "nonhost/{}_nonhost.fastq.gz"))}
 
@@ -564,7 +572,7 @@ class Motore:
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
-        tempo = tempi(camp, cfg, quote_triage(lavoro))
+        tempo = tempi(camp, cfg, {**quote_triage(lavoro), **quote_ospite(lavoro)})   # come esegui (F3, L5)
         scaricare = sum(b for _, _, b in camp)
         spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
@@ -687,7 +695,7 @@ class Motore:
                     if m.group(1).startswith("idx_"):   # R8: indice di un ospite non installato, una volta sola
                         testo = _("costruisco l'indice del DNA dell'ospite {nome} (si fa una volta sola, poi si "
                                   "riusa)", nome=m.group(1)[len("idx_"):])
-                    elif m.group(1).startswith("alfa_mpa_"):   # R1, VM B2-4a: diversità alfa a profondità uguale
+                    elif m.group(1).startswith("alfa_mpa"):   # R1, VM B2-4a: diversità alfa a profondità uguale
                         testo = _("diversità a profondità uguale: rifaccio MetaPhlAn su un sottocampione delle read")
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,

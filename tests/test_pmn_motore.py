@@ -183,11 +183,12 @@ def due_campioni(tmp_path, nome, prima=()):
     return progetto, {e: s for e, _, _, s in pm.piano(camp, {})}
 
 
-ETICHETTE_2 = "size trim_S1 hf_S1 trim_S2 hf_S2 multiqc mpa_S1 krk_S1 mpa_S2 krk_S2 merge kmatrix report"
+ETICHETTE_2 = "size trim_S1 hf_S1 trim_S2 hf_S2 multiqc mpa_S1 mpa_S2 profili_mpa krk_S1 krk_S2 merge kmatrix report"
 
 
 def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
-    """17/10: MetaPhlAn e Kraken alternati per campione, MultiQC dopo l'ospite, il passo che parte conta intero."""
+    """17/10: MultiQC dopo l'ospite, il passo che parte conta intero. F3 (5/11): prima MetaPhlAn su tutti i campioni e il
+    lotto dei profili, poi Kraken su tutti."""
     env, _ = ambiente
     progetto, sec = due_campioni(tmp_path, "nuovo")
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_ETICHETTE=ETICHETTE_2)
@@ -196,7 +197,7 @@ def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
     pct = [e["percentuale"] for e in av]
     assert pct == sorted(pct) and pct[0] == 0 and pct[-1] < 100
     per = {(e["passo"], e["campione"]): e for e in av}
-    resto = sec["krk_S1"] + sec["mpa_S2"] + sec["krk_S2"] + sec["riepilogo"] + sec["alfa_mpa_S2"] + sec["referto"]
+    resto = sec["krk_S1"] + sec["krk_S2"] + sec["riepilogo"] + sec["alfa_mpa"] + sec["referto"]
     assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                       # Kraken di S1 non e' gia' fatto
     assert per[("kraken", "S1")]["passo_s"] == round(sec["krk_S1"])                # 17/10: durata del passo
     assert per[("controllo_qualita", None)]["eta_s"] < per[("ospite", "S2")]["eta_s"]   # MultiQC: l'ospite non torna
@@ -206,18 +207,19 @@ def test_eta_segue_l_ordine_di_run_sh(ambiente, tmp_path):
 
 def test_eta_avanza_durante_la_diversita_alfa(ambiente, tmp_path):
     """VM B2-4a (30/10): MetaPhlAn rifatto sul sottocampione di ogni campione oltre il piu' povero (alfa_mpa_*) non
-    era nel piano e la barra restava a "99 %, 10 secondi" per 15 minuti. Ora e' un passo per campione, col suo testo."""
+    era nel piano e la barra restava a "99 %, 10 secondi" per 15 minuti. Ora e' un passo del piano, col suo testo;
+    F3 (L3): un solo lotto per tutti i campioni, col .pkl letto una volta."""
     env, _ = ambiente
     progetto, sec = due_campioni(tmp_path, "alfa")
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto),
-                        STUB_ETICHETTE=ETICHETTE_2 + " alfa_sotto alfa_mpa_S2 alfa mpa_matrix")
+                        STUB_ETICHETTE=ETICHETTE_2 + " alfa_sotto alfa_mpa alfa mpa_matrix")
     import pmn_motore as pm
     av = [e for e in ev if e["tipo"] == "avanzamento"]
-    assert codice == 0 and "alfa_mpa_S1" not in sec and sec["alfa_mpa_S2"] == pm.ALFA_MPA_S   # S1 e' il piu' povero
+    assert codice == 0 and sec["alfa_mpa"] == pm.MPA_PKL_S + pm.MPA_PROFILO_S   # un sottocampione: S2 (S1 e' il piu' povero)
     alfa = [e for e in av if "profondità uguale" in e["messaggio"]]
-    assert len(alfa) == 1 and alfa[0]["passo"] == "riepilogo" and alfa[0]["campione"] == "S2", alfa
-    assert abs(alfa[0]["eta_s"] - sec["alfa_mpa_S2"] - sec["referto"]) <= 1
-    assert alfa[0]["passo_s"] == round(sec["alfa_mpa_S2"])
+    assert len(alfa) == 1 and alfa[0]["passo"] == "riepilogo" and alfa[0]["campione"] is None, alfa
+    assert abs(alfa[0]["eta_s"] - sec["alfa_mpa"] - sec["referto"]) <= 1
+    assert alfa[0]["passo_s"] == round(sec["alfa_mpa"])
     riepilogo = next(e for e in av if e["passo"] == "riepilogo")
     assert riepilogo["eta_s"] > alfa[0]["eta_s"] and riepilogo["percentuale"] < alfa[0]["percentuale"] < 100
 
@@ -239,7 +241,7 @@ def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):
     per = {(e["passo"], e["campione"]): e for e in ev if e["tipo"] == "avanzamento"}
     assert codice == 0
     assert abs(per[("ospite", "S1")]["eta_s"] - sum(prima.values()) + prima["trim_S1"]) <= 1   # prima: quota fissa
-    resto = dopo["krk_S1"] + dopo["mpa_S2"] + dopo["krk_S2"] + dopo["riepilogo"] + dopo["alfa_mpa_S2"] + dopo["referto"]
+    resto = dopo["krk_S1"] + dopo["krk_S2"] + dopo["riepilogo"] + dopo["alfa_mpa"] + dopo["referto"]
     assert abs(per[("kraken", "S1")]["eta_s"] - resto) <= 1                                       # dopo: coppie vere
 
 
@@ -265,7 +267,7 @@ def test_eta_corsa_ripresa_salta_i_passi_fatti(ambiente, tmp_path):
     fatti = ("nonhost/S1_nonhost_1.fastq.gz", "metaphlan/S1_profile.txt")   # run.sh salta trim, ospite e MetaPhlAn di S1
     ripreso, _ = due_campioni(tmp_path, "ripreso", fatti)
     ev, codice = lancia(env, "esegui", "--progetto", str(ripreso),
-                        STUB_ETICHETTE="size trim_S2 hf_S2 multiqc krk_S1 mpa_S2 krk_S2 merge")
+                        STUB_ETICHETTE="size trim_S2 hf_S2 multiqc mpa_S2 profili_mpa krk_S1 krk_S2 merge")
     primo = lambda ev: next(e for e in ev if e["tipo"] == "avanzamento")  # noqa: E731
     assert codice == 0 and abs(primo(nuovo)["eta_s"] - primo(ev)["eta_s"]
                                - (sec["trim_S1"] + sec["hf_S1"] + sec["mpa_S1"])) <= 1
