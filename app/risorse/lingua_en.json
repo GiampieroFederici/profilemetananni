@@ -557,5 +557,11 @@
  "Apri il registro": "Open the log",
  "MetaPhlAn non ha trovato specie in questo campione: il profilo è vuoto.": "MetaPhlAn found no species in this sample: the profile is empty.",
  "Kraken non ha trovato taxa sopra la soglia in questo campione.": "Kraken found no taxa above the threshold in this sample.",
- "{campioni}{elenco} ({n} coppie di read)": "{campioni}{elenco} ({n} read pairs)"
+ "{campioni}{elenco} ({n} coppie di read)": "{campioni}{elenco} ({n} read pairs)",
+ "Hai cambiato la soglia dopo l'analisi": "You changed the threshold after the analysis",
+ "Avviando l'analisi si rifanno solo le tabelle e il referto con la soglia nuova: bastano pochi secondi. MetaPhlAn e Kraken restano come sono.": "Starting the analysis redoes only the tables and the report with the new threshold: a few seconds are enough. MetaPhlAn and Kraken stay as they are.",
+ "Hai cambiato le scelte di Kraken dopo l'analisi": "You changed the Kraken choices after the analysis",
+ "Avviando l'analisi si rifà Kraken su tutti i campioni: circa {durata}. MetaPhlAn resta com'è.": "Starting the analysis redoes Kraken on all samples: about {durata}. MetaPhlAn stays as it is.",
+ "Hai cambiato l'ospite dopo l'analisi": "You changed the host after the analysis",
+ "Avviando l'analisi si rifanno la rimozione del DNA dell'ospite, MetaPhlAn e Kraken: circa {durata}.": "Starting the analysis redoes the host DNA removal, MetaPhlAn and Kraken: about {durata}."
 }
