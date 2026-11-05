@@ -222,13 +222,17 @@ def quote_ospite(lavoro):
 
 def coppie_ospite(lavoro):
     """{campione: (entrate, rimaste)} dai log di Bowtie2 di steps/21 (hostfilter_logs/<campione>.<indice>.bowtie2.log):
-    coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo."""
+    coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo. Regola strict (F1, 5/11): le rimaste di
+    ogni passo sono in <campione>.<indice>.coppie.tsv accanto al log (una coppia esce anche con una sola read
+    sull'ospite, quindi non sono le "aligned concordantly 0 times"); senza quel file (progetti vecchi) dal log."""
     entrate, rimaste = {}, {}
     for f in (Path(lavoro) / "hostfilter_logs").glob("*.bowtie2.log"):
         nome = f.name[:-len(".bowtie2.log")].rsplit(".", 1)[0]
         testo = f.read_text(encoding="utf-8", errors="replace")
         dentro = re.search(r"^(\d+) reads; of these:", testo, re.M)
-        fuori = (re.search(r"^\s*(\d+) \([\d.]+%\) aligned concordantly 0 times", testo, re.M)
+        strict = f.with_name(f.name[:-len(".bowtie2.log")] + ".coppie.tsv")
+        fuori = ((re.search(r"^\d+\t(\d+)$", strict.read_text(encoding="utf-8"), re.M) if strict.is_file() else None)
+                 or re.search(r"^\s*(\d+) \([\d.]+%\) aligned concordantly 0 times", testo, re.M)
                  or re.search(r"were unpaired; of these:\s*\n\s*(\d+) \([\d.]+%\) aligned 0 times", testo))
         if dentro and fuori:
             entrate[nome] = max(entrate.get(nome, 0), int(dentro[1]))
