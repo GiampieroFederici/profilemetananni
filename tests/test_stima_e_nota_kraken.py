@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """1.2 (6/11, sessione G1 sulle guide): due difetti visti sul campione d'esempio.
-1. La stima diceva "circa 5 minuti" e l'analisi ne durava 6 min 13 s - 6 min 45 s: mancavano i costi fissi (indici
-   dell'ospite, database di Kraken) e l'ospite usava la velocità end-to-end. La stima ora non sta sotto il tempo vero.
+1. Stima tarata sul PC libero: l'esempio dura 200-226 s; servono la velocità dell'ospite local, il fisso di Kraken
+   (database) e quello di MetaPhlAn col database ridotto. La stima non sta sotto il tempo vero e non lo supera del 30 %.
 2. Il referto diceva sempre che mammiferi e virus sono "nella tabella successiva, a parte", anche quando quella
    tabella non c'era (con 0,5 + 0,1 % è il caso normale).
 Gira con l'app o con la suite del motore:  python -m pytest tests/test_stima_e_nota_kraken.py"""
@@ -22,7 +22,7 @@ def test_stima_dell_esempio_non_sotto_il_tempo_vero():
     camp = [("mini_SF3RAt7", 200_000, 0)]                 # 200.000 coppie, read locali (nessuno scarico)
     cfg = {"hosts": ["sus_scrofa"], "filter_human": True, "motore": {"processori": 24}}
     stima = sum(pm.tempi(camp, cfg).values())
-    assert 405 <= stima <= 1.3 * 405, stima               # vero: 373-405 s (6/11, IT e EN, 24 processori)
+    assert 226 <= stima <= 1.3 * 226, stima               # vero: 200-226 s (6/11, IT e EN, 24 processori, PC libero)
 
 
 def referto_finto(tmp_path):
