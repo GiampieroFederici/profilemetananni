@@ -106,7 +106,8 @@ def test_l5_campioni_non_misurati_prendono_la_media_delle_quote_misurate():
     assert sec["krk_B"] == pytest.approx(sec["krk_A"])                    # B: 90 %, non il 53 % fisso
     senza = {e: s for e, _, _, s in pm.piano(camp, CFG)}
     assert senza["krk_B"] == pytest.approx(senza["krk_A"])
-    assert sec["krk_A"] == pytest.approx(senza["krk_A"] * 0.1 / (1 - pm.OSPITE_QUOTA))
+    f = pm.KRAKEN_FISSI_S["completo"]                                     # 1.2: parte fissa di Kraken
+    assert sec["krk_A"] - f == pytest.approx((senza["krk_A"] - f) * 0.1 / (1 - pm.OSPITE_QUOTA))
 
 
 def test_l5_stima_usa_le_quote_di_una_corsa_precedente(tmp_path):
@@ -131,4 +132,5 @@ def test_l5_stima_usa_le_quote_di_una_corsa_precedente(tmp_path):
     log.mkdir(parents=True)
     (log / "A.sus_scrofa.bowtie2.log").write_text(
         "1000 reads; of these:\n  1000 (100.00%) were paired; of these:\n    100 (10.00%) aligned concordantly 0 times\n")
-    assert kraken() == pytest.approx(prima * 0.1 / (1 - pm.OSPITE_QUOTA), abs=1)
+    f = pm.KRAKEN_FISSI_S["completo"]                                     # 1.2: parte fissa di Kraken
+    assert kraken() - f == pytest.approx((prima - f) * 0.1 / (1 - pm.OSPITE_QUOTA), abs=1)

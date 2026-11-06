@@ -722,10 +722,14 @@ def html_referto(d):
     h.append(riquadro(_(PROTOTIPO_KRAKEN)))
     if any(c["kraken"] for c in d["campioni"]):
         h.append("<p>" + limite_kraken(d) + "</p>")
-    h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, "
-                                       "che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non "
-                                       "contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte "
-                                       "(D023).") + "</p>")
+    a_parte = any(r["categoria"] not in MICROBI for c in d["campioni"] for r in (c["kraken"] or []))
+    if a_parte:   # 1.2 (6/11): la frase solo se la tabella "Segnalati a parte" c'è
+        h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, "
+                                           "che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché "
+                                           "non contiene il genoma del maiale, e i virus sono nella tabella successiva, "
+                                           "a parte (D023).") + "</p>")
+    else:
+        h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi.") + "</p>")
     for c in d["campioni"]:
         if c["kraken"] is None:
             continue
