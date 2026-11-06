@@ -46,7 +46,8 @@ DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in 
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): SAP1 1.916 s per 12,0 M coppie, SMC1 5.778 s per 37,0 M
 OSPITE_FISSI_S = 55            # (6/11, retta sui due); prima 101 (end-to-end). Fissi: indici di maiale e uomo caricati, a campione
-OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
+OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
+                               # end-to-end 53 %, 17/10); Ciauscolo 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
                                # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
 MPA_S_PER_M, MPA_FISSI_S = 86.2, 135   # per M coppie senza ospite (C03_1, S2.2); fissi: 185 s (v1.1 VELOCITA) meno i 50 s

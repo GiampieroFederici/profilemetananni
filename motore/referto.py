@@ -642,7 +642,7 @@ PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le
 LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read assegnate da Bracken (non "
                    "classificate escluse; confidence {confidence}). Con i valori consigliati per il PlusPF completo "
                    "(confidence 0,5 e soglia 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
-                   "da 196 a 64 su 12 campioni e nel campione di controllo Zymo da 10 a 0. Lo 0,1 % segue anche "
+                   "da 188 a 57 su 12 campioni e nel campione di controllo Zymo da 10 a 0. Lo 0,1 % segue anche "
                    "Portik, Brown e Pierce-Ward 2022, che però lo calcolano sulle read totali. I taxa sotto la soglia, "
                    "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la "
                    "<i>Listeria</i> serve un'analisi mirata.")
