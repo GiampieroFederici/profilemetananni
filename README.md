@@ -1,6 +1,6 @@
-# ProfileMetaNanni 1.1
+# ProfileMetaNanni 1.2
 
-## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 | English | Italiano |
 |---|---|
@@ -10,11 +10,11 @@
 
 **You need** Windows 11 (not Mac), 16 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
-**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0) too.
+**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) too.
 
 **Serve** Windows 11 (non Mac), 16 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
 
-**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0).
+**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -35,7 +35,7 @@
 
 ## How to install
 
-### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 Before you start, check that you have:
 
@@ -90,7 +90,7 @@ It starts from shotgun sequencing reads (`.fastq.gz` files from the sequencing l
 | Step | Tool |
 |---|---|
 | Read cleaning and quality control | fastp, FastQC, MultiQC |
-| Host read removal | Bowtie 2 against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
+| Host read removal | Bowtie 2 (`--very-sensitive-local`; a read pair is removed if either read aligns, as in KneadData 0.12.5) against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
 | Marker-gene taxonomic profiling | MetaPhlAn 4.2.4 with the `mpa_vJan25_CHOCOPhlAnSGB_202503` database |
 | k-mer taxonomic profiling (prototype) | Kraken 2 + Bracken with PlusPF (full) or PlusPF-8 (quick screening) |
 | Alpha diversity at equal depth | richness, Shannon, Simpson, for each method |
@@ -130,7 +130,7 @@ The installer enables WSL2 (it asks once for administrator permission and one re
 
 ## Status
 
-Version 1.1. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads: Stop and resume, restart, the engine check GREEN, analyses of one and six samples, added hosts, invalid inputs, out of memory at 8 GB, update check, then each correction checked again on the same machine before this release. The update from 1.0 was tested on a real PC: the databases already there are recognised, nothing is downloaded again. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one. The installation of the full Kraken index up to GREEN was not repeated on the virtual machine (no disk space left on the test PC): its download and resume were tested on the first 10.5 GB.
+Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, a pair is removed if either read aligns), and MetaPhlAn computes the profile from a database reduced to the clades with reads: the profiles are byte-identical to a classic MetaPhlAn 4.2.4 run with the full database, and the memory peak of an analysis goes from 8.4 to 5.4 GB. Validated on simulated cured-meat communities with known truth (0.18 % of the true taxa read pairs removed by the host filter), on the ZymoBIOMICS D6300 standard (8 of 8 bacteria, no unexpected species above 0.1 % with MetaPhlAn or Kraken) and on Ciauscolo samples compared with the previous version. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads (Stop and resume, restart, the engine check GREEN, the example analysis); each correction found there was checked again on the same machine before this release. The full Kraken index does not fit on the test machine's disk, so on the virtual machine Kraken was run with the quick index; the full index was used on a real PC. Projects analysed with 1.1 redo cleaning, host removal, MetaPhlAn and Kraken by themselves, because the method changed.
 
 | Validation | Result |
 |---|---|
@@ -172,7 +172,7 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 Prima di iniziare controlla di avere:
 
@@ -227,7 +227,7 @@ Parte dalle read di sequenziamento shotgun (file `.fastq.gz` del laboratorio, op
 | Passo | Strumento |
 |---|---|
 | Pulizia e controllo qualità delle read | fastp, FastQC, MultiQC |
-| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
+| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 (`--very-sensitive-local`; una coppia di read si toglie se anche una sola read si allinea, come in KneadData 0.12.5) su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
 | Profilo tassonomico con geni marcatori | MetaPhlAn 4.2.4 con il database `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | Profilo tassonomico per k-mer (prototipo) | Kraken 2 + Bracken con PlusPF (completo) o PlusPF-8 (screening rapido) |
 | Diversità alfa a profondità uguale | ricchezza, Shannon, Simpson, per ciascun metodo |
@@ -267,7 +267,7 @@ L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un 
 
 ## Stato
 
-Versione 1.1. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri: Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi di uno e sei campioni, ospiti aggiunti, input non validi, memoria finita a 8 GB, controllo degli aggiornamenti; poi ogni correzione è stata riprovata sulla stessa macchina prima di questa Release. L'aggiornamento dalla 1.0 è stato provato su un PC vero: i database già presenti vengono riconosciuti e non si scarica nulla di nuovo. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno. L'installazione dell'indice Kraken completo fino al VERDE non è stata ripetuta sulla macchina virtuale (il PC di prova non aveva più spazio): scarico e ripresa sono stati provati sui primi 10,5 GB.
+Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), e MetaPhlAn calcola il profilo da un database ridotto ai clade che hanno read: i profili sono identici al byte a quelli di MetaPhlAn 4.2.4 classico con il database intero, e il picco di memoria di un'analisi scende da 8,4 a 5,4 GB. Validata su comunità simulate di salume a composizione nota (lo 0,18 % delle coppie di read dei taxa veri tolto dal filtro dell'ospite), sullo standard ZymoBIOMICS D6300 (8 batteri su 8, nessuna specie inattesa sopra lo 0,1 % con MetaPhlAn e con Kraken) e su campioni di Ciauscolo confrontati con la versione precedente. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri (Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi d'esempio); ogni correzione trovata lì è stata riprovata sulla stessa macchina prima di questa Release. L'indice Kraken completo non sta sul disco della macchina di prova: lì Kraken ha usato l'indice rapido; l'indice completo è stato usato su un PC vero. I progetti analizzati con la 1.1 rifanno da soli pulizia, rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato.
 
 | Validazione | Risultato |
 |---|---|
