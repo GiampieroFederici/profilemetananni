@@ -44,17 +44,18 @@ CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
-OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): SAP1 1.916 s per 12,0 M coppie, SMC1 5.778 s per 37,0 M
-OSPITE_FISSI_S = 55            # (6/11, retta sui due); prima 101 (end-to-end). Fissi: indici di maiale e uomo caricati, a campione
+OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): SAP1 1.916 s per 12,0 M coppie, SMC1 5.778 s per 37,0 M,
+                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile
 OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
                                # end-to-end 53 %, 17/10); Ciauscolo 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
                                # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 135   # per M coppie senza ospite (C03_1, S2.2); fissi: 185 s (v1.1 VELOCITA) meno i 50 s
-                               # del profilo col database ridotto (F3, N1: 53 -> 3 s); prudente: 35-44 s sui 3 Ciauscolo (5/11)
+MPA_S_PER_M, MPA_FISSI_S = 170, 55     # 6/11, PC libero, database ridotto (F3, N1): fissi 58-62 s sull'esempio (60.727
+                               # coppie); per M dalla corsa del 17/10 (SF3RAt7, 1,51 M coppie, 357 s col .pkl intero meno 50 s);
+                               # prudente sui Ciauscolo (0,2-0,36 M: 59-66 s veri). Prima 86,2 per M (C03_1) e 135 fissi
 KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
-KRAKEN_FISSI_S = {"completo": 100, "rapido": 30}   # caricamento del database a campione (6/11): esempio 60.727 coppie in
-                               # 142-176 s, SAP1 196.880 in 198 s; "rapido" (PlusPF-8, 8 GB) non misurato, prudente
+KRAKEN_FISSI_S = {"completo": 60, "rapido": 30}   # caricamento del database a campione (6/11, PC libero): esempio 60.727
+                               # coppie in 96-126 s, SAP1 196.880 in 198 s; "rapido" (PlusPF-8, 8 GB) non misurato, prudente
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
 ALFA_MPA_S = 5                 # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
@@ -176,7 +177,7 @@ def piano(camp, cfg, quote=None):
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, OSPITE_FISSI_S + c / 1e6 * OSPITE_S_PER_M)]
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:
