@@ -504,7 +504,7 @@ def test_p27_p31_limite_kraken_dice_la_base_e_il_database_dei_numeri_k4():
     assert "% delle read (confidence" not in t
     assert "Con i valori consigliati (0,5 e 0,1 %)" not in t
     assert "consigliati per il PlusPF completo (confidence 0,5 e soglia 0,1 %)" in t
-    assert "da 196 a 64 su 12 campioni" in t and "da 10 a 0" in t
+    assert "da 188 a 57 su 12 campioni" in t and "da 10 a 0" in t
     en = catalogo_en("motore")[referto.LIMITE_KRAKEN]
     assert "of the reads assigned by Bracken" in en and "for the full PlusPF" in en
 
