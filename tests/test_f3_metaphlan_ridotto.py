@@ -3,7 +3,7 @@
 campione (motore/metaphlan_ridotto.py) deve scrivere lo stesso profilo, byte per byte. Database sintetico piccolo con i
 casi delicati: marcatori di una specie con "ext" verso una specie presente (filtro dei marcatori esterni), una specie
 esterna senza read, un marcatore il cui clade non segue la regola del nome, un marcatore che il database non ha, un
-marcatore di virus (VDB), un mapout senza read. La prova sul .pkl vero (6 Ciauscolo, 5 sottocampioni dell'alfa,
+marcatore di virus (VDB), un mapout senza read. La prova sul .pkl vero (6 salumi veri, 5 sottocampioni dell'alfa,
 Zymo, un campione senza read, il profilo classico del server di SF3RAt7) è in F3_velocita_RAM: identica al byte. Serve l'ambiente pmn_metaphlan (WSL); senza, il test si salta."""
 import bz2
 import os

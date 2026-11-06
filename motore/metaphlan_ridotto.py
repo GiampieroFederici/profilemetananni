@@ -11,7 +11,7 @@ Perché il profilo resta identico (codice di MetaPhlAn 4.2.4, metaphlan.py, --in
   clade del campione, quindi ha tutti i suoi marcatori.
 Quindi basta caricare TUTTI i marcatori dei clade che hanno almeno una read nel mapout (anche qualche clade in più
 non cambia nulla: ha solo marcatori a 0). Il resto del database (taxonomy, merged_taxon, ...) resta intero.
-Prova sul .pkl vero (5/11, F3_velocita_RAM): 6 Ciauscolo, 5 sottocampioni dell'alfa, Zymo, un campione senza read e
+Prova sul .pkl vero (5/11, F3_velocita_RAM): 6 salumi veri, 5 sottocampioni dell'alfa, Zymo, un campione senza read e
 il mapout di MetaPhlAn classico del server (SF3RAt7, indice intero): profili identici al byte; ~0,3 GB e 2-4 s invece
 di 8,2 GB e ~55 s. Costruzione del file derivato: una volta, ~55 s e 6,9 GB, 297 MB su disco.
 
