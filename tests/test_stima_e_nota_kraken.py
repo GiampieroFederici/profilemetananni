@@ -58,3 +58,12 @@ def test_nota_lunga_con_la_tabella_a_parte(tmp_path):
                         "taxid": 9606})
     s = sezione_kraken(d)
     assert NOTA_LUNGA in s and "Segnalati a parte" in s
+
+
+def test_v1_fonte_ripetuta_diventa_come_sopra():
+    """V1 (VM 6/11): nella tabella dei parametri la stessa fonte lunga stava in tre righe di fila."""
+    p = {"kraken_db": "/db/k2_pluspf_20260626", "kraken_profile": "completo", "kraken_confidence": "0.5",
+         "bracken_min_reads": "10", "abundance_threshold_pct": "0.1"}
+    righe = referto.righe_parametri({"parametri": p})
+    fonti = [r[3] for r in righe if r[0].startswith(("Confidenza", "Letture minime", "Soglia di abbondanza"))]
+    assert len(fonti) == 3 and len(fonti[0]) > 40 and fonti[1:] == ["come sopra", "come sopra"]

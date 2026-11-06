@@ -351,6 +351,8 @@ if ($m) { Ferma $m }
 # v1.1 (R7, §1.6): l'app e le icone non si copiano piu' qui ma in fase 2, dopo il controllo dello spazio e il Si' della
 # persona: un tentativo fermato per lo spazio (o un No) non lascia nulla sul PC. Dopo un riavvio la fase 2 riparte da sola.
 if ($Fase -eq 1 -and -not (WslPronta)) {
+    # V1 (VM 6/11): riaperta col riavvio gia' in sospeso dopo il NOSTRO wsl --install, rifaceva permesso e wsl --install
+    if (RiavvioInSospeso) { ChiediRiavvio }
     Avviso (T 'wsl_serve')
     try { $p = Start-Process wsl.exe -ArgumentList '--install', '--no-distribution' -Verb RunAs -WindowStyle Hidden -PassThru }
     catch { Scrivi "$_"; Ferma (T 'wsl_permesso') }

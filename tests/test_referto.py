@@ -112,8 +112,10 @@ def test_r5_parametri_fonti_citazioni_virus(referto):
     par = {r["Parametro"]: r for r in righe(wb["Parametri"])}
     with open(os.path.join(ROOT, "refs", "kraken_profili.tsv"), encoding="utf-8") as f:
         fonte = next(r.split("\t")[4] for r in f.read().splitlines() if r.startswith("rapido\t"))
-    for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)", "Soglia di abbondanza di Kraken (%)"):
-        assert par[k]["Fonte"] == fonte
+    # V1 (VM 6/11): la stessa fonte nella prima delle tre righe, poi "come sopra"
+    fonti = [par[k]["Fonte"] for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)",
+                                       "Soglia di abbondanza di Kraken (%)")]
+    assert fonti == [fonte, "come sopra", "come sopra"]
     assert all(r["Fonte"] for r in par.values())
     assert "Strumenti e database usati" in html and "Wright, Comeau &amp; Langille 2023" in html
     assert "4.2.4" in html and "2.17.2" in html

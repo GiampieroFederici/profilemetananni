@@ -543,5 +543,6 @@
  "Pulizia delle read": "Read cleaning",
  "fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque": "fastp cuts the read tail where the mean quality over 4 bases drops below 20 and drops reads shorter than 70 bases, which MetaPhlAn would ignore anyway",
  "Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)": "Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)",
- "Solo batteri, archei e funghi.": "Only bacteria, archaea and fungi."
+ "Solo batteri, archei e funghi.": "Only bacteria, archaea and fungi.",
+ "come sopra": "as above"
 }

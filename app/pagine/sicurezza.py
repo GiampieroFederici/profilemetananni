@@ -12,13 +12,13 @@ import math
 
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QPolygonF
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame, QHBoxLayout, QLineEdit, QPushButton,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLineEdit, QPushButton,
                                QRadioButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from app import lingua
 from app.lingua import N_, _
 from app.motore import MotoreClient, percorso_per_motore
-from app.pagine.base import PROTOTIPO, Pagina, etichetta, numero, pannello, riquadro
+from app.pagine.base import PROTOTIPO, Menu, Pagina, etichetta, numero, pannello, riquadro
 from app.pagine.risultati import leggi_risultati
 
 ACIDI = [("lattico", N_("Acido lattico")), ("acetico", N_("Acido acetico")), ("diacetato", N_("Diacetato")),
@@ -232,7 +232,7 @@ class PaginaSicurezza(Pagina):
         # contratto §5.4: con più campioni il motore vuole sapere quale profilo usare (P40); il testo si scrive solo
         # quando serve, così con un campione la pagina resta com'era
         self.campione_etichetta = etichetta("")
-        self.campione = QComboBox()
+        self.campione = Menu()
         for w in (self.campione_etichetta, self.campione):
             w.hide()
             s.addWidget(w)

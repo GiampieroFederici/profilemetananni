@@ -587,7 +587,8 @@ def righe_parametri(d):
         out.append((_("Genoma dell'ospite {nome}", nome=chiave[len("host_index_"):]), p[chiave],
                     _("da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice"),
                     "steps/11_host_index.sh"))
-    return out
+    # V1 (VM 6/11): la stessa fonte lunga di Kraken ripetuta in tre righe di fila; dalla seconda "come sopra"
+    return [r if i == 0 or r[3] != out[i - 1][3] else (*r[:3], _("come sopra")) for i, r in enumerate(out)]
 
 
 def dati_prodotto(richiesta):

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QDialog, Q
 from app import progetto
 from app.lingua import N_, _
 from app.motore import percorso_per_motore
-from app.pagine.base import Pagina, Scelta, etichetta, numero, riga_di_scelte, riquadro, svuota
+from app.pagine.base import Menu, Pagina, Scelta, etichetta, numero, riga_di_scelte, riquadro, svuota
 
 # prodotto -> (testo nel menu, ospiti oltre all'uomo (nomi di refs/hosts.tsv), frase che dice perché, livello);
 # ospiti, frase, perché e livello sono il ripiego di info.prodotti (stessi testi, motore/system_one.py)
@@ -161,7 +161,7 @@ class PaginaCampioni(Pagina):
 
         self.corpo.addSpacing(8)
         self.corpo.addWidget(etichetta(_("Che prodotto è?"), "sottotitolo"))
-        self.prodotto = QComboBox()
+        self.prodotto = Menu()
         self.prodotto.setMaximumWidth(560)
         stringibile(self.prodotto)
         self.prodotto.setAccessibleName(_("Prodotto"))
@@ -174,7 +174,7 @@ class PaginaCampioni(Pagina):
         # R8: l'ospite proposto dal prodotto si può cambiare
         self.corpo.addWidget(etichetta(_("DNA dell'ospite da togliere"), "etichetta_campo"))
         riga = QHBoxLayout(objectName="riga_di_scelte")   # B4-1: stretta, il pulsante va sotto (impila)
-        self.ospite = QComboBox()
+        self.ospite = Menu()
         self.ospite.setMaximumWidth(400)
         stringibile(self.ospite)
         self.ospite.setAccessibleName(_("DNA dell'ospite da togliere"))

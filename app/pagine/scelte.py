@@ -7,13 +7,13 @@ I valori consigliati di Kraken e Bracken si leggono da refs/kraken_profili.tsv (
 import csv
 
 import yaml
-from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QFrame, QGridLayout, QPlainTextEdit, QPushButton, \
+from PySide6.QtWidgets import QButtonGroup, QCheckBox, QFrame, QGridLayout, QPlainTextEdit, QPushButton, \
     QVBoxLayout
 
 from app import lingua
 from app.lingua import N_, _
 from app.motore import RADICE, MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
+from app.pagine.base import Menu, Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
 from app.pagine.risultati import leggi_risultati
 
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
@@ -206,10 +206,10 @@ class PaginaScelte(Pagina):
         griglia.setHorizontalSpacing(20)
         griglia.setVerticalSpacing(12)
         griglia.setColumnStretch(2, 1)
-        self.confidenza = QComboBox()
-        self.soglia = QComboBox()
-        self.lunghezza = QComboBox()
-        self.letture = QComboBox()
+        self.confidenza = Menu()
+        self.soglia = Menu()
+        self.lunghezza = Menu()
+        self.letture = Menu()
         righe = [(_("Soglia di confidenza di Kraken"), self.confidenza, _(FONTE_CONFIDENZA)),
                  (_("Soglia di abbondanza di Kraken"), self.soglia, _(FONTE_SOGLIA)),
                  (_("Read minime per specie (Bracken)"), self.letture, _(FONTE_LETTURE)),
