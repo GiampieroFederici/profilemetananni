@@ -56,7 +56,7 @@ def test_versione_da_un_solo_file():
     sys.path.insert(0, str(RADICE / "motore"))
     import pmn_motore
     scritta = (RADICE / "motore" / "VERSIONE").read_text(encoding="utf-8").strip()
-    assert scritta == "1.1.0" and pmn_motore.VERSIONE == scritta and aggiorna.VERSIONE == scritta
+    assert scritta == "1.2.0" and pmn_motore.VERSIONE == scritta and aggiorna.VERSIONE == scritta
 
 
 # ---------------- B2-13: percorsi del motore come si aprono da Windows ----------------

@@ -30,9 +30,10 @@ def test_sf3rat7_entro_il_25_per_cento_del_vero():
 def test_kraken_conta_le_coppie_dopo_l_ospite():
     con = pm.tempi(SF3RAT7, CFG)["kraken"]
     senza = pm.tempi(SF3RAT7, {**CFG, "hosts": []})["kraken"]       # solo uomo: prudente, tutte le coppie
-    assert abs(senza * (1 - pm.OSPITE_QUOTA) - con) <= 1
+    f = pm.KRAKEN_FISSI_S["completo"]                               # 1.2: caricamento del database, fisso
+    assert abs((senza - f) * (1 - pm.OSPITE_QUOTA) - (con - f)) <= 1
     # dal triage (host_pct per campione), se c'e': 80 % di ospite -> 20 % delle coppie
-    assert abs(pm.tempi(SF3RAT7, CFG, {"SRR4875279": 0.8})["kraken"] - senza * 0.2) <= 1
+    assert abs(pm.tempi(SF3RAT7, CFG, {"SRR4875279": 0.8})["kraken"] - f - (senza - f) * 0.2) <= 1
 
 
 def test_processori_dalla_corsa():
