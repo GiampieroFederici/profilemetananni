@@ -45,7 +45,9 @@ BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): salume vero 1.916 s per 12,0 M coppie, altro salume 5.778 s per 37,0 M,
-                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile
+                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile.
+OSPITE_PROC_RIF, OSPITE_ESP = 24, 0.49   # Bowtie2 con meno processori (6/11, 946.123 coppie di un salume vero, uscite identiche):
+                               # 24 -> 113 s, 8 -> 159 s (x1,41), 4 -> 271 s (x2,40); (24/p)^0,49 = x2,40 a 4 e x1,71 a 8 (prudente)
 OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
                                # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
@@ -177,7 +179,7 @@ def piano(camp, cfg, quote=None):
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:

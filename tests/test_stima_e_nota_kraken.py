@@ -67,3 +67,16 @@ def test_v1_fonte_ripetuta_diventa_come_sopra():
     righe = referto.righe_parametri({"parametri": p})
     fonti = [r[3] for r in righe if r[0].startswith(("Confidenza", "Letture minime", "Soglia di abbondanza"))]
     assert len(fonti) == 3 and len(fonti[0]) > 40 and fonti[1:] == ["come sopra", "come sopra"]
+
+
+def test_ospite_piu_lento_con_meno_processori():
+    """6/11: su un PC con meno processori la rimozione dell'ospite dura di più (Bowtie2 usa tutti i processori). Misurato
+    sulle stesse 946.123 coppie: 24 -> 113 s, 8 -> 159 s, 4 -> 271 s. La stima non sta sotto il vero e non lo supera del 30 %
+    a 4 processori; a 8 è prudente."""
+    import pmn_motore as pm
+    camp = [("salume", 1_000_000, 0)]
+
+    def ospite(p):
+        return pm.tempi(camp, {"hosts": ["sus_scrofa"], "motore": {"processori": p}, "execution": {"threads": p}})["ospite"]
+    assert ospite(8) >= 1.41 * ospite(24) and ospite(4) >= 2.40 * ospite(24) - 1
+    assert ospite(4) <= 1.3 * 2.40 * ospite(24) and ospite(8) <= 1.3 * 1.41 * ospite(24)
