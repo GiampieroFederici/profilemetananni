@@ -107,6 +107,8 @@ $Attivita = 'profilemetananni - continua installazione'
 function Riprendi($voce = 'profilemetananni', $attivita = $Attivita, $file = $PSCommandPath) {   # al prossimo accesso di questo utente riparte da solo dalla fase 2
     # conhost --headless: nessuna finestra (Windows Terminal ignora -WindowStyle Hidden e lascia una finestra vuota, S3-W)
     $argomenti = "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$file`" -Fase 2"
+    # V1 (VM 6/11): su un Windows appena installato la chiave RunOnce non c'e' ancora (la crea OneDrive minuti dopo)
+    if (-not (Test-Path $RunOnce)) { New-Item -Path $RunOnce -Force | Out-Null }
     New-ItemProperty -Path $RunOnce -Name $voce -Value "conhost.exe $argomenti" -PropertyType String -Force | Out-Null
     # A0 (VM 30/10): RunOnce ha lanciato conhost nei primi secondi dell'accesso e PowerShell non e' mai partito. Seconda via,
     # senza amministratore: un'attivita' pianificata "all'accesso" di questo utente, 2 minuti dopo; se la fase 2 e' gia'
