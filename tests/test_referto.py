@@ -112,8 +112,10 @@ def test_r5_parametri_fonti_citazioni_virus(referto):
     par = {r["Parametro"]: r for r in righe(wb["Parametri"])}
     with open(os.path.join(ROOT, "refs", "kraken_profili.tsv"), encoding="utf-8") as f:
         fonte = next(r.split("\t")[4] for r in f.read().splitlines() if r.startswith("rapido\t"))
-    for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)", "Soglia di abbondanza di Kraken (%)"):
-        assert par[k]["Fonte"] == fonte
+    # V1 (VM 6/11): la stessa fonte nella prima delle tre righe, poi "come sopra"
+    fonti = [par[k]["Fonte"] for k in ("Confidenza di Kraken (--confidence)", "Letture minime di Bracken (-t)",
+                                       "Soglia di abbondanza di Kraken (%)")]
+    assert fonti == [fonte, "come sopra", "come sopra"]
     assert all(r["Fonte"] for r in par.values())
     assert "Strumenti e database usati" in html and "Wright, Comeau &amp; Langille 2023" in html
     assert "4.2.4" in html and "2.17.2" in html
@@ -176,7 +178,7 @@ def test_limite_di_kraken_e_di_metaphlan_dichiarati(referto):
     sez_krk = html.split("3. Taxa trovati con Kraken")[1].split("4. ")[0]
     assert ("Kraken mostra solo i taxa con almeno lo 0,005 % delle read assegnate da Bracken (non classificate "
             "escluse; confidence 0,1).") in sez_krk
-    assert "da 196 a 64 su 12 campioni" in sez_krk and "da 10 a 0" in sez_krk
+    assert "da 188 a 57 su 12 campioni" in sez_krk and "da 10 a 0" in sez_krk
     assert "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken" in sez_krk
     assert "MetaPhlAn non usa soglie" in sez_mpa and "circa 1.800 coppie" in sez_mpa and "fino allo 0,4 %" in sez_mpa
     assert "tarate su comunità simulate e su un campione di controllo (Zymo), non ancora su salumi veri" in sez_krk

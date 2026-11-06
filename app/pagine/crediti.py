@@ -42,7 +42,12 @@ FONTI = [
     (N_("Scelta dei parametri e statistica"), [
         N_("Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta della soglia di confidenza e del "
            "database di Kraken 2. DOI 10.1099/mgen.0.000949"),
-        N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. DOI 10.1186/s40793-024-00561-w"),
+        N_("Portik, Brown & Pierce-Ward 2022, BMC Bioinformatics 23:541: soglia di abbondanza 0,1 % delle read "
+           "totali con Kraken 2, Bracken e il database PlusPF. DOI 10.1186/s12859-022-05103-0"),
+        N_("Galanis et al. 2022, Mol Ecol Resour 22(7):2506-2523: confidence 0,5 di Kraken 2 su comunità simulate "
+           "del miele. DOI 10.1111/1755-0998.13626"),
+        N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza nel suolo, consigliata 0,001 %. "
+           "DOI 10.1186/s40793-024-00561-w"),
         N_("Gloor et al. 2017, Front Microbiol: dati composizionali e trasformazione CLR. "
            "DOI 10.3389/fmicb.2017.02224"),
         N_("Kruskal & Wallis 1952, J Am Stat Assoc 47:583-621: test di Kruskal-Wallis (confronto fra gruppi)."),

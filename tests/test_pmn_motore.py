@@ -30,6 +30,10 @@ for l in ${STUB_ETICHETTE:-size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 k
     ospite) case "$l" in hf_*) mkdir -p "$work/hostfilter_logs"   # come steps/21: 80 % delle coppie e' ospite
       printf '1000000 reads; of these:\n  1000000 (100.00%%) were paired; of these:\n    200000 (20.00%%) aligned concordantly 0 times\n' \
         > "$work/hostfilter_logs/${l#hf_}.sus_scrofa.bowtie2.log" ;; esac ;;
+    ospite_diverso) case "$l" in hf_*) mkdir -p "$work/hostfilter_logs"   # S1 10 % di ospite, S2 95 %
+      [ "$l" = hf_S1 ] && r=900000 || r=50000
+      printf '1000000 reads; of these:\n  1000000 (100.00%%) were paired; of these:\n    %s (50.00%%) aligned concordantly 0 times\n' "$r" \
+        > "$work/hostfilter_logs/${l#hf_}.sus_scrofa.bowtie2.log" ;; esac ;;
   esac
 done
 mkdir -p "$work/metaphlan" "$work/kraken" "$work/results"
@@ -220,6 +224,21 @@ def test_eta_avanza_durante_la_diversita_alfa(ambiente, tmp_path):
     assert alfa[0]["passo_s"] == round(sec["alfa_mpa_S2"])
     riepilogo = next(e for e in av if e["passo"] == "riepilogo")
     assert riepilogo["eta_s"] > alfa[0]["eta_s"] and riepilogo["percentuale"] < alfa[0]["percentuale"] < 100
+
+
+def test_campione_piu_povero_cambia_dopo_l_ospite(ambiente, tmp_path):
+    """1.2 (K4-bis, 5/11): tolto l'ospite, il campione più povero può cambiare (S1 10 % di ospite, S2 95 %): il piano
+    ricalcolato ha il passo alfa_mpa_S1, che prima non c'era. Il motore si fermava con KeyError('alfa_mpa_S1')."""
+    env, _ = ambiente
+    progetto, _ = due_campioni(tmp_path, "povero")
+    progetto.write_text(progetto.read_text(encoding="utf-8") + "hosts: [sus_scrofa]\n", encoding="utf-8")
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="ospite_diverso",
+                        STUB_ETICHETTE=ETICHETTE_2 + " alfa_sotto alfa_mpa_S1 alfa mpa_matrix")
+    assert codice == 0 and not [e for e in ev if e["tipo"] == "errore"], ev[-3:]
+    av = [e for e in ev if e["tipo"] == "avanzamento"]
+    assert [e["eta_s"] for e in av] == sorted((e["eta_s"] for e in av), reverse=True)
+    alfa = [e for e in av if "profondità uguale" in e["messaggio"]]
+    assert len(alfa) == 1 and alfa[0]["campione"] == "S1"
 
 
 def test_eta_dopo_l_ospite_usa_le_coppie_vere(ambiente, tmp_path):

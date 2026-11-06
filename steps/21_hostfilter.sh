@@ -2,7 +2,11 @@
 # steps/21_hostfilter.sh - remove host reads from ONE sample with Bowtie2.
 # Conda env: pmn_hostfilter (bowtie2, samtools). Keeps reads that DO NOT map to the
 # host index(es); --index may be repeated to chain several hosts (human is usually last).
-# Optionally saves the reads that DID map to the host(s) (--host-out DIR).
+# Pairs follow the "strict" rule of KneadData 0.12.5 (--decontaminate-pairs strict, its default: "remove both
+# R1+R2 if either align"), at every pass: a pair is kept only if NEITHER read aligns (samtools -f 12 -F 256).
+# Single reads: a read that aligns is removed. Next to each Bowtie2 log, <sample>.<index>.coppie.tsv gives the
+# pairs (or single reads) that entered the pass and those kept by it (QC of the report, motore/pmn_motore.py).
+# Optionally saves the reads that DID map to the host(s) (--host-out DIR): the removed pairs, both reads.
 # Idempotent: skips if the non-host output already exists.
 #
 # Usage: 21_hostfilter.sh --sample NAME --in1 R1 [--in2 R2] \
@@ -17,7 +21,7 @@ PMN_ROOT="$(cd "$PMN_STEP_DIR/.." && pwd)"
 # shellcheck source=../bin/lib/validate.sh
 . "$PMN_ROOT/bin/lib/validate.sh"
 
-SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4; LOGDIR=""; PRESET="very-sensitive"
+SAMPLE=""; IN1=""; IN2=""; OUT=""; HOST_OUT=""; THREADS=4; LOGDIR=""; PRESET="very-sensitive-local"
 INDEXES=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -92,29 +96,43 @@ trap 'rm -rf "$tmp"' EXIT INT TERM
 
 # One Bowtie2 pass that keeps the UNALIGNED (non-host) reads, and optionally saves the
 # ALIGNED (host) reads. Args: index, r1, r2(or ""), out-basename, index-name.
+# --reorder: non-host reads in the same order at every run. MetaPhlAn puts each read's position in its name
+# and Bowtie2 breaks ties between equally good alignments from the name: without it the profile moves by
+# ~0.001 points from one run to the next (D054).
 run_pass() {
   local index="$1" r1="$2" r2="$3" obase="$4" idxname="$5"
-  local al=()
-  if [ -n "$HOST_OUT" ]; then
-    if [ -n "$r2" ]; then
-      al=(--al-conc-gz "$HOST_OUT/${SAMPLE}.${idxname}_%.fastq.gz")
-    else
-      al=(--al-gz "$HOST_OUT/${SAMPLE}.${idxname}.fastq.gz")
-    fi
-  fi
-  # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
-  # --reorder: non-host reads in the same order at every run. MetaPhlAn puts each read's position in its name
-  # and Bowtie2 breaks ties between equally good alignments from the name: without it the profile moves by
-  # ~0.001 points from one run to the next (D054).
+  local log="$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" entrate tenute
   if [ -n "$r2" ]; then
-    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" --reorder \
-      --un-conc-gz "${obase}_%.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
-      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
+    # Strict: from Bowtie2's SAM only the pairs with both reads unaligned (flag 4 = read unaligned, 8 = mate
+    # unaligned; 256 = secondary, never a read of its own). Unaligned reads keep their sequence and qualities as
+    # they came in; samtools -n writes the name without /1 /2 (as Bowtie2 reads it, the comment is dropped).
+    # The removed pairs (any read aligned) go to the host BAM with -U, only when they are kept.
+    local u=() fq_err="$tmp/${idxname}.samtools_fastq.err"
+    [ -n "$HOST_OUT" ] && u=(-U "$tmp/${idxname}.host.bam")
+    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" --reorder 2> "$log" \
+      | samtools view -u -f 12 -F 256 ${u[@]+"${u[@]}"} - \
+      | samtools fastq -@ "$THREADS" -n -1 "${obase}_1.fastq.gz" -2 "${obase}_2.fastq.gz" -0 /dev/null -s /dev/null - \
+        2> "$fq_err" || return 1
+    if [ -n "$HOST_OUT" ]; then
+      samtools fastq -@ "$THREADS" -n -F 256 -1 "$HOST_OUT/${SAMPLE}.${idxname}_1.fastq.gz" \
+        -2 "$HOST_OUT/${SAMPLE}.${idxname}_2.fastq.gz" -0 /dev/null -s /dev/null "$tmp/${idxname}.host.bam" \
+        2> /dev/null || return 1
+      rm -f "$tmp/${idxname}.host.bam"
+    fi
+    # samtools: "[M::bam2fq_mainloop] processed N reads" = reads written (two per kept pair)
+    tenute="$(sed -n 's/^\[M::bam2fq_mainloop\] processed \([0-9]*\) reads$/\1/p' "$fq_err")"
+    [ -n "$tenute" ] && tenute=$((tenute / 2))
   else
+    local al=()
+    [ -n "$HOST_OUT" ] && al=(--al-gz "$HOST_OUT/${SAMPLE}.${idxname}.fastq.gz")
+    # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
     bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" --reorder \
-      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null \
-      2> "$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" || return 1
+      --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null 2> "$log" || return 1
+    tenute="$(sed -n 's/^ *\([0-9]*\) ([0-9.]*%) aligned 0 times$/\1/p' "$log" | head -n 1)"
   fi
+  entrate="$(sed -n 's/^\([0-9]*\) reads; of these:$/\1/p' "$log" | head -n 1)"
+  [ -n "$entrate" ] && [ -n "$tenute" ] || return 1
+  printf 'entrate\ttenute\n%s\t%s\n' "$entrate" "$tenute" > "$LOGDIR/${SAMPLE}.${idxname}.coppie.tsv" || return 1
 }
 
 cur1="$IN1"; cur2="$IN2"; i=0

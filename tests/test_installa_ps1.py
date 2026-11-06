@@ -167,6 +167,20 @@ def test_a0_ripresa_con_runonce_e_attivita_di_riserva():
         _togli_prove()
 
 
+def test_v1_runonce_che_non_esiste_ancora():
+    """V1 (VM 6/11, Windows pulito appena installato): la chiave RunOnce non c'era ancora (la crea OneDrive minuti dopo),
+    New-ItemProperty dava PathNotFound e l'installatore si chiudeva in silenzio dopo "wsl --install". Riprendi la crea."""
+    chiave = "HKCU:\\Software\\pmn_prova_runonce"
+    try:
+        r = powershell(f"Remove-Item '{chiave}' -Recurse -Force -ErrorAction SilentlyContinue; . '{PS1}'; "
+                       f"$RunOnce = '{chiave}\\RunOnce'; Riprendi '{VOCE}' '{ATTIVITA}'; "
+                       f"[bool](Get-ItemProperty $RunOnce -Name {VOCE} -ErrorAction SilentlyContinue)")
+        assert r.splitlines()[-1] == "True", r
+    finally:
+        powershell(f"Remove-Item '{chiave}' -Recurse -Force -ErrorAction SilentlyContinue; 'ok'")
+        _togli_prove()
+
+
 def test_a0_l_attivita_di_riserva_lancia_davvero_la_fase_2(tmp_path):
     """Lo stesso comando, avviato dal Pianificatore (nessuna console, come all'accesso): PowerShell parte con -Fase 2."""
     prova = tmp_path / "prova fase 2.ps1"                         # con uno spazio nel percorso, come una cartella vera
@@ -240,3 +254,12 @@ def test_spazio_di_windows_controllato_ogni_minuto():
     giro = FASE2[FASE2.index("$giro = {"):FASE2.index("$c = Attendi (Avvia \"$motore --si")]
     assert "AddMinutes(1)" in giro and "SpazioBasso" in giro and "LiberiSu $s.Disco" in giro
     assert "AddMinutes(5)" in giro and "Riassunto" in giro
+
+
+def test_v1_riaperta_col_riavvio_in_sospeso_chiede_subito_il_riavvio():
+    """V1 (VM 6/11): riaperta mentre il riavvio dopo il nostro wsl --install era in sospeso, l'installatore chiedeva di
+    nuovo il permesso di amministratore e rifaceva wsl --install (circa 1 minuto) prima di chiedere il riavvio."""
+    testo = open(PS1, encoding="utf-8-sig").read()
+    fase1 = testo[testo.index("if ($Fase -eq 1 -and -not (WslPronta)) {"):testo.index("# ===================== fase 2")]
+    assert "if (RiavvioInSospeso) { ChiediRiavvio }" in fase1
+    assert fase1.index("RiavvioInSospeso") < fase1.index("Start-Process wsl.exe")

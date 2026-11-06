@@ -56,7 +56,12 @@ else
   # The names end in .fastq.gz: fastp compresses only an output named *.gz.
   p1="$OUT/.${SAMPLE}_trim_1.part.fastq.gz"; p2="$OUT/.${SAMPLE}_trim_2.part.fastq.gz"
   rm -f "$p1" "$p2"
-  args=(--thread "$THREADS" --json "$json" --html "$html")
+  # Sliding window of 4 bases at mean quality 20, from 5' to 3': at the first window under Q20 the rest of the read
+  # is cut. fastp manual (README, "per read cutting by quality score"): --cut_right "is similar as the Trimmomatic
+  # SLIDINGWINDOW method", i.e. SLIDINGWINDOW:4:20 of KneadData 0.12.5. Reads shorter than 70 bp are dropped (with
+  # their mate): MetaPhlAn 4 ignores them anyway (--read_min_len 70, read_fastx.py -l 70).
+  args=(--cut_right --cut_window_size 4 --cut_mean_quality 20 --length_required 70
+        --thread "$THREADS" --json "$json" --html "$html")
   if [ -n "$IN2" ]; then
     args=(-i "$IN1" -I "$IN2" -o "$p1" -O "$p2" "${args[@]}")
   else

@@ -107,6 +107,8 @@ $Attivita = 'profilemetananni - continua installazione'
 function Riprendi($voce = 'profilemetananni', $attivita = $Attivita, $file = $PSCommandPath) {   # al prossimo accesso di questo utente riparte da solo dalla fase 2
     # conhost --headless: nessuna finestra (Windows Terminal ignora -WindowStyle Hidden e lascia una finestra vuota, S3-W)
     $argomenti = "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$file`" -Fase 2"
+    # V1 (VM 6/11): su un Windows appena installato la chiave RunOnce non c'e' ancora (la crea OneDrive minuti dopo)
+    if (-not (Test-Path $RunOnce)) { New-Item -Path $RunOnce -Force | Out-Null }
     New-ItemProperty -Path $RunOnce -Name $voce -Value "conhost.exe $argomenti" -PropertyType String -Force | Out-Null
     # A0 (VM 30/10): RunOnce ha lanciato conhost nei primi secondi dell'accesso e PowerShell non e' mai partito. Seconda via,
     # senza amministratore: un'attivita' pianificata "all'accesso" di questo utente, 2 minuti dopo; se la fase 2 e' gia'
@@ -349,6 +351,8 @@ if ($m) { Ferma $m }
 # v1.1 (R7, §1.6): l'app e le icone non si copiano piu' qui ma in fase 2, dopo il controllo dello spazio e il Si' della
 # persona: un tentativo fermato per lo spazio (o un No) non lascia nulla sul PC. Dopo un riavvio la fase 2 riparte da sola.
 if ($Fase -eq 1 -and -not (WslPronta)) {
+    # V1 (VM 6/11): riaperta col riavvio gia' in sospeso dopo il NOSTRO wsl --install, rifaceva permesso e wsl --install
+    if (RiavvioInSospeso) { ChiediRiavvio }
     Avviso (T 'wsl_serve')
     try { $p = Start-Process wsl.exe -ArgumentList '--install', '--no-distribution' -Verb RunAs -WindowStyle Hidden -PassThru }
     catch { Scrivi "$_"; Ferma (T 'wsl_permesso') }

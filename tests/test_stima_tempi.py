@@ -11,6 +11,9 @@ SF3RAT7 = [("SRR4875279", 3_240_847, 533_522_098)]
 CFG = {"hosts": ["sus_scrofa"], "profiling": {"tool": "both"}, "motore": {"kraken_db": "completo", "processori": 24},
        "execution": {"threads": 24}}
 VERO_S = 37 * 60 + 39
+# 1.2: la corsa del 17/10 aveva il filtro end-to-end, che lasciava 1.507.887 coppie su 3.240.847 (53 % tolte); la quota
+# di partenza ora è quella della regola strict (OSPITE_QUOTA 0,67), quindi il confronto usa la quota misurata allora
+Q_17_10 = {"SRR4875279": 1 - 1_507_887 / 3_240_847}
 
 
 def totale(camp=SF3RAT7, cfg=CFG, quote=None):
@@ -18,20 +21,22 @@ def totale(camp=SF3RAT7, cfg=CFG, quote=None):
 
 
 def test_sf3rat7_entro_il_25_per_cento_del_vero():
-    assert abs(totale() - VERO_S) <= 0.25 * VERO_S
-    t = pm.tempi(SF3RAT7, CFG)
+    assert abs(totale(quote=Q_17_10) - VERO_S) <= 0.25 * VERO_S
+    t = pm.tempi(SF3RAT7, CFG, Q_17_10)
     assert set(t) == {"download", "controllo_qualita", "pulizia", "ospite", "metaphlan", "kraken", "riepilogo", "referto"}
     assert abs(t["kraken"] - 1419) <= 0.25 * 1419          # Kraken + Bracken veri: 08:00:18 -> 08:23:57
-    assert abs(t["metaphlan"] - 357) <= 0.25 * 357         # 07:54:21 -> 08:00:18
+    # 07:54:21 -> 08:00:18 col .pkl intero, meno i 50 s del profilo col database ridotto (F3, N1: 53 -> 3 s, 5/11)
+    assert abs(t["metaphlan"] - (357 - 50)) <= 0.25 * (357 - 50)
     assert abs(t["download"] - 129) <= 0.25 * 129 and t["pulizia"] < 60
 
 
 def test_kraken_conta_le_coppie_dopo_l_ospite():
     con = pm.tempi(SF3RAT7, CFG)["kraken"]
     senza = pm.tempi(SF3RAT7, {**CFG, "hosts": []})["kraken"]       # solo uomo: prudente, tutte le coppie
-    assert abs(senza * (1 - pm.OSPITE_QUOTA) - con) <= 1
+    f = pm.KRAKEN_FISSI_S["completo"]                               # 1.2: caricamento del database, fisso
+    assert abs((senza - f) * (1 - pm.OSPITE_QUOTA) - (con - f)) <= 1
     # dal triage (host_pct per campione), se c'e': 80 % di ospite -> 20 % delle coppie
-    assert abs(pm.tempi(SF3RAT7, CFG, {"SRR4875279": 0.8})["kraken"] - senza * 0.2) <= 1
+    assert abs(pm.tempi(SF3RAT7, CFG, {"SRR4875279": 0.8})["kraken"] - f - (senza - f) * 0.2) <= 1
 
 
 def test_processori_dalla_corsa():

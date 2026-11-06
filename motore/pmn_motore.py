@@ -44,15 +44,24 @@ CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
-OSPITE_S_PER_M = 101           # 325 s per 3,21 M coppie dopo fastp (S2.2); 327 s anche con 24 processori (17/10)
-OSPITE_QUOTA = 0.53            # coppie tolte con l'ospite: SF3RAt7 (maiale) 3,24 M -> 1,51 M (17/10); bovino e pecora
-                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente
-MPA_S_PER_M, MPA_FISSI_S = 86.2, 185   # per M coppie senza ospite (C03_1, S2.2); fissi: 230 s il 17/10, 45 s in meno con read_fastx.py sul disco della WSL (v1.1 VELOCITA)
+OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): salume vero 1.916 s per 12,0 M coppie, altro salume 5.778 s per 37,0 M,
+                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile.
+OSPITE_PROC_RIF, OSPITE_ESP = 24, 0.49   # Bowtie2 con meno processori (6/11, 946.123 coppie di un salume vero, uscite identiche):
+                               # 24 -> 113 s, 8 -> 159 s (x1,41), 4 -> 271 s (x2,40); (24/p)^0,49 = x2,40 a 4 e x1,71 a 8 (prudente)
+OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
+                               # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
+                               # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
+                               # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
+MPA_S_PER_M, MPA_FISSI_S = 170, 55     # 6/11, PC libero, database ridotto (F3, N1): fissi 58-62 s sull'esempio (60.727
+                               # coppie); per M dalla corsa del 17/10 (SF3RAt7, 1,51 M coppie, 357 s col .pkl intero meno 50 s);
+                               # prudente su salumi veri (0,2-0,36 M: 59-66 s veri). Prima 86,2 per M (C03_1) e 135 fissi
 KRAKEN_COPPIE_MIN = {"completo": 45000, "rapido": 10_000_000}   # coppie senza ospite al minuto con 8 processori (K2: 37000; v1.1 VELOCITA, 4 thread per processore: 45.690-61.970)
+KRAKEN_FISSI_S = {"completo": 60, "rapido": 30}   # caricamento del database a campione (6/11, PC libero): esempio 60.727
+                               # coppie in 96-126 s, un salume vero 196.880 in 198 s; "rapido" (PlusPF-8, 8 GB) non misurato, prudente
 KRAKEN_PROC_RIF = 8            # velocità x radice(processori / 8): 63.900 coppie/min con 24 (17/10); fit su 2 misure
 ALTRI_S = {"controllo_qualita": 15, "riepilogo": 10, "referto": 10}   # MultiQC 3-16 s, tabelle 4 s, referto 1 s (17/10)
-ALFA_MPA_S = 115               # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
-                               # il più povero; MetaPhlAn su un mapout a cache fredda 105-121 s (S2.3, 14/10)
+ALFA_MPA_S = 5                 # diversità a profondità uguale (R1): MetaPhlAn rifatto da mapout per ogni campione oltre
+                               # il più povero; col database ridotto (F3, N1) 2-3 s (5/11), prima 55-62 s
 TRIAGE_S = 60                  # triage di un campione (primi 100.000 frammenti, qualità + ospite): non misurato, prudente
 # passi di run.sh (etichette di do_step) -> passo del contratto e cosa sta facendo
 PASSI = [("download", N_("scarico le read da NCBI")), ("controllo_qualita", N_("controllo la qualità delle read")),
@@ -106,7 +115,8 @@ ERRORI = [
     (r"failed to parse config|invalid |unsafe |not found:|is empty", "CONFIG_NON_VALIDA",
      N_("Il progetto contiene un valore non valido."), N_("Controlla le impostazioni del progetto.")),
 ]
-# verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21
+# verificate su PubMed (VERIFICA_CITAZIONI 15/10: 13/13; Kraken 2, Bracken, Edwin 2024 il 16/10), come README §21;
+# F2 (5/11): Portik 2022 e Galanis 2022 aggiunte, Edwin 2024 col suo valore finale (0,001 %), su PubMed e Crossref
 CITAZIONI = {
     "metaphlan": ["Blanco-Míguez et al. 2023, Nat Biotechnol 41(11):1633-1644: MetaPhlAn 4. DOI 10.1038/s41587-023-01688-w",
                   N_("Database MetaPhlAn mpa_vJan25_CHOCOPhlAnSGB_202503 (le 6 fette sono un derivato del suo indice "
@@ -116,7 +126,11 @@ CITAZIONI = {
                N_("Indici Kraken2/Bracken {db} di Ben Langmead (genome-idx.s3.amazonaws.com/kraken)"),
                N_("Wright, Comeau & Langille 2023, Microb Genom 9(3):000949: scelta di confidence e database di "
                   "Kraken2. DOI 10.1099/mgen.0.000949"),
-               N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza 0,005 %. "
+               N_("Portik, Brown & Pierce-Ward 2022, BMC Bioinformatics 23:541: soglia di abbondanza 0,1 % delle "
+                  "read totali con Kraken 2, Bracken e il database PlusPF. DOI 10.1186/s12859-022-05103-0"),
+               N_("Galanis et al. 2022, Mol Ecol Resour 22(7):2506-2523: confidence 0,5 di Kraken 2 su comunità "
+                  "simulate del miele. DOI 10.1111/1755-0998.13626"),
+               N_("Edwin et al. 2024, Environ Microbiome 19:19: soglia di abbondanza nel suolo, consigliata 0,001 %. "
                   "DOI 10.1186/s40793-024-00561-w")],
     "bowtie2": ["Langmead & Salzberg 2012, Nat Methods 9(4):357-359: Bowtie 2. DOI 10.1038/nmeth.1923"],
     "fastp": ["Chen et al. 2018, Bioinformatics 34(17):i884-i890: fastp. DOI 10.1093/bioinformatics/bty560"],
@@ -149,11 +163,15 @@ def processori(cfg):
 def piano(camp, cfg, quote=None):
     """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
     per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
-    contano le coppie senza ospite: quote {campione: quota dell'ospite} dal triage se c'è, se no OSPITE_QUOTA."""
+    contano le coppie senza ospite: quote {campione: quota dell'ospite} misurate (triage, ospite già tolto); un
+    campione non ancora misurato prende la media di quelle (F3, L5), se no OSPITE_QUOTA."""
     strumento = sezione(cfg, "profiling").get("tool", "both")
     kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
     velocita = KRAKEN_COPPIE_MIN.get(kraken_db, KRAKEN_COPPIE_MIN["completo"]) * (processori(cfg) / KRAKEN_PROC_RIF) ** 0.5
-    quota = OSPITE_QUOTA if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] else 0.0
+    quote = quote or {}
+    quota = 0.0
+    if [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]:
+        quota = sum(quote.values()) / len(quote) if quote else OSPITE_QUOTA
     out = [("size", "download", 0, 0)] + [(f"dl_{n}", "download", 0, b / DOWNLOAD_BYTE_S) for n, _, b in camp if b]
     if installazione():   # R8: indice di un ospite non installato (vite, ospiti aggiunti), costruito alla prima analisi
         out += [(f"idx_{h}", "ospite", 0, s) for h, s in ospiti.da_costruire(cfg, PMN_HOME / "ospiti_utente")]
@@ -161,20 +179,20 @@ def piano(camp, cfg, quote=None):
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M)]
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
-    for n, c, _ in camp:
-        resto = c * (1 - (quote or {}).get(n, quota))
+    resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
+    for n, _, _ in camp:
         if strumento in ("metaphlan", "both"):
-            out.append((f"mpa_{n}", "metaphlan", 4, resto / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
+            out.append((f"mpa_{n}", "metaphlan", 4, resto[n] / 1e6 * MPA_S_PER_M + MPA_FISSI_S))
         if strumento in ("kraken", "both"):
-            out.append((f"krk_{n}", "kraken", 4, resto / velocita * 60))
+            out.append((f"krk_{n}", "kraken", 4, KRAKEN_FISSI_S.get(kraken_db, KRAKEN_FISSI_S["completo"]) + resto[n] / velocita * 60))
     diversita = sezione(cfg, "analysis").get("diversity", True) is not False
     alfa = []
     if strumento in ("metaphlan", "both") and diversita and len(camp) > 1:
         # R1: run.sh rifà MetaPhlAn (alfa_mpa_<campione>) su un sottocampione di ogni campione oltre il più povero;
         # un passo per campione nel piano, così la barra va avanti anche lì (VM B2-4a: ferma a 99 % per 15 minuti)
-        povero = min(camp, key=lambda x: x[1] * (1 - (quote or {}).get(x[0], quota)))[0]
+        povero = min(camp, key=lambda x: resto[x[0]])[0]
         alfa = [(f"alfa_mpa_{n}", "riepilogo", 5, ALFA_MPA_S) for n, _, _ in camp if n != povero]
     return out + [("riepilogo", "riepilogo", 5, ALTRI_S["riepilogo"])] + alfa + [("referto", "referto", 6, ALTRI_S["referto"])]
 
@@ -209,13 +227,17 @@ def quote_ospite(lavoro):
 
 def coppie_ospite(lavoro):
     """{campione: (entrate, rimaste)} dai log di Bowtie2 di steps/21 (hostfilter_logs/<campione>.<indice>.bowtie2.log):
-    coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo."""
+    coppie (o read singole) entrate nel primo indice, rimaste dopo l'ultimo. Regola strict (F1, 5/11): le rimaste di
+    ogni passo sono in <campione>.<indice>.coppie.tsv accanto al log (una coppia esce anche con una sola read
+    sull'ospite, quindi non sono le "aligned concordantly 0 times"); senza quel file (progetti vecchi) dal log."""
     entrate, rimaste = {}, {}
     for f in (Path(lavoro) / "hostfilter_logs").glob("*.bowtie2.log"):
         nome = f.name[:-len(".bowtie2.log")].rsplit(".", 1)[0]
         testo = f.read_text(encoding="utf-8", errors="replace")
         dentro = re.search(r"^(\d+) reads; of these:", testo, re.M)
-        fuori = (re.search(r"^\s*(\d+) \([\d.]+%\) aligned concordantly 0 times", testo, re.M)
+        strict = f.with_name(f.name[:-len(".bowtie2.log")] + ".coppie.tsv")
+        fuori = ((re.search(r"^\d+\t(\d+)$", strict.read_text(encoding="utf-8"), re.M) if strict.is_file() else None)
+                 or re.search(r"^\s*(\d+) \([\d.]+%\) aligned concordantly 0 times", testo, re.M)
                  or re.search(r"were unpaired; of these:\s*\n\s*(\d+) \([\d.]+%\) aligned 0 times", testo))
         if dentro and fuori:
             entrate[nome] = max(entrate.get(nome, 0), int(dentro[1]))
@@ -559,7 +581,7 @@ class Motore:
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
-        tempo = tempi(camp, cfg, quote_triage(lavoro))
+        tempo = tempi(camp, cfg, {**quote_triage(lavoro), **quote_ospite(lavoro)})   # come esegui (F3, L5)
         scaricare = sum(b for _, _, b in camp)
         spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
@@ -621,9 +643,18 @@ class Motore:
         # senza dimensioni (rete giu') la barra va lo stesso, con campioni grandi come SF3RAt7; il tempo resta null
         campioni = camp or [(x, 3_240_847, 0) for x in self._nomi(cfg)]
         quote = lambda: {**quote_triage(lavoro), **quote_ospite(lavoro)}   # noqa: E731  (misurate: l'ospite vince)
-        unita = piano(campioni, cfg, quote())
-        secondi, gruppo = {e: s for e, _, _, s in unita}, {e: g for e, _, g, _ in unita}
-        totale = sum(secondi.values()) or 1
+        secondi, gruppo = {}, {}
+
+        def ripiano():
+            """Piano rifatto con le quote d'ospite di adesso: secondi e gruppi insieme. Il campione più povero può
+            cambiare dopo l'ospite, e con lui i passi alfa_mpa_* (K4-bis, 5/11: KeyError su un passo nuovo)."""
+            unita = piano(campioni, cfg, quote())
+            secondi.clear()
+            secondi.update((e, s) for e, _, _, s in unita)
+            gruppo.clear()
+            gruppo.update((e, g) for e, _, g, _ in unita)
+            return sum(secondi.values()) or 1
+        totale = ripiano()
         fatti = None   # corsa ripresa: i passi già finiti non si contano (gia_fatti al primo passo, vedi sotto)
         riletto = 0    # 2: dopo il triage, 3: dopo l'ospite (MultiQC)
 
@@ -663,8 +694,7 @@ class Motore:
                     if fatti is None:
                         # al primo passo run.sh ha già cancellato le uscite fatte con altri parametri (timbri
                         # .parametri, P01): prima ci sono ancora, e Kraken o l'ospite vecchi sembrerebbero fatti
-                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
-                        totale = sum(secondi.values()) or 1
+                        totale = ripiano()
                         fatti = gia_fatti(lavoro, secondi)
                     campione = next((g for g in mm.groups() if g), None) if mm.groups() else None
                     i = visti.setdefault(passo, set())
@@ -674,8 +704,7 @@ class Motore:
                     g = min(gruppo.get(m.group(1), 0), 3)
                     if g >= 2 and g > riletto:   # triage o ospite finiti: quote misurate al posto di OSPITE_QUOTA
                         riletto = g
-                        secondi.update((e, s) for e, _, _, s in piano(campioni, cfg, quote()))
-                        totale = sum(secondi.values()) or 1
+                        totale = ripiano()
                     pct, resta, questo = eta(m.group(1), passo)
                     pct = ultimo = max(ultimo, pct)   # la barra non torna mai indietro
                     testo = _(dict(PASSI)[passo])

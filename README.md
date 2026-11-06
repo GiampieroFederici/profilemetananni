@@ -1,6 +1,6 @@
-# ProfileMetaNanni 1.1
+# ProfileMetaNanni 1.2
 
-## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+## [Download for Windows / Scarica per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 | English | Italiano |
 |---|---|
@@ -10,11 +10,11 @@
 
 **You need** Windows 11 (not Mac), 16 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
-**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0) too.
+**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) too.
 
 **Serve** Windows 11 (non Mac), 16 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
 
-**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.1.0).
+**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -35,7 +35,7 @@
 
 ## How to install
 
-### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+### [Download ProfileMetaNanni for Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 Before you start, check that you have:
 
@@ -90,7 +90,7 @@ It starts from shotgun sequencing reads (`.fastq.gz` files from the sequencing l
 | Step | Tool |
 |---|---|
 | Read cleaning and quality control | fastp, FastQC, MultiQC |
-| Host read removal | Bowtie 2 against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
+| Host read removal | Bowtie 2 (`--very-sensitive-local`; a read pair is removed if either read aligns, as in KneadData 0.12.5) against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
 | Marker-gene taxonomic profiling | MetaPhlAn 4.2.4 with the `mpa_vJan25_CHOCOPhlAnSGB_202503` database |
 | k-mer taxonomic profiling (prototype) | Kraken 2 + Bracken with PlusPF (full) or PlusPF-8 (quick screening) |
 | Alpha diversity at equal depth | richness, Shannon, Simpson, for each method |
@@ -122,7 +122,8 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 | What | Value |
 |---|---|
 | System | Windows 11 (tested). Not available for macOS |
-| RAM | 16 GB |
+| RAM | 16 GB. An analysis uses at most about 5.4 GB inside WSL (measured on real cured-meat samples); the first analysis also builds the reduced MetaPhlAn database once, about 6.9 GB for one minute |
+| Time | Measured with 24 processors: the example sample (0.2 million read pairs) 3-4 minutes; a cured-meat sample with 12.5 million read pairs about 38 minutes, most of it removing pig DNA (about 2.5 minutes per million pairs). With 8 processors the host step took 1.4 times longer, with 4 processors 2.4 times, with identical results. Samples with little host DNA spend most of the time in Kraken (ZymoBIOMICS standard, 8.8 million pairs: about 2.3 hours) |
 | Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download |
 | Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 41.8 GB of ProfileMetaNanni packages) |
 
@@ -130,7 +131,7 @@ The installer enables WSL2 (it asks once for administrator permission and one re
 
 ## Status
 
-Version 1.1. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads: Stop and resume, restart, the engine check GREEN, analyses of one and six samples, added hosts, invalid inputs, out of memory at 8 GB, update check, then each correction checked again on the same machine before this release. The update from 1.0 was tested on a real PC: the databases already there are recognised, nothing is downloaded again. The ProfileMetaNanni database packages (MetaPhlAn slices, host indexes, example sample) are downloaded from a release of this repository: the installer fetches them by itself and checks the MD5 of each one. The installation of the full Kraken index up to GREEN was not repeated on the virtual machine (no disk space left on the test PC): its download and resume were tested on the first 10.5 GB.
+Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, a pair is removed if either read aligns), and MetaPhlAn computes the profile from a database reduced to the clades with reads: the profiles are byte-identical to a classic MetaPhlAn 4.2.4 run with the full database, and the memory peak of an analysis goes from 8.4 to 5.4 GB. Validated on simulated cured-meat communities with known truth (0.18 % of the true taxa read pairs removed by the host filter), on the ZymoBIOMICS D6300 standard (8 of 8 bacteria, no unexpected species above 0.1 % with MetaPhlAn or Kraken) and on real cured-meat samples compared with the previous version. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads (Stop and resume, restart, the engine check GREEN, the example analysis); each correction found there was checked again on the same machine before this release. The full Kraken index does not fit on the test machine's disk, so on the virtual machine Kraken was run with the quick index; the full index was used on a real PC. Projects analysed with 1.1 redo cleaning, host removal, MetaPhlAn and Kraken by themselves, because the method changed.
 
 | Validation | Result |
 |---|---|
@@ -151,6 +152,8 @@ Version 1.1. Installation from scratch was tested on a clean Windows 11 virtual 
 
 If you use the results, cite the tools and databases you used: MetaPhlAn 4 (Blanco-Míguez et al. 2023, *Nat Biotechnol* 41:1633-1644), Kraken 2 (Wood et al. 2019, *Genome Biol*), Bracken (Lu et al. 2017, *PeerJ Comput Sci*), Bowtie 2 (Langmead and Salzberg 2012, *Nat Methods* 9:357-359), fastp (Chen et al. 2018, *Bioinformatics*), FSSP (Mejlholm and Dalgaard 2009, *J Food Prot* 72:2132-2143) and the host genomes. The full list with DOIs is in the "Come citare" page of the app and at the end of every report.
 
+The recommended Kraken settings come from the literature and from our calibration on simulated cured-meat communities and on the Zymo mock. The 0.1 % abundance threshold follows Portik, Brown and Pierce-Ward 2022 (*BMC Bioinformatics* 23:541): with Kraken 2, Bracken and PlusPF it cut the false species from hundreds to fewer than 15. They compute it on the total reads; ProfileMetaNanni computes it on the reads that Bracken assigns to a species. Confidence 0.5 is in line with Galanis et al. 2022 (*Mol Ecol Resour* 22:2506-2523). Lower thresholds, such as 0.001 %, are meant for very complex communities like soil (Edwin et al. 2024, *Environ Microbiome* 19:19).
+
 ## Licence
 
 MIT (see `LICENSE`).
@@ -170,7 +173,7 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.1.0/profilemetananni_v1.1.0.zip)
+### [Scarica ProfileMetaNanni per Windows (zip, 50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
 
 Prima di iniziare controlla di avere:
 
@@ -225,7 +228,7 @@ Parte dalle read di sequenziamento shotgun (file `.fastq.gz` del laboratorio, op
 | Passo | Strumento |
 |---|---|
 | Pulizia e controllo qualità delle read | fastp, FastQC, MultiQC |
-| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
+| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 (`--very-sensitive-local`; una coppia di read si toglie se anche una sola read si allinea, come in KneadData 0.12.5) su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
 | Profilo tassonomico con geni marcatori | MetaPhlAn 4.2.4 con il database `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | Profilo tassonomico per k-mer (prototipo) | Kraken 2 + Bracken con PlusPF (completo) o PlusPF-8 (screening rapido) |
 | Diversità alfa a profondità uguale | ricchezza, Shannon, Simpson, per ciascun metodo |
@@ -257,7 +260,8 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 | Cosa | Valore |
 |---|---|
 | Sistema | Windows 11 (provato). Non disponibile per macOS |
-| RAM | 16 GB |
+| RAM | 16 GB. Un'analisi usa al massimo circa 5,4 GB dentro la WSL (misurato su salumi veri); la prima analisi costruisce anche, una volta sola, il database ridotto di MetaPhlAn: circa 6,9 GB per un minuto |
+| Tempo | Misurato con 24 processori: il campione d'esempio (0,2 milioni di coppie di read) 3-4 minuti; un salume con 12,5 milioni di coppie circa 38 minuti, quasi tutti per togliere il DNA del maiale (circa 2,5 minuti per milione di coppie). Con 8 processori quel passo ha richiesto 1,4 volte il tempo, con 4 processori 2,4 volte, con risultati identici. I campioni con poco DNA dell'ospite passano quasi tutto il tempo in Kraken (standard ZymoBIOMICS, 8,8 milioni di coppie: circa 2,3 ore) |
 | Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico |
 | Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 41,8 GB di pacchetti ProfileMetaNanni) |
 
@@ -265,7 +269,7 @@ L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un 
 
 ## Stato
 
-Versione 1.1. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri: Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi di uno e sei campioni, ospiti aggiunti, input non validi, memoria finita a 8 GB, controllo degli aggiornamenti; poi ogni correzione è stata riprovata sulla stessa macchina prima di questa Release. L'aggiornamento dalla 1.0 è stato provato su un PC vero: i database già presenti vengono riconosciuti e non si scarica nulla di nuovo. I pacchetti di database di ProfileMetaNanni (fette di MetaPhlAn, indici dell'ospite, campione d'esempio) si scaricano da una Release di questo repository: l'installatore li prende da solo e controlla l'MD5 di ognuno. L'installazione dell'indice Kraken completo fino al VERDE non è stata ripetuta sulla macchina virtuale (il PC di prova non aveva più spazio): scarico e ripresa sono stati provati sui primi 10,5 GB.
+Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), e MetaPhlAn calcola il profilo da un database ridotto ai clade che hanno read: i profili sono identici al byte a quelli di MetaPhlAn 4.2.4 classico con il database intero, e il picco di memoria di un'analisi scende da 8,4 a 5,4 GB. Validata su comunità simulate di salume a composizione nota (lo 0,18 % delle coppie di read dei taxa veri tolto dal filtro dell'ospite), sullo standard ZymoBIOMICS D6300 (8 batteri su 8, nessuna specie inattesa sopra lo 0,1 % con MetaPhlAn e con Kraken) e su campioni veri di salume confrontati con la versione precedente. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri (Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi d'esempio); ogni correzione trovata lì è stata riprovata sulla stessa macchina prima di questa Release. L'indice Kraken completo non sta sul disco della macchina di prova: lì Kraken ha usato l'indice rapido; l'indice completo è stato usato su un PC vero. I progetti analizzati con la 1.1 rifanno da soli pulizia, rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato.
 
 | Validazione | Risultato |
 |---|---|
@@ -285,6 +289,8 @@ Versione 1.1. L'installazione da zero è stata provata su Windows 11 pulito in u
 ## Come citare
 
 Se usi i risultati, cita gli strumenti e i database usati: MetaPhlAn 4 (Blanco-Míguez et al. 2023, *Nat Biotechnol* 41:1633-1644), Kraken 2 (Wood et al. 2019, *Genome Biol*), Bracken (Lu et al. 2017, *PeerJ Comput Sci*), Bowtie 2 (Langmead e Salzberg 2012, *Nat Methods* 9:357-359), fastp (Chen et al. 2018, *Bioinformatics*), FSSP (Mejlholm e Dalgaard 2009, *J Food Prot* 72:2132-2143) e i genomi dell'ospite. L'elenco completo, con i DOI, è nella pagina "Come citare" dell'app e in fondo a ogni referto.
+
+Le impostazioni consigliate di Kraken vengono dalla letteratura e dalla nostra taratura su comunità simulate di salume e sul campione Zymo. La soglia di abbondanza 0,1 % segue Portik, Brown e Pierce-Ward 2022 (*BMC Bioinformatics* 23:541): con Kraken 2, Bracken e PlusPF ha portato le specie false da centinaia a meno di 15. Loro la calcolano sulle read totali; ProfileMetaNanni sulle read che Bracken assegna a una specie. La confidence 0,5 è in accordo con Galanis et al. 2022 (*Mol Ecol Resour* 22:2506-2523). Soglie più basse, come 0,001 %, servono per comunità molto complesse come il suolo (Edwin et al. 2024, *Environ Microbiome* 19:19).
 
 ## Licenza
 

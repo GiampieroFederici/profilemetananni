@@ -560,8 +560,8 @@ def righe_parametri(d):
     da_profilo("bracken_min_reads", "min_reads", _("Letture minime di Bracken (-t)"),
                _("sotto questo numero di read una specie non si stima"))
     da_profilo("abundance_threshold_pct", "soglia", _("Soglia di abbondanza di Kraken (%)"),
-               _("sotto questa percentuale un taxon di Kraken non compare nelle tabelle del referto; MetaPhlAn non ha "
-                 "soglia"))
+               _("sotto questa percentuale delle read assegnate da Bracken un taxon di Kraken non compare nelle "
+                 "tabelle del referto; MetaPhlAn non ha soglia"))
     if p.get("bracken_readlen"):
         out.append((_("Lunghezza delle read per Bracken (-r)"), p["bracken_readlen"], _("lunghezza tipica delle read"),
                     _("impostazione della pipeline")))
@@ -572,11 +572,23 @@ def righe_parametri(d):
         out.append((_("DNA tolto prima dell'analisi (ospite)"), ", ".join(_(OSPITI.get(o, o)) for o in ospiti),
                     _("genomi di riferimento usati per togliere il DNA dell'ospite e dell'uomo"),
                     _("D021 (stesse versioni dei profili pubblicati)")))
+    if p.get("host_pairs"):   # 1.2 (F1): come si toglie l'ospite e come si puliscono le read
+        out.append((_("Come si toglie l'ospite"), f"Bowtie2 {p.get('host_sensitivity', '')}, {p['host_pairs']}",
+                    _("una coppia di read si toglie se anche una sola read si allinea all'ospite o all'uomo; su "
+                      "comunità simulate funghi e lieviti perdono circa l'1 % delle loro coppie, i batteri meno "
+                      "dello 0,1 %"),
+                    _("impostazioni predefinite di KneadData 0.12.5; Langmead & Salzberg 2012")))
+    if p.get("trim"):
+        out.append((_("Pulizia delle read"), p["trim"],
+                    _("fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le "
+                      "read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque"),
+                    _("Chen et al. 2018; KneadData 0.12.5 (SLIDINGWINDOW:4:20)")))
     for chiave in sorted(k for k in p if k.startswith("host_index_")):   # ospiti costruiti dal motore (v1.1, R8)
         out.append((_("Genoma dell'ospite {nome}", nome=chiave[len("host_index_"):]), p[chiave],
                     _("da dove viene l'indice usato: codice NCBI o file con MD5, e data dell'indice"),
                     "steps/11_host_index.sh"))
-    return out
+    # V1 (VM 6/11): la stessa fonte lunga di Kraken ripetuta in tre righe di fila; dalla seconda "come sopra"
+    return [r if i == 0 or r[3] != out[i - 1][3] else (*r[:3], _("come sopra")) for i, r in enumerate(out)]
 
 
 def dati_prodotto(richiesta):
@@ -631,7 +643,8 @@ PROTOTIPO_FSSP = N_("<b>Prototipo, non per decisioni.</b> Il collegamento fra le
 LIMITE_KRAKEN = N_("Kraken mostra solo i taxa con almeno lo {soglia} % delle read assegnate da Bracken (non "
                    "classificate escluse; confidence {confidence}). Con i valori consigliati per il PlusPF completo "
                    "(confidence 0,5 e soglia 0,1 %), nelle comunità simulate le specie false sopra lo 0,1 % scendono "
-                   "da 196 a 64 su 12 campioni, e nel campione di controllo Zymo da 10 a 0. I taxa sotto la soglia, "
+                   "da 188 a 57 su 12 campioni e nel campione di controllo Zymo da 10 a 0. Lo 0,1 % segue anche "
+                   "Portik, Brown e Pierce-Ward 2022, che però lo calcolano sulle read totali. I taxa sotto la soglia, "
                    "compresa <i>Listeria monocytogenes</i>, non compaiono nel profilo di Kraken: per la "
                    "<i>Listeria</i> serve un'analisi mirata.")
 LIMITE_METAPHLAN = N_("MetaPhlAn non usa soglie, ma con molto DNA dell'ospite restano poche read dei taxa e i taxa rari "
@@ -710,10 +723,14 @@ def html_referto(d):
     h.append(riquadro(_(PROTOTIPO_KRAKEN)))
     if any(c["kraken"] for c in d["campioni"]):
         h.append("<p>" + limite_kraken(d) + "</p>")
-    h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, "
-                                       "che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché non "
-                                       "contiene il genoma del maiale, e i virus sono nella tabella successiva, a parte "
-                                       "(D023).") + "</p>")
+    a_parte = any(r["categoria"] not in MICROBI for c in d["campioni"] for r in (c["kraken"] or []))
+    if a_parte:   # 1.2 (6/11): la frase solo se la tabella "Segnalati a parte" c'è
+        h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi. Le read di mammifero rimaste dopo la pulizia, "
+                                           "che il database assegna a <i>Homo sapiens</i> o a <i>Leishmania</i> perché "
+                                           "non contiene il genoma del maiale, e i virus sono nella tabella successiva, "
+                                           "a parte (D023).") + "</p>")
+    else:
+        h.append('<p class="piccolo">' + _("Solo batteri, archei e funghi.") + "</p>")
     for c in d["campioni"]:
         if c["kraken"] is None:
             continue

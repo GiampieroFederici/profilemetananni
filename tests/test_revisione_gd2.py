@@ -124,12 +124,23 @@ def test_p05_rifilatura_interrotta_si_rifa(tmp_path):
 
 
 # ---------------- P06: filtro dell'ospite, il mate 1 pubblicato prima del mate 2 ----------------
-# bowtie2 finto: scrive le read "non host" (copia degli ingressi) dove dice --un-conc-gz
+# bowtie2 e samtools finti (regola strict, F1 del 5/11): bowtie2 passa i nomi degli ingressi al posto del SAM,
+# samtools view li lascia passare, samtools fastq copia gli ingressi (tutte "non host") dove dicono -1 e -2
 BOWTIE2 = r"""#!/usr/bin/env bash
 while [ $# -gt 0 ]; do
-  case "$1" in -1) I1="$2"; shift 2;; -2) I2="$2"; shift 2;; --un-conc-gz) U="$2"; shift 2;; *) shift;; esac
+  case "$1" in -1) I1="$2"; shift 2;; -2) I2="$2"; shift 2;; *) shift;; esac
 done
-cp "$I1" "${U/\%/1}"; cp "$I2" "${U/\%/2}"
+echo "200 reads; of these:" >&2
+printf '%s\t%s\n' "$I1" "$I2"
+"""
+SAMTOOLS = r"""#!/usr/bin/env bash
+[ "$1" = view ] && exec cat
+while [ $# -gt 0 ]; do
+  case "$1" in -1) O1="$2"; shift 2;; -2) O2="$2"; shift 2;; *) shift;; esac
+done
+IFS=$'\t' read -r I1 I2
+cp "$I1" "$O1"; cp "$I2" "$O2"
+echo "[M::bam2fq_mainloop] processed 400 reads" >&2
 """
 # mv finto: alla chiamata numero $MV_UCCIDI ferma lo script (Annulla durante la pubblicazione), altrimenti il vero mv
 MV = r"""#!/usr/bin/env bash
@@ -140,7 +151,7 @@ exec /bin/mv "$@"
 
 
 def hostfilter_fermato(tmp_path, uccidi):
-    b = finti(tmp_path, bowtie2=BOWTIE2, mv=MV)
+    b = finti(tmp_path, bowtie2=BOWTIE2, samtools=SAMTOOLS, mv=MV)
     r1, r2 = gz_fastq(tmp_path / "R1.fastq.gz", mate=1), gz_fastq(tmp_path / "R2.fastq.gz", mate=2)
     (tmp_path / "idx.1.bt2").write_text("x")
     (tmp_path / "t").mkdir()

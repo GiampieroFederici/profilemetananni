@@ -12,7 +12,7 @@ Se la pagina cambia contesto.info chiama self.info_cambiata.emit(): la testata a
 Qui ci sono anche i pezzi grafici comuni (schede di scelta, pannelli, svuota); il loro stile è in stile.qss.
 """
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QRadioButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QRadioButton, QVBoxLayout, QWidget
 
 from app import lingua
 from app.lingua import N_, _
@@ -145,6 +145,18 @@ class Scelta(QFrame):
     def setEnabled(self, si):
         self.pulsante.setEnabled(si)
         self._ridisegna()
+
+
+class Menu(QComboBox):
+    """Menu a tendina che la rotella del mouse non cambia (V1, VM 6/11: scorrendo la pagina sopra un menu chiuso la
+    confidenza passava da 0,1 a 0,2 senza che la persona se ne accorgesse). La rotella fa scorrere la pagina."""
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.setFocusPolicy(Qt.StrongFocus)   # la rotella non dà il fuoco al menu
+
+    def wheelEvent(self, evento):
+        evento.ignore()                        # passa alla pagina, che scorre
 
 
 class PulsanteACapo(QPushButton):

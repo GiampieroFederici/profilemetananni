@@ -7,13 +7,14 @@ I valori consigliati di Kraken e Bracken si leggono da refs/kraken_profili.tsv (
 import csv
 
 import yaml
-from PySide6.QtWidgets import QButtonGroup, QCheckBox, QComboBox, QFrame, QGridLayout, QPlainTextEdit, QPushButton, \
+from PySide6.QtWidgets import QButtonGroup, QCheckBox, QFrame, QGridLayout, QPlainTextEdit, QPushButton, \
     QVBoxLayout
 
 from app import lingua
 from app.lingua import N_, _
 from app.motore import RADICE, MotoreClient, percorso_per_motore
-from app.pagine.base import Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
+from app.pagine.base import Menu, Pagina, PulsanteACapo, Scelta, etichetta, numero, pannello, riga_di_scelte, riquadro, svuota
+from app.pagine.risultati import leggi_risultati
 
 PROFILI_KRAKEN = RADICE / "refs" / "kraken_profili.tsv"
 CONFIDENZE = ["0", "0.05", "0.1", "0.2", "0.3", "0.5"]
@@ -21,12 +22,19 @@ SOGLIE = ["0.001", "0.005", "0.01", "0.1"]
 LETTURE = ["0", "5", "10", "20", "50"]           # Bracken -t (profiling.bracken_min_reads, contratto v0.3)
 LUNGHEZZE = [100, 150, 250]
 LUNGHEZZA_CONSIGLIATA = 150                      # config.example.yaml (bracken_readlen)
+# F2 (5/11): fonti verificate su PubMed e Crossref (implementazione/validazione/F2_soglia_fonti/RISULTATO_F2.md)
 FONTE_CONFIDENZA = N_("Consigliato 0,5 con il database completo (taratura K4 su comunità simulate di salume, "
-                      "confermata sul campione Zymo) e 0,1 con lo screening rapido: per i database ridotti si "
+                      "confermata sul campione Zymo); anche su comunità simulate del miele Kraken 2 funziona meglio "
+                      "con 0,5 (Galanis et al. 2022). Con lo screening rapido 0,1: per i database ridotti si "
                       "consiglia fra 0,05 e 0,30 (Wright, Comeau e Langille 2023).")
 FONTE_SOGLIA = N_("Vale solo per Kraken: MetaPhlAn non ha soglia e mostra tutte le specie. Consigliato 0,1 % con il "
-                  "database completo (taratura K4) e 0,005 % con lo screening rapido (Edwin et al. 2024, campioni "
-                  "di suolo). Le specie sotto la soglia restano nel file Excel.")
+                  "database completo. Con Kraken 2 e Bracken sul database PlusPF, lo 0,1 % ha portato le specie false "
+                  "da centinaia a meno di 15 perdendo poche specie vere (Portik, Brown e Pierce-Ward 2022, comunità "
+                  "a composizione nota). La nostra taratura su salumi simulati e sul campione Zymo lo conferma. Da "
+                  "0,001 a 0,005 % sono valori per comunità molto complesse come il suolo (Edwin et al. 2024 "
+                  "consiglia 0,001 %) e lasciano più falsi positivi; lo screening rapido usa 0,005 %. La percentuale "
+                  "è calcolata sulle read che Bracken assegna a una specie; Portik la calcola sulle read totali. Le "
+                  "specie sotto la soglia restano nel file Excel.")
 FONTE_LETTURE = N_("Bracken stima una specie solo se ha almeno queste read. 10 è il valore predefinito di Bracken "
                    "(Lu et al. 2017): più alto toglie specie rare e falsi positivi, più basso ne tiene di più.")
 FONTE_LUNGHEZZA = N_("Deve corrispondere alla lunghezza delle read del sequenziamento: 150 per la maggior parte delle "
@@ -80,6 +88,42 @@ def campioni_in_parole(campioni, elenco, coppie):
         return _("{campioni}{elenco} ({n} coppie di read)", campioni=campioni, elenco=elenco,
                  n=f"{coppie:,}".replace(",", lingua.migliaia()))
     return f"{campioni}{elenco}"
+
+
+def da_rifare(parametri, adesso):
+    """Che cosa rifà l'analisi se le scelte di adesso non sono quelle dei risultati che ci sono (F3, L6): "ospite"
+    (ospite, MetaPhlAn e Kraken: altri timbri in bin/run.sh), "kraken" (solo Kraken), "soglia" (solo tabelle e
+    referto: la soglia non entra nei timbri) o None. parametri: risultati.json["parametri"] (results/parameters.tsv);
+    adesso: le stesse chiavi con i valori di adesso. Un valore che i risultati non scrivono non si confronta."""
+    def diverso(k):
+        if k not in parametri or k not in adesso:
+            return False
+        try:
+            return float(parametri[k]) != float(adesso[k])
+        except (TypeError, ValueError):
+            return str(parametri[k]) != str(adesso[k])
+    if "hosts" in parametri and (set(str(parametri["hosts"]).replace(",", " ").split()) != set(adesso.get("hosts", []))
+                                 or diverso("filter_human")):
+        return "ospite"
+    if any(diverso(k) for k in ("kraken_profile", "kraken_confidence", "bracken_min_reads", "bracken_readlen")):
+        return "kraken"
+    return "soglia" if diverso("abundance_threshold_pct") else None
+
+
+def avviso_da_rifare(cosa, tempi):
+    """(titolo, testo) dell'avviso per da_rifare(); il tempo dalla stima del motore, per passo."""
+    t = tempi or {}
+    if cosa == "soglia":
+        return _("Hai cambiato la soglia dopo l'analisi"), _(
+            "Avviando l'analisi si rifanno solo le tabelle e il referto con la soglia nuova: bastano pochi secondi. "
+            "MetaPhlAn e Kraken restano come sono.")
+    if cosa == "kraken":
+        return _("Hai cambiato le scelte di Kraken dopo l'analisi"), _(
+            "Avviando l'analisi si rifà Kraken su tutti i campioni: circa {durata}. MetaPhlAn resta com'è.",
+            durata=durata(sum(t.get(k) or 0 for k in ("kraken", "riepilogo", "referto"))))
+    return _("Hai cambiato l'ospite dopo l'analisi"), _(
+        "Avviando l'analisi si rifanno la rimozione del DNA dell'ospite, MetaPhlAn e Kraken: circa {durata}.",
+        durata=durata(sum(v or 0 for k, v in t.items() if k != "download")))
 
 
 class PaginaScelte(Pagina):
@@ -162,10 +206,10 @@ class PaginaScelte(Pagina):
         griglia.setHorizontalSpacing(20)
         griglia.setVerticalSpacing(12)
         griglia.setColumnStretch(2, 1)
-        self.confidenza = QComboBox()
-        self.soglia = QComboBox()
-        self.lunghezza = QComboBox()
-        self.letture = QComboBox()
+        self.confidenza = Menu()
+        self.soglia = Menu()
+        self.lunghezza = Menu()
+        self.letture = Menu()
         righe = [(_("Soglia di confidenza di Kraken"), self.confidenza, _(FONTE_CONFIDENZA)),
                  (_("Soglia di abbondanza di Kraken"), self.soglia, _(FONTE_SOGLIA)),
                  (_("Read minime per specie (Bracken)"), self.letture, _(FONTE_LETTURE)),
@@ -379,6 +423,9 @@ class PaginaScelte(Pagina):
             titolo = _("Ci vorrà molto tempo.") if a.get("codice") == "TEMPO_LUNGO" else _("Attenzione")
             self.zona_stima.addWidget(riquadro(titolo, a["messaggio"], "avviso"))
         tempi = r.get("tempo_s") or {}
+        cosa = self._da_rifare()
+        if cosa:                                                  # F3, L6: risultati fatti con altre scelte
+            self.zona_stima.addWidget(riquadro(*avviso_da_rifare(cosa, tempi), "info"))
         totale = r.get("tempo_totale_s") or sum(v for v in tempi.values() if v)    # v0.3: totale del motore
         nomi = {"download": _("download"), "pulizia": _("pulizia"), "ospite": _("ospite"),
                 "controllo_qualita": _("controlli"), "metaphlan": "MetaPhlAn", "kraken": "Kraken",
@@ -417,6 +464,19 @@ class PaginaScelte(Pagina):
         secondari = [(_("Passa allo screening rapido"), self.passa_al_rapido)] \
             if lungo and self._profilo() == "completo" else []
         self._barra(_("Avvia l'analisi"), aiuto, "avviso" if self.avvisi else "", secondari)
+
+    def _da_rifare(self):
+        """da_rifare() fra i risultati del progetto (se ci sono) e le scelte di questa pagina."""
+        d = leggi_risultati(self.contesto.progetto)
+        if not d or not isinstance(d.get("parametri"), dict):
+            return None
+        cfg = self.contesto.progetto.leggi()
+        adesso = {"hosts": [str(h) for h in cfg.get("hosts") or []],
+                  "filter_human": "yes" if cfg.get("filter_human", True) else "no",
+                  "kraken_profile": self._profilo(), "kraken_confidence": self.confidenza.currentData(),
+                  "bracken_min_reads": self.letture.currentData(), "bracken_readlen": self.lunghezza.currentData(),
+                  "abundance_threshold_pct": self.soglia.currentData()}
+        return da_rifare(d["parametri"], adesso)
 
     def _errore(self, e):
         svuota(self.zona_stima)

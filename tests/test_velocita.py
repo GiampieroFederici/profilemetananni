@@ -281,7 +281,7 @@ def test_pkl_letto_col_raccoglitore_spento_e_poi_congelato(tmp_path):
     (tmp_path / "lettore.py").write_text(LETTORE, encoding="utf-8")
     p = subprocess.run([sys.executable, str(tmp_path / "lettore.py"), str(RADICE / "motore" / "metaphlan_mapout.py"),
                         str(tmp_path)], capture_output=True, text=True,
-                       env={**os.environ, "PYTHONPATH": str(tmp_path / "finto")})
+                       env={**os.environ, "PYTHONPATH": str(tmp_path / "finto"), "PMN_MPA_RIDOTTO": "no"})   # .pkl intero
     assert p.returncode == 0, p.stdout + p.stderr
     r = json.loads(p.stdout)
     assert r["ok"] and r["dati"] == dati                       # stesso contenuto del .pkl

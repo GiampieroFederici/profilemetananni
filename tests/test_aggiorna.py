@@ -100,7 +100,7 @@ def server():
 
 def test_versione_e_confronto():
     assert aggiorna.versione("v1.10.0") > aggiorna.versione("1.9.9") > aggiorna.versione("v1.1.0")
-    assert aggiorna.VERSIONE == "1.1.0" and aggiorna.versione(aggiorna.VERSIONE) == (1, 1, 0)
+    assert aggiorna.VERSIONE == "1.2.0" and aggiorna.versione(aggiorna.VERSIONE) == (1, 2, 0)
     for male in ("1.1", "v1.1.0-rc1", "", "latest"):
         with pytest.raises(ValueError):
             aggiorna.versione(male)
@@ -121,7 +121,7 @@ def test_rete_assente():
 
 
 def test_json_rotto_e_tag_strano(server):
-    url = server("v1.2.0")
+    url = server("v1.3.0")
     for corpo in (b"{non json", json.dumps({"tag_name": "ultima"}).encode(), b"[]"):
         Finta.rotte["/latest"] = (200, {}, corpo)
         with pytest.raises(aggiorna.ErroreAggiorna) as e:
@@ -130,7 +130,7 @@ def test_json_rotto_e_tag_strano(server):
 
 
 def test_limite_di_richieste(server):
-    url = server("v1.2.0")
+    url = server("v1.3.0")
     Finta.rotte["/latest"] = (403, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1793340566"}, b"{}")
     with pytest.raises(aggiorna.ErroreAggiorna) as e:
         aggiorna.controlla(url)
@@ -142,7 +142,7 @@ def test_limite_di_richieste(server):
 
 
 def test_asset_mancante(server):
-    r = aggiorna.controlla(server("v1.2.0", nome="sorgenti.tar.gz"))
+    r = aggiorna.controlla(server("v1.3.0", nome="sorgenti.tar.gz"))
     assert r["stato"] == "nuova" and r["pacchetto"] is None
 
 
@@ -161,7 +161,7 @@ def test_novita_testo_semplice_e_corto():
 
 
 def test_scarica_ed_estrai(server, tmp_path):
-    r = aggiorna.controlla(server("v1.2.0"))
+    r = aggiorna.controlla(server("v1.3.0"))
     passi = []
     zip_ = aggiorna.scarica(r["pacchetto"], tmp_path, lambda f, t: passi.append((f, t)))
     assert passi[-1] == (r["pacchetto"]["byte"],) * 2
@@ -171,7 +171,7 @@ def test_scarica_ed_estrai(server, tmp_path):
 
 @pytest.mark.parametrize("caso", ["digest", "byte"])
 def test_pacchetto_diverso(server, tmp_path, caso):
-    url = server("v1.2.0", digest="0" * 64) if caso == "digest" else server("v1.2.0", byte=10)
+    url = server("v1.3.0", digest="0" * 64) if caso == "digest" else server("v1.3.0", byte=10)
     r = aggiorna.controlla(url)
     with pytest.raises(aggiorna.ErroreAggiorna) as e:
         aggiorna.scarica(r["pacchetto"], tmp_path)
@@ -179,13 +179,13 @@ def test_pacchetto_diverso(server, tmp_path, caso):
 
 
 def test_senza_digest_si_controllano_i_byte(server, tmp_path):
-    r = aggiorna.controlla(server("v1.2.0", digest=False))
+    r = aggiorna.controlla(server("v1.3.0", digest=False))
     assert r["pacchetto"]["sha256"] is None
     assert aggiorna.scarica(r["pacchetto"], tmp_path).is_file()
 
 
 def test_annulla_scarico(server, tmp_path):
-    r = aggiorna.controlla(server("v1.2.0"))
+    r = aggiorna.controlla(server("v1.3.0"))
     with pytest.raises(aggiorna.ErroreAggiorna) as e:
         aggiorna.scarica(r["pacchetto"], tmp_path, fermo=lambda: True)
     assert e.value.codice == "ANNULLATO" and list(tmp_path.iterdir()) == []
@@ -234,7 +234,7 @@ def test_versione_nello_zip():
     pytest.importorskip("PIL")
     sys.path.insert(0, str(RADICE / "installer" / "windows"))
     import costruisci_pacchetto
-    assert costruisci_pacchetto.versione_txt("abc1234") == "profilemetananni 1.1.0\ncommit abc1234\n"
+    assert costruisci_pacchetto.versione_txt("abc1234") == "profilemetananni 1.2.0\ncommit abc1234\n"
 
 
 # ---------------- la pagina ----------------
@@ -270,8 +270,8 @@ def scritte(pagina):
 
 
 def test_versione_in_testata_e_in_home(f):
-    assert "v1.1.0" in [lab.text() for lab in f.zona_testata.findChildren(QLabel)]
-    assert "Versione installata: 1.1.0." in scritte(f.pagine["home"])
+    assert "v1.2.0" in [lab.text() for lab in f.zona_testata.findChildren(QLabel)]
+    assert "Versione installata: 1.2.0." in scritte(f.pagine["home"])
 
 
 def test_spento_durante_un_analisi(f):
@@ -289,7 +289,7 @@ def test_spento_durante_un_analisi(f):
 
 def test_controllo_e_aggiornamento_con_consenso(f, qtbot, server, monkeypatch, tmp_path):
     h = f.pagine["home"]
-    url = server("v1.2.0", corpo="<b>grassetto</b> e <a href='x'>link</a>")
+    url = server("v1.3.0", corpo="<b>grassetto</b> e <a href='x'>link</a>")
     monkeypatch.setattr(aggiorna.controlla, "__defaults__", (url, aggiorna.VERSIONE, aggiorna.TIMEOUT))
     monkeypatch.setattr(aggiorna, "puo_installare", lambda: True)
     lanciati, domande = [], []
@@ -298,12 +298,12 @@ def test_controllo_e_aggiornamento_con_consenso(f, qtbot, server, monkeypatch, t
     monkeypatch.setattr(home.PaginaHome, "conferma", lambda self, t, x: domande.append(x) or risposta[0])
     h.cerca_aggiornamenti()
     qtbot.waitUntil(lambda: not h._in_rete, timeout=10000)
-    assert "È disponibile la versione 1.2.0." in scritte(h)
+    assert "È disponibile la versione 1.3.0." in scritte(h)
     novita = next(lab for lab in h.findChildren(QLabel) if "grassetto" in lab.text())
     assert novita.textFormat() == Qt.PlainText and novita.text() == "grassetto e link"
     aggiorna_adesso = next(b for b in h.findChildren(home.QPushButton) if b.text() == "Aggiorna adesso")
     aggiorna_adesso.click()                                    # risposta No: nulla si scarica
-    assert len(domande) == 1 and "1.2.0" in domande[0] and not h._in_rete
+    assert len(domande) == 1 and "1.3.0" in domande[0] and not h._in_rete
     assert not aggiorna.cartella_lavoro().exists() and lanciati == []
     risposta[0] = True
     aggiorna_adesso.click()
