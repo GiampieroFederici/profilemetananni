@@ -33,7 +33,7 @@ On the **My projects** page, in the box **Want to try right away?**, press **Try
 The recommended choices are already selected: **Full database** for Kraken and **Bacteria, archaea and yeasts**. You do not need to change anything. At the bottom of the page, **Before starting** shows what the engine expects for this PC:
 
 - samples: 1, mini_SF3RAt7, 0.2 million read pairs;
-- estimated time: about 5 minutes (MetaPhlAn 2 minutes, Kraken 72 seconds);
+- estimated time: about 4 minutes (MetaPhlAn 66 seconds, Kraken 2 minutes);
 - space needed: less than 1 GB.
 
 Press **Start the analysis**.
@@ -44,9 +44,9 @@ Press **Start the analysis**.
 
 The page **Analysis running** shows the step, the percentage done and the time left. The steps are always the same: download or read the files, quality check, cleaning of the reads, removal of the host DNA, profile with MetaPhlAn, profile with Kraken, report and tables. You can use the PC for something else meanwhile. If you switch it off, the steps already finished are kept: open the project again and press **Resume the analysis**.
 
-On the test PC the analysis took 6 minutes 45 seconds (Italian run) and 6 minutes 13 seconds (English run), a little more than the estimate of about 5 minutes. The longer steps were Kraken (2 minutes 56 seconds and 2 minutes 22 seconds, against 72 seconds) and the removal of the host DNA (1 minute 3 seconds and 1 minute 16 seconds, against 20 seconds).
+On the test PC the analysis took 3 minutes 47 seconds (Italian run) and 3 minutes 20 seconds (English run). The longest steps were Kraken (2 minutes 6 seconds and 1 minute 37 seconds) and MetaPhlAn (58 and 62 seconds); the removal of the host DNA took 27 seconds. The estimate was about 4 minutes.
 
-![Analysis running: profile with MetaPhlAn, 45 % done](guida_esempio/en/03_esecuzione.png)
+![Analysis running: profile with Kraken, 47 % done](guida_esempio/en/03_esecuzione.png)
 
 When it ends, press **See the results**.
 

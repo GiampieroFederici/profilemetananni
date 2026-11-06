@@ -33,7 +33,7 @@ Nella pagina **I miei progetti**, nel riquadro **Vuoi provare subito?**, premi *
 Le scelte consigliate sono già pronte: **Database completo** per Kraken e **Batteri, archei e lieviti**. Non serve cambiare nulla. In fondo alla pagina, **Prima di partire** dice che cosa si aspetta il motore su questo PC:
 
 - campioni: 1, mini_SF3RAt7, 0,2 milioni di coppie di read;
-- tempo stimato: circa 5 minuti (MetaPhlAn 2 minuti, Kraken 72 secondi);
+- tempo stimato: circa 4 minuti (MetaPhlAn 66 secondi, Kraken 2 minuti);
 - spazio che serve: meno di 1 GB.
 
 Premi **Avvia l'analisi**.
@@ -44,7 +44,7 @@ Premi **Avvia l'analisi**.
 
 La pagina **Analisi in corso** mostra il passo, la percentuale fatta e il tempo che manca. I passi sono sempre gli stessi: scarico o lettura dei file, controllo della qualità, pulizia delle read, rimozione del DNA dell'ospite, profilo con MetaPhlAn, profilo con Kraken, referto e tabelle. Intanto puoi usare il PC per altro. Se lo spegni, i passi già finiti restano salvati: riapri il progetto e premi **Riprendi l'analisi**.
 
-Sul PC di prova l'analisi è durata 6 minuti e 45 secondi (corsa in italiano) e 6 minuti e 13 secondi (corsa in inglese), un po' più della stima di circa 5 minuti. I passi più lunghi sono stati Kraken (2 minuti e 56 secondi e 2 minuti e 22 secondi, contro 72 secondi) e la rimozione del DNA dell'ospite (1 minuto e 3 secondi e 1 minuto e 16 secondi, contro 20 secondi).
+Sul PC di prova l'analisi è durata 3 minuti e 47 secondi (corsa in italiano) e 3 minuti e 20 secondi (corsa in inglese). I passi più lunghi sono stati Kraken (2 minuti e 6 secondi e 1 minuto e 37 secondi) e MetaPhlAn (58 e 62 secondi); la rimozione del DNA dell'ospite è durata 27 secondi. La stima era di circa 4 minuti.
 
 ![Analisi in corso: profilo con MetaPhlAn, 45 % fatto](guida_esempio/it/03_esecuzione.png)
 
