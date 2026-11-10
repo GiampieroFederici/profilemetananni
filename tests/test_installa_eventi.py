@@ -156,11 +156,16 @@ def test_b1_memoria_poca_si_ferma_prima_di_scaricare(tmp_path, monkeypatch):
     """B1-b (VM 30/10, 8 GB): Linux saw 3,8 GB + 1 GB of swap, 44 GB were downloaded and then the final test was a
     generic RED (bowtie2 killed, 137). Now it stops at the start with RAM_INSUFFICIENTE and says what to do."""
     home, c = catalogo(tmp_path, installato=False)
-    monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 3984588, 1048576))
+    monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 2097152, 1048576))   # 2 GB + 1 GB of swap: below 4,75 GB
     out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
     ev = controlla(out, rc, "installa")
     assert rc == 2 and ev[-2]["codice"] == "RAM_INSUFFICIENTE" and ev[-2]["passo"] == "controllo"
-    assert "Memoria insufficiente: Linux ha 4,8 GB" in ev[-2]["messaggio"] and "16 GB" in ev[-2]["cosa_fare"]
+    assert "Memoria insufficiente: Linux ha 3,0 GB" in ev[-2]["messaggio"] and "almeno 8 GB" in ev[-2]["cosa_fare"]
+    # 1.3 (10/11): the WSL of an 8 GB Windows PC left as it is (3,8 GB + 1 GB of swap) is the smallest tested
+    # configuration (example and a whole sample, byte-identical outputs): it passes
+    monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 3984588, 1048576))
+    out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
+    assert rc == 0
     monkeypatch.setenv("PMN_MEMINFO", meminfo(tmp_path, 8165008, 4194304))   # a 16 GB PC: 7,8 GB + 4 GB of swap
     out, rc = lancia(home, "--stima", "--catalogo", str(c), *SPECCHIO)
     assert rc == 0
@@ -196,9 +201,9 @@ def verifica(home, **env):
 
 def test_b3_verifica_con_poca_memoria_esce_con_3(tmp_path):
     """B3-4 (VM 30/10, 8 GB): "Controlla il motore" was a generic RED (bowtie2 137) and proposed "Installa o completa".
-    verifica_motore.sh now says MEMORIA_INSUFFICIENTE and exits with 3: memory + swap below 9 GB, before the test..."""
+    verifica_motore.sh now says MEMORIA_INSUFFICIENTE and exits with 3: memory + swap below 4,75 GB (9 GB before 1.3), before the test..."""
     home = verifica_finta(tmp_path)
-    r = verifica(home, PMN_MEMINFO=meminfo(tmp_path, 3984588, 1048576))
+    r = verifica(home, PMN_MEMINFO=meminfo(tmp_path, 2097152, 1048576))
     assert r.returncode == 3 and "MEMORIA_INSUFFICIENTE" in r.stdout and "DIVERSO" not in r.stdout
 
 
@@ -217,7 +222,7 @@ def test_b3_comando_verifica_da_ram_insufficiente_senza_installa(tmp_path):
     """pmn-motore verifica: RAM_INSUFFICIENTE (exit 1: the person can act), never "premi Installa"."""
     import sys
     home = verifica_finta(tmp_path)
-    env = {**os.environ, "PMN_HOME": str(home), "PMN_MEMINFO": meminfo(tmp_path, 3984588, 1048576)}
+    env = {**os.environ, "PMN_HOME": str(home), "PMN_MEMINFO": meminfo(tmp_path, 2097152, 1048576)}
     r = subprocess.run([sys.executable, os.path.join(ROOT, "motore", "pmn_motore.py"), "verifica"], capture_output=True,
                        text=True, encoding="utf-8", timeout=120, env=env)
     ev = controlla(r.stdout, r.returncode, "verifica")

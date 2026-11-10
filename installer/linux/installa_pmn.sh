@@ -113,7 +113,7 @@ fi
 # ===================== 4. l'app si apre? =====================
 # Librerie di sistema che Qt chiede per le finestre (X11) e che Ubuntu non sempre ha, come libreria:pacchetto.
 # ldd le trova anche senza schermo; poi l'app si apre e si chiude davvero, con lo schermo finto di Qt (offscreen).
-LIBRERIE_QT="libxcb-cursor.so.0:libxcb-cursor0 libxkbcommon-x11.so.0:libxkbcommon-x11-0 libxkbcommon.so.0:libxkbcommon0 libEGL.so.1:libegl1 libGL.so.1:libgl1 libfontconfig.so.1:libfontconfig1 libdbus-1.so.3:libdbus-1-3 libX11-xcb.so.1:libx11-xcb1 libxcb-icccm.so.4:libxcb-icccm4 libxcb-image.so.0:libxcb-image0 libxcb-keysyms.so.1:libxcb-keysyms1 libxcb-randr.so.0:libxcb-randr0 libxcb-render-util.so.0:libxcb-render-util0 libxcb-shape.so.0:libxcb-shape0 libxcb-shm.so.0:libxcb-shm0 libxcb-sync.so.1:libxcb-sync1 libxcb-xfixes.so.0:libxcb-xfixes0 libxcb-xkb.so.1:libxcb-xkb1"
+LIBRERIE_QT="libxcb-cursor.so.0:libxcb-cursor0 libxkbcommon-x11.so.0:libxkbcommon-x11-0 libxkbcommon.so.0:libxkbcommon0 libEGL.so.1:libegl1 libGL.so.1:libgl1 libfontconfig.so.1:libfontconfig1 libdbus-1.so.3:libdbus-1-3 libX11-xcb.so.1:libx11-xcb1 libxcb-icccm.so.4:libxcb-icccm4 libxcb-image.so.0:libxcb-image0 libxcb-keysyms.so.1:libxcb-keysyms1 libxcb-randr.so.0:libxcb-randr0 libxcb-render-util.so.0:libxcb-render-util0 libxcb-shape.so.0:libxcb-shape0 libxcb-shm.so.0:libxcb-shm0 libxcb-sync.so.1:libxcb-sync1 libxcb-xfixes.so.0:libxcb-xfixes0 libxcb-xkb.so.1:libxcb-xkb1 libxcb-util.so.1:libxcb-util1"
 QT=$("${PY[@]}" -c 'import os, PySide6; print(os.path.dirname(PySide6.__file__))' 2>> "$LOG" || true)
 PACCHETTI=""; IGNOTE=""
 while IFS= read -r so; do

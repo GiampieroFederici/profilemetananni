@@ -25,8 +25,8 @@ def test_s2_ram_e_modo_metaphlan():
     assert so.modo(39.9, True, True, True)[0]["metaphlan"] == "fette"
     assert so.modo(40.0, True, True, True)[0]["metaphlan"] == "standard"
     assert so.modo(64.0, False, True, True)[0]["metaphlan"] == "fette"     # senza indice intero niente standard
-    assert codici(so.modo(7.4, False, True, True)[1]) == ["RAM_INSUFFICIENTE"]
-    assert codici(so.modo(7.5, False, True, True)[1]) == []
+    assert codici(so.modo(3.7, False, True, True)[1]) == ["RAM_INSUFFICIENTE"]
+    assert codici(so.modo(3.75, False, True, True)[1]) == []      # 1.3: provato con 3,8 GB + 1 GB di swap
     assert codici(so.modo(0.0, False, True, True)[1]) == []                 # RAM sconosciuta: niente avviso
 
 

@@ -2,15 +2,15 @@
 # installer/verifica_motore.sh - prova finale dell'installazione (D032, D037):
 #   versioni dei programmi chiave, programmi avviabili, mini-campione di regressione (200.000 coppie di SF3RAt7)
 #   con MD5 identici a installer/riferimenti.tsv. Esce con 0 solo se e' tutto VERDE.
-#   B3-4 (VM 30/10, 8 GB): esce con 3 e la riga MEMORIA_INSUFFICIENTE se memoria + swap di Linux sono sotto 9 GB
-#   (picco di MetaPhlAn a fette 8,2 GB, come installa_motore.sh) o se Linux chiude un programma per memoria (137):
+#   B3-4 (VM 30/10, 8 GB): esce con 3 e la riga MEMORIA_INSUFFICIENTE se memoria + swap di Linux sono sotto 4,75 GB
+#   (la configurazione piu' piccola provata, come installa_motore.sh) o se Linux chiude un programma per memoria (137):
 #   non e' un motore da reinstallare. PMN_MEMINFO solo per le prove.
 # Uso: bash installer/verifica_motore.sh   (PMN_HOME predefinita ~/.pmn)
 set -euo pipefail
 PMN_HOME=${PMN_HOME:-$HOME/.pmn}
 . "$PMN_HOME/installazione.env"
 mem_kb=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")
-if [ "$mem_kb" -lt $((9 * 1024 * 1024)) ]; then echo "MEMORIA_INSUFFICIENTE memoria + swap $mem_kb kB, servono 9 GB"; exit 3; fi
+if [ "$mem_kb" -lt 4980736 ]; then echo "MEMORIA_INSUFFICIENTE memoria + swap $mem_kb kB, servono 4,75 GB"; exit 3; fi
 RIF=$PMN_ROOT/installer/riferimenti.tsv
 val() { awk -F'\t' -v k="$1" '$1 == k {print $2}' "$RIF"; }
 esito=0

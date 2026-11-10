@@ -176,7 +176,7 @@ l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce semp
 
 Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` possono arrivare come **avviso**
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
-**[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; sotto 16 GB l'analisi non può finire).
+**[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; requisito dichiarato: 8 GB con Linux, 16 GB con Windows).
 In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
 
 ## 5. Uscite
@@ -414,7 +414,7 @@ Codice: `motore/system_one.py`. Ogni consiglio porta la sua `fonte`.
 |---|---|---|---|
 | Modo MetaPhlAn | `standard` solo con RAM ≥ 40 GB **e** indice intero installato, altrimenti `fette` | `MODO_METAPHLAN` (info) | S2.1 (picco 25,5 GB), PC da 31,4 GB non basta; D051 |
 | **[v0.3]** Prodotto → ospite | maiale → `sus_scrofa` (Sscrofa11.1), bovino → `bos_taurus` (ARS-UCD1.2), pecora → `ovis_aries` (ARS-UI_Ramb_v2.0), altro → nessuno (avviso); l'uomo sempre | `info.prodotti` (non un codice) | D021, D074 |
-| Memoria troppo poca | RAM visibile < 7,5 GB | `RAM_INSUFFICIENTE` | fette provate con WSL a 8 GB (14/10) |
+| Memoria troppo poca | RAM visibile < 3,75 GB | `RAM_INSUFFICIENTE` | **[1.3]** analisi provate con 3,8 GB + 1 GB di swap (10/11); prima 7,5 GB |
 | Database Kraken | completo se installato, altrimenti rapido con avviso; scelto ma non installato | `DB_MANCANTE` | installazione del motore |
 | Tempo | stima totale > 4 h | `TEMPO_LUNGO` | D023 |
 | Spazio | spazio stimato × 1,15 > spazio libero | `SPAZIO_INSUFFICIENTE` | regola di `steps/05` |
