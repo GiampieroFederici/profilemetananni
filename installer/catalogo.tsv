@@ -1,5 +1,6 @@
 gruppo	tipo	sorgente	percorso	byte	byte_finale	md5	destinazione
 metaphlan_pkl	file	pmn	metaphlan/mpa_vJan25_CHOCOPhlAnSGB_202503.pkl	163915626	163915626	112b7f2895ee6c401fe806f74c6cccea	metaphlan/mpa_vJan25_CHOCOPhlAnSGB_202503.pkl
+metaphlan_pkl	file	pmn	metaphlan/mpa_vJan25_CHOCOPhlAnSGB_202503.ridotto.sqlite	296935424	296935424	bdf22218184a1b7a639f8fccd989fe5d	metaphlan/mpa_vJan25_CHOCOPhlAnSGB_202503.ridotto.sqlite
 metaphlan_fette	file	pmn	fette_vJan25_v1/PROVENIENZA.md	2678	2678	e4c8aec93a2eea5506b0955093e5b083	fette/PROVENIENZA.md
 metaphlan_fette	file	pmn	fette_vJan25_v1/fette_gruppi.tsv	147332	147332	e07be31a74a65a5c5194c1ae603eecb0	fette/fette_gruppi.tsv
 metaphlan_fette	file	pmn	fette_vJan25_v1/idx1/fetta1.1.bt2	1090735917	1090735917	3355fddf65e9bc8151ac3c0700046eaf	fette/idx1/fetta1.1.bt2

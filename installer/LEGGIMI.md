@@ -50,7 +50,7 @@ tecnico in `%LOCALAPPDATA%\profilemetananni\`, accanto a `installazione_windows.
 
 > Stato (30/10/2026, v1.1): scarico a pezzi provato con lo specchio locale "difficile" (`tests/specchio_server.py`,
 > `tests/test_scarico_pezzi.py`); la prova da zero sulla VM Windows 11 è quella di v1.1 (`VERIFICHE_v1.1.md`).
-> I pacchetti di profilemetananni (fette, `.pkl`, indici dell'ospite, mini-campione: 71 file, 41,8 GB) si scaricano dalla
+> I pacchetti di profilemetananni (fette, `.pkl`, indici dell'ospite, mini-campione, database ridotto di MetaPhlAn: 72 file, 42,1 GB) si scaricano dalla
 > Release `database-v1` di GitHub, con i nomi piatti: `/` diventa `__` (`fette_vJan25_v1/idx3/fetta3.1.bt2` si chiama
 > `fette_vJan25_v1__idx3__fetta3.1.bt2`). `--specchio` o la variabile `PMN_URL_PACCHETTI` cambiano l'indirizzo.
 

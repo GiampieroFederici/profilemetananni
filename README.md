@@ -125,7 +125,7 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 | RAM | 16 GB. An analysis uses at most about 5.4 GB inside WSL (measured on real cured-meat samples); the first analysis also builds the reduced MetaPhlAn database once, about 6.9 GB for one minute |
 | Time | Measured with 24 processors: the example sample (0.2 million read pairs) 3-4 minutes; a cured-meat sample with 12.5 million read pairs about 38 minutes, most of it removing pig DNA (about 2.5 minutes per million pairs). With 8 processors the host step took 1.4 times longer, with 4 processors 2.4 times, with identical results. Samples with little host DNA spend most of the time in Kraken (ZymoBIOMICS standard, 8.8 million pairs: about 2.3 hours) |
 | Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download |
-| Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 41.8 GB of ProfileMetaNanni packages) |
+| Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 42.1 GB of ProfileMetaNanni packages) |
 
 The installer enables WSL2 (it asks once for administrator permission and one restart), creates a dedicated Linux space and installs the programs from lock files with pinned versions and the databases with MD5 checks.
 
@@ -263,7 +263,7 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 | RAM | 16 GB. Un'analisi usa al massimo circa 5,4 GB dentro la WSL (misurato su salumi veri); la prima analisi costruisce anche, una volta sola, il database ridotto di MetaPhlAn: circa 6,9 GB per un minuto |
 | Tempo | Misurato con 24 processori: il campione d'esempio (0,2 milioni di coppie di read) 3-4 minuti; un salume con 12,5 milioni di coppie circa 38 minuti, quasi tutti per togliere il DNA del maiale (circa 2,5 minuti per milione di coppie). Con 8 processori quel passo ha richiesto 1,4 volte il tempo, con 4 processori 2,4 volte, con risultati identici. I campioni con poco DNA dell'ospite passano quasi tutto il tempo in Kraken (standard ZymoBIOMICS, 8,8 milioni di coppie: circa 2,3 ore) |
 | Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico |
-| Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 41,8 GB di pacchetti ProfileMetaNanni) |
+| Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 42,1 GB di pacchetti ProfileMetaNanni) |
 
 L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un riavvio), crea uno spazio Linux dedicato e ci installa i programmi da file di blocco con versioni fisse e i database con controllo MD5.
 
