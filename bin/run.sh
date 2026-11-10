@@ -136,7 +136,10 @@ fi
 # Kraken with the full PlusPF database memory-maps 118 GB and reads scattered pieces: with a large disk read-ahead
 # every piece costs megabytes (S2.2, K2: ~108 h estimated at 8192 KB, 41 min at 16 KB, identical output). The engine's
 # WSL sets 16 KB at every start (installer/windows/prepara_pmn.sh); elsewhere it needs root, so only a warning here.
-if [ "$PMN_KRK_PROFILO" = completo ] && [ -n "$PMN_KRK_DB" ] && { [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; }; then
+# 1.3: with the library that tells the kernel the reads are scattered (motore/pmn_casuale.c, used by step 32) the
+# read-ahead of the disk no longer touches Kraken, on any Linux and without root: no warning then.
+if [ "$PMN_KRK_PROFILO" = completo ] && [ -n "$PMN_KRK_DB" ] && { [ "$PMN_TOOL" = "kraken" ] || [ "$PMN_TOOL" = "both" ]; } \
+   && { [ ! -s "${PMN_HOME:-$HOME/.pmn}/lib/pmn_casuale.so" ] || [ "${PMN_CASUALE:-si}" = "no" ]; }; then
   ra_dev="$(basename "$(findmnt -no SOURCE --target "$PMN_KRK_DB" 2> /dev/null)")"
   # || true: a database on a disk that is not a block device (tmpfs, network) has no read-ahead to check; lsblk fails
   # there and, with pipefail and set -e, stopped run.sh without a word (exit 32)

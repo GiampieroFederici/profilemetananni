@@ -691,6 +691,17 @@ PMN_TMP=$PMN_HOME/tmp
 EOF
 chmod +x "$PMN_ROOT/motore/pmn-motore"
 ln -sfn "$PMN_ROOT/motore/pmn-motore" "$PMN_HOME/bin/pmn-motore"   # il comando unico (docs/contratto_motore.md §1)
+# 1.3: la libreria che dichiara al kernel le letture sparse di Kraken (motore/pmn_casuale.c). Si compila qui, col
+# compilatore di un ambiente installato o con quello del sistema; se non riesce, Kraken gira come nella 1.2.
+mkdir -p "$PMN_HOME/lib"
+CC_PMN=$(ls "$MAMBA_ROOT_PREFIX"/envs/*/bin/x86_64-conda-linux-gnu-gcc 2> /dev/null | head -n 1 || true)
+[ -n "$CC_PMN" ] || CC_PMN=$(command -v gcc || command -v cc || true)
+if [ -n "$CC_PMN" ] && "$CC_PMN" -shared -fPIC -O2 -o "$PMN_HOME/lib/pmn_casuale.so.parziale" "$PMN_ROOT/motore/pmn_casuale.c" >> "$LOG" 2>&1; then
+  mv -f "$PMN_HOME/lib/pmn_casuale.so.parziale" "$PMN_HOME/lib/pmn_casuale.so"
+else
+  rm -f "$PMN_HOME/lib/pmn_casuale.so.parziale"
+  echo "pmn_casuale.so non compilata (compilatore: ${CC_PMN:-nessuno}): Kraken gira senza" >> "$LOG"
+fi
 
 # ===================== 5. prova finale =====================
 PASSO=verifica; FATTO=0; TOTALE=1; ETA=null
