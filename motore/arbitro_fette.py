@@ -4,7 +4,7 @@ Comandi:
   compatta  < file.sam > fetta.tsv
       tiene solo le righe allineate e primarie; colonne: read, marker, AS, XS ('' se assente), lunghezza, MAPQ di Bowtie2
   unisci    nreads.txt uscita.mapout fetta1.tsv [fetta2.tsv ...]
-      per ogni read: migliore = AS piu' alto fra le fette; secondo = max(XS della fetta vincente, AS delle altre fette);
+      le fette.tsv ordinate per nome della read (LC_ALL=C sort -t TAB -k1,1); per ogni read: migliore = AS piu' alto fra le fette; secondo = max(XS della fetta vincente, AS delle altre fette);
       MAPQ ricalcolato con la formula di Bowtie2 (mapq_bowtie2.py); filtro di MetaPhlAn (metaphlan.py:842-875).
       Con una sola fetta usa il MAPQ scritto da Bowtie2 (e' il riferimento "indice intero").
   confronta a.mapout b.mapout
@@ -12,6 +12,8 @@ Comandi:
 
 Il formato .mapout e' quello di MetaPhlAn (metaphlan.py:815-829): "read<TAB>marker" e in coda #nreads e #avg_read_length.
 """
+import heapq
+import itertools
 import os
 import sys
 
@@ -39,26 +41,41 @@ def compatta():
         out.write(f"{c[0]}\t{c[2].split('/')[0]}\t{tags['AS']}\t{tags.get('XS', '')}\t{len(c[9])}\t{c[4]}\n")
 
 
+def righe_ordinate(percorso):
+    """Le righe di una fetta.tsv, già divise; si ferma se il file non è ordinato per nome della read."""
+    prima = None
+    with open(percorso) as fh:
+        for line in fh:
+            c = line.rstrip("\n").split("\t")
+            if prima is not None and c[0] < prima:
+                sys.exit(f"arbitro_fette: {percorso} non è ordinato per nome della read ({prima!r} prima di {c[0]!r})")
+            prima = c[0]
+            yield c
+
+
 def unisci(nreads_file, out_path, fette):
-    best = {}  # read -> [AS, XS, marker, lunghezza, mapq_bowtie2, fetta, secondo_da_altre]
-    for k, f in enumerate(fette):
-        with open(f) as fh:
-            for line in fh:
-                r, m, a, x, ln, q = line.rstrip("\n").split("\t")
+    # Le fette.tsv arrivano ordinate per nome della read (LC_ALL=C sort in metaphlan_fette.sh) e si leggono insieme,
+    # una read alla volta: in memoria stanno le righe di una sola read, non tutte le read allineate (prima circa
+    # 350 byte l'una, 0,33 GB per milione). A parità di nome vengono prima le fette con il numero più basso, come
+    # nel giro di prima; il mapout esce ordinato per nome della read (prima: nell'ordine di Bowtie2).
+    allineate = tenute = 0
+    with open(out_path, "w") as fo:
+        insieme = heapq.merge(*(righe_ordinate(f) for f in fette), key=lambda c: c[0])
+        for r, gruppo in itertools.groupby(insieme, key=lambda c: c[0]):
+            cur = None  # [AS, XS, marker, lunghezza, mapq_bowtie2, secondo_da_altre]
+            for _r, m, a, x, ln, q in gruppo:
                 a = int(a)
                 x = int(x) if x else None
-                cur = best.get(r)
                 if cur is None:
-                    best[r] = [a, x, m, int(ln), int(q), k, None]
+                    cur = [a, x, m, int(ln), int(q), None]
                 elif a > cur[0]:
                     # la nuova fetta vince: il vecchio migliore diventa un rivale da un'altra fetta
-                    other = cur[0] if cur[6] is None else max(cur[0], cur[6])
-                    best[r] = [a, x, m, int(ln), int(q), k, other]
+                    other = cur[0] if cur[5] is None else max(cur[0], cur[5])
+                    cur = [a, x, m, int(ln), int(q), other]
                 else:
-                    cur[6] = a if cur[6] is None else max(cur[6], a)
-    tenute = 0
-    with open(out_path, "w") as fo:
-        for r, (a, x, m, ln, qbt, _k, other) in best.items():
+                    cur[5] = a if cur[5] is None else max(cur[5], a)
+            a, x, m, ln, qbt, other = cur
+            allineate += 1
             if len(fette) == 1:
                 q = qbt
             else:
@@ -70,7 +87,7 @@ def unisci(nreads_file, out_path, fette):
         with open(nreads_file) as fh:
             nreads, avg, _ = fh.read().split()
         fo.write(f"#nreads\t{int(float(nreads))}\n#avg_read_length\t{float(avg)}")
-    print(f"read allineate in almeno una fetta: {len(best)}; tenute dopo il filtro MetaPhlAn: {tenute}")
+    print(f"read allineate in almeno una fetta: {allineate}; tenute dopo il filtro MetaPhlAn: {tenute}")
 
 
 def leggi(path):
