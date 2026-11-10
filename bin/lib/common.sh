@@ -118,6 +118,19 @@ pmn_rifai_se_cambiati() {
   return "$tolti"
 }
 
+# --- Bowtie2 on a PC with little memory (1.3): true if the index must be memory-mapped (--mm) ---
+# pmn_bt2_mm <index prefix>
+# When the free memory is less than the index plus 1 GB, Bowtie2 reads the index from the disk as it needs it (--mm):
+# Linux can drop pieces of the index and read them again, instead of killing Bowtie2 (exit 137). Same alignments.
+# With enough memory the command is the one of 1.2. PMN_BT2_MM=si|no forces the answer (tests, measurements).
+pmn_bt2_mm() {
+  case "${PMN_BT2_MM:-auto}" in si) return 0 ;; no) return 1 ;; esac
+  local indice_kb libera_kb
+  indice_kb="$(du -ck --apparent-size "$1".*.bt2* 2> /dev/null | awk 'END { print $1 + 0 }' || true)"
+  libera_kb="$(awk '/^MemAvailable:/ { print $2 }' "${PMN_MEMINFO:-/proc/meminfo}" 2> /dev/null || true)"
+  [ "${libera_kb:-0}" -lt $(( ${indice_kb:-0} + 1048576 )) ]
+}
+
 # --- a path as a literal inside a glob: "nonhost[2024]" must not match "nonhost2" (22/10) ---
 pmn_glob_quote() {
   local s="$1"
