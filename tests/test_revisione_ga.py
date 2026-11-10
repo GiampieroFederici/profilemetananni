@@ -34,6 +34,7 @@ def server_mcp():
 
 # ---------------- P14: wsl.exe senza shell ----------------
 @solo_qt
+@pytest.mark.skipif(sys.platform != "win32", reason="wsl.exe: solo su Windows (su Linux tests/test_app_linux.py)")
 def test_p14_app_lancia_il_motore_senza_shell(monkeypatch):
     from app import motore
     monkeypatch.delenv("PMN_MOTORE", raising=False)

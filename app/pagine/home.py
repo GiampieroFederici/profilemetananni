@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLineEdit, QMessageBox, 
 
 from app import aggiorna, progetto
 from app.lingua import N_, _
+from app.motore import su_linux
 from app.pagine.base import Pagina, etichetta, pannello, riquadro, svuota
 from app.pagine.progetto import regola
 
@@ -299,6 +300,8 @@ class PaginaHome(Pagina):
         elif not aggiorna.puo_installare():
             self.zona_aggiorna.addWidget(riquadro(
                 _("Da questa copia del programma posso solo controllare."),
+                _("Per aggiornare, scarica la versione nuova dalla pagina della Release su GitHub e, dalla cartella "
+                  "nuova, lancia di nuovo bash installer/linux/installa_pmn.sh.") if su_linux() else
                 _("Per aggiornare, scarica lo zip dalla pagina della Release su GitHub e installalo con il doppio "
                   "clic."), "avviso"))
         else:
