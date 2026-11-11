@@ -15,7 +15,7 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 
 | | English | Italiano |
 |---|---|---|
-| **Ubuntu 24.04** | [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip), extract it, then run `bash installer/linux/installa_pmn.sh` in the folder. [Ubuntu guide](docs/guida_ubuntu_EN.md). | [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip), estraila, poi lancia `bash installer/linux/installa_pmn.sh` nella cartella. [Guida per Ubuntu](docs/guida_ubuntu_IT.md). |
+| **Ubuntu 24.04** | [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip), extract it, then run `bash installer/linux/installa_pmn.sh` in the folder. [Ubuntu guide](docs/guida_ubuntu_EN.md). | [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip), estraila, poi lancia `bash installer/linux/installa_pmn.sh` nella cartella. [Guida per Ubuntu](docs/guida_ubuntu_IT.md). |
 | **Windows 11** | [Download the zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), extract it, double-click **Installa profilemetananni**. If you already have version 1.2: open the program and press **Cerca aggiornamenti** (check for updates). | [Scarica lo zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), estrailo, doppio clic su **Installa profilemetananni**. Se hai già la versione 1.2: apri il programma e premi **Cerca aggiornamenti**. |
 
 **You need** Windows 11 or Ubuntu 24.04 (not Mac), 8 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
@@ -47,7 +47,7 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 
 ### On Ubuntu 24.04 (version 1.3)
 
-1. [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip) and extract it in a fixed place, for example `~/profilemetananni`: the program runs from there.
+1. [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip) and extract it in a fixed place, for example `~/profilemetananni`: the program runs from there.
 2. Open the terminal in that folder and run `bash installer/linux/installa_pmn.sh`. The script says what it will download and asks before starting; at the end it tests the engine on a small sample and writes VERDE (green).
 3. Start the program from the applications menu (**ProfileMetaNanni**) or with the command `profilemetananni`.
 
@@ -209,7 +209,7 @@ MIT (see `LICENSE`).
 
 ### Su Ubuntu 24.04 (versione 1.3)
 
-1. [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip) ed estraila in un posto fisso, per esempio `~/profilemetananni`: il programma gira da lì.
+1. [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip) ed estraila in un posto fisso, per esempio `~/profilemetananni`: il programma gira da lì.
 2. Apri il terminale in quella cartella e lancia `bash installer/linux/installa_pmn.sh`. Lo script dice che cosa scaricherà e chiede prima di partire; alla fine prova il motore su un piccolo campione e scrive VERDE.
 3. Avvia il programma dal menu delle applicazioni (**ProfileMetaNanni**) o con il comando `profilemetananni`.
 
