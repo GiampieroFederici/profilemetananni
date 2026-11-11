@@ -170,7 +170,7 @@ class PaginaScelte(Pagina):
         c.setEnabled(False)
         c.setStyleSheet("font-weight: bold;")
         s.addWidget(c)
-        e = etichetta(_("Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per stare in 16 GB) e con "
+        e = etichetta(_("Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per usare poca memoria) e con "
                         "Kraken."))
         e.setContentsMargins(30, 0, 0, 0)
         s.addWidget(e)

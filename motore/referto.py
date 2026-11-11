@@ -533,7 +533,7 @@ def righe_parametri(d):
     out = []
     if p.get("metaphlan_mode"):
         out.append((_("Modo di MetaPhlAn"), p["metaphlan_mode"],
-                    _("fette = database diviso in 6 parti per stare in 16 GB; profilo delle specie uguale al modo "
+                    _("fette = database diviso in 6 parti per usare poca memoria; profilo delle specie uguale al modo "
                       "standard") if p["metaphlan_mode"] == "fette" else
                     _("standard = database intero in memoria (oltre 40 GB)"),
                     _("D016 (prova S2.1: 27 specie su 27 identiche); D051")))
