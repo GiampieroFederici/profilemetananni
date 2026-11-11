@@ -1,12 +1,12 @@
 # Your first analysis with ProfileMetaNanni: the example sample
 
-This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.2 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On your PC the times can be different; the results are the same.
+This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.3 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On your PC the times can be different; the results are the same.
 
 Italian version: [guida_analisi_esempio_IT.md](guida_analisi_esempio_IT.md).
 
 ## 1. What you need
 
-ProfileMetaNanni 1.2 must be installed (see [How to install](../README.md#how-to-install)) and the dot at the top of the window must be green, with **Engine ready** next to it. If it is grey or red, open the **Engine** page and press **Check the engine**.
+ProfileMetaNanni 1.3 must be installed (see [How to install](../README.md#how-to-install)) and the dot at the top of the window must be green, with **Engine ready** next to it. If it is grey or red, open the **Engine** page and press **Check the engine**.
 
 ## 2. The example sample
 
@@ -20,7 +20,7 @@ The example is 200,000 read pairs of the public sequencing run SRR4875279, alrea
 | Article | Ferrocino et al. 2018, Appl Environ Microbiol 84(3):e02120-17, doi:10.1128/AEM.02120-17 |
 | Files | `mini_SF3RAt7_1.fastq.gz` (MD5 `df87b76cb72c1abf2cf163fe6df27e9e`) and `mini_SF3RAt7_2.fastq.gz` (MD5 `1b005d394447fd15027d567f0a764eb2`), 200,000 reads each |
 
-The whole run has 3,240,847 pairs. The example keeps 200,000 of them, so the analysis takes minutes instead of an hour. The two files are also attached to the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) (section 10).
+The whole run has 3,240,847 pairs. The example keeps 200,000 of them, so the analysis takes minutes instead of an hour. The two files are also attached to the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) (section 10).
 
 ## 3. Open the example
 
@@ -44,9 +44,9 @@ Press **Start the analysis**.
 
 The page **Analysis running** shows the step, the percentage done and the time left. The steps are always the same: download or read the files, quality check, cleaning of the reads, removal of the host DNA, profile with MetaPhlAn, profile with Kraken, report and tables. You can use the PC for something else meanwhile. If you switch it off, the steps already finished are kept: open the project again and press **Resume the analysis**.
 
-On the test PC the analysis took 3 minutes 47 seconds (Italian run) and 3 minutes 20 seconds (English run). The longest steps were Kraken (2 minutes 6 seconds and 1 minute 37 seconds) and MetaPhlAn (58 and 62 seconds); the removal of the host DNA took 27 seconds. The estimate was about 4 minutes.
+On the test PC the analysis took 5 minutes 12 seconds (Italian run) and 4 minutes 59 seconds (English run). The longest steps were MetaPhlAn (2 minutes 4 seconds and 1 minute 53 seconds) and Kraken (2 minutes and 2 minutes 1 second); the removal of the host DNA took 33 seconds. The estimate was about 4 minutes: the real time was about one minute longer.
 
-![Analysis running: profile with Kraken, 47 % done](guida_esempio/en/03_esecuzione.png)
+![Analysis running: profile with MetaPhlAn, 45 % done](guida_esempio/en/03_esecuzione.png)
 
 When it ends, press **See the results**.
 
@@ -126,7 +126,7 @@ If you use these results in a document, cite the tools and databases listed in s
 
 The example is already in the program. If you want to try the way you will use your own data:
 
-1. Download `mini_SF3RAt7_1.fastq.gz` and `mini_SF3RAt7_2.fastq.gz` from the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) into one folder. Check the MD5 in section 2.
+1. Download `mini_SF3RAt7_1.fastq.gz` and `mini_SF3RAt7_2.fastq.gz` from the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) into one folder. Check the MD5 in section 2.
 2. In **My projects** write a name and press **New project**.
 3. In **Samples and product** choose **On my computer**, press **Choose the folder...** and select the folder with the two files; choose the product (Pork product).
 4. Go on with **Analysis choices** and **Start the analysis**, as in sections 4 and 5.

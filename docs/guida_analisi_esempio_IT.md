@@ -1,12 +1,12 @@
 # La prima analisi con ProfileMetaNanni: il campione d'esempio
 
-Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.2 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
+Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.3 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
 
 Versione inglese: [guida_analisi_esempio_EN.md](guida_analisi_esempio_EN.md).
 
 ## 1. Che cosa serve
 
-ProfileMetaNanni 1.2 deve essere installato (vedi [Come si installa](../README.md#come-si-installa)) e il pallino in alto nella finestra deve essere verde, con accanto **Motore pronto**. Se è grigio o rosso, apri la pagina **Motore** e premi **Controlla il motore**.
+ProfileMetaNanni 1.3 deve essere installato (vedi [Come si installa](../README.md#come-si-installa)) e il pallino in alto nella finestra deve essere verde, con accanto **Motore pronto**. Se è grigio o rosso, apri la pagina **Motore** e premi **Controlla il motore**.
 
 ## 2. Il campione d'esempio
 
@@ -20,7 +20,7 @@ L'esempio è fatto di 200.000 coppie di read della corsa di sequenziamento pubbl
 | Articolo | Ferrocino et al. 2018, Appl Environ Microbiol 84(3):e02120-17, doi:10.1128/AEM.02120-17 |
 | File | `mini_SF3RAt7_1.fastq.gz` (MD5 `df87b76cb72c1abf2cf163fe6df27e9e`) e `mini_SF3RAt7_2.fastq.gz` (MD5 `1b005d394447fd15027d567f0a764eb2`), 200.000 read ciascuno |
 
-La corsa intera ha 3.240.847 coppie. L'esempio ne tiene 200.000: così l'analisi dura minuti invece di un'ora. I due file sono anche allegati alla [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) (sezione 10).
+La corsa intera ha 3.240.847 coppie. L'esempio ne tiene 200.000: così l'analisi dura minuti invece di un'ora. I due file sono anche allegati alla [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) (sezione 10).
 
 ## 3. Apri l'esempio
 
@@ -44,7 +44,7 @@ Premi **Avvia l'analisi**.
 
 La pagina **Analisi in corso** mostra il passo, la percentuale fatta e il tempo che manca. I passi sono sempre gli stessi: scarico o lettura dei file, controllo della qualità, pulizia delle read, rimozione del DNA dell'ospite, profilo con MetaPhlAn, profilo con Kraken, referto e tabelle. Intanto puoi usare il PC per altro. Se lo spegni, i passi già finiti restano salvati: riapri il progetto e premi **Riprendi l'analisi**.
 
-Sul PC di prova l'analisi è durata 3 minuti e 47 secondi (corsa in italiano) e 3 minuti e 20 secondi (corsa in inglese). I passi più lunghi sono stati Kraken (2 minuti e 6 secondi e 1 minuto e 37 secondi) e MetaPhlAn (58 e 62 secondi); la rimozione del DNA dell'ospite è durata 27 secondi. La stima era di circa 4 minuti.
+Sul PC di prova l'analisi è durata 5 minuti e 12 secondi (corsa in italiano) e 4 minuti e 59 secondi (corsa in inglese). I passi più lunghi sono stati MetaPhlAn (2 minuti e 4 secondi e 1 minuto e 53 secondi) e Kraken (2 minuti e 2 minuti e 1 secondo); la rimozione del DNA dell'ospite è durata 33 secondi. La stima era di circa 4 minuti: il tempo vero è stato di circa un minuto in più.
 
 ![Analisi in corso: profilo con MetaPhlAn, 45 % fatto](guida_esempio/it/03_esecuzione.png)
 
@@ -126,7 +126,7 @@ Se usi questi risultati in un documento, cita gli strumenti e i database della s
 
 L'esempio è già nel programma. Se vuoi provare il modo in cui userai i tuoi dati:
 
-1. Scarica `mini_SF3RAt7_1.fastq.gz` e `mini_SF3RAt7_2.fastq.gz` dalla [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) in una stessa cartella. Controlla l'MD5 della sezione 2.
+1. Scarica `mini_SF3RAt7_1.fastq.gz` e `mini_SF3RAt7_2.fastq.gz` dalla [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) in una stessa cartella. Controlla l'MD5 della sezione 2.
 2. In **I miei progetti** scrivi un nome e premi **Nuovo progetto**.
 3. In **Campioni e prodotto** scegli **Sul mio computer**, premi **Scegli la cartella...** e seleziona la cartella con i due file; scegli il prodotto (salume di maiale).
 4. Vai avanti con **Scelte dell'analisi** e **Avvia l'analisi**, come nelle sezioni 4 e 5.
