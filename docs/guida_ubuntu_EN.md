@@ -9,9 +9,9 @@ Italian version: [guida_ubuntu_IT.md](guida_ubuntu_IT.md).
 | | |
 |---|---|
 | System | Ubuntu 24.04, x86_64 processor (64 bit) |
-| Memory | `[DA COMPLETARE DOPO LA PROVA]` |
+| Memory | 8 GB or more. The script stops before downloading if memory and swap together are less than 4.75 GB |
 | Disk | about 180 GB free on an internal disk, in your home folder |
-| Network | to download about 139 GB of databases (a few hours) |
+| Network | to download about 130 GB of databases (about 6 hours on a 6 MB/s line) |
 
 ## 2. The three commands
 
@@ -66,3 +66,22 @@ rm -rf ~/.config/ProfileMetaNanni
 ```
 
 Then delete the program folder (for example `~/profilemetananni`). Your projects stay in Documents, in the `ProfileMetaNanni` folder: delete it only if you no longer need the results.
+
+## 7. Measured times and memory
+
+Measured on 10 November 2026 with version 1.3.0, on Ubuntu 24.04 in a virtual machine with 4 processors, 8 GB of memory and 2 GB of swap, SSD disk. The whole sample is the public run SRR4875279 (3.24 million read pairs from a salami).
+
+| What | Time | Memory used, maximum |
+|---|---|---|
+| Installation from scratch, in total | 6 h 2 min | 5.2 GB |
+| of which database download (line at about 6 MB/s) | 5 h 56 min | 0.8 GB |
+| of which final test | 72 s | 5.2 GB |
+| Opening the app up to the first page | about 3 s | |
+| Analysis of the example sample (200,000 pairs) | 3 min 10 s | 4.7 GB |
+| The same analysis started from the app | 3 min 20 s | 4.7 GB |
+| Analysis of the whole sample, from the run code to the report | 24 min | 5.0 GB |
+| The same sample with 6 GB of memory, no swap | 26 min | 4.9 GB |
+| The same sample with 4 GB of memory and 1 GB of swap | 29 min 30 s | swap 90 % used |
+| Community with no host (public run ERR2984773, 7.9 million pairs) | 2 h 34 min | 4.9 GB |
+
+The installation time is almost all download and depends on the line. During the download the computer stays free for other work. With 4 GB of memory the analysis finishes and gives the same results, but with little margin: 8 GB is better. Kraken time grows with the reads left after host removal: 7 minutes for the whole salami, 99 minutes for the community with no host.
