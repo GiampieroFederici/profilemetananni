@@ -190,7 +190,7 @@
  "Giorni per 100 volte (LAB)": "Days for 100 times (LAB)",
  "manca la pagina del referto": "the report page is missing",
  "; dominano {specie}.": "; dominant: {specie}.",
- "fette = database diviso in 6 parti per stare in 16 GB; profilo delle specie uguale al modo standard": "fette = database split into 6 parts to fit in 16 GB; species profile equal to the standard mode",
+ "fette = database diviso in 6 parti per usare poca memoria; profilo delle specie uguale al modo standard": "fette = database split into 6 parts to use little memory; species profile equal to the standard mode",
  "standard = database intero in memoria (oltre 40 GB)": "standard = whole database in memory (over 40 GB)",
  "PlusPF completo: batteri, archei, funghi, protozoi, uomo (consigliato)": "full PlusPF: bacteria, archaea, fungi, protozoa, human (recommended)",
  "PlusPF-8, screening rapido: perde alcune specie fra 0,1 e 1 %": "PlusPF-8, quick screening: misses some species between 0.1 and 1 %",

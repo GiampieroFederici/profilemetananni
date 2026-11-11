@@ -283,7 +283,7 @@
  "Screening rapido": "Quick screening",
  "Pochi secondi a campione, ma può perdere specie fra 0,1 e 1 %, anche batteri lattici. Utile per una prima occhiata.": "A few seconds per sample, but it can miss species between 0.1 and 1 %, lactic acid bacteria too. Useful for a first look.",
  "Batteri, archei e lieviti": "Bacteria, archaea and yeasts",
- "Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per stare in 16 GB) e con Kraken.": "Always included. Species profile with MetaPhlAn (in 6 parts, to fit in 16 GB) and with Kraken.",
+ "Sempre incluso. Profilo delle specie con MetaPhlAn (in 6 parti, per usare poca memoria) e con Kraken.": "Always included. Species profile with MetaPhlAn (in 6 parts, to use little memory) and with Kraken.",
  "Anche i virus": "Viruses too",
  "Opzione sperimentale: cerca anche i virus nel profilo di MetaPhlAn.": "Experimental option: also looks for viruses in the MetaPhlAn profile.",
  "File del progetto": "Project file",
