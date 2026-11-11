@@ -575,6 +575,69 @@ def test_testi_mai_zero_gb(cartella):
         sp.chiudi()
     assert rc1 == 0 and rc2 == 0
     testi = [e["messaggio"] for e in prima + dopo]
-    assert not [t for t in testi if re.search(r"\b0([,.]0+)? (GB|MB)\b", t)], testi
+    assert not [t for t in testi if re.search(r"(?<![\d,.])0([,.]0+)? (GB|MB)\b", t)], testi
     assert any("meno di 1 MB" in t for t in testi) and any("Da scaricare: meno di 1 GB" in t for t in testi)
     assert any(t.startswith("Niente da scaricare: i database sono già tutti installati") for t in testi)
+
+
+# ---------------- B12 (1.3): the forecast is a range, and the peak of disk space is said ----------------
+def _messaggio_velocita(ev):
+    return next(e["messaggio"] for e in ev if e.get("passo") == "controllo" and e.get("percentuale") == 2)
+
+
+def test_b12_due_sorgenti_la_previsione_e_un_intervallo(cartella):
+    """Two sources share the line in a way a few seconds cannot measure (real installations: 4.6 h announced, 5.9 real).
+    The forecast becomes a range: from the simulation to all the bytes through the fastest speed measured."""
+    tgz, estratto = archivio(cartella, "kraken_prova", 1, 24)
+    servi(cartella, "kraken", "a.tar.gz", tgz)
+    righe = [("kraken_prova", "tar", "kraken", "a.tar.gz", len(tgz), estratto, md5(tgz), "kraken/a")]
+    for i in range(2):
+        d = os.urandom(12 * MB)
+        servi(cartella, "pmn", f"p/f{i}.bin", d)
+        righe.append(("pacchetti", "file", "pmn", f"p/f{i}.bin", len(d), len(d), md5(d), f"p/f{i}.bin"))
+    catalogo(cartella, righe)
+    sp = Specchio(cartella / "servito", velocita={"/kraken/": 150_000, "/pmn/": 300_000})
+    try:
+        ev, rc = lancia(cartella, sp.url, "--connessioni", "4", stima=True)
+    finally:
+        sp.chiudi()
+    assert rc == 0
+    r = ev[-1]["risultato"]
+    piu_veloce = max(max(s["velocita_mb_s"], s["velocita_da_sola_mb_s"]) for s in r["sorgenti"]) * 1e6
+    assert r["tempo_massimo_s"] > 1.15 * r["tempo_stimato_s"]
+    assert abs(r["tempo_massimo_s"] - r["da_scaricare_byte"] / piu_veloce) <= 0.1 * r["tempo_massimo_s"]
+    testo = _messaggio_velocita(ev)
+    assert "Tempo stimato per scaricare tutto: da " in testo and " a " in testo and "circa" not in testo, testo
+
+
+def test_b12_una_sorgente_la_previsione_resta_un_numero(cartella):
+    d = os.urandom(12 * MB)
+    servi(cartella, "pmn", "p/f.bin", d)
+    catalogo(cartella, [("pacchetti", "file", "pmn", "p/f.bin", len(d), len(d), md5(d), "p/f.bin")])
+    sp = Specchio(cartella / "servito", velocita={"/pmn/": 300_000})
+    try:
+        ev, rc = lancia(cartella, sp.url, stima=True)
+    finally:
+        sp.chiudi()
+    assert rc == 0
+    r = ev[-1]["risultato"]
+    assert r["tempo_massimo_s"] == r["tempo_stimato_s"]
+    assert "Tempo stimato per scaricare tutto: circa " in _messaggio_velocita(ev)
+
+
+def test_b12_lo_spazio_massimo_usato_si_dice_quando_i_pezzi_restano(cartella):
+    """With plenty of free space the pieces of the biggest archive stay until the MD5 check: the space used reaches
+    the final bytes plus the whole archive (on Windows it stays in use: 242 GB against 177 announced, test B9)."""
+    righe = [r.split("\t") for r in (ROOT / "installer" / "catalogo.tsv").read_text().splitlines()[1:]]
+    catalogo(cartella, righe)
+    archivio_piu_grande = max(int(x[4]) for x in righe if x[1] == "tar")
+    margine = regola(righe) - sum(int(x[5]) for x in righe) - 16 * 10**9
+    largo = regola(righe) + 2 * archivio_piu_grande
+    ev, rc = lancia(cartella, "http://127.0.0.1:9", "--spazio-libero", str(largo), stima=True)
+    assert rc == 0
+    r = ev[-1]["risultato"]
+    assert r["spazio_necessario_byte"] == regola(righe)                       # the rule of the space does not change
+    assert r["spazio_picco_byte"] == regola(righe) - margine + archivio_piu_grande
+    stretto = regola(righe) + 10 * 2**30                                      # enough to install, not to keep the pieces
+    ev, rc = lancia(cartella, "http://127.0.0.1:9", "--spazio-libero", str(stretto), stima=True)
+    assert rc == 0 and ev[-1]["risultato"]["spazio_picco_byte"] == regola(righe)

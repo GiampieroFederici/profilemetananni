@@ -267,3 +267,21 @@ def test_v1_riaperta_col_riavvio_in_sospeso_chiede_subito_il_riavvio():
     fase1 = testo[testo.index("if ($Fase -eq 1 -and -not (WslPronta)) {"):testo.index("# ===================== fase 2")]
     assert "if (RiavvioInSospeso) { ChiediRiavvio }" in fase1
     assert fase1.index("RiavvioInSospeso") < fase1.index("Start-Process wsl.exe")
+
+
+def test_b12_la_domanda_dice_lo_spazio_che_resta_occupato():
+    """B9 (VM a 8 GB): annunciati "circa 177 GB", alla fine il disco di Linux ne occupava 242, perché con tanto spazio
+    libero i pezzi scaricati restano fino al controllo e su Windows quel disco non si restringe. Ora la domanda lo dice
+    (numero del motore: spazio_picco_byte di --stima); con lo spazio stretto il picco è il necessario e non si dice nulla."""
+    s = "$s = @{ Disco = 'E:'; Serve = 177GB; Liberi = 398GB; Picco = 257GB }"
+    it = powershell(f". '{PS1}'; $Lingua = 'it'; {s}; DomandaScarico 130GB $s 'Tempo stimato: circa 3 ore.'")
+    assert "Spazio necessario sul disco E: circa 177 GB (liberi: 398 GB)." in it
+    assert "Con questo spazio libero sul disco E: resteranno occupati fino a circa 257 GB" in it
+    assert it.index("resteranno occupati") < it.index("Tempo stimato") < it.index("Procedo con l'installazione?")
+    en = powershell(f". '{PS1}'; $Lingua = 'en'; {s}; DomandaScarico 130GB $s 'Estimated time: about 3 hours.'")
+    assert "With this free space up to about 257 GB will stay in use on disk E:" in en
+    stretto = "$s = @{ Disco = 'C:'; Serve = 177GB; Liberi = 190GB; Picco = 177GB }"
+    assert "occupati" not in powershell(f". '{PS1}'; $Lingua = 'it'; {stretto}; DomandaScarico 130GB $s 'x'")
+    senza = "$s = @{ Disco = 'C:'; Serve = 177GB; Liberi = 398GB }"                    # motore vecchio: campo assente
+    assert "occupati" not in powershell(f". '{PS1}'; $Lingua = 'it'; {senza}; DomandaScarico 130GB $s 'x'")
+    assert "$s.Picco = [double]$stima.spazio_picco_byte" in FASE2

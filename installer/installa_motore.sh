@@ -82,6 +82,8 @@ declare -A EN=(
   ["%s ore"]="%s hours"
   ["altri database"]="other databases"
   ["Velocità misurata: %s. Tempo stimato per scaricare tutto: circa %s."]="Measured speed: %s. Estimated time to download everything: about %s."
+  ["Velocità misurata: %s. Tempo stimato per scaricare tutto: da %s a %s, secondo come la linea si divide fra le sorgenti."]="Measured speed: %s. Estimated time to download everything: from %s to %s, depending on how the line is shared between the sources."
+  [" Con questo spazio libero i pezzi scaricati restano fino al controllo: lo spazio usato arriva a %s."]=" With this free space the downloaded pieces are kept until they are checked: the space used reaches %s."
   ["Non riesco a misurare la velocità della rete: proseguo senza stima del tempo."]="I cannot measure the network speed: I go on without a time estimate."
   ["Stima pronta: non ho scaricato nulla."]="Estimate ready: I have not downloaded anything."
   ["Installazione annullata: non ho scaricato nulla."]="Installation cancelled: I have not downloaded anything."
@@ -298,8 +300,12 @@ if [ "$SOLO_DB" = 0 ]; then
   done
 fi
 RISPARMIO=0; [ "$LIBERI" -gt $(( SERVONO - MARGINE + ARCHIVIO )) ] || RISPARMIO=1
+# B12 (1.3, prova B9): con tanto spazio i pezzi restano e lo spazio usato arriva ai byte finali piu' l'archivio intero
+# (su Windows il disco di Linux non si restringe: 242 GB occupati contro i 177 annunciati). Si dice, e va nella stima.
+PICCO=$SERVONO; [ "$RISPARMIO" = 1 ] || PICCO=$(( SERVONO - MARGINE + ARCHIVIO ))
 if [ "$DA_SCARICARE" -gt 0 ]; then
-  evento avanzamento 1 "$(T 'Da scaricare: %s. Spazio necessario: %s. Spazio libero: %s.' "$(gb_parole "$DA_SCARICARE")" "$(gb_parole "$SERVONO")" "$(gb_parole "$LIBERI")")"
+  DI_PIU=""; [ "$PICCO" -le "$SERVONO" ] || DI_PIU=$(T ' Con questo spazio libero i pezzi scaricati restano fino al controllo: lo spazio usato arriva a %s.' "$(gb_parole "$PICCO")")
+  evento avanzamento 1 "$(T 'Da scaricare: %s. Spazio necessario: %s. Spazio libero: %s.' "$(gb_parole "$DA_SCARICARE")" "$(gb_parole "$SERVONO")" "$(gb_parole "$LIBERI")")$DI_PIU"
 else
   evento avanzamento 1 "$(T 'Niente da scaricare: i database sono già tutti installati. Spazio libero: %s.' "$(gb_parole "$LIBERI")")"
 fi
@@ -357,6 +363,7 @@ simula() {
        }'
 }
 declare -A RESTA=() V0=() SOLA=() FINE_S=()   # per sorgente: byte da scaricare, velocita' misurata (insieme, da sola) in byte/s, fine simulata
+TMAX=null   # B12: fine della previsione nel caso peggiore (secondi)
 while IFS=$'\t' read -r g t s p b bf m d alt; do
   if fatto "$d" "$m"; then continue; fi
   RESTA[$s]=$(( ${RESTA[$s]:-0} + b - $(sul_disco "$t" "$p" "$b" "$m" "$d") ))
@@ -382,16 +389,26 @@ if [ "$DA_SCARICARE" -gt 0 ]; then
     for s in $FONTI; do PARTI="$PARTI${PARTI:+, }$(etichetta "$s") $(mb_s "${V0[$s]}") MB/s ($(durata "${FINE_S[$s]}"))"; done
   fi
   if [ "$TEMPO" != null ]; then
-    ETA=$TEMPO; evento avanzamento 2 "$(T 'Velocità misurata: %s. Tempo stimato per scaricare tutto: circa %s.' "$PARTI" "$(durata "$TEMPO")")"
+    # B12 (1.3): pochi secondi non dicono come la linea si dividera' fra le sorgenti (B7: "altri database" misurati a
+    # 4,5 MB/s, poi 1,0 per cinque ore; annunciate 4,6 ore, vere 5,9). Il caso peggiore e' tutta la linea alla velocita'
+    # piu' alta misurata: la previsione diventa "da ... a ..." e le due installazioni vere ci cadono dentro.
+    VMAX=0; for s in $FONTI; do for v in "${V0[$s]:-0}" "${SOLA[$s]:-0}"; do [ "$v" -le "$VMAX" ] || VMAX=$v; done; done
+    TMAX=$TEMPO; [ "$VMAX" -le 0 ] || TMAX=$(( DA_SCARICARE / VMAX )); [ "$TMAX" -ge "$TEMPO" ] || TMAX=$TEMPO
+    ETA=$TEMPO
+    if [ $(( TMAX * 100 )) -gt $(( TEMPO * 115 )) ] && [ "$(durata "$TMAX")" != "$(durata "$TEMPO")" ]; then
+      evento avanzamento 2 "$(T 'Velocità misurata: %s. Tempo stimato per scaricare tutto: da %s a %s, secondo come la linea si divide fra le sorgenti.' "$PARTI" "$(durata "$TEMPO")" "$(durata "$TMAX")")"
+    else
+      TMAX=$TEMPO; evento avanzamento 2 "$(T 'Velocità misurata: %s. Tempo stimato per scaricare tutto: circa %s.' "$PARTI" "$(durata "$TEMPO")")"
+    fi
   else
     evento avviso 2 "$(T 'Non riesco a misurare la velocità della rete: proseguo senza stima del tempo.')" RETE_NON_MISURATA
   fi
 fi
 if [ "$STIMA" = 1 ]; then
   GB1() { awk -v b="$1" -v g="$GIB" 'BEGIN {printf "%.1f", b/g}'; }
-  vel=null; tempo=null; sorgenti=""
-  if [ "$DA_SCARICARE" = 0 ]; then tempo=0
-  elif [ "$TEMPO" != null ]; then vel=$(awk -v v="$VTOT" 'BEGIN {printf "%.1f", v/1e6}'); tempo=$TEMPO; fi
+  vel=null; tempo=null; tmax=null; sorgenti=""
+  if [ "$DA_SCARICARE" = 0 ]; then tempo=0; tmax=0
+  elif [ "$TEMPO" != null ]; then vel=$(awk -v v="$VTOT" 'BEGIN {printf "%.1f", v/1e6}'); tempo=$TEMPO; tmax=$TMAX; fi
   for s in $(printf '%s\n' "${!RESTA[@]}" | sort); do
     v=null; ts=null; vs=null
     if [ "${V0[$s]:-0}" -gt 0 ]; then v=$(awk -v v="${V0[$s]}" 'BEGIN {printf "%.1f", v/1e6}'); fi
@@ -399,8 +416,8 @@ if [ "$STIMA" = 1 ]; then
     if [ "$tempo" != null ]; then ts=${FINE_S[$s]:-0}; fi
     sorgenti="$sorgenti${sorgenti:+,}{\"sorgente\":\"$s\",\"da_scaricare_gb\":$(GB1 "${RESTA[$s]}"),\"da_scaricare_byte\":${RESTA[$s]},\"velocita_mb_s\":$v,\"velocita_da_sola_mb_s\":$vs,\"tempo_stimato_s\":$ts}"
   done
-  RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s,"spazio_necessario_byte":%s,"spazio_libero_byte":%s,"da_scaricare_byte":%s,"sorgenti":[%s]}' \
-    "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo" "$SERVONO" "$LIBERI" "$DA_SCARICARE" "$sorgenti")
+  RISULTATO=$(printf '{"da_scaricare_gb":%s,"spazio_necessario_gb":%s,"spazio_libero_gb":%s,"velocita_mb_s":%s,"tempo_stimato_s":%s,"tempo_massimo_s":%s,"spazio_necessario_byte":%s,"spazio_picco_byte":%s,"spazio_libero_byte":%s,"da_scaricare_byte":%s,"sorgenti":[%s]}' \
+    "$(GB1 "$DA_SCARICARE")" "$(GB1 "$SERVONO")" "$(GB1 "$LIBERI")" "$vel" "$tempo" "$tmax" "$SERVONO" "$PICCO" "$LIBERI" "$DA_SCARICARE" "$sorgenti")
   PASSO=fine; evento fine null "$(T 'Stima pronta: non ho scaricato nulla.')"; exit 0
 fi
 if [ "$SI" != 1 ]; then

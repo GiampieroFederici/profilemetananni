@@ -76,6 +76,8 @@ bash installer/installa_motore.sh
 - Chiede conferma dopo aver detto peso, spazio e tempo stimato. `--si` salta la domanda (la fa l'interfaccia).
 - `--stima`: dice peso, spazio e tempo stimato per sorgente e si ferma senza scaricare (D034). Nel risultato
   `spazio_necessario_byte` è **l'unica regola dello spazio**: la legge anche `windows/installa_pmn.ps1`.
+  Dalla 1.3 `spazio_picco_byte` dice quanto spazio si usa al massimo quando i pezzi restano (su Windows resta
+  occupato: il disco di Linux non si restringe) e `tempo_massimo_s` dà la previsione nel caso peggiore.
 - `--json`: messaggi come eventi JSON per l'interfaccia (`docs/contratto_motore.md`; v1.1: campi nuovi facoltativi
   `byte_fatti`, `byte_totali`, `velocita_mb_s`, `sorgente`, `sorgenti`, un avanzamento ogni 15 s durante lo scarico).
 - `--connessioni N` (o `PMN_CONNESSIONI`): connessioni insieme per i file a pezzi, predefinita 16 (D165).

@@ -60,6 +60,8 @@ $TESTI = [ordered]@{
     domanda_scarico = @("profilemetananni scaricherà {0} di database, più i programmi (circa 11 GB, se non ci sono già).`nSpazio necessario sul disco {1} {2} (liberi: {3}).`n{4}`n`nProcedo con l'installazione?",
                         "profilemetananni will download {0} of databases, plus the programs (about 11 GB, if they are not there yet).`nSpace needed on disk {1} {2} (free: {3}).`n{4}`n`nShall I go ahead with the installation?")
     circa_gb = @("circa {0} GB", "about {0} GB")
+    spazio_resta = @("Con questo spazio libero sul disco {0} resteranno occupati fino a {1}: i pezzi scaricati restano fino al controllo.",
+                     "With this free space up to {1} will stay in use on disk {0}: the downloaded pieces are kept until they are checked.")
     meno_di_1_gb = @("meno di 1 GB", "less than 1 GB")
     domanda_niente = @("I database di profilemetananni sono già tutti su questo PC: non li scarico di nuovo. Se manca qualche programma, lo scarico (al massimo circa 11 GB).`n`nProcedo con l'installazione?",
                        "All the profilemetananni databases are already on this PC: I will not download them again. If a program is missing, I download it (about 11 GB at most).`n`nShall I go ahead with the installation?")
@@ -312,7 +314,7 @@ function DoveInstallare {   # disco e cartella della WSL "pmn" (quella che c'e' 
         if (-not $vol) { return $null }
         $dove = if ("$($vol.DriveLetter):" -eq $env:SystemDrive) { Join-Path $Cartella 'wsl' } else { "$($vol.DriveLetter):\profilemetananni\wsl" }
     }
-    [pscustomobject]@{ Dove = $dove; Disco = "$($vol.DriveLetter):"; Serve = 0.0; Liberi = [double]$vol.SizeRemaining }
+    [pscustomobject]@{ Dove = $dove; Disco = "$($vol.DriveLetter):"; Serve = 0.0; Picco = 0.0; Liberi = [double]$vol.SizeRemaining }
 }
 function MessaggioSpazio($s) {   # $null se lo spazio basta; GB come li mostra Esplora file (1.024^3 byte)
     if ($s.Liberi -ge $s.Serve) { return $null }
@@ -338,6 +340,8 @@ function GbParole($byte, [switch]$Circa) {   # B4-e: mai "0 GB": "meno di 1 GB",
 }
 function DomandaScarico($byte, $s, $tempo) {   # B4-e: con i database gia' tutti sul PC era "circa 0 GB di database... circa 0 GB"
     if ([double]$byte -le 0) { return T 'domanda_niente' }
+    # B12 (1.3, prova B9): con tanto spazio i pezzi restano e il disco di Linux non si restringe (242 GB contro 177)
+    if ($s.Picco -and [double]$s.Picco -gt 1.05 * [double]$s.Serve) { $tempo = ((T 'spazio_resta') -f $s.Disco, (GbParole $s.Picco -Circa)) + "`n" + $tempo }
     (T 'domanda_scarico') -f (GbParole $byte -Circa), $s.Disco, (GbParole $s.Serve -Circa), (GbParole $s.Liberi), $tempo
 }
 if ($MyInvocation.InvocationName -eq '.') { return }   # caricato con ". installa_pmn.ps1" (prove): solo le funzioni
@@ -405,6 +409,7 @@ $stima = ($script:Eventi | Where-Object tipo -eq 'fine' | Select-Object -Last 1)
 $daScaricare = [double]$stima.da_scaricare_byte   # P12: il numero (byte), non il testo; B4-e: GbParole, mai "0 GB"
 $tempo = ($script:Eventi | Where-Object { $_.passo -eq 'controllo' -and $_.percentuale -eq 2 }).messaggio   # velocita' e tempo per sorgente
 $s.Serve = [double]$stima.spazio_necessario_byte
+$s.Picco = [double]$stima.spazio_picco_byte   # B12: assente con un motore piu' vecchio -> 0, nessuna frase in piu'
 $s.Liberi = LiberiSu $s.Disco   # dopo la WSL nuova
 Scrivi "spazio: servono $($s.Serve) byte (dal motore), liberi $($s.Liberi) su $($s.Disco), cartella della WSL $($s.Dove)"
 $m = MessaggioSpazio $s
