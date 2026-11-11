@@ -39,8 +39,8 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 </p>
 
 <p align="center">
-  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 seconds" width="720"><br>
-  <i>The program in 43 seconds. <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (11 MB, to download).</i>
+  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni 1.3 in 51 seconds" width="720"><br>
+  <i>Version 1.3 in 51 seconds. <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (12 MB, to download).</i>
 </p>
 
 ## How to install
@@ -201,8 +201,8 @@ MIT (see `LICENSE`).
 **La metagenomica dei salumi su un normale PC con 8 GB di RAM, con Windows o con Ubuntu.** Dalla versione 1.1 anche feci umane, cute, suolo e vite (sperimentale). Dalle read di sequenziamento del DNA di un campione a quali taxa ci sono e in che proporzione. Si installa con un doppio clic su Windows e con un comando su Ubuntu, e si usa con le finestre, senza terminale.
 
 <p align="center">
-  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni in 43 secondi" width="720"><br>
-  <i>Il programma in 43 secondi (in inglese). <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (11 MB, da scaricare).</i>
+  <img src="docs/vetrina/profilemetananni_video_en.gif" alt="ProfileMetaNanni 1.3 in 51 secondi" width="720"><br>
+  <i>La versione 1.3 in 51 secondi (in inglese). <a href="docs/vetrina/profilemetananni_video_en.mp4">Video MP4</a> (12 MB, da scaricare).</i>
 </p>
 
 ## Come si installa
