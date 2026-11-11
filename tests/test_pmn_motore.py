@@ -108,7 +108,7 @@ def test_memoria_finita_non_e_errore_imprevisto(ambiente):
     env, progetto = ambiente
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="memoria")
     assert codice == 1 and ev[-2]["codice"] == "RAM_INSUFFICIENTE" and ev[-2]["passo"] == "metaphlan"
-    assert "memoria" in ev[-2]["messaggio"] and "16 GB" in ev[-2]["cosa_fare"]
+    assert "memoria" in ev[-2]["messaggio"] and "8 GB" in ev[-2]["cosa_fare"] and "16 GB" not in ev[-2]["cosa_fare"]
 
 
 def test_gia_in_corso_e_annulla(ambiente):

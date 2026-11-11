@@ -68,7 +68,15 @@ fi
 K_THREADS=$THREADS
 hash_b="$(stat -c %s "$DB/hash.k2d" 2> /dev/null || echo 0)"
 ram_b="$(awk '/^MemTotal:/ { printf "%d", $2 * 1024 }' /proc/meminfo)"
-[ "$hash_b" -gt "$ram_b" ] && K_THREADS=$(( THREADS * 4 ))
+# Same case (1.3): the kernel is told that the reads of the mapped table are scattered (motore/pmn_casuale.c, built by
+# the installer), so every piece costs one page of disk and not the read-ahead of the disk too. Kraken is unchanged and
+# its report is identical to the byte. Without the library Kraken runs as before; PMN_CASUALE=no turns it off.
+casuale="${PMN_HOME:-$HOME/.pmn}/lib/pmn_casuale.so"
+K_PRELOAD=""
+if [ "$hash_b" -gt "$ram_b" ]; then
+  K_THREADS=$(( THREADS * 4 ))
+  [ -s "$casuale" ] && [ "${PMN_CASUALE:-si}" != "no" ] && K_PRELOAD="$casuale"
+fi
 k2args=(--db "$DB" --memory-mapping --threads "$K_THREADS" --confidence "$CONFIDENCE"
         --report "$k2report" --output "$k2out" --gzip-compressed)
 if [ -n "$IN2" ]; then
@@ -80,7 +88,7 @@ else
 fi
 
 info "$(say "Classifying $SAMPLE with Kraken2 ..." "Classifico $SAMPLE con Kraken2 ...")"
-kraken2 "${k2args[@]}" || die "kraken2 failed for $SAMPLE"
+LD_PRELOAD="${K_PRELOAD}${LD_PRELOAD:+${K_PRELOAD:+:}$LD_PRELOAD}" kraken2 "${k2args[@]}" || die "kraken2 failed for $SAMPLE"
 
 # Bracken keeps the taxa at the level with at least -t reads in the clade (column 2 of the report) and exits with
 # "no reads found" when none is left (est_abundance.py 3.0.1): a soil with 677 classified pairs and at most 5 reads per

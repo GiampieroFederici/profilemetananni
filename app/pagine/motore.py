@@ -5,7 +5,7 @@ Durante un lavoro lungo l'avatar della testata respira (D046). Gli errori mostra
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QProgressBar, QScrollArea, QVBoxLayout
 
 from app.lingua import N_, _
-from app.motore import MotoreClient, spazio_windows_gb
+from app.motore import MotoreClient, spazio_windows_gb, su_linux
 from app.pagine.base import Pagina, etichetta, numero, pannello, riquadro, svuota
 
 NOMI_DB = {"metaphlan_fette_vJan25_v1": N_("MetaPhlAn, database in 6 parti"),
@@ -23,6 +23,10 @@ NOMI_PROGRAMMI = {"metaphlan": "MetaPhlAn", "kraken2": "Kraken", "bracken": "Bra
 NON_AVVIATO = N_("Il motore fa i calcoli in uno spazio Linux dentro Windows (si chiama WSL, il sottosistema Windows per "
                  "Linux). Su questo computer non lo trovo, oppure non parte. Si installa una volta sola con il programma "
                  "di installazione di ProfileMetaNanni (installa_pmn); poi torna qui e premi Controlla il motore.")
+# Ubuntu nativo (1.3): niente WSL, il motore è nello stesso Linux (installer/linux/installa_pmn.sh)
+NON_AVVIATO_LINUX = N_("Il motore fa i calcoli su questo computer. Non lo trovo, oppure non parte. Si installa una volta "
+                       "sola con il programma di installazione di ProfileMetaNanni (installa_pmn.sh); poi torna qui e "
+                       "premi Controlla il motore.")
 DA_INSTALLARE = {"DB_MANCANTE", "DB_ROVINATO", "VERIFICA_ROSSA", "PROGRAMMA_MANCANTE"}   # si risolve con installa (R8)
 COLORI = {"verde": "#1E7A4C", "rosso": "#A8251C", "ambra": "#9A5A00"}
 
@@ -44,7 +48,9 @@ class PaginaMotore(Pagina):
         self.da_installare = False
         self._in_fondo = False
         self._barra_scorre = None
-        self.corpo.addWidget(etichetta(_("Il motore fa i calcoli dentro Windows, in uno spazio Linux tutto suo. "
+        self.corpo.addWidget(etichetta(_("Il motore fa i calcoli su questo computer. Si installa una volta e si "
+                                         "controlla da qui.") if su_linux() else
+                                       _("Il motore fa i calcoli dentro Windows, in uno spazio Linux tutto suo. "
                                          "Si installa una volta e si controlla da qui.")))
         self.zona_avvisi = QVBoxLayout()
         self.corpo.addLayout(self.zona_avvisi)
@@ -113,7 +119,7 @@ class PaginaMotore(Pagina):
                                  "computer."))
             if errore and errore.get("codice") == "MOTORE_NON_AVVIATO":
                 self.zona_avvisi.addWidget(riquadro(_("Su questo computer il motore non c'è ancora, o non parte."),
-                                                    _(NON_AVVIATO), "errore"))
+                                                    _(NON_AVVIATO_LINUX if su_linux() else NON_AVVIATO), "errore"))
             elif errore:
                 self.zona_avvisi.addWidget(riquadro(errore.get("messaggio", ""), errore.get("cosa_fare", ""),
                                                     "errore"))
@@ -200,7 +206,7 @@ class PaginaMotore(Pagina):
         if e:
             if e.get("codice") == "MOTORE_NON_AVVIATO":
                 self.zona_esito.addWidget(riquadro(_("Su questo computer il motore non c'è ancora, o non parte."),
-                                                   _(NON_AVVIATO), "errore"))
+                                                   _(NON_AVVIATO_LINUX if su_linux() else NON_AVVIATO), "errore"))
             else:
                 self.da_installare = e.get("codice") in DA_INSTALLARE
                 titolo = _("ROSSO: {messaggio}", messaggio=e['messaggio']) if comando == "verifica" else e["messaggio"]

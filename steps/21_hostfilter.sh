@@ -102,6 +102,8 @@ trap 'rm -rf "$tmp"' EXIT INT TERM
 run_pass() {
   local index="$1" r1="$2" r2="$3" obase="$4" idxname="$5"
   local log="$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" entrate tenute
+  # Little free memory: index read from the disk as needed (--mm, bin/lib/common.sh), same alignments.
+  local mm=(); pmn_bt2_mm "$index" && mm=(--mm)
   if [ -n "$r2" ]; then
     # Strict: from Bowtie2's SAM only the pairs with both reads unaligned (flag 4 = read unaligned, 8 = mate
     # unaligned; 256 = secondary, never a read of its own). Unaligned reads keep their sequence and qualities as
@@ -109,7 +111,7 @@ run_pass() {
     # The removed pairs (any read aligned) go to the host BAM with -U, only when they are kept.
     local u=() fq_err="$tmp/${idxname}.samtools_fastq.err"
     [ -n "$HOST_OUT" ] && u=(-U "$tmp/${idxname}.host.bam")
-    bowtie2 -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" --reorder 2> "$log" \
+    bowtie2 ${mm[@]+"${mm[@]}"} -x "$index" -1 "$r1" -2 "$r2" -p "$THREADS" "$BT2_PRESET" --reorder 2> "$log" \
       | samtools view -u -f 12 -F 256 ${u[@]+"${u[@]}"} - \
       | samtools fastq -@ "$THREADS" -n -1 "${obase}_1.fastq.gz" -2 "${obase}_2.fastq.gz" -0 /dev/null -s /dev/null - \
         2> "$fq_err" || return 1
@@ -126,7 +128,7 @@ run_pass() {
     local al=()
     [ -n "$HOST_OUT" ] && al=(--al-gz "$HOST_OUT/${SAMPLE}.${idxname}.fastq.gz")
     # ${al[@]+"${al[@]}"} expands safely even when 'al' is empty under set -u (bash < 4.4).
-    bowtie2 -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" --reorder \
+    bowtie2 ${mm[@]+"${mm[@]}"} -x "$index" -U "$r1" -p "$THREADS" "$BT2_PRESET" --reorder \
       --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null 2> "$log" || return 1
     tenute="$(sed -n 's/^ *\([0-9]*\) ([0-9.]*%) aligned 0 times$/\1/p' "$log" | head -n 1)"
   fi

@@ -70,6 +70,7 @@ cur1="$IN1"; cur2="$IN2"; i=0
 for index in "${INDEXES[@]}"; do
   i=$((i + 1))
   lim=(); [ "$i" -eq 1 ] && lim=(-u "$READS")
+  pmn_bt2_mm "$index" && lim+=(--mm)   # little free memory: index read from the disk as needed, as in 21_hostfilter.sh
   info "$(say "Triage $SAMPLE: host pass $i ($(basename "$index")) ..." "Triage $SAMPLE: passo host $i ($(basename "$index")) ...")"
   if [ -n "$cur2" ]; then
     # Strict pairs, as in 21_hostfilter.sh (F1, KneadData 0.12.5): a pair is non-host only if both reads are

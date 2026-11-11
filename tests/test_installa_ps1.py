@@ -218,13 +218,17 @@ def test_a0_una_sola_installazione_alla_volta():
 
 
 def test_b1_memoria_del_pc_controllata_prima_di_tutto():
-    """B1-b (VM 30/10, 8 GB): 44 GB scaricati, poi ROSSO per memoria. Ora si ferma subito, prima di WSL e dell'app."""
-    it = powershell(f". '{PS1}'; $Lingua = 'it'; MemoriaInsufficiente 8GB")
-    assert it.startswith("Questo PC ha 8 GB di memoria: ProfileMetaNanni ne chiede almeno 16") and "Non ho installato" in it
-    en = powershell(f". '{PS1}'; $Lingua = 'en'; MemoriaInsufficiente 12GB")
-    assert en.startswith("This PC has 12 GB of memory: ProfileMetaNanni needs at least 16")
-    # un PC da 16 GB ne mostra 15,2-15,6 (la scheda video integrata ne tiene una parte): passa
-    assert powershell(f". '{PS1}'; (MemoriaInsufficiente 15.6GB) -eq $null; (MemoriaInsufficiente 14.2GB) -eq $null").split() == ["True", "True"]
+    """B1-b (VM 30/10, 8 GB): 44 GB scaricati, poi ROSSO per memoria. Ora si ferma subito, prima di WSL e dell'app.
+    B9 (1.3, VM a 8 GB l'11/11): la soglia scende da 14 a 7,9 GB; passa il PC da 8 GB che Windows vede quasi intero."""
+    it = powershell(f". '{PS1}'; $Lingua = 'it'; MemoriaInsufficiente 6GB")
+    assert it.startswith("Questo PC ha 6,0 GB di memoria utilizzabile: ProfileMetaNanni ne chiede almeno 7,9.") and "Non ho installato" in it
+    en = powershell(f". '{PS1}'; $Lingua = 'en'; MemoriaInsufficiente 4GB")
+    assert en.startswith("This PC has 4.0 GB of usable memory: ProfileMetaNanni needs at least 7.9.")
+    # la VM della prova B9 mostra 8.588.775.424 byte: passa, come i PC da 12 e 16 GB
+    assert powershell(f". '{PS1}'; (MemoriaInsufficiente 8588775424) -eq $null; (MemoriaInsufficiente 7.9GB) -eq $null; "
+                      "(MemoriaInsufficiente 15.6GB) -eq $null").split() == ["True", "True", "True"]
+    # sotto la soglia il numero si tronca a un decimale: mai "ha 7,9 GB, ne chiede almeno 7,9"
+    assert powershell(f". '{PS1}'; $Lingua = 'it'; MemoriaInsufficiente 7.89GB").startswith("Questo PC ha 7,8 GB di memoria")
     i = TESTO.index("$m = MemoriaInsufficiente $ram")
     assert i < TESTO.index("# ===================== fase 1") < TESTO.index("InstallaApp $AppPacchetto")
     assert float(powershell(f". '{PS1}'; MemoriaDelPC")) > 1e9

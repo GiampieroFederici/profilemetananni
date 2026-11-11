@@ -115,10 +115,10 @@ declare -A EN=(
   ["VERDE: il motore è installato e funziona."]="GREEN: the engine is installed and works."
   ["ROSSO: la prova finale non ha dato il risultato atteso."]="RED: the final test did not give the expected result."
   ["Manda a noi il file %s."]="Send us the file %s."
-  ["Memoria insufficiente: Linux ha %s GB (memoria più swap), MetaPhlAn ne usa fino a 8,2. Non ho scaricato nulla."]="Not enough memory: Linux has %s GB (memory plus swap), MetaPhlAn uses up to 8.2. I have not downloaded anything."
-  ["Installa ProfileMetaNanni su un PC con almeno 16 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 16 GB of memory."
+  ["Memoria insufficiente: Linux ha %s GB (memoria più swap), ne servono almeno 4,75. Non ho scaricato nulla."]="Not enough memory: Linux has %s GB (memory plus swap), at least 4.75 are needed. I have not downloaded anything."
+  ["Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 8 GB of memory."
   ["La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn."]="The final test stopped because there is not enough memory: Linux closed a MetaPhlAn program."
-  ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 16 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 16 GB of memory. If it happens again, send us the file %s."
+  ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 8 GB of memory. If it happens again, send us the file %s."
   ["ERRORE"]="ERROR"
   ["Cosa fare"]="What to do"
   ["Attenzione"]="Warning"
@@ -248,13 +248,15 @@ pulisci_tmp() {  # prefisso
 pulisci_tmp scarico_; pulisci_tmp verifica_
 
 # B1-b (VM 30/10): con 8 GB la WSL vede 3,8 GB + 1 di swap; si scaricavano 44 GB e poi la prova finale era ROSSO
-# (bowtie2 chiuso da Linux, 137). Picco di MetaPhlAn a fette: 8,2 GB (S2.1). Soglia: memoria + swap di Linux >= 9 GB
-# (un PC da 16 GB da' alla WSL circa 7,8 GB + 4 di swap). PMN_MEMINFO solo per le prove.
-MEM_MIN_KB=$((9 * 1024 * 1024))
+# (bowtie2 chiuso da Linux, 137). Dalla 1.3 quella configurazione regge: Bowtie2 legge l'indice dal disco quando la
+# memoria e' poca (--mm) e il database ridotto si scarica gia' pronto. Soglia: memoria + swap di Linux >= 4,75 GB,
+# la configurazione piu' piccola provata (3,82 GB + 1 GB di swap, 10/11: esempio e un campione intero, uscite
+# identiche al byte). PMN_MEMINFO solo per le prove.
+MEM_MIN_KB=4980736
 MEM_KB=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")
 if [ "$SOLO_DB" = 0 ] && [ "$MEM_KB" -lt "$MEM_MIN_KB" ]; then
-  fallisci RAM_INSUFFICIENTE "$(T 'Memoria insufficiente: Linux ha %s GB (memoria più swap), MetaPhlAn ne usa fino a 8,2. Non ho scaricato nulla.' "$(num "$MEM_KB" 1048576 1)")" \
-    "$(T 'Installa ProfileMetaNanni su un PC con almeno 16 GB di memoria.')"
+  fallisci RAM_INSUFFICIENTE "$(T 'Memoria insufficiente: Linux ha %s GB (memoria più swap), ne servono almeno 4,75. Non ho scaricato nulla.' "$(num "$MEM_KB" 1048576 1)")" \
+    "$(T 'Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria.')"
 fi
 
 righe | while IFS=$'\t' read -r g t s p b bf m d alt; do   # archivi gia' estratti da una 1.0 (riconosci)
@@ -691,6 +693,17 @@ PMN_TMP=$PMN_HOME/tmp
 EOF
 chmod +x "$PMN_ROOT/motore/pmn-motore"
 ln -sfn "$PMN_ROOT/motore/pmn-motore" "$PMN_HOME/bin/pmn-motore"   # il comando unico (docs/contratto_motore.md §1)
+# 1.3: la libreria che dichiara al kernel le letture sparse di Kraken (motore/pmn_casuale.c). Si compila qui, col
+# compilatore di un ambiente installato o con quello del sistema; se non riesce, Kraken gira come nella 1.2.
+mkdir -p "$PMN_HOME/lib"
+CC_PMN=$(ls "$MAMBA_ROOT_PREFIX"/envs/*/bin/x86_64-conda-linux-gnu-gcc 2> /dev/null | head -n 1 || true)
+[ -n "$CC_PMN" ] || CC_PMN=$(command -v gcc || command -v cc || true)
+if [ -n "$CC_PMN" ] && "$CC_PMN" -shared -fPIC -O2 -o "$PMN_HOME/lib/pmn_casuale.so.parziale" "$PMN_ROOT/motore/pmn_casuale.c" >> "$LOG" 2>&1; then
+  mv -f "$PMN_HOME/lib/pmn_casuale.so.parziale" "$PMN_HOME/lib/pmn_casuale.so"
+else
+  rm -f "$PMN_HOME/lib/pmn_casuale.so.parziale"
+  echo "pmn_casuale.so non compilata (compilatore: ${CC_PMN:-nessuno}): Kraken gira senza" >> "$LOG"
+fi
 
 # ===================== 5. prova finale =====================
 PASSO=verifica; FATTO=0; TOTALE=1; ETA=null
@@ -704,7 +717,7 @@ if [ "$r" = 0 ]; then
   PASSO=fine; evento fine 100 "$(T 'VERDE: il motore è installato e funziona.')"
 elif [ "$r" = 3 ] || tail -n +"$((INIZIO_VERIFICA + 1))" "$LOG" | grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory'; then
   # B1-b: un programma chiuso da Linux per memoria non e' un ROSSO generico
-  fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 16 GB di memoria. Se si ripete, manda a noi il file %s." "$LOG")"
+  fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s." "$LOG")"
 else
   fallisci VERIFICA_ROSSA "$(T 'ROSSO: la prova finale non ha dato il risultato atteso.')" "$(T 'Manda a noi il file %s.' "$LOG")"
 fi

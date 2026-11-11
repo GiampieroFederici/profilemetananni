@@ -17,9 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 RAM_STANDARD_GB = 40.0
 FONTE_RAM_STANDARD = N_("MetaPhlAn standard: picco 25,5 GB con il catalogo in swap (S2.1, macchina da 30 GB); "
                         "non entra nei 31,4 GB del PC di prova (13/10). Soglia 40 GB come run.sh 'auto' (D051)")
-RAM_MINIMA_GB = 7.5
-FONTE_RAM_MINIMA = N_("MetaPhlAn a fette provato con WSL a 8 GB (circa 7,7 GB visibili): SF3RAt7 e C03_1, RAM 7,9 GB "
-                      "+ swap 1,2 GB (14/10, 'Gira su 16 GB, verificato'). Sotto non è provato")
+RAM_MINIMA_GB = 3.75
+FONTE_RAM_MINIMA = N_("Analisi provate con 4 GB di memoria (3,8 GB visibili) più 1 GB di swap: campione d'esempio e un "
+                      "campione intero, uscite identiche al byte (10/11, PMN 1.3). Sotto non è provato")
 TEMPO_LUNGO_S = 4 * 3600
 FONTE_TEMPO = N_("D023: oltre 4 ore si propone lo screening rapido (PlusPF-8) o il cloud")
 MARGINE_SPAZIO = 1.15
@@ -104,7 +104,7 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
                          _(FONTE_RAM_STANDARD), "info"))
     if 0 < ram_gb < RAM_MINIMA_GB:
         c.append(consiglio("RAM_INSUFFICIENTE", _("Il motore vede solo {ram} GB di memoria: l'analisi potrebbe "
-                                                  "fermarsi. Chiudi gli altri programmi o usa un PC con almeno 16 GB.",
+                                                  "fermarsi. Chiudi gli altri programmi o usa un PC con almeno 8 GB.",
                                                   ram=lingua.virgola(f"{ram_gb:.1f}")), _(FONTE_RAM_MINIMA)))
     kraken = "rapido" if kraken_rapido and not kraken_completo else "completo"
     if not kraken_completo and not kraken_rapido:

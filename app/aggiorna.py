@@ -75,8 +75,10 @@ def errore_rete(errore_qt):
     """Errore della rete di Qt: certificato non verificato (B2-7a, punto 6) oppure rete assente o lenta."""
     from PySide6.QtNetwork import QNetworkReply
     if errore_qt == QNetworkReply.NetworkError.SslHandshakeFailedError:
-        return ErroreAggiorna("CERTIFICATO", _("Windows non riesce a verificare il certificato di sicurezza di "
-                                               "GitHub."),
+        return ErroreAggiorna("CERTIFICATO", _("Questo computer non riesce a verificare il certificato di sicurezza "
+                                               "di GitHub.") if sys.platform.startswith("linux") else
+                              _("Windows non riesce a verificare il certificato di sicurezza di "
+                                "GitHub."),
                               _("Controlla che data e ora del computer siano giuste, poi riprova. Se la rete è di "
                                 "un'azienda o di un ente, chiedi a chi la gestisce se blocca GitHub."))
     return ErroreAggiorna("RETE", _("Non riesco a raggiungere GitHub."),

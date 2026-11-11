@@ -11,6 +11,8 @@ Su Windows Qt avvia wsl.exe senza finestra di console quando l'app non ne ha una
 
 Quale motore: il vero in WSL (predefinito) oppure il finto (D032) con la variabile d'ambiente
 PMN_MOTORE=finto; PMN_FINTO_OPZIONI aggiunge opzioni al finto (per esempio "--velocita 0 --scenario DB_MANCANTE").
+Su Ubuntu nativo (1.3) il vero sta nello stesso Linux dell'app: si lancia direttamente, senza wsl.exe, e i percorsi
+non si traducono (su_linux).
 """
 import json
 import os
@@ -36,6 +38,11 @@ def finto():
     return os.environ.get("PMN_MOTORE") == "finto" and not getattr(sys, "frozen", False)
 
 
+def su_linux():
+    """Ubuntu nativo (1.3): app e motore nello stesso Linux, installati da installer/linux/installa_pmn.sh."""
+    return sys.platform.startswith("linux")
+
+
 def spazio_windows_gb():
     """B2 (P8): GB liberi del disco di Windows che contiene la WSL del motore. Dentro la WSL `info` vede il disco
     virtuale (sulla VM "990 GB liberi" con 146 veri); None se la WSL non si trova (non Windows, non installata)."""
@@ -56,6 +63,8 @@ def comando_motore():
     if finto():
         opzioni = shlex.split(os.environ.get("PMN_FINTO_OPZIONI", ""))
         return [sys.executable, str(RADICE / "installer" / "finto_motore.py")], opzioni
+    if su_linux():                               # ${PMN_HOME:-$HOME/.pmn}/bin/pmn-motore, come installa_motore.sh
+        return [str(Path(os.environ.get("PMN_HOME") or Path.home() / ".pmn") / "bin" / "pmn-motore")], []
     # -e e non "--": senza bash -c i percorsi con ' & $( ) arrivano intatti al motore
     return ["wsl.exe", "-d", DISTRO, "-u", "pmn", "-e", MOTORE_WSL], []
 
@@ -78,9 +87,12 @@ def percorso_windows(testo):
 
 
 def percorso_per_motore(percorso):
-    """Un percorso di Windows come lo vede il motore: C:\\a\\b -> /mnt/c/a/b nella WSL; invariato per il finto."""
+    """Un percorso di Windows come lo vede il motore: C:\\a\\b -> /mnt/c/a/b nella WSL; invariato per il finto.
+    Su Linux il motore vede gli stessi percorsi dell'app: assoluto e risolto, senza altre modifiche."""
     if finto():
         return str(percorso)
+    if su_linux():
+        return str(Path(percorso).resolve())
     p = PureWindowsPath(Path(percorso).resolve())
     if not p.drive.endswith(":"):
         raise ValueError(f"Percorso non su un disco locale: {percorso}")
@@ -155,7 +167,7 @@ class MotoreClient(QObject):
         if not isinstance(e, dict) or "tipo" not in e:
             self.diagnostica.append(testo)
             return
-        if not finto():                            # B2-13: ciò che la persona legge, con percorsi apribili da Windows
+        if not finto() and not su_linux():         # B2-13: ciò che la persona legge, con percorsi apribili da Windows
             for chiave in ("messaggio", "cosa_fare", "log"):
                 if isinstance(e.get(chiave), str):
                     e[chiave] = percorso_windows(e[chiave])

@@ -71,8 +71,8 @@ $TESTI = [ordered]@{
     pronto_app = @("Tutto pronto: profilemetananni è installato e funziona.`n`nOra apro il programma. Le prossime volte lo trovi sul desktop e nel menu Start: ProfileMetaNanni.",
                    "All ready: profilemetananni is installed and works.`n`nNow I open the program. Next time you will find it on the desktop and in the Start menu: ProfileMetaNanni.")
     pronto = @("Tutto pronto: profilemetananni è installato e funziona.", "All ready: profilemetananni is installed and works.")
-    memoria = @("Questo PC ha {0} GB di memoria: ProfileMetaNanni ne chiede almeno 16 (l'analisi con MetaPhlAn usa fino a 8 GB dentro Linux).`n`nNon ho installato né scaricato nulla. Installa ProfileMetaNanni su un PC con 16 GB di memoria o più.",
-                "This PC has {0} GB of memory: ProfileMetaNanni needs at least 16 (the analysis with MetaPhlAn uses up to 8 GB inside Linux).`n`nI have not installed or downloaded anything. Install ProfileMetaNanni on a PC with 16 GB of memory or more.")
+    memoria = @("Questo PC ha {0} GB di memoria utilizzabile: ProfileMetaNanni ne chiede almeno 7,9.`n`nNon ho installato né scaricato nulla. Installa ProfileMetaNanni su un PC con più memoria.",
+                "This PC has {0} GB of usable memory: ProfileMetaNanni needs at least 7.9.`n`nI have not installed or downloaded anything. Install ProfileMetaNanni on a PC with more memory.")
     durata_minuto = @("1 minuto", "1 minute")
     durata_minuti = @("{0} minuti", "{0} minutes")
     durata_ore = @("{0} ore", "{0} hours")
@@ -212,11 +212,14 @@ function ChiediRiavvio {   # chiede il riavvio; al prossimo accesso riparte da s
     exit 0
 }
 function Evento($r) { if ($r -like '{*') { try { $r | ConvertFrom-Json } catch { $null } } }   # evento JSON del motore (docs/contratto_motore.md)
-# B1-b (VM 30/10, 8 GB): si scaricavano 44 GB e poi la prova finale era ROSSO per memoria. Soglia 14 GB: un PC da 16 GB ne
-# mostra 15,2-15,6 (una parte la tiene la scheda video integrata); 14 lascia questo margine e ferma i PC da 8 e 12 GB.
-function MemoriaInsufficiente($byte, $soglia = 14GB) {   # $null se basta, altrimenti il messaggio per la persona
+# B1-b (VM 30/10, 8 GB): si scaricavano 44 GB e poi la prova finale era ROSSO per memoria, e la soglia era 14 GB.
+# B9 (1.3, VM a 8 GB l'11/11): Windows mostra 8.588.775.424 byte, la WSL di serie ne riceve meta' (MemTotal 4.010.548 kB)
+# piu' 1 GB di swap; installazione VERDE e analisi identiche. Il controllo di Linux (installa_motore.sh, 4.980.736 kB fra
+# memoria e swap) passava con 78 MB di margine: sotto 7,9 GB la WSL di serie non lo passa, e ci si fermerebbe dopo il riavvio.
+# Il numero mostrato si tronca a un decimale: mai "ha 7,9 GB, ne chiede almeno 7,9".
+function MemoriaInsufficiente($byte, $soglia = 7.9GB) {   # $null se basta, altrimenti il messaggio per la persona
     if ([double]$byte -ge $soglia) { return $null }
-    (T 'memoria') -f [Math]::Round([double]$byte / 1GB)
+    (T 'memoria') -f ([Math]::Floor([double]$byte / 1GB * 10) / 10).ToString('0.0', [Globalization.CultureInfo]::GetCultureInfo($Lingua))
 }
 function MemoriaDelPC { [double](Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory }
 # B1-a: i messaggi del motore citano il suo log con il percorso di Linux, che da Windows non si apre. Alla fine (errore)

@@ -25,9 +25,13 @@ for f in "$R1" ${R2:+"$R2"}; do
 done
 PATH=$MPA:$PATH read_fastx.py -l 70 --split_reads 0 "$(IFS=,; echo "${IN[*]}")" > "$T/reads.fq" 2> "$T/nreads.txt"
 for f in "${IN[@]}"; do case "$f" in "$T"/*) rm -f "$f" ;; esac; done
+. "$M/../bin/lib/common.sh"   # pmn_bt2_mm
 for n in 1 2 3 4 5 6; do
-  "$MPA/bowtie2" --seed 1992 --quiet --no-unal --very-sensitive -p "$TH" -x "$PMN_FETTE/idx$n/fetta$n" -U "$T/reads.fq" -S "$T/$n.sam"
-  "$PY" "$M/arbitro_fette.py" compatta < "$T/$n.sam" > "$T/$n.tsv"; rm -f "$T/$n.sam"
+  # Poca memoria libera (meno della fetta più 1 GB): Bowtie2 legge la fetta dal disco man mano (--mm), stessi allineamenti
+  MM=(); pmn_bt2_mm "$PMN_FETTE/idx$n/fetta$n" && MM=(--mm)
+  "$MPA/bowtie2" ${MM[@]+"${MM[@]}"} --seed 1992 --quiet --no-unal --very-sensitive -p "$TH" -x "$PMN_FETTE/idx$n/fetta$n" -U "$T/reads.fq" -S "$T/$n.sam"
+  # ordinate per nome della read: l'arbitro le legge insieme una read alla volta, a memoria fissa (sort lavora su disco)
+  "$PY" "$M/arbitro_fette.py" compatta < "$T/$n.sam" | LC_ALL=C sort -s -t $'\t' -k1,1 -S 256M -T "$T" > "$T/$n.tsv"; rm -f "$T/$n.sam"
 done
 rm -f "$T/reads.fq"
 "$PY" "$M/arbitro_fette.py" unisci "$T/nreads.txt" "$O/$S.mapout" "$T"/{1,2,3,4,5,6}.tsv

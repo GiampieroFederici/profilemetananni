@@ -56,7 +56,7 @@ def test_versione_da_un_solo_file():
     sys.path.insert(0, str(RADICE / "motore"))
     import pmn_motore
     scritta = (RADICE / "motore" / "VERSIONE").read_text(encoding="utf-8").strip()
-    assert scritta == "1.2.0" and pmn_motore.VERSIONE == scritta and aggiorna.VERSIONE == scritta
+    assert scritta == "1.3.0" and pmn_motore.VERSIONE == scritta and aggiorna.VERSIONE == scritta
 
 
 # ---------------- B2-13: percorsi del motore come si aprono da Windows ----------------
@@ -72,6 +72,7 @@ def test_percorsi_per_windows(linux, windows):
     assert motore.percorso_windows(linux) == windows
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="percorsi di Windows (su Linux tests/test_app_linux.py)")
 def test_eventi_del_motore_vero_con_percorsi_windows(qtbot, monkeypatch):
     monkeypatch.delenv("PMN_MOTORE")
     c = motore.MotoreClient()

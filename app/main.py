@@ -35,6 +35,8 @@ def main():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("profilemetananni.app")
     app = QApplication(sys.argv)
     app.setApplicationName("ProfileMetaNanni")
+    if sys.platform.startswith("linux"):     # icona dell'app nella barra di Ubuntu: quella della voce di menu
+        app.setDesktopFileName("profilemetananni")       # profilemetananni.desktop (installer/linux/installa_pmn.sh)
     prepara(app)
     lingua.imposta(lingua.salvata())     # la lingua scelta l'ultima volta (italiano la prima)
     f = Finestra()

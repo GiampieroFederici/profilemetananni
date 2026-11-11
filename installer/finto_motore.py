@@ -220,10 +220,9 @@ class Motore:
             return self.errore("DB_MANCANTE", _("Manca il database di Kraken."),
                                _("Apri la pagina Motore e premi Installa o completa."))
         if self.a.scenario == "RAM_INSUFFICIENTE":   # B3-4: come il vero (pmn_motore.py verifica), niente "Installa"
-            return self.errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne "
-                                                      "usa fino a 8,2 GB."),
-                               _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore "
-                                 "qui non può lavorare: non serve reinstallarlo."))
+            return self.errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta."),
+                               _("Chiudi gli altri programmi e riprova. ProfileMetaNanni chiede almeno 8 GB di memoria: "
+                                 "con meno il motore qui può non lavorare; non serve reinstallarlo."))
         self.attendi(300)
         controlli = [{"nome": _(n), "esito": "ok"} for n in
                      (N_("versioni dei programmi"), N_("MD5 dei database"), N_("mini-campione: mapout"),

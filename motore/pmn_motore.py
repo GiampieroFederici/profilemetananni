@@ -87,8 +87,9 @@ ERRORI = [
     # VM B4-10a: un programma chiuso da Linux perché la memoria è finita ("Killed", codice 137 di bowtie2 o MetaPhlAn)
     (r"(?m)^Killed|exited with value 137|exit status 137", "RAM_INSUFFICIENTE",
      N_("L'analisi si è fermata perché la memoria del computer non basta."),
-     N_("Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. Se il PC ha "
-        "meno di 16 GB di memoria, l'analisi qui non può finire: non serve reinstallare il motore.")),
+     N_("Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. ProfileMetaNanni "
+        "chiede almeno 8 GB di memoria: con meno l'analisi qui può non finire; non "
+        "serve reinstallare il motore.")),
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
      N_("Non riesco a scaricare le read: i server di ENA e NCBI non rispondono."),
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
@@ -530,11 +531,10 @@ class Motore:
                 self.avanza("verifica", _("Controllo {n}: {nome}", n=n, nome=m.group(2).strip()[:60]),
                             5 + 90 * n / 16)
         uscita = p.wait()
-        if uscita == 3:   # B3-4: memoria + swap sotto 9 GB, o un programma chiuso da Linux per memoria (137)
-            raise Errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta: MetaPhlAn ne usa "
-                                                "fino a 8,2 GB."),
-                         _("Chiudi gli altri programmi e riprova. Se il PC ha meno di 16 GB di memoria, il motore qui "
-                           "non può lavorare: non serve reinstallarlo."))
+        if uscita == 3:   # B3-4: memoria + swap sotto 4,75 GB, o un programma chiuso da Linux per memoria (137)
+            raise Errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta."),
+                         _("Chiudi gli altri programmi e riprova. ProfileMetaNanni chiede almeno 8 GB di memoria: "
+                           "con meno il motore qui può non lavorare; non serve reinstallarlo."))
         if uscita != 0:
             raise Errore("VERIFICA_ROSSA", _("ROSSO: la prova del motore non ha dato il risultato atteso."),
                          _("Manda a noi il file {log}.", log=self.log))
