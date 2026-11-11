@@ -23183,7 +23183,7 @@
   "metaphlan: calcolo il profilo delle specie (MetaPhlAn, 6 parti del database)",
   "kraken: classifico le read con Kraken e Bracken",
   "riepilogo: preparo le tabelle e il riepilogo",
-  "RAM_INSUFFICIENTE: L'analisi si è fermata perché la memoria del computer non basta. / Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. ProfileMetaNanni chiede almeno 8 GB di memoria con Linux e 16 GB con Windows: con meno l'analisi qui può non finire; non serve reinstallare il motore.",
+  "RAM_INSUFFICIENTE: L'analisi si è fermata perché la memoria del computer non basta. / Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. ProfileMetaNanni chiede almeno 8 GB di memoria: con meno l'analisi qui può non finire; non serve reinstallare il motore.",
   "DOWNLOAD_FALLITO: Non riesco a scaricare le read: i server di ENA e NCBI non rispondono. / Controlla la connessione a internet e riprova fra qualche minuto.",
   "SPAZIO_INSUFFICIENTE: Lo spazio libero non basta per scaricare le read. / Libera spazio sul disco e riprova.",
   "READ_NON_TROVATE: Non trovo le read di uno o più campioni. / Controlla i codici SRR o la cartella delle read nel progetto.",

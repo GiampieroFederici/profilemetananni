@@ -104,7 +104,7 @@ def modo(ram_gb, indice_intero, kraken_completo, kraken_rapido):
                          _(FONTE_RAM_STANDARD), "info"))
     if 0 < ram_gb < RAM_MINIMA_GB:
         c.append(consiglio("RAM_INSUFFICIENTE", _("Il motore vede solo {ram} GB di memoria: l'analisi potrebbe "
-                                                  "fermarsi. Chiudi gli altri programmi o usa un PC con almeno 8 GB (16 GB con Windows).",
+                                                  "fermarsi. Chiudi gli altri programmi o usa un PC con almeno 8 GB.",
                                                   ram=lingua.virgola(f"{ram_gb:.1f}")), _(FONTE_RAM_MINIMA)))
     kraken = "rapido" if kraken_rapido and not kraken_completo else "completo"
     if not kraken_completo and not kraken_rapido:

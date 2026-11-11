@@ -88,7 +88,7 @@ ERRORI = [
     (r"(?m)^Killed|exited with value 137|exit status 137", "RAM_INSUFFICIENTE",
      N_("L'analisi si è fermata perché la memoria del computer non basta."),
      N_("Chiudi gli altri programmi e premi \"Riprova l'analisi\": i passi già finiti restano salvati. ProfileMetaNanni "
-        "chiede almeno 8 GB di memoria con Linux e 16 GB con Windows: con meno l'analisi qui può non finire; non "
+        "chiede almeno 8 GB di memoria: con meno l'analisi qui può non finire; non "
         "serve reinstallare il motore.")),
     (r"ENA and NCBI could not be reached|prefetch failed|fasterq-dump failed", "DOWNLOAD_FALLITO",
      N_("Non riesco a scaricare le read: i server di ENA e NCBI non rispondono."),
@@ -533,8 +533,8 @@ class Motore:
         uscita = p.wait()
         if uscita == 3:   # B3-4: memoria + swap sotto 4,75 GB, o un programma chiuso da Linux per memoria (137)
             raise Errore("RAM_INSUFFICIENTE", _("La prova si è fermata perché la memoria non basta."),
-                         _("Chiudi gli altri programmi e riprova. ProfileMetaNanni chiede almeno 8 GB di memoria con Linux e "
-                           "16 GB con Windows: con meno il motore qui può non lavorare; non serve reinstallarlo."))
+                         _("Chiudi gli altri programmi e riprova. ProfileMetaNanni chiede almeno 8 GB di memoria: "
+                           "con meno il motore qui può non lavorare; non serve reinstallarlo."))
         if uscita != 0:
             raise Errore("VERIFICA_ROSSA", _("ROSSO: la prova del motore non ha dato il risultato atteso."),
                          _("Manda a noi il file {log}.", log=self.log))

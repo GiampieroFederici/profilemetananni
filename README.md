@@ -8,11 +8,11 @@
 | **2.** Right-click the zip, choose **Extract All**, then **Extract**. | **2.** Clic destro sullo zip, scegli **Estrai tutto**, poi **Estrai**. |
 | **3.** In the new folder, double-click **Installa profilemetananni** and answer the windows. | **3.** Nella cartella nuova, doppio clic su **Installa profilemetananni** e rispondi alle finestre. |
 
-**You need** Windows 11 (not Mac), 16 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
+**You need** Windows 11 (not Mac), 16 GB of RAM (8 GB from version 1.3, in preparation), about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
 **First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) too.
 
-**Serve** Windows 11 (non Mac), 16 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
+**Serve** Windows 11 (non Mac), 16 GB di RAM (8 GB dalla versione 1.3, in preparazione), circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
 
 **Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0).
 
@@ -39,7 +39,7 @@
 
 Before you start, check that you have:
 
-- a PC with **Windows 11** and **16 GB of RAM**;
+- a PC with **Windows 11** and **16 GB of RAM** (8 GB from version 1.3, in preparation);
 - about **180 GB free** on an internal disk (not a USB disk). Once installed, about 180 GB stay in use;
 - an internet connection, better with a cable. About 139 GB of databases are downloaded, in pieces over several connections at once: with a 100 Mbit/s network it takes about 3 hours, with a 30 Mbit/s one about 10 hours. Meanwhile you can use the PC.
 
@@ -122,7 +122,7 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 | What | Value |
 |---|---|
 | System | Windows 11 (tested). Not available for macOS |
-| RAM | 16 GB. An analysis uses at most about 5.4 GB inside WSL (measured on real cured-meat samples); the first analysis also builds the reduced MetaPhlAn database once, about 6.9 GB for one minute |
+| RAM | 16 GB with version 1.2; 8 GB from version 1.3, in preparation (Windows must show at least 7.9 GB). An analysis uses at most about 5.4 GB inside WSL (measured on real cured-meat samples); the first analysis also builds the reduced MetaPhlAn database once, about 6.9 GB for one minute |
 | Time | Measured with 24 processors: the example sample (0.2 million read pairs) 3-4 minutes; a cured-meat sample with 12.5 million read pairs about 38 minutes, most of it removing pig DNA (about 2.5 minutes per million pairs). With 8 processors the host step took 1.4 times longer, with 4 processors 2.4 times, with identical results. Samples with little host DNA spend most of the time in Kraken (ZymoBIOMICS standard, 8.8 million pairs: about 2.3 hours) |
 | Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download |
 | Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 42.1 GB of ProfileMetaNanni packages) |
@@ -131,7 +131,7 @@ The installer enables WSL2 (it asks once for administrator permission and one re
 
 ## Status
 
-**In preparation: version 1.3 (branch `pmn-1.3-8gb-linux`, not released yet; the download above is 1.2).** Same results, byte for byte, with less memory and a faster Kraken step, and the program also runs on native Ubuntu ([guide](docs/guida_ubuntu_EN.md), with measured times). Measured on Ubuntu 24.04 with 4 processors and 8 GB: installation from scratch with the real download in 6 h 2 min, a whole salami sample (3.24 million read pairs) in 24 minutes with a 5.0 GB memory peak; the same sample still finishes with 4 GB of memory and 1 GB of swap. On Windows the installer now accepts a PC that shows at least 7.9 GB of memory: tested on a clean Windows 11 virtual machine with 8 GB (installation GREEN, whole sample in 59 minutes, identical outputs). 16 GB stays the recommended size: a real 8 GB PC with integrated graphics can show less than 7.9 GB, and that case is not tested.
+**In preparation: version 1.3 (branch `pmn-1.3-8gb-linux`, not released yet; the download above is 1.2).** Same results, byte for byte, with less memory and a faster Kraken step, and the program also runs on native Ubuntu ([guide](docs/guida_ubuntu_EN.md), with measured times). Measured on Ubuntu 24.04 with 4 processors and 8 GB: installation from scratch with the real download in 6 h 2 min, a whole salami sample (3.24 million read pairs) in 24 minutes with a 5.0 GB memory peak; the same sample still finishes with 4 GB of memory and 1 GB of swap. The requirement goes from 16 GB to 8 GB of memory, on Windows and on Ubuntu. On Windows the installer accepts a PC that shows at least 7.9 GB: tested on a clean Windows 11 virtual machine with 8 GB (installation GREEN, whole sample in 59 minutes, identical outputs). A real 8 GB PC with integrated graphics can show less than 7.9 GB: the installer then stops at once and says so, and that case is not tested. With 16 GB there is more room to keep other programs open.
 
 Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, a pair is removed if either read aligns), and MetaPhlAn computes the profile from a database reduced to the clades with reads: the profiles are byte-identical to a classic MetaPhlAn 4.2.4 run with the full database, and the memory peak of an analysis goes from 8.4 to 5.4 GB. Validated on simulated cured-meat communities with known truth (0.18 % of the true taxa read pairs removed by the host filter), on the ZymoBIOMICS D6300 standard (8 of 8 bacteria, no unexpected species above 0.1 % with MetaPhlAn or Kraken) and on real cured-meat samples compared with the previous version. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads (Stop and resume, restart, the engine check GREEN, the example analysis); each correction found there was checked again on the same machine before this release. The full Kraken index does not fit on the test machine's disk, so on the virtual machine Kraken was run with the quick index; the full index was used on a real PC. Projects analysed with 1.1 redo cleaning, host removal, MetaPhlAn and Kraken by themselves, because the method changed.
 
@@ -179,7 +179,7 @@ MIT (see `LICENSE`).
 
 Prima di iniziare controlla di avere:
 
-- un PC con **Windows 11** e **16 GB di RAM**;
+- un PC con **Windows 11** e **16 GB di RAM** (8 GB dalla versione 1.3, in preparazione);
 - circa **180 GB liberi** su un disco interno (non un disco USB). A installazione finita ne restano occupati circa 180;
 - una connessione a internet, meglio col cavo. Si scaricano circa 139 GB di database, a pezzi su più connessioni insieme: con una rete da 100 Mbit/s servono circa 3 ore, con una da 30 Mbit/s circa 10 ore. Intanto puoi usare il PC.
 
@@ -262,7 +262,7 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 | Cosa | Valore |
 |---|---|
 | Sistema | Windows 11 (provato). Non disponibile per macOS |
-| RAM | 16 GB. Un'analisi usa al massimo circa 5,4 GB dentro la WSL (misurato su salumi veri); la prima analisi costruisce anche, una volta sola, il database ridotto di MetaPhlAn: circa 6,9 GB per un minuto |
+| RAM | 16 GB con la versione 1.2; 8 GB dalla versione 1.3, in preparazione (Windows deve mostrarne almeno 7,9). Un'analisi usa al massimo circa 5,4 GB dentro la WSL (misurato su salumi veri); la prima analisi costruisce anche, una volta sola, il database ridotto di MetaPhlAn: circa 6,9 GB per un minuto |
 | Tempo | Misurato con 24 processori: il campione d'esempio (0,2 milioni di coppie di read) 3-4 minuti; un salume con 12,5 milioni di coppie circa 38 minuti, quasi tutti per togliere il DNA del maiale (circa 2,5 minuti per milione di coppie). Con 8 processori quel passo ha richiesto 1,4 volte il tempo, con 4 processori 2,4 volte, con risultati identici. I campioni con poco DNA dell'ospite passano quasi tutto il tempo in Kraken (standard ZymoBIOMICS, 8,8 milioni di coppie: circa 2,3 ore) |
 | Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico |
 | Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 42,1 GB di pacchetti ProfileMetaNanni) |
@@ -271,7 +271,7 @@ L'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un 
 
 ## Stato
 
-**In preparazione: versione 1.3 (ramo `pmn-1.3-8gb-linux`, non ancora pubblicata; lo scarico qui sopra è la 1.2).** Stessi risultati, identici al byte, con meno memoria e un passo di Kraken più veloce, e il programma gira anche su Ubuntu nativo ([guida](docs/guida_ubuntu_IT.md), con i tempi misurati). Misurato su Ubuntu 24.04 con 4 processori e 8 GB: installazione da zero con lo scarico vero in 6 h 2 min, un salame intero (3,24 milioni di coppie di read) in 24 minuti con un picco di memoria di 5,0 GB; lo stesso campione finisce anche con 4 GB di memoria e 1 GB di swap. Su Windows l'installatore ora accetta un PC che mostra almeno 7,9 GB di memoria: provato su Windows 11 pulito in una macchina virtuale con 8 GB (installazione VERDE, campione intero in 59 minuti, uscite identiche). 16 GB restano la misura consigliata: un PC vero da 8 GB con la grafica integrata può mostrare meno di 7,9 GB, e quel caso non è provato.
+**In preparazione: versione 1.3 (ramo `pmn-1.3-8gb-linux`, non ancora pubblicata; lo scarico qui sopra è la 1.2).** Stessi risultati, identici al byte, con meno memoria e un passo di Kraken più veloce, e il programma gira anche su Ubuntu nativo ([guida](docs/guida_ubuntu_IT.md), con i tempi misurati). Misurato su Ubuntu 24.04 con 4 processori e 8 GB: installazione da zero con lo scarico vero in 6 h 2 min, un salame intero (3,24 milioni di coppie di read) in 24 minuti con un picco di memoria di 5,0 GB; lo stesso campione finisce anche con 4 GB di memoria e 1 GB di swap. Il requisito passa da 16 GB a 8 GB di memoria, con Windows e con Ubuntu. Su Windows l'installatore accetta un PC che ne mostra almeno 7,9: provato su Windows 11 pulito in una macchina virtuale con 8 GB (installazione VERDE, campione intero in 59 minuti, uscite identiche). Un PC vero da 8 GB con la grafica integrata può mostrarne meno di 7,9: allora l'installatore si ferma subito e lo dice, e quel caso non è provato. Con 16 GB c'è più margine per tenere aperti altri programmi.
 
 Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), e MetaPhlAn calcola il profilo da un database ridotto ai clade che hanno read: i profili sono identici al byte a quelli di MetaPhlAn 4.2.4 classico con il database intero, e il picco di memoria di un'analisi scende da 8,4 a 5,4 GB. Validata su comunità simulate di salume a composizione nota (lo 0,18 % delle coppie di read dei taxa veri tolto dal filtro dell'ospite), sullo standard ZymoBIOMICS D6300 (8 batteri su 8, nessuna specie inattesa sopra lo 0,1 % con MetaPhlAn e con Kraken) e su campioni veri di salume confrontati con la versione precedente. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri (Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi d'esempio); ogni correzione trovata lì è stata riprovata sulla stessa macchina prima di questa Release. L'indice Kraken completo non sta sul disco della macchina di prova: lì Kraken ha usato l'indice rapido; l'indice completo è stato usato su un PC vero. I progetti analizzati con la 1.1 rifanno da soli pulizia, rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato.
 

@@ -116,9 +116,9 @@ declare -A EN=(
   ["ROSSO: la prova finale non ha dato il risultato atteso."]="RED: the final test did not give the expected result."
   ["Manda a noi il file %s."]="Send us the file %s."
   ["Memoria insufficiente: Linux ha %s GB (memoria più swap), ne servono almeno 4,75. Non ho scaricato nulla."]="Not enough memory: Linux has %s GB (memory plus swap), at least 4.75 are needed. I have not downloaded anything."
-  ["Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria (16 GB con Windows)."]="Install ProfileMetaNanni on a PC with at least 8 GB of memory (16 GB with Windows)."
+  ["Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 8 GB of memory."
   ["La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn."]="The final test stopped because there is not enough memory: Linux closed a MetaPhlAn program."
-  ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria (16 GB con Windows). Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 8 GB of memory (16 GB with Windows). If it happens again, send us the file %s."
+  ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 8 GB of memory. If it happens again, send us the file %s."
   ["ERRORE"]="ERROR"
   ["Cosa fare"]="What to do"
   ["Attenzione"]="Warning"
@@ -256,7 +256,7 @@ MEM_MIN_KB=4980736
 MEM_KB=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")
 if [ "$SOLO_DB" = 0 ] && [ "$MEM_KB" -lt "$MEM_MIN_KB" ]; then
   fallisci RAM_INSUFFICIENTE "$(T 'Memoria insufficiente: Linux ha %s GB (memoria più swap), ne servono almeno 4,75. Non ho scaricato nulla.' "$(num "$MEM_KB" 1048576 1)")" \
-    "$(T 'Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria (16 GB con Windows).')"
+    "$(T 'Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria.')"
 fi
 
 righe | while IFS=$'\t' read -r g t s p b bf m d alt; do   # archivi gia' estratti da una 1.0 (riconosci)
@@ -717,7 +717,7 @@ if [ "$r" = 0 ]; then
   PASSO=fine; evento fine 100 "$(T 'VERDE: il motore è installato e funziona.')"
 elif [ "$r" = 3 ] || tail -n +"$((INIZIO_VERIFICA + 1))" "$LOG" | grep -qE 'exited with value 137|Killed|Out of memory|Cannot allocate memory'; then
   # B1-b: un programma chiuso da Linux per memoria non e' un ROSSO generico
-  fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria (16 GB con Windows). Se si ripete, manda a noi il file %s." "$LOG")"
+  fallisci RAM_INSUFFICIENTE "$(T 'La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn.')" "$(T "Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s." "$LOG")"
 else
   fallisci VERIFICA_ROSSA "$(T 'ROSSO: la prova finale non ha dato il risultato atteso.')" "$(T 'Manda a noi il file %s.' "$LOG")"
 fi
