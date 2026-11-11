@@ -15,16 +15,16 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 
 | | English | Italiano |
 |---|---|---|
-| **Ubuntu 24.04** | [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/pmn-1.3-8gb-linux.zip), extract it, then run `bash installer/linux/installa_pmn.sh` in the folder. [Ubuntu guide](docs/guida_ubuntu_EN.md). | [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/pmn-1.3-8gb-linux.zip), estraila, poi lancia `bash installer/linux/installa_pmn.sh` nella cartella. [Guida per Ubuntu](docs/guida_ubuntu_IT.md). |
-| **Windows 11** | [Download the zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip) (50 MB), extract it, double-click **Installa profilemetananni**. This zip is still version 1.2 and needs 16 GB of RAM: the Windows zip of 1.3 is being prepared. | [Scarica lo zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip) (50 MB), estrailo, doppio clic su **Installa profilemetananni**. Questo zip è ancora la versione 1.2 e chiede 16 GB di RAM: lo zip della 1.3 per Windows è in preparazione. |
+| **Ubuntu 24.04** | [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip), extract it, then run `bash installer/linux/installa_pmn.sh` in the folder. [Ubuntu guide](docs/guida_ubuntu_EN.md). | [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip), estraila, poi lancia `bash installer/linux/installa_pmn.sh` nella cartella. [Guida per Ubuntu](docs/guida_ubuntu_IT.md). |
+| **Windows 11** | [Download the zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), extract it, double-click **Installa profilemetananni**. If you already have version 1.2: open the program and press **Cerca aggiornamenti** (check for updates). | [Scarica lo zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), estrailo, doppio clic su **Installa profilemetananni**. Se hai già la versione 1.2: apri il programma e premi **Cerca aggiornamenti**. |
 
-**You need** Windows 11 or Ubuntu 24.04 (not Mac), 8 GB of RAM with version 1.3, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
+**You need** Windows 11 or Ubuntu 24.04 (not Mac), 8 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
 
-**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0) too.
+**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) too.
 
-**Serve** Windows 11 o Ubuntu 24.04 (non Mac), 8 GB di RAM con la versione 1.3, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
+**Serve** Windows 11 o Ubuntu 24.04 (non Mac), 8 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
 
-**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.2.0).
+**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -47,19 +47,17 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 
 ### On Ubuntu 24.04 (version 1.3)
 
-1. [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/pmn-1.3-8gb-linux.zip) and extract it in a fixed place, for example `~/profilemetananni`: the program runs from there.
+1. [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip) and extract it in a fixed place, for example `~/profilemetananni`: the program runs from there.
 2. Open the terminal in that folder and run `bash installer/linux/installa_pmn.sh`. The script says what it will download and asks before starting; at the end it tests the engine on a small sample and writes VERDE (green).
 3. Start the program from the applications menu (**ProfileMetaNanni**) or with the command `profilemetananni`.
 
 You need 8 GB of RAM, about 180 GB free in your home folder and no administrator rights (except for system programs that Ubuntu may lack: the script names them). Everything else, with the measured times: [Ubuntu guide](docs/guida_ubuntu_EN.md).
 
-### On Windows 11: [download the zip (50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
-
-The zip you download today is version 1.2. The Windows zip of 1.3 is being prepared.
+### On Windows 11: [download the zip (50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip)
 
 Before you start, check that you have:
 
-- a PC with **Windows 11** and **16 GB of RAM** for the 1.2 zip (with version 1.3 the installer accepts a PC that shows at least 7.9 GB);
+- a PC with **Windows 11** and **8 GB of RAM** (the installer checks that Windows shows at least 7.9 GB);
 - about **180 GB free** on an internal disk (not a USB disk). Once installed, about 180 GB stay in use;
 - an internet connection, better with a cable. About 139 GB of databases are downloaded, in pieces over several connections at once: with a 100 Mbit/s network it takes about 3 hours, with a 30 Mbit/s one about 10 hours. Meanwhile you can use the PC.
 
@@ -142,7 +140,7 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 | What | Value |
 |---|---|
 | System | Windows 11 (tested) or Ubuntu 24.04 with an x86_64 processor (tested on a clean Ubuntu inside a virtual machine, not on a physical PC). Not available for macOS |
-| RAM | 8 GB with version 1.3 (16 GB with the 1.2 zip for Windows). On Windows the installer checks that the PC shows at least 7.9 GB; a PC sold as "8 GB" with integrated graphics can show less, and then the installer stops at once and says so. An analysis uses at most about 5 GB |
+| RAM | 8 GB (they were 16 with version 1.2). On Windows the installer checks that the PC shows at least 7.9 GB; a PC sold as "8 GB" with integrated graphics can show less, and then the installer stops at once and says so. An analysis uses at most about 5 GB |
 | Time | Measured with version 1.3 on Ubuntu, 4 processors and 8 GB: the example sample (0.2 million read pairs) 3 min 10 s; a whole salami sample (3.24 million pairs) 24 minutes, almost half of it removing pig DNA; a community with no host (ZymoBIOMICS standard, 7.9 million pairs) 2 h 34 min, most of it in Kraken. The same salami sample with version 1.2 on the same machine: 33.5 minutes instead of 22.1 (without the download of the reads). On a Windows 11 virtual machine with 8 GB the salami sample took 59 minutes |
 | Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download; on Windows the file of the Linux disk then grows more than the data it holds (measured: 242 GB for 179 GB of data) |
 | Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 42.1 GB of ProfileMetaNanni packages; the installer shows it as "about 130 GB" because it counts in binary units). Measured: 3 h 18 min at about 11 MB/s, 5 h 56 min at about 6 MB/s |
@@ -162,7 +160,7 @@ Version 1.3. It runs on native Ubuntu, it needs 8 GB of RAM instead of 16, and i
 
 In all three rows the 13 output files of the two versions have the same MD5. Times are without the download of the reads.
 
-Limits of version 1.3, stated as they are. Ubuntu was tested on a clean Ubuntu 24.04 inside a virtual machine, not on a physical PC. Windows with 8 GB was tested on a clean Windows 11 virtual machine (installation GREEN in 3 h 28 min, whole sample from the app in 59 minutes, identical outputs): a real 8 GB PC is not tested yet. The time forecasts are still rough: the download forecast was too short (4.6 hours announced, 5.9 real on Ubuntu), and on the small example sample the time left shown by the app is wrong (too long on Ubuntu, too short on Windows with 8 GB). The Windows zip of 1.3 is not released yet.
+Limits of version 1.3, stated as they are. Ubuntu was tested on a clean Ubuntu 24.04 inside a virtual machine, not on a physical PC. Windows with 8 GB was tested on a clean Windows 11 virtual machine (installation GREEN in 3 h 28 min, whole sample from the app in 59 minutes, identical outputs): a real 8 GB PC is not tested yet. The time forecasts are still rough: the download forecast was too short (4.6 hours announced, 5.9 real on Ubuntu), and on the small example sample the time left shown by the app is wrong (too long on Ubuntu, too short on Windows with 8 GB).
 
 Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, a pair is removed if either read aligns), and MetaPhlAn computes the profile from a database reduced to the clades with reads: the profiles are byte-identical to a classic MetaPhlAn 4.2.4 run with the full database, and the memory peak of an analysis goes from 8.4 to 5.4 GB. Validated on simulated cured-meat communities with known truth (0.18 % of the true taxa read pairs removed by the host filter), on the ZymoBIOMICS D6300 standard (8 of 8 bacteria, no unexpected species above 0.1 % with MetaPhlAn or Kraken) and on real cured-meat samples compared with the previous version. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads (Stop and resume, restart, the engine check GREEN, the example analysis); each correction found there was checked again on the same machine before this release. The full Kraken index does not fit on the test machine's disk, so on the virtual machine Kraken was run with the quick index; the full index was used on a real PC. Projects analysed with 1.1 redo cleaning, host removal, MetaPhlAn and Kraken by themselves, because the method changed.
 
@@ -211,19 +209,17 @@ MIT (see `LICENSE`).
 
 ### Su Ubuntu 24.04 (versione 1.3)
 
-1. [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/pmn-1.3-8gb-linux.zip) ed estraila in un posto fisso, per esempio `~/profilemetananni`: il programma gira da lì.
+1. [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/tags/v1.3.0.zip) ed estraila in un posto fisso, per esempio `~/profilemetananni`: il programma gira da lì.
 2. Apri il terminale in quella cartella e lancia `bash installer/linux/installa_pmn.sh`. Lo script dice che cosa scaricherà e chiede prima di partire; alla fine prova il motore su un piccolo campione e scrive VERDE.
 3. Avvia il programma dal menu delle applicazioni (**ProfileMetaNanni**) o con il comando `profilemetananni`.
 
 Servono 8 GB di RAM, circa 180 GB liberi nella tua cartella personale e nessun permesso di amministratore (tranne per i programmi di sistema che a Ubuntu possono mancare: lo script dice quali). Tutto il resto, con i tempi misurati: [guida per Ubuntu](docs/guida_ubuntu_IT.md).
 
-### Su Windows 11: [scarica lo zip (50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.2.0/profilemetananni_v1.2.0.zip)
-
-Lo zip che si scarica oggi è la versione 1.2. Lo zip della 1.3 per Windows è in preparazione.
+### Su Windows 11: [scarica lo zip (50 MB)](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip)
 
 Prima di iniziare controlla di avere:
 
-- un PC con **Windows 11** e **16 GB di RAM** per lo zip della 1.2 (con la versione 1.3 l'installatore accetta un PC che ne mostra almeno 7,9);
+- un PC con **Windows 11** e **8 GB di RAM** (l'installatore controlla che Windows ne mostri almeno 7,9);
 - circa **180 GB liberi** su un disco interno (non un disco USB). A installazione finita ne restano occupati circa 180;
 - una connessione a internet, meglio col cavo. Si scaricano circa 139 GB di database, a pezzi su più connessioni insieme: con una rete da 100 Mbit/s servono circa 3 ore, con una da 30 Mbit/s circa 10 ore. Intanto puoi usare il PC.
 
@@ -306,7 +302,7 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 | Cosa | Valore |
 |---|---|
 | Sistema | Windows 11 (provato) oppure Ubuntu 24.04 con processore x86_64 (provato su un Ubuntu pulito dentro una macchina virtuale, non su un PC fisico). Non disponibile per macOS |
-| RAM | 8 GB con la versione 1.3 (16 GB con lo zip della 1.2 per Windows). Su Windows l'installatore controlla che il PC ne mostri almeno 7,9; un PC venduto come "da 8 GB" con la grafica integrata può mostrarne meno, e allora l'installatore si ferma subito e lo dice. Un'analisi usa al massimo circa 5 GB |
+| RAM | 8 GB (erano 16 con la versione 1.2). Su Windows l'installatore controlla che il PC ne mostri almeno 7,9; un PC venduto come "da 8 GB" con la grafica integrata può mostrarne meno, e allora l'installatore si ferma subito e lo dice. Un'analisi usa al massimo circa 5 GB |
 | Tempo | Misurato con la versione 1.3 su Ubuntu, 4 processori e 8 GB: il campione d'esempio (0,2 milioni di coppie di read) 3 min 10 s; un salame intero (3,24 milioni di coppie) 24 minuti, quasi la metà per togliere il DNA del maiale; una comunità senza ospite (standard ZymoBIOMICS, 7,9 milioni di coppie) 2 h 34 min, quasi tutti in Kraken. Lo stesso salame con la versione 1.2 sulla stessa macchina: 33,5 minuti invece di 22,1 (senza lo scarico delle read). Su Windows 11 in una macchina virtuale con 8 GB il salame ha richiesto 59 minuti |
 | Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico; su Windows il file del disco di Linux cresce allora più dei dati che contiene (misurato: 242 GB per 179 GB di dati) |
 | Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 42,1 GB di pacchetti ProfileMetaNanni; l'installatore li mostra come "circa 130 GB" perché conta in unità binarie). Misurato: 3 h 18 min a circa 11 MB/s, 5 h 56 min a circa 6 MB/s |
@@ -326,7 +322,7 @@ Versione 1.3. Gira su Ubuntu nativo, chiede 8 GB di RAM invece di 16 ed è più 
 
 In tutte e tre le righe i 13 file in uscita delle due versioni hanno lo stesso MD5. I tempi sono senza lo scarico delle read.
 
-Limiti della versione 1.3, detti come sono. Ubuntu è stato provato su un Ubuntu 24.04 pulito dentro una macchina virtuale, non su un PC fisico. Windows con 8 GB è stato provato su Windows 11 pulito in una macchina virtuale (installazione VERDE in 3 h 28 min, campione intero dall'app in 59 minuti, uscite identiche): un PC vero da 8 GB non è ancora provato. Le previsioni dei tempi sono ancora grossolane: quella dello scarico era troppo corta (4,6 ore annunciate, 5,9 vere su Ubuntu), e sul piccolo campione d'esempio il tempo che manca mostrato dall'app è sbagliato (troppo lungo su Ubuntu, troppo corto su Windows con 8 GB). Lo zip della 1.3 per Windows non è ancora pubblicato.
+Limiti della versione 1.3, detti come sono. Ubuntu è stato provato su un Ubuntu 24.04 pulito dentro una macchina virtuale, non su un PC fisico. Windows con 8 GB è stato provato su Windows 11 pulito in una macchina virtuale (installazione VERDE in 3 h 28 min, campione intero dall'app in 59 minuti, uscite identiche): un PC vero da 8 GB non è ancora provato. Le previsioni dei tempi sono ancora grossolane: quella dello scarico era troppo corta (4,6 ore annunciate, 5,9 vere su Ubuntu), e sul piccolo campione d'esempio il tempo che manca mostrato dall'app è sbagliato (troppo lungo su Ubuntu, troppo corto su Windows con 8 GB).
 
 Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), e MetaPhlAn calcola il profilo da un database ridotto ai clade che hanno read: i profili sono identici al byte a quelli di MetaPhlAn 4.2.4 classico con il database intero, e il picco di memoria di un'analisi scende da 8,4 a 5,4 GB. Validata su comunità simulate di salume a composizione nota (lo 0,18 % delle coppie di read dei taxa veri tolto dal filtro dell'ospite), sullo standard ZymoBIOMICS D6300 (8 batteri su 8, nessuna specie inattesa sopra lo 0,1 % con MetaPhlAn e con Kraken) e su campioni veri di salume confrontati con la versione precedente. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri (Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi d'esempio); ogni correzione trovata lì è stata riprovata sulla stessa macchina prima di questa Release. L'indice Kraken completo non sta sul disco della macchina di prova: lì Kraken ha usato l'indice rapido; l'indice completo è stato usato su un PC vero. I progetti analizzati con la 1.1 rifanno da soli pulizia, rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato.
 
