@@ -23,6 +23,7 @@
 > **[v1.1, 30/10/2026, installatore]** `installa` scarica a pezzi e più sorgenti insieme (D165): solo **campi nuovi
 > facoltativi** in `avanzamento` (`byte_fatti`, `byte_totali`, `velocita_mb_s`, `sorgente`, `sorgenti`) e nel risultato
 > di `--stima` (`spazio_necessario_byte`, `spazio_libero_byte`, `sorgenti`); nessun campo tolto o rinominato.
+> **[v1.3]** `--stima` ha due campi in più: `tempo_massimo_s` (la fine della previsione nel caso peggiore: tutti i byte alla velocità più alta misurata; il messaggio dice "da ... a ..." quando supera del 15 % `tempo_stimato_s`) e `spazio_picco_byte` (lo spazio usato al massimo: con tanto spazio libero i pezzi dell'archivio più grande restano fino al controllo; con lo spazio stretto è uguale a `spazio_necessario_byte`).
 > Aggiunte segnate **[v1.1]**.
 
 ---
