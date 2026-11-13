@@ -400,7 +400,7 @@ class Finestra(QMainWindow):
         info = self.contesto.info
         if info is None and getattr(self, "client_info", None) and self.client_info.in_corso():
             stato, testo = "attesa", _("Motore: controllo...")
-        elif info is None:
+        elif info is None or self.contesto.verifica_rossa:      # anche dopo un controllo ROSSO (pagina Motore)
             stato, testo = "rosso", _("Motore da controllare")
         else:
             stato, testo = "", _("Motore di prova") if info.get("finto") else _("Motore pronto")

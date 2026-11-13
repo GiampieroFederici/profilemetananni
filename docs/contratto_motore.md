@@ -179,6 +179,8 @@ Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` 
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
 **[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; requisito dichiarato: 8 GB, con Linux e con Windows).
 In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
+**[13/11/2026]** Dopo `annulla`, nel registro di `esegui` una riga dice che l'analisi è stata fermata dalla persona; le righe che i programmi fermati scrivono dopo (`Terminated ...` della shell, `[FAIL] step failed` di `run.sh`) non si scrivono: non sono guasti. Gli eventi e la ripresa non cambiano.
+**[13/11/2026]** `READ_NON_DISPONIBILI` (uscita 1): il codice SRR è giusto e la corsa esiste, ma né ENA né NCBI hanno ancora le sue read (campione pubblicato da pochi giorni: `steps/05` dà lo stato `EMPTY`, che si richiede alla corsa dopo). Errore in `stima` (dice quale campione) e in `esegui`; `cosa_fare` dice di riprovare fra qualche giorno, non di controllare i codici (quello resta `READ_NON_TROVATE`). L'interfaccia non ha una pagina dove risolverlo: il pulsante resta "Riprova". Lo stesso codice arriva come **avviso** da `stima` quando un campione risulta con 0 coppie di read (la stima non è affidabile). Se ENA conosce la corsa senza read e NCBI le ha, dimensione e coppie sono quelle di NCBI, come quando ENA non la conosce.
 
 ## 5. Uscite
 
@@ -253,7 +255,8 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   referto non c'erano: SF3RAt7 era stimato 1,7 ore contro 37 min veri.
 - **[v0.2]** In più: `spazio_libero_gb` (disco dove andrà il lavoro) e `consigli` (§5.5: `TEMPO_LUNGO`,
   `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`). Le dimensioni si chiedono **a gruppi**: una richiesta a ENA ogni 100
-  campioni, e una a NCBI ogni 100 per quelli che ENA non conosce o se ENA non risponde (94 campioni in ~1 s).
+  campioni, e una a NCBI ogni 100 per quelli che ENA non conosce, **[13/11/2026]** per quelli che ENA ha senza read,
+  o se ENA non risponde (94 campioni in ~1 s).
 - **[v0.3]** `tempo_totale_s`: la somma di `tempo_s`, già pronta (**[17/10]** download compreso); `nomi_campioni`: i
   nomi con cui il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine
   del conteggio.

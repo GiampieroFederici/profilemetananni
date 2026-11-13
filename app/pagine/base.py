@@ -23,12 +23,15 @@ class Contesto:
     avvia_analisi: "Scelte" lo mette a True (dopo aver scritto config.yaml) prima di vai("esecuzione");
     "Analisi in corso" lancia `esegui` solo se è True e lo rimette subito a False.
     progetto_in_analisi: il progetto della corsa che sta girando (None se non gira nulla); intanto non se ne
-    apre un altro."""
+    apre un altro.
+    verifica_rossa: l'ultimo "Controlla il motore" ha dato ROSSO (pagina Motore); il pallino della testata e la
+    scheda del motore lo dicono finché un controllo o un'installazione non finisce VERDE."""
     def __init__(self):
         self.info = None
         self.progetto = None
         self.avvia_analisi = False
         self.progetto_in_analisi = None
+        self.verifica_rossa = False
 
 
 class Corpo(QVBoxLayout):

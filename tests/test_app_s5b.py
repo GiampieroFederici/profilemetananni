@@ -411,7 +411,7 @@ def test_verifica_rossa_porta_a_installa(qtbot, f, monkeypatch):
     premi(f)
     qtbot.waitUntil(lambda: f.principale.text() == "Installa o completa", timeout=30000)
     m = f.pagine["motore"]
-    assert "ROSSO: Manca il database di Kraken." in scritte(m)
+    assert "Manca il database di Kraken." in scritte(m) and "ROSSO" not in scritte(m)   # P6: ROSSO lo dice il motore
     monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
     premi(f)                                                  # installa, con la barra
     qtbot.waitUntil(lambda: "VERDE: il motore è installato e funziona." in scritte(m), timeout=30000)

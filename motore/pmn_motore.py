@@ -38,7 +38,7 @@ STATO = PMN_HOME / "stato"
 RUN_SH = os.environ.get("PMN_RUN_SH", str(ROOT / "bin" / "run.sh"))   # sostituibile solo nei test
 ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi prima di riprovare il download
 TENTATIVI_RETE = 3
-CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
+CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "READ_NON_DISPONIBILI": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
                  "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
@@ -95,6 +95,11 @@ ERRORI = [
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
     (r"Not enough space", "SPAZIO_INSUFFICIENTE", N_("Lo spazio libero non basta per scaricare le read."),
      N_("Libera spazio sul disco e riprova.")),
+    # P16 (13/11): la corsa esiste, ma ENA e NCBI non hanno ancora le sue read (steps/05, stato EMPTY). Prima della
+    # riga dei codici sbagliati: il suo messaggio contiene anche "runs were not found"
+    (r"neither ENA nor NCBI has their reads yet", "READ_NON_DISPONIBILI",
+     N_("Uno o più campioni esistono negli archivi (ENA e NCBI), ma le loro read non ci sono ancora."),
+     N_("I codici sono giusti: succede con i campioni pubblicati da pochi giorni. Riprova fra qualche giorno.")),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
      N_("Non trovo le read di uno o più campioni."), N_("Controlla i codici SRR o la cartella delle read nel progetto.")),
     # R8: genoma di un ospite non installato (vite, ospite aggiunto dalla persona), steps/11_host_index.sh
@@ -559,6 +564,12 @@ class Motore:
                                                    "download."),
                              _("Controlla la connessione e riprova fra qualche minuto."))
             for e in esiti:
+                if e["status"] == "EMPTY":   # P16: il codice è giusto, le read non sono ancora negli archivi
+                    raise Errore("READ_NON_DISPONIBILI",
+                                 _("Il campione {codice} esiste, ma gli archivi (ENA e NCBI) non hanno ancora le sue "
+                                   "read.", codice=e['accession']),
+                                 _("Il codice è giusto: succede con i campioni pubblicati da pochi giorni. Riprova fra "
+                                   "qualche giorno, oppure togli questo campione dal progetto."))
                 if e["status"] != "OK":
                     raise Errore("READ_NON_TROVATE", _("Non trovo il campione {codice} su ENA né su NCBI.",
                                                        codice=e['accession']),
@@ -577,6 +588,10 @@ class Motore:
     def stima(self):
         cfg = leggi_progetto(self.a.progetto)
         camp = self.campioni(cfg)
+        for nome in [n for n, c, _b in camp if not c]:   # P16: mai una stima su 0 coppie senza dirlo
+            self.evento("avviso", _("Il campione {nome} risulta senza read (0 coppie): la stima non è affidabile. "
+                                    "Controlla le read di questo campione prima di avviare l'analisi.", nome=nome),
+                        codice="READ_NON_DISPONIBILI")
         coppie = sum(c for _, c, _ in camp)
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
@@ -680,9 +695,15 @@ class Motore:
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": p.pid}), encoding="utf-8")
         if annulla.exists():   # arrivato fra il Popen e il lock col pgid: lo si ferma qui, poi p.wait() alza Annullata
             os.killpg(p.pid, signal.SIGTERM)
-        coda = []
+        coda, fermata = [], False
         for riga in p.stdout:
             riga = riga.rstrip()
+            if not fermata and annulla.exists():   # P23: il segno c'è da prima del segnale (comando annulla)
+                fermata = True
+                self.scrivi("annulla: analisi fermata dalla persona; le ultime righe dei programmi fermati non sono "
+                            "guasti e non si scrivono")
+            if fermata:   # "Terminated ..." della shell e "[FAIL] step failed" di run.sh per il passo fermato
+                continue
             self.scrivi(riga)
             coda = (coda + [riga])[-40:]
             m = re.search(r"\[(?:local|locale)\] (\S+)", riga)

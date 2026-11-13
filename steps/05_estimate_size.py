@@ -12,6 +12,9 @@
 # Many accessions are asked in groups (lookup_many): one ENA portal "search" request per 100 accessions,
 # and one NCBI request per 100 for those ENA does not know or when ENA is down (16/10/2026: before, one
 # request per accession at 0.4-12 s each).
+# A run published a few days ago can be known to ENA with 0 reads and 0 bytes while NCBI already has the
+# reads (13/11/2026): for a run without reads NCBI decides (ncbi_if_empty). If NCBI has no reads either the
+# status is EMPTY: the run exists, its reads are not there yet. EMPTY is asked again on the next run.
 #
 # No third-party dependencies (uses only the Python standard library: urllib).
 # Idempotent: results are cached on disk and re-used on the next run.
@@ -25,7 +28,8 @@
 #      (some accessions may have been skipped/unresolved — see the WARN lines + CSV)
 #   2  STOP: the resolved download does NOT fit in the available/declared free space
 #   3  STOP: no accession resolved because ENA and NCBI were both unreachable (retry later)
-#   4  STOP: no accession resolved: the runs do not exist (check the SRR list)
+#   4  STOP: no accession resolved: the runs do not exist (check the SRR list), or they exist but
+#      neither ENA nor NCBI has their reads yet (retry in a few days)
 #   1  usage / input error
 import argparse
 import json
@@ -102,7 +106,18 @@ def lookup_srr(acc):
         if alt["status"] == "OK" or data is not None:
             return alt
         return {"status": "ERROR", "accession": acc, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
-    return ena_record(acc, data[0])
+    return ncbi_if_empty(ena_record(acc, data[0]))
+
+
+def ncbi_if_empty(e, alt=None):
+    """ENA knows the run but has no reads for it yet (0 bytes): NCBI decides. alt = the NCBI answer, if already
+    asked (grouped requests). EMPTY = the run exists, but neither ENA nor NCBI has its reads yet."""
+    if e["status"] != "OK" or e["fastq_bytes"] > 0:
+        return e
+    alt = alt or lookup_ncbi(e["accession"])
+    if alt["status"] == "ERROR" or (alt["status"] == "OK" and (alt["fastq_bytes"] > 0 or alt["read_count"] > 0)):
+        return alt   # the reads are at NCBI, or NCBI is unreachable (ERROR: asked again next time)
+    return {**e, "status": "EMPTY"}
 
 
 def ena_record(acc, d):
@@ -179,7 +194,8 @@ def lookup_ncbi_many(accs):
 
 def lookup_many(accessions):
     """Same answers as lookup_srr for each accession (same order), with grouped requests: ENA first, then
-    NCBI for the runs ENA does not know or when ENA is unreachable (same rules as lookup_srr)."""
+    NCBI for the runs ENA does not know, for those ENA has without reads, or when ENA is unreachable (same
+    rules as lookup_srr)."""
     wanted = [a.strip().upper() for a in accessions]
     valid = list(dict.fromkeys(a for a in wanted if SRR_RE.match(a)))
     out, ena_down = {}, set()
@@ -194,10 +210,13 @@ def lookup_many(accessions):
             acc = str(d.get("run_accession", "")).upper()
             if acc in group:
                 out[acc] = ena_record(acc, d)
-    missing = [a for a in valid if a not in out]
+    missing = [a for a in valid if a not in out or out[a]["fastq_bytes"] == 0]   # unknown to ENA, or without reads
     for i in range(0, len(missing), GROUP):
         group = missing[i:i + GROUP]
         for acc, alt in lookup_ncbi_many(group).items():
+            if acc in out:
+                out[acc] = ncbi_if_empty(out[acc], alt)
+                continue
             # as lookup_srr: when ENA was down, an NCBI "not found" is not trusted (ERROR, retried next time)
             out[acc] = alt if alt["status"] == "OK" or acc not in ena_down else {**alt, "status": "ERROR"}
     return [out.get(a) or {"status": "INVALID", "accession": a, "fastq_bytes": 0, "read_count": 0, "base_count": 0}
@@ -254,18 +273,21 @@ def main():
     csv_path = os.path.join(a.out, "download_size_estimate.csv")
     cache = {} if a.force else load_cache(cache_path)
 
-    # a network error is not an answer: ask again instead of reusing it from the cache
-    todo = [x for x in items if x not in cache or cache[x].get("status") == "ERROR"]
+    # a network error is not an answer: ask again instead of reusing it from the cache. The same for a run without
+    # reads: EMPTY, or the "OK with 0 bytes" that 1.3.0 wrote (the reads arrive some days after the run is published)
+    todo = [x for x in items if x not in cache or cache[x].get("status") in ("ERROR", "EMPTY")
+            or (cache[x].get("status") == "OK" and not cache[x].get("fastq_bytes"))]
     print(f"[INFO] {len(items)} accessions ({len(todo)} to query, {len(items) - len(todo)} cached)")
 
     for i in range(0, len(todo), GROUP):
         for acc, e in zip(todo[i:i + GROUP], lookup_many(todo[i:i + GROUP])):
             cache[acc] = e
             if e["status"] == "OK" and e.get("source") == "NCBI":
-                print(f"[INFO] {acc}: size taken from NCBI (ENA unavailable or without this run)")
+                print(f"[INFO] {acc}: size taken from NCBI (ENA unavailable, without this run or without its reads)")
         save_cache(cache, cache_path)
         print(f"  [{min(i + GROUP, len(todo))}/{len(todo)}] -> " +
-              ", ".join(f"{s} {sum(cache[a]['status'] == s for a in todo[i:i + GROUP])}" for s in ("OK", "NOT_FOUND", "ERROR")))
+              ", ".join(f"{s} {sum(cache[a]['status'] == s for a in todo[i:i + GROUP])}"
+                        for s in ("OK", "EMPTY", "NOT_FOUND", "ERROR")))
     save_cache(cache, cache_path)
 
     # Aggregate + write CSV
@@ -336,6 +358,11 @@ def main():
         if any(status == "ERROR" for _, status in bad_accessions):
             print("[FAIL] ENA and NCBI could not be reached — nothing to download. Retry in a few minutes.")
             return 3
+        if any(status == "EMPTY" for _, status in bad_accessions):
+            # "runs were not found" stays in the text: an engine older than this message still recognises the line
+            print("[FAIL] No accession could be resolved: the reads of the runs were not found. The runs exist but "
+                  "neither ENA nor NCBI has their reads yet (EMPTY above): retry in a few days.")
+            return 4
         print("[FAIL] No accession could be resolved — the runs were not found. Check the SRR list.")
         return 4
 
