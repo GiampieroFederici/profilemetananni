@@ -1,6 +1,6 @@
 # Your first analysis with ProfileMetaNanni: the example sample
 
-This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.3 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On your PC the times can be different; the results are the same.
+This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.3 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On Ubuntu the app and the steps are the same. On your PC the times can be different; the results are the same.
 
 Italian version: [guida_analisi_esempio_IT.md](guida_analisi_esempio_IT.md).
 
@@ -102,7 +102,7 @@ The third tab lists the host DNA removed (pig Sscrofa11.1 and human GRCh38), the
 
 ## 8. The report
 
-**Open the report** shows it inside the app; **Open the report as PDF** and **Open the tables in Excel** open the files with the programs of Windows. The report has 9 sections: in brief, MetaPhlAn, Kraken, alpha diversity, viruses, quality of the reads, parameters, tools and databases with how to cite them, words used.
+**Open the report** shows it inside the app; **Open the report as PDF** and **Open the tables in Excel** open the files with the programs of your computer. The report has 9 sections: in brief, MetaPhlAn, Kraken, alpha diversity, viruses, quality of the reads, parameters, tools and databases with how to cite them, words used.
 
 For this sample, alpha diversity (section 4) is:
 

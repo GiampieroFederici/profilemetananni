@@ -1,6 +1,6 @@
 # La prima analisi con ProfileMetaNanni: il campione d'esempio
 
-Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.3 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
+Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.3 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Su Ubuntu l'app e i passi sono gli stessi. Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
 
 Versione inglese: [guida_analisi_esempio_EN.md](guida_analisi_esempio_EN.md).
 
@@ -102,7 +102,7 @@ La terza scheda elenca il DNA dell'ospite tolto (maiale Sscrofa11.1 e uomo GRCh3
 
 ## 8. Il referto
 
-**Apri il referto** lo mostra dentro l'app; **Apri il referto in PDF** e **Apri le tabelle in Excel** aprono i file con i programmi di Windows. Il referto ha 9 sezioni: in breve, MetaPhlAn, Kraken, diversità alfa, virus, qualità delle read, parametri, strumenti e database con il modo di citarli, parole usate.
+**Apri il referto** lo mostra dentro l'app; **Apri il referto in PDF** e **Apri le tabelle in Excel** aprono i file con i programmi del tuo computer. Il referto ha 9 sezioni: in breve, MetaPhlAn, Kraken, diversità alfa, virus, qualità delle read, parametri, strumenti e database con il modo di citarli, parole usate.
 
 Per questo campione la diversità alfa (sezione 4) è:
 
