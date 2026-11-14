@@ -696,6 +696,7 @@ class Motore:
         if annulla.exists():   # arrivato fra il Popen e il lock col pgid: lo si ferma qui, poi p.wait() alza Annullata
             os.killpg(p.pid, signal.SIGTERM)
         coda, fermata = [], False
+        corrente = None   # il passo in corso: (etichetta, passo, messaggio, campione, fatto, istante d'inizio)
         for riga in p.stdout:
             riga = riga.rstrip()
             if not fermata and annulla.exists():   # P23: il segno c'è da prima del segnale (comando annulla)
@@ -708,6 +709,20 @@ class Motore:
             coda = (coda + [riga])[-40:]
             m = re.search(r"\[(?:local|locale)\] (\S+)", riga)
             if not m:
+                # 13/11: un passo lungo dice a che punto è ("[progress] 37", steps/21_hostfilter.sh). Il tempo che
+                # manca si rifà sul ritmo vero del passo, non sulla regola di stima: su un portatile il filtro
+                # dell'ospite è durato 2 h 24 min contro i 26 min previsti, senza un segno a schermo
+                a = re.search(r"\[progress\] (\d+)$", riga)
+                if a and corrente and 0 < int(a.group(1)) < 100:
+                    etichetta, passo, testo, campione, fatto, t0 = corrente
+                    passati = time.monotonic() - t0
+                    intero = passati * 100 / int(a.group(1))            # durata del passo, al ritmo visto finora
+                    resta = intero - passati + sum(s for e, s in secondi.items() if e not in fatti)
+                    tutto = totale - secondi.get(etichetta, 0) + intero
+                    ultimo = max(ultimo, 100 * (tutto - resta) / tutto)   # la barra non torna mai indietro
+                    self.avanza(passo, _("{frase} (questo passo è al {p} %)", frase=testo, p=a.group(1)), ultimo,
+                                campione=campione, fatto=fatto, totale=n, eta_s=round(resta) if camp else None,
+                                passo_s=round(intero - passati) if camp else None)
                 continue
             for regola, passo in ETICHETTE:
                 mm = re.fullmatch(regola, m.group(1))
@@ -737,6 +752,7 @@ class Motore:
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
+                    corrente = (m.group(1), passo, f"{chi}{testo}", campione, fatto, time.monotonic())
                     break
         self.ultimo_pct, self.eta_referto = ultimo, secondi["referto"] if camp else None
         codice = p.wait()

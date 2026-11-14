@@ -132,6 +132,24 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
   se il passo sfora (SF3RAt3: download previsto 3 min, durato 37 con la rete lenta) tempo e barra si fermano a quello
   che resta dopo il passo, con la nota "tempo che manca dopo questo passo, che sta durando più del previsto".
   Senza `passo_s` (motore più vecchio) vale la regola di prima. Il finto motore lo manda anche lui.
+- **[13/11/2026]** In `esegui`, dentro il passo `ospite`, un `avanzamento` circa ogni 30 s mentre Bowtie 2 lavora
+  (prima: un solo evento all'inizio del passo, poi nulla anche per ore). Stessi campi dell'evento d'inizio passo;
+  `messaggio` è lo stesso testo più "(questo passo è al N %)". `passo_s` = secondi che mancano alla fine del passo
+  al ritmo visto finora (tempo passato × (100 − N) / N), `eta_s` = `passo_s` più i passi non ancora partiti,
+  `percentuale` ricalcolata con la durata vera del passo e mai indietro. Senza le dimensioni dei campioni `eta_s` e
+  `passo_s` restano `null`, come negli altri eventi. Da dove viene N: `steps/21_hostfilter.sh` scrive nel registro la
+  riga `[progress] N` (N da 1 a 99, del passo intero: i passaggi su più genomi contano per i byte compressi che
+  leggono; quelli dopo il primo pesano un decimo, perché leggono solo le read rimaste e Bowtie 2 le passa circa
+  dieci volte più in fretta, e quelli ancora da fare si contano su ciò che il passaggio in corso sta tenendo). Il
+  passo guarda da fuori
+  dove è arrivato Bowtie 2 nel suo file d'ingresso (`/proc/<pid>/fdinfo`): nel flusso `bowtie2 | samtools` non entra
+  nulla, quindi uscite e velocità non cambiano. `PMN_AVANZAMENTO_S` cambia i secondi fra due righe (prove). Se
+  `/proc` non si legge, nessun evento in più. L'interfaccia non deve fare nulla: mostra `messaggio`, barra e tempo
+  come per ogni `avanzamento`.
+- **[13/11/2026]** L'ordine dei campioni non dipende dalla lingua del sistema: `bin/lib/common.sh` fissa
+  `LC_ALL=C.UTF-8` per `run.sh` e per ogni passo (ordine dei codici dei caratteri, lo stesso di `sorted()` nel
+  motore; prima, con Ubuntu in italiano, `a` veniva prima di `B` e le colonne di `metaphlan_merged.tsv` cambiavano).
+  I testi per la persona seguono `--lingua`, non questa variabile.
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
   `kraken` per `DB_MANCANTE` di Kraken). **[22/10]** Anche l'installatore: il passo in corso (`controllo`,
   `programmi`, `database`, `verifica`), e `risultato` = `{"codice", "passo"}` nel `fine` (D068: ora obbligatorio).
@@ -159,6 +177,22 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
 Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_MANCANTE` (programma di sistema),
 `VERIFICA_ROSSA` (prova finale fallita); avvisi `RETE_NON_MISURATA`, `RETE_INTERROTTA` (riprova da sola).
 `ERRORE_INTERNO` (codice di uscita 4: un errore nostro, non dell'utente; `cosa_fare` indica il log da mandarci).
+
+**[13/11/2026] Installatore, dopo la prova su Ubuntu in italiano:**
+- `installa`, evento `fine` con esito `errore`: il messaggio è "Installazione non completata." oppure "Installazione
+  non completata. Non ho cambiato nulla: il motore già installato resta com'era e, se funzionava, puoi continuare a
+  usarlo." (prima: "Rilanciala quando hai risolto: riprende da qui.").
+- `DB_ROVINATO` nel passo `programmi` (ambiente diverso dal file di blocco subito dopo una creazione riuscita):
+  `cosa_fare` è "Manda a noi il file <log>."; il segnalino `stato/<ambiente>.diverso` evita di ricreare l'ambiente a
+  ogni rilancio (con un file di blocco nuovo si reinstalla).
+- Il log `installazione_*.log` contiene anche le righe `errore <codice>: ...`, `avviso <codice>: ...`,
+  `fine <esito>: ...`.
+- Senza `--json` la riga di avanzamento dello scarico si riscrive sul posto (terminale) o esce una volta ogni 5
+  minuti (uscita su file); con `--json` resta "almeno ogni 30 s".
+- Variabile `PMN_PROGRAMMA_SOSTITUITO` (la mette `installer/linux/installa_pmn.sh` quando ha appena sostituito il
+  programma); su Linux il programma installato sta in `PMN_HOME/programma`.
+- `installa_motore.sh` e `verifica_motore.sh` lavorano con `LC_ALL=C`: l'ordine di `sort` e i numeri degli eventi
+  non dipendono dalla lingua del sistema.
 
 **Codice dell'interfaccia, non del motore (S5a, D077):** `MOTORE_NON_AVVIATO` lo crea `app/motore.py` quando il motore
 non parte o si chiude senza aver mandato `inizio` (per esempio manca la WSL `pmn`); se si chiude dopo `inizio` senza `fine`,

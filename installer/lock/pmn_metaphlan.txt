@@ -135,7 +135,7 @@ https://conda.anaconda.org/conda-forge/noarch/attrs-26.1.0-pyhcf101f3_0.conda#c6
 https://conda.anaconda.org/conda-forge/linux-64/aws-c-http-1.0.0-h392d1a3_1.conda#6701f6e712f9513e722ba57cde99f023
 https://conda.anaconda.org/conda-forge/noarch/babel-2.18.0-pyhcf101f3_1.conda#f1976ce927373500cc19d3c0b2c85177
 https://conda.anaconda.org/conda-forge/linux-64/backports.zstd-1.7.0-py311h6f959d0_1.conda#30f9861fbea080176375281b31055fc0
-https://conda.anaconda.org/bioconda/linux-64/bowtie2-2.5.5-h63e9258_1.conda#75b849619e6a685fc0322bf113b8df35
+https://conda.anaconda.org/bioconda/linux-64/bowtie2-2.5.5-h63e9258_2.conda#4af3e31e3f1166a7a54021f9790fd261
 https://conda.anaconda.org/conda-forge/linux-64/brotli-1.2.0-h505cf86_4.conda#746aa619a1bcaf4da541101179d7c60e
 https://conda.anaconda.org/conda-forge/linux-64/brotli-python-1.2.0-py311heb3be6f_4.conda#7f5e2b7716d10c9a762ee94112143ca8
 https://conda.anaconda.org/conda-forge/noarch/cached_property-2.0.1-pyhcf101f3_0.conda#256d863ded0f79464391a075944d24a6

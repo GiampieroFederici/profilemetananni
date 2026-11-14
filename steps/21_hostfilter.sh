@@ -92,7 +92,45 @@ if [ -s "$final1" ] && { [ "$paired" -eq 0 ] || [ -s "$final2" ]; }; then
 fi
 
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/pmn_hf_${SAMPLE}.XXXXXX")" || die "mktemp failed"
-trap 'rm -rf "$tmp"' EXIT INT TERM
+
+# Progress while Bowtie2 works (13/11/2026: 2 h 24 min on a laptop with nothing on the screen). Read from outside,
+# nothing is put in the pipe, so outputs and speed do not change: every PMN_AVANZAMENTO_S seconds (30), how far Bowtie2
+# is in its compressed input (R1), from /proc/<pid>/fdinfo. Printed as a percentage of the whole step, one line
+# "[progress] N" that the engine turns into an "avanzamento" event (docs/contratto_motore.md). The passes after the
+# first read only what the pass before kept, and Bowtie2 goes through those reads about ten times faster (measured:
+# 15 against 155 microseconds per pair on SRR4875279, 45 against 556 on a sample with 99 % of pig DNA): they weigh one
+# tenth, on the bytes this pass is keeping (size of its output so far). Where /proc cannot be read nothing is printed.
+# avanzamento <R1 of this pass> <output R1 of this pass> <weighted bytes of the passes done> <passes after this one>
+#             <weight of this pass: 10 the first, 1 the others>
+avanzamento() {
+  local r1="$1" tot p c fd k v pos out dorme=""
+  tot="$(stat -Lc %s "$r1" 2> /dev/null)" || return 0
+  trap 'kill "$dorme" 2> /dev/null; exit 0' TERM   # stopped by ferma_avanzamento: no "Terminated" line in the log
+  while kill -0 $$ 2> /dev/null; do
+    sleep "${PMN_AVANZAMENTO_S:-30}" & dorme=$!
+    wait "$dorme"
+    pos=0
+    for p in /proc/[0-9]*; do
+      read -r c < "$p/comm" || continue
+      case "$c" in bowtie2-align-*) ;; *) continue ;; esac
+      for fd in "$p"/fd/*; do
+        [ "$fd" -ef "$r1" ] || continue
+        while read -r k v; do [ "$k" = pos: ] && pos="$v"; done < "$p/fdinfo/${fd##*/}"
+      done
+    done 2> /dev/null
+    [ "$pos" -gt 0 ] || continue
+    out="$(stat -c %s "$2" 2> /dev/null || echo 0)"
+    info "[progress] $(awk -v a="$3" -v n="$4" -v w="$5" -v p="$pos" -v t="$tot" -v o="$out" \
+                         'BEGIN { x = 100 * (a + w * p) / (a + w * t + n * o * t / p); printf "%d", (x > 99 ? 99 : x) }')"
+  done
+}
+mon=""
+ferma_avanzamento() {
+  [ -n "$mon" ] || return 0
+  kill "$mon" 2> /dev/null || true; wait "$mon" 2> /dev/null || true
+  mon=""
+}
+trap 'ferma_avanzamento; rm -rf "$tmp"' EXIT INT TERM
 
 # One Bowtie2 pass that keeps the UNALIGNED (non-host) reads, and optionally saves the
 # ALIGNED (host) reads. Args: index, r1, r2(or ""), out-basename, index-name.
@@ -104,6 +142,7 @@ run_pass() {
   local log="$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log" entrate tenute
   # Little free memory: index read from the disk as needed (--mm, bin/lib/common.sh), same alignments.
   local mm=(); pmn_bt2_mm "$index" && mm=(--mm)
+  avanzamento "$r1" "${obase}${r2:+_1}.fastq.gz" "$letti" "$(( ${#INDEXES[@]} - i ))" "$peso" & mon=$!
   if [ -n "$r2" ]; then
     # Strict: from Bowtie2's SAM only the pairs with both reads unaligned (flag 4 = read unaligned, 8 = mate
     # unaligned; 256 = secondary, never a read of its own). Unaligned reads keep their sequence and qualities as
@@ -132,14 +171,18 @@ run_pass() {
       --un-gz "${obase}.fastq.gz" ${al[@]+"${al[@]}"} -S /dev/null 2> "$log" || return 1
     tenute="$(sed -n 's/^ *\([0-9]*\) ([0-9.]*%) aligned 0 times$/\1/p' "$log" | head -n 1)"
   fi
+  ferma_avanzamento
   entrate="$(sed -n 's/^\([0-9]*\) reads; of these:$/\1/p' "$log" | head -n 1)"
   [ -n "$entrate" ] && [ -n "$tenute" ] || return 1
   printf 'entrate\ttenute\n%s\t%s\n' "$entrate" "$tenute" > "$LOGDIR/${SAMPLE}.${idxname}.coppie.tsv" || return 1
 }
 
-cur1="$IN1"; cur2="$IN2"; i=0
+cur1="$IN1"; cur2="$IN2"; i=0; letti=0; peso=10
 for index in "${INDEXES[@]}"; do
   i=$((i + 1))
+  # for the progress: weighted bytes of R1 read by the passes before this one (the first weighs 10, the others 1)
+  [ "$i" -eq 1 ] || { letti=$(( letti + peso * $(stat -Lc %s "$prima") )); peso=1; }
+  prima="$cur1"
   idxname="$(basename "$index")"
   info "$(say "Host filtering $SAMPLE: pass $i ($idxname) ..." "Filtro host di $SAMPLE: passo $i ($idxname) ...")"
   if [ "$paired" -eq 1 ]; then
@@ -154,7 +197,7 @@ done
 # Publish the final non-host reads: copy next to the target under a temporary name, then rename
 # (same filesystem = atomic; $tmp is on another disk, where mv copies onto the final name).
 # Mate 1 last: run.sh resumes by looking at nonhost_1 only.
-trap 'rm -rf "$tmp"; rm -f "$final1.part" ${final2:+"$final2.part"}' EXIT INT TERM
+trap 'ferma_avanzamento; rm -rf "$tmp"; rm -f "$final1.part" ${final2:+"$final2.part"}' EXIT INT TERM
 if [ "$paired" -eq 1 ]; then
   mv -f "$cur2" "$final2.part" && mv -f "$final2.part" "$final2" || die "cannot write non-host R2"
 fi

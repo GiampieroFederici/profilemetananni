@@ -83,6 +83,7 @@
  "Il codice è giusto: succede con i campioni pubblicati da pochi giorni. Riprova fra qualche giorno, oppure togli questo campione dal progetto.": "The code is correct: this happens with samples published a few days ago. Try again in a few days, or remove this sample from the project.",
  "Il campione {nome} risulta senza read (0 coppie): la stima non è affidabile. Controlla le read di questo campione prima di avviare l'analisi.": "Sample {nome} appears to have no reads (0 pairs): the estimate is not reliable. Check the reads of this sample before starting the analysis.",
  "Campione {i} di {n}: ": "Sample {i} of {n}: ",
+ "{frase} (questo passo è al {p} %)": "{frase} (this step is at {p} %)",
  "il programma del referto non ha risposto": "the report program did not answer",
  "I server di ENA e NCBI non rispondono: riprovo fra {s} secondi (tentativo {n} di {tot}).": "The ENA and NCBI servers do not answer: I try again in {s} seconds (attempt {n} of {tot}).",
  "Virus: opzione sperimentale, non validata con il database diviso in 6 parti. Nei pareggi fra copie virali quasi identiche la scelta può cambiare rispetto al MetaPhlAn standard (D017, D033).": "Viruses: experimental option, not validated with the database split into 6 parts. In ties between almost identical viral copies the choice can change compared to standard MetaPhlAn (D017, D033).",
