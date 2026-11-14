@@ -287,6 +287,35 @@ def test_p3_un_solo_messaggio_e_vero(cartella):
     assert righe_pmn(r)[-1] == "[PMN] Installazione non completata."
 
 
+def test_la_domanda_parla_la_lingua_e_accetta_s_e_y(cartella):
+    """On an Ubuntu in English the question was in Italian ("Procedo con l'installazione? (s/n)") and only "s" went
+    on: "y" cancelled the installation. Now the question follows the language and both "s" and "y" mean yes."""
+    prepara(cartella)
+    tutto_scaricato(cartella)
+    cmd = [x for x in comando(cartella, json=False) if x != "--si"]
+
+    def chiedi(risposta, lingua):
+        return subprocess.run(cmd + ["--lingua", lingua], input=risposta + "\n", capture_output=True, text=True,
+                              encoding="utf-8", env=ambiente(cartella / "home"), timeout=600)
+    for risposta, lingua in (("y", "en"), ("Y", "en"), ("s", "it"), ("S", "it"), ("y", "it")):
+        assert chiedi(risposta, lingua).returncode == 0, (risposta, lingua)
+    for risposta in ("n", "", "yes"):
+        assert chiedi(risposta, "en").returncode == 3, risposta
+    # the text of the question: bash writes it only when the answer comes from a terminal
+    import pty
+    for lingua, risposta, domanda in (("en", b"y\n", "[PMN] Shall I go ahead with the installation? (y/n) "),
+                                      ("it", b"s\n", "[PMN] Procedo con l'installazione? (s/n) ")):
+        capo, coda = pty.openpty()
+        try:
+            os.write(capo, risposta)
+            r = subprocess.run(cmd + ["--lingua", lingua], stdin=coda, capture_output=True, text=True,
+                               encoding="utf-8", env=ambiente(cartella / "home"), timeout=600)
+        finally:
+            os.close(capo)
+            os.close(coda)
+        assert r.returncode == 0 and domanda in r.stderr, r.stderr
+
+
 # ---------------- P4, P11: what the log says ----------------
 def test_p4_p11_cadute_della_rete_nel_log_con_il_nuovo_tentativo(cartella):
     """P11: the log had "curl: (...)" for every drop of the network and nothing that said it was tried again.
@@ -467,6 +496,7 @@ def scaricata(casa, nome="profilemetananni-main"):
         (s / n / "un_file").write_text(n, encoding="utf-8")
     (s / "app" / "risorse").mkdir(parents=True)
     shutil.copy(ROOT / "app" / "requirements.txt", s / "app")
+    (s / "app" / "main.py").write_text("x = 1\n", encoding="utf-8")
     (s / "app" / "risorse" / "avatar_512.png").write_bytes(b"png")
     (s / "app" / "__pycache__").mkdir()
     (s / "app" / "__pycache__" / "main.pyc").write_bytes(b"x")
@@ -540,3 +570,15 @@ def test_p3_p7_dopo_il_motore_nessuna_frase_in_piu(casa):
     assert r.returncode == 7 and righe_pmn(r)[1:] == [
         f"[PMN] L'installazione del motore si è fermata (codice 7). Se il motivo non è scritto qui sopra, manda a noi "
         f"i file della cartella {casa / '.pmn' / 'log'}."]
+
+
+def test_lo_zip_di_windows_su_linux_si_ferma_subito(casa):
+    """The Windows zip has installa_pmn.sh but not the app folder. With the 1.3.0 a Linux user who took that zip
+    downloaded the whole engine (hours) and only then read "Non trovo le versioni di PySide6 e PyYAML". Now the
+    script stops at once, says why, and the engine installer is not launched."""
+    s = scaricata(casa)
+    shutil.rmtree(s / "app")
+    r = installa_pmn(casa, s, "--si")
+    assert r.returncode == 1 and not (casa / ".pmn" / "motore.chiamate").exists()
+    assert r.stderr.strip() == ("[PMN] ERRORE: In questa cartella manca la parte per Linux: forse è lo zip di Windows. "
+                                "Scarica il pacchetto per Linux dalla pagina della Release su GitHub.")

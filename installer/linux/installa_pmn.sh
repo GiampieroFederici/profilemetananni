@@ -25,6 +25,7 @@ declare -A EN=(
   ["Non lanciare questo script con sudo: installa tutto nella tua cartella personale, senza permessi di amministratore."]="Do not run this script with sudo: it installs everything in your home folder, without administrator rights."
   ["Serve Linux a 64 bit (x86_64): questo computer è %s %s."]="64-bit Linux (x86_64) is needed: this computer is %s %s."
   ["PMN_HOME deve essere un percorso assoluto, non %s."]="PMN_HOME must be an absolute path, not %s."
+  ["In questa cartella manca la parte per Linux: forse è lo zip di Windows. Scarica il pacchetto per Linux dalla pagina della Release su GitHub."]="The Linux part is missing in this folder: perhaps this is the Windows zip. Download the Linux package from the Release page on GitHub."
   ["Mancano programmi di sistema che servono al motore. Lancia questa riga, poi di nuovo questo script:"]="Some system programs needed by the engine are missing. Run this line, then this script again:"
   ["Installo il motore: programmi e database. Può durare ore; se si interrompe, rilancia questo script e riprende."]="Installing the engine: programs and databases. It can take hours; if it stops, run this script again and it resumes."
   ["Non riesco a copiare il programma in %s. Controlla lo spazio libero e rilancia questo script."]="I cannot copy the program to %s. Check the free space and run this script again."
@@ -51,6 +52,8 @@ fallisci() { printf '[PMN] %s: %s\n' "$(T 'ERRORE')" "$(T "$@")" >&2; exit 1; }
 [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] \
   || fallisci 'Serve Linux a 64 bit (x86_64): questo computer è %s %s.' "$(uname -s)" "$(uname -m)"
 [[ $PMN_HOME = /* ]] || fallisci 'PMN_HOME deve essere un percorso assoluto, non %s.' "$PMN_HOME"
+# lo zip di Windows ha questo script ma non la cartella app: fermarsi qui, prima di scaricare 139 GB
+[ -f "$PMN_ROOT/app/main.py" ] || fallisci 'In questa cartella manca la parte per Linux: forse è lo zip di Windows. Scarica il pacchetto per Linux dalla pagina della Release su GitHub.'
 # stesso elenco di installer/installa_motore.sh (tests/test_app_linux.py li confronta), come programma:pacchetto di Ubuntu
 PROGRAMMI="curl:curl tar:tar gzip:gzip md5sum:coreutils sha256sum:coreutils awk:gawk df:coreutils ps:procps mkfifo:coreutils"
 MANCANO=""

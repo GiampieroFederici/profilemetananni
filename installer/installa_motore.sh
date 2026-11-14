@@ -126,6 +126,7 @@ declare -A EN=(
   ["Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 8 GB of memory."
   ["La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn."]="The final test stopped because there is not enough memory: Linux closed a MetaPhlAn program."
   ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 8 GB of memory. If it happens again, send us the file %s."
+  ["Procedo con l'installazione? (s/n)"]="Shall I go ahead with the installation? (y/n)"
   ["ERRORE"]="ERROR"
   ["Cosa fare"]="What to do"
   ["Attenzione"]="Warning"
@@ -455,8 +456,8 @@ if [ "$STIMA" = 1 ]; then
   PASSO=fine; evento fine null "$(T 'Stima pronta: non ho scaricato nulla.')"; exit 0
 fi
 if [ "$SI" != 1 ]; then
-  read -r -p "[PMN] Procedo con l'installazione? (s/n) " r || r=n
-  [ "$r" = s ] || [ "$r" = S ] || { PASSO=fine; ESITO=annullata; evento fine null "$(T 'Installazione annullata: non ho scaricato nulla.')"; exit 3; }
+  read -r -p "[PMN] $(T "Procedo con l'installazione? (s/n)") " r || r=n
+  [ "$r" = s ] || [ "$r" = S ] || [ "$r" = y ] || [ "$r" = Y ] || { PASSO=fine; ESITO=annullata; evento fine null "$(T 'Installazione annullata: non ho scaricato nulla.')"; exit 3; }
 fi
 
 # ===================== 2. programmi =====================
