@@ -293,11 +293,18 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   |---|---|---|
   | `download` | byte delle read gz (ENA) / 4,1 MB/s; 0 per le read locali | 533,5 MB in 129 s (rete di casa) |
   | `pulizia` | 5,6 s per milione di coppie | fastp 18 s per 3,24 M |
-  | `ospite` | 101 s per milione di coppie (non scala con i processori) | 325 s (S2.2), 327 s con 24 processori |
+  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 70 s × quota dell'ospite + 31 s × (1 − quota); con altri processori × (8 / processori)^0,49 | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
   | `metaphlan` | 86,2 s per milione di coppie **senza ospite** + 230 s fissi per campione | 357 s per 1,51 M |
   | `kraken` | coppie **senza ospite** / (37.000 al minuto × √(processori / 8)); rapido 10 M al minuto | 40 min 47 s con 8 (K2), 1.415 s con 24 |
   | `controllo_qualita`, `riepilogo`, `referto` | 15 s, 10 s, 10 s fissi; triage (se attivo) 60 s per campione, non misurato | MultiQC 3-16 s, tabelle 4 s, referto 1 s |
 
+- **[18/11/2026]** Quota dell'ospite nel passo `ospite`: la stessa che conta le coppie senza ospite (triage o ospite
+  già tolto, per campione; se no 0,67; 0 se si toglie solo l'uomo). I due costi: una coppia che resta 31 µs (fase 1
+  5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 70 µs (il resto del tempo
+  del passo diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di ospite dà 18 minuti a 8
+  processori. L'esponente dei processori è quello misurato il 6/11 su un solo passaggio, non rimisurato sulle due
+  fasi. Read singole, `very-sensitive` e progetti con solo l'uomo usano un solo passaggio: per loro la regola non è
+  stata misurata.
 - Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie
   è dell'ospite quando il progetto ne toglie uno (`hosts:` non vuoto: SF3RAt7, maiale, 3,24 M → 1,51 M; bovino e
   pecora non ancora misurati), 0 % se si toglie solo l'uomo (prudente).

@@ -82,3 +82,20 @@ def test_quote_dal_triage(tmp_path):
                                                      encoding="utf-8")
     assert pm.quote_triage(tmp_path) == {"A": 0.625}
     assert pm.quote_triage(tmp_path / "manca") == {}
+
+
+def test_ospite_costa_secondo_la_quota():
+    """18/11/2026, filtro in due fasi: a 8 processori una coppia tolta costa 70 microsecondi, una che resta 31
+    (misure del 14/11 su SRR4875279). Prima: 155 s per milione a 24 processori, uguale per ogni quota."""
+    otto = {"hosts": ["sus_scrofa"], "execution": {"threads": 8}}
+
+    def ospite(coppie, cfg=otto, quote=None):
+        return {e: sec for e, _passo, _gruppo, sec in pm.piano([("A", coppie, 0)], cfg, quote)}["hf_A"]
+
+    assert abs(ospite(2_955_015, quote={"A": 1_970_140 / 2_955_015}) - 168.45) <= 0.5     # misurati 167,2 e 169,7 s
+    assert abs(ospite(15_525_290, quote={"A": 0.99}) - 1081) <= 1          # 18 min; con la regola di prima 4.123 s
+    # senza una quota misurata: 0,67; solo l'uomo: nessuna coppia dell'ospite
+    assert abs(ospite(1_000_000) - (70 * pm.OSPITE_QUOTA + 31 * (1 - pm.OSPITE_QUOTA))) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "hosts": []}) - 31) <= 1e-6
+    # processori: l'esponente che c'era già, ora da 8
+    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 4}}) / ospite(1_000_000) - 2 ** 0.49) <= 1e-6

@@ -44,10 +44,16 @@ CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "READ_NON_DISPON
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
-OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): salume vero 1.916 s per 12,0 M coppie, altro salume 5.778 s per 37,0 M,
-                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile.
-OSPITE_PROC_RIF, OSPITE_ESP = 24, 0.49   # Bowtie2 con meno processori (6/11, 946.123 coppie di un salume vero, uscite identiche):
-                               # 24 -> 113 s, 8 -> 159 s (x1,41), 4 -> 271 s (x2,40); (24/p)^0,49 = x2,40 a 4 e x1,71 a 8 (prudente)
+OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 70, 31   # 18/11, filtro in due fasi, 8 processori (misure del 14/11 su
+                               # SRR4875279, 2.955.015 coppie, 66,7 % tolte, passo intero 167,2 e 169,7 s): una coppia che
+                               # resta costa 31 microsecondi (fase 1 5,0 + fase 2 10,5, misurati; uomo 15,2 = da 12,7 a
+                               # 17,3 s per 986.045 coppie); una coppia tolta 70 (il resto del tempo diviso per
+                               # 1.970.140 coppie tolte). Controllo: 15,5 M coppie al 99 % danno 1.081 s; la stima
+                               # fatta fase per fase il 14/11 dava 18 min. Prima (un passaggio) 155 s per milione a
+                               # 24 processori, senza la quota: un campione al 99 % di ospite durava 5 volte la stima.
+OSPITE_PROC_RIF, OSPITE_ESP = 8, 0.49   # esponente del 6/11 (un passaggio, 946.123 coppie di un salume vero: 24 -> 113 s,
+                               # 8 -> 159 s, 4 -> 271 s), non rimisurato sulle due fasi: da 8 a 4 processori dice x1,40
+                               # (misurato allora x1,70), da 8 a 24 x0,58 (misurato allora x0,71)
 OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
                                # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
@@ -185,7 +191,10 @@ def piano(camp, cfg, quote=None):
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
+        q = quote.get(n, quota)   # 18/11: una coppia dell'ospite costa più del doppio di una che resta
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M),
+                (f"hf_{n}", "ospite", 2, c / 1e6 * (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q))
+                 * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:
