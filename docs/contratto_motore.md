@@ -303,8 +303,9 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 70 µs (il resto del tempo
   del passo diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di ospite dà 18 minuti a 8
   processori. L'esponente dei processori è quello misurato il 6/11 su un solo passaggio, non rimisurato sulle due
-  fasi. Read singole, `very-sensitive` e progetti con solo l'uomo usano un solo passaggio: per loro la regola non è
-  stata misurata.
+  fasi. Dove il filtro resta a un solo passaggio (`very-sensitive`, progetti con solo l'uomo) il metodo non cambia e
+  la regola nemmeno: 155 s per milione di coppie a 24 processori, × (24 / processori)^0,49. Le read singole restano a
+  un passaggio, ma `stima` non sa se le read sono singole: per loro vale la regola del progetto.
 - Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie
   è dell'ospite quando il progetto ne toglie uno (`hosts:` non vuoto: SF3RAt7, maiale, 3,24 M → 1,51 M; bovino e
   pecora non ancora misurati), 0 % se si toglie solo l'uomo (prudente).

@@ -155,6 +155,10 @@ def test_due_fasi_salva_tutte_le_coppie_tolte(tmp_path, genomi):
         assert sorted(tolte) == sorted(leggi_gz(tmp_path / "ospite_uno" / f"S.sus_scrofa_{m}.fastq.gz"))
         assert sorted(n for n, _s, _q in tolte) == ["discordante", "entrambe_maiale", "locale_maiale",
                                                     "solo_R1_maiale", "solo_R2_maiale"]
+    # l'ordine non è più quello delle read in ingresso (prima le coppie della fase 1, poi quelle della fase 2), ma
+    # R1 e R2 restano allineati coppia per coppia
+    nomi = [[n for n, _s, _q in leggi_gz(tmp_path / "ospite_due" / f"S.sus_scrofa_{m}.fastq.gz")] for m in (1, 2)]
+    assert nomi[0] == nomi[1] == ["entrambe_maiale", "solo_R1_maiale", "solo_R2_maiale", "discordante", "locale_maiale"]
     assert sorted(f.name for f in (tmp_path / "ospite_due").iterdir()) == ["S.sus_scrofa_1.fastq.gz",
                                                                            "S.sus_scrofa_2.fastq.gz"]
 

@@ -54,6 +54,9 @@ OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 70, 31   # 18/11, filtro in due fa
 OSPITE_PROC_RIF, OSPITE_ESP = 8, 0.49   # esponente del 6/11 (un passaggio, 946.123 coppie di un salume vero: 24 -> 113 s,
                                # 8 -> 159 s, 4 -> 271 s), non rimisurato sulle due fasi: da 8 a 4 processori dice x1,40
                                # (misurato allora x1,70), da 8 a 24 x0,58 (misurato allora x0,71)
+OSPITE_S_PER_M_UNO, OSPITE_PROC_RIF_UNO = 155, 24   # dove il filtro resta a un passaggio (solo l'uomo, very-sensitive:
+                               # bin/run.sh, HOST_PREFILTER) la regola di prima, non toccata: 1.2, salume vero 1.916 s
+                               # per 12,0 M coppie, altro salume 5.778 s per 37,0 M, a 24 processori
 OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
                                # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
@@ -190,11 +193,14 @@ def piano(camp, cfg, quote=None):
     if sezione(cfg, "triage").get("enabled") is True:
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
+    # 18/11: due fasi dove le chiede bin/run.sh (un ospite del prodotto, very-sensitive-local); altrove un passaggio
+    due_fasi = bool([h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]) and \
+        cfg.get("host_sensitivity", "very-sensitive-local") == "very-sensitive-local"
     for n, c, _ in camp:
-        q = quote.get(n, quota)   # 18/11: una coppia dell'ospite costa più del doppio di una che resta
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M),
-                (f"hf_{n}", "ospite", 2, c / 1e6 * (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q))
-                 * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
+        q = quote.get(n, quota)   # una coppia dell'ospite costa più del doppio di una che resta
+        per_m = (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q)) * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP \
+            if due_fasi else OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * per_m)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:
