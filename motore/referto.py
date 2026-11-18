@@ -578,6 +578,15 @@ def righe_parametri(d):
                       "comunità simulate funghi e lieviti perdono circa l'1 % delle loro coppie, i batteri meno "
                       "dello 0,1 %"),
                     _("impostazioni predefinite di KneadData 0.12.5; Langmead & Salzberg 2012")))
+    if p.get("host_prefilter"):   # 18/11/2026: filtro in due fasi sul primo genoma (steps/21_hostfilter.sh)
+        out.append((_("Filtro dell'ospite in due fasi"),
+                    f"Bowtie2 {p['host_prefilter']}, Bowtie2 {p.get('host_sensitivity', '')}",
+                    _("read a coppie, primo genoma: prima Bowtie 2 con l'impostazione veloce (end-to-end) guarda "
+                      "tutte le coppie; solo le coppie con le due read non allineate passano all'impostazione "
+                      "completa, riprese dai file puliti con la riga di intestazione intera. Gli altri genomi e le "
+                      "read singole passano una volta sola, con l'impostazione completa"),
+                    _("misura su SRR4875279, 2.955.015 coppie: rispetto a un solo passaggio nessuna coppia tenuta "
+                      "in più, 3 tolte in più")))
     if p.get("trim"):
         out.append((_("Pulizia delle read"), p["trim"],
                     _("fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le "

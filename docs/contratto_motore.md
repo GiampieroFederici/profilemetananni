@@ -146,6 +146,30 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
   nulla, quindi uscite e velocità non cambiano. `PMN_AVANZAMENTO_S` cambia i secondi fra due righe (prove). Se
   `/proc` non si legge, nessun evento in più. L'interfaccia non deve fare nulla: mostra `messaggio`, barra e tempo
   come per ogni `avanzamento`.
+- **[18/11/2026]** Filtro dell'ospite in due fasi (`steps/21_hostfilter.sh --prefilter very-fast`). Nessun campo
+  nuovo negli eventi; cambia come il passo `ospite` lavora sul **primo genoma**, e solo dove è stato misurato: read a
+  coppie, `host_sensitivity: very-sensitive-local` (predefinita) e almeno un ospite del prodotto in `hosts`
+  (`bin/run.sh`, `HOST_PREFILTER`). Read singole, `very-sensitive`, i genomi dopo il primo (l'uomo) e i progetti che
+  tolgono solo l'uomo restano con un solo passaggio, come prima.
+  - Fase 1: Bowtie 2 `--very-fast --reorder` (end-to-end) su tutte le coppie. Non scrive read: scrive la posizione nel
+    file delle coppie con le due read non allineate.
+  - Fase 2: il comando di ogni passaggio (`--very-sensitive-local --reorder`, regola strict) sulle sole coppie
+    rimaste, riprese dai file puliti in ingresso con la riga di intestazione intera (Bowtie 2 ricava le sue scelte
+    casuali ripetibili anche da quella riga). Le coppie si riprendono per posizione, non per nome.
+  - Misura del 14/11/2026 su SRR4875279 (2.955.015 coppie pulite, 8 processori): 167-170 s contro 370-372 s; rispetto
+    a un solo passaggio nessuna coppia tenuta in più, 3 tolte in più. Le read senza ospite non sono identiche al byte
+    a quelle di un solo passaggio.
+  - Registri in `hostfilter_logs/`: `<campione>.<indice>.bowtie2.log` è la fase 1 (tutte le coppie entrate),
+    `<campione>.<indice>_fase2.bowtie2.log` la fase 2. `<campione>.<indice>.coppie.tsv` resta uno per genoma: coppie
+    entrate nella fase 1, coppie tenute dopo la fase 2. `coppie_ospite()` non cambia e non conta due volte.
+  - `tabelle/parameters.tsv` e il timbro dell'ospite hanno la riga `host_prefilter` (`very-fast`) solo quando le due
+    fasi si usano. Il referto la mostra come "Filtro dell'ospite in due fasi". Un progetto fatto con un solo
+    passaggio non ha la riga: se viene rilanciato rifà ospite, MetaPhlAn e Kraken, come ogni cambio del timbro.
+  - `[progress] N` attraversa le due fasi: per lo stesso numero di coppie la fase 1 pesa 3, la fase 2 pesa 4, i
+    passaggi dopo 1 (tempi del 14/11: circa 60 %, 30 % e 9 % del passo). Durante la fase 1 la quota di coppie che
+    passerà alla fase 2 si legge dall'elenco che la fase 1 sta scrivendo.
+  - Con `keep_host_reads` le coppie tolte dal primo genoma sono nello stesso file di prima, tutte: prima quelle tolte
+    dalla fase 1, poi quelle tolte dalla fase 2 (non più nell'ordine delle read in ingresso).
 - **[13/11/2026]** L'ordine dei campioni non dipende dalla lingua del sistema: `bin/lib/common.sh` fissa
   `LC_ALL=C.UTF-8` per `run.sh` e per ogni passo (ordine dei codici dei caratteri, lo stesso di `sorted()` nel
   motore; prima, con Ubuntu in italiano, `a` veniva prima di `B` e le colonne di `metaphlan_merged.tsv` cambiavano).
@@ -324,7 +348,8 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 
 - `citazioni`: gli strumenti e i database davvero usati nella corsa (D036), da mostrare in fondo al referto.
   **[v0.2]** con DOI, verificate su PubMed; `parametri` = le righe di `tabelle/parameters.tsv` (`metaphlan_mode`,
-  `kraken_profile`, `kraken_confidence`, `bracken_min_reads`, `abundance_threshold_pct`, `hosts`, ...);
+  `kraken_profile`, `kraken_confidence`, `bracken_min_reads`, `abundance_threshold_pct`, `hosts`, ...;
+  **[18/11/2026]** `host_prefilter` quando il filtro dell'ospite lavora in due fasi, §4);
   `versioni` anche di Bracken, Bowtie 2, fastp e il database di Kraken.
 - **[v0.2]** Per ogni campione `sintesi` (l'interfaccia mostra, non calcola, D006), MetaPhlAn e Kraken separati:
 

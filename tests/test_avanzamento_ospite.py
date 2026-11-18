@@ -122,3 +122,47 @@ def test_il_passo_dice_a_che_punto_e_bowtie2(tmp_path):
     assert set(righe) == {"50", "99"} and righe == sorted(righe), p.stdout
     assert (tmp_path / "uscita" / "S1_nonhost_1.fastq.gz").read_bytes() == b"0123456789"
     assert "Terminated" not in p.stderr                 # chiudere il controllo non lascia righe che sembrano guasti
+
+
+# ---------------- passo in due fasi (18/11/2026): l'avanzamento attraversa fase 1, fase 2 e passaggio dopo ----------------
+# Bowtie2 finto: 40.000 coppie, una su quattro con le due read non allineate (flag 77), poi tiene aperto R1 a metà
+BOWTIE2_COPPIE = """#!/bin/bash
+while [ $# -gt 0 ]; do case "$1" in -1|-U) R1="$2"; shift 2 ;; *) shift ;; esac; done
+echo "40000 reads; of these:" >&2
+awk 'BEGIN { for (i = 1; i <= 40000; i++) print "r" i "\\t" (i % 4 ? 65 : 77) }'
+"$(dirname "$0")/bowtie2-align-s" "$R1"
+"""
+
+
+@linux
+def test_l_avanzamento_attraversa_le_due_fasi(tmp_path):
+    import gzip
+    finti = tmp_path / "finti"
+    finti.mkdir()
+    for nome, testo in (("bowtie2", BOWTIE2_COPPIE), ("bowtie2-align-s", ALLINEA), ("samtools", SAMTOOLS)):
+        (finti / nome).write_text(testo, encoding="utf-8")
+        (finti / nome).chmod(0o755)
+    for m in (1, 2):
+        with gzip.open(tmp_path / f"r_{m}.fastq.gz", "wt") as g:
+            g.write("".join(f"@r{i} {m}\nACGT\n+\nIIII\n" for i in range(1, 40001)))
+    for indice in ("maiale", "uomo"):
+        (tmp_path / f"{indice}.1.bt2").write_bytes(b"x")
+    env = {**os.environ, "PATH": f"{finti}:{os.environ['PATH']}", "PMN_AVANZAMENTO_S": "0.3", "PMN_BT2_MM": "no",
+           "TMPDIR": str(tmp_path), "NO_COLOR": "1"}
+    p = subprocess.run(["bash", str(RADICE / "steps" / "21_hostfilter.sh"), "--sample", "S1",
+                        "--in1", str(tmp_path / "r_1.fastq.gz"), "--in2", str(tmp_path / "r_2.fastq.gz"),
+                        "--index", str(tmp_path / "maiale"), "--index", str(tmp_path / "uomo"),
+                        "--out", str(tmp_path / "uscita"), "--log-dir", str(tmp_path / "log"), "--threads", "1",
+                        "--prefilter", "very-fast"],
+                       capture_output=True, text=True, timeout=60, env=env)
+    assert p.returncode == 0, p.stdout + p.stderr
+    righe = [r.split("[progress] ")[1] for r in p.stdout.splitlines() if "[progress] " in r]
+    # Pesi: fase 1 = 3, fase 2 = 4, passaggio dopo = 1, per le stesse coppie. Un quarto delle coppie passa alla fase 2.
+    # fase 1 a metà di R1: 3 x 0,5 su (3 + (4 + 1) x 0,25) -> 35
+    # fase 2 a metà del suo ingresso (l'uscita non c'è ancora): (3 + 4 x 0,25 x 0,5) su (3 + 4 x 0,25) -> 87
+    # uomo (10 byte, pesa 1): quasi tutto fatto -> 99
+    assert set(righe) == {"35", "87", "99"} and righe == sorted(righe), p.stdout
+    assert (tmp_path / "uscita" / "S1_nonhost_1.fastq.gz").read_bytes() == b"0123456789"
+    assert (tmp_path / "log" / "S1.maiale.coppie.tsv").read_text() == "entrate\ttenute\n40000\t1\n"
+    assert (tmp_path / "log" / "S1.maiale_fase2.bowtie2.log").is_file()
+    assert "Terminated" not in p.stderr

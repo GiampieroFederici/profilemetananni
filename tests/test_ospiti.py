@@ -293,7 +293,8 @@ def test_run_salame_invariato(tmp_path):
     assert not (home / "ospiti_utente").exists()
     assert (lavoro / "nonhost" / ".parametri").read_text().strip() == \
         "hosts=sus_scrofa\nfilter_human=yes\nhost_sensitivity=very-sensitive-local\nhost_pairs=strict\n" \
-        "trim=fastp cut_right 4:20 length_required 70"   # F1, 5/11: regola strict e pulizia come KneadData 0.12.5
+        "trim=fastp cut_right 4:20 length_required 70\n" \
+        "host_prefilter=very-fast"   # F1, 5/11: regola strict e pulizia come KneadData 0.12.5; 18/11: filtro in due fasi
 
 
 # ---------------- motore/pmn_motore.py ----------------
