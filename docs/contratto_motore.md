@@ -293,7 +293,7 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   |---|---|---|
   | `download` | byte delle read gz (ENA) / 4,1 MB/s; 0 per le read locali | 533,5 MB in 129 s (rete di casa) |
   | `pulizia` | 5,6 s per milione di coppie | fastp 18 s per 3,24 M |
-  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 70 s × quota dell'ospite + 31 s × (1 − quota); con altri processori × (8 / processori)^0,49 | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
+  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 70 s × quota dell'ospite + 31 s × (1 − quota); con altri processori × (8 / processori)^0,73 sotto gli 8 e ^0,42 sopra **[19/11/2026]** | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
   | `metaphlan` | 86,2 s per milione di coppie **senza ospite** + 230 s fissi per campione | 357 s per 1,51 M |
   | `kraken` | coppie **senza ospite** / (37.000 al minuto × √(processori / 8)); rapido 10 M al minuto | 40 min 47 s con 8 (K2), 1.415 s con 24 |
   | `controllo_qualita`, `riepilogo`, `referto` | 15 s, 10 s, 10 s fissi; triage (se attivo) 60 s per campione, non misurato | MultiQC 3-16 s, tabelle 4 s, referto 1 s |
@@ -302,8 +302,12 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   già tolto, per campione; se no 0,67; 0 se si toglie solo l'uomo). I due costi: una coppia che resta 31 µs (fase 1
   5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 70 µs (il resto del tempo
   del passo diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di ospite dà 18 minuti a 8
-  processori. L'esponente dei processori è quello misurato il 6/11 su un solo passaggio, non rimisurato sulle due
-  fasi. Dove il filtro resta a un solo passaggio (`very-sensitive`, progetti con solo l'uomo) il metodo non cambia e
+  processori. **[19/11/2026]** Processori, filtro in due fasi: due esponenti, 0,73 sotto gli 8 processori e 0,42
+  sopra, misurati il 19/11 su SRR4875279 (passo intero, due corse per punto: 4 processori 265,0 e 261,5 s; 8
+  processori 159,6 e 157,3 s; 24 processori 95,5 e 105,0 s). Un esponente solo non descrive la curva: 0,49, a
+  partire dal tempo misurato a 8 processori, dava il 16 % in meno a 4 processori e l'8 % in meno a 24. Limiti: un PC
+  solo (24 core, 8 veloci e 16 lenti, senza legare i processori a core precisi), un campione al 67 % di ospite. Dove
+  il filtro resta a un solo passaggio (`very-sensitive`, progetti con solo l'uomo) il metodo non cambia e
   la regola nemmeno: 155 s per milione di coppie a 24 processori, × (24 / processori)^0,49. Le read singole restano a
   un passaggio, ma `stima` non sa se le read sono singole: per loro vale la regola del progetto.
 - Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie

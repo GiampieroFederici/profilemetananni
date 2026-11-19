@@ -103,8 +103,14 @@ def test_ospite_costa_secondo_la_quota():
     assert abs(ospite(1_000_000, {**otto, "hosts": ["grch38"]}) - uno) <= 1e-6
     assert abs(ospite(1_000_000, {**otto, "host_sensitivity": "very-sensitive"}, {"A": 0.99}) - uno) <= 1e-6
     assert abs(ospite(1_000_000, {**otto, "hosts": [], "execution": {"threads": 24}}) - 155) <= 1e-6
-    # processori: l'esponente che c'era già, ora da 8
-    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 4}}) / ospite(1_000_000) - 2 ** 0.49) <= 1e-6
+    # processori (19/11): due esponenti misurati sulle due fasi, 0,73 sotto gli 8 processori e 0,42 sopra
+    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 4}}) / ospite(1_000_000) - 2 ** 0.73) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 24}}) / ospite(1_000_000) - 3 ** -0.42) <= 1e-6
+    # contro le misure del 19/11 (SRR4875279, 66,7 % tolte): 4 processori 265,0 e 261,5 s, 24 processori 95,5 e 105,0 s
+    misurata = {"A": 1_970_140 / 2_955_015}
+    for processori, secondi in ((4, 263.25), (24, 100.25)):
+        stimati = ospite(2_955_015, {**otto, "execution": {"threads": processori}}, misurata)
+        assert abs(stimati - secondi) <= 0.10 * secondi, (processori, stimati)
 
 
 def test_estremi_quando_la_quota_non_e_misurata():

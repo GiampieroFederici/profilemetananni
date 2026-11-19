@@ -56,8 +56,12 @@ OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 70, 31   # 18/11, filtro in due fa
                                # fatta fase per fase il 14/11 dava 18 min. Prima (un passaggio) 155 s per milione a
                                # 24 processori, senza la quota: un campione al 99 % di ospite durava 5 volte la stima.
 OSPITE_PROC_RIF, OSPITE_ESP = 8, 0.49   # esponente del 6/11 (un passaggio, 946.123 coppie di un salume vero: 24 -> 113 s,
-                               # 8 -> 159 s, 4 -> 271 s), non rimisurato sulle due fasi: da 8 a 4 processori dice x1,40
-                               # (misurato allora x1,70), da 8 a 24 x0,58 (misurato allora x0,71)
+                               # 8 -> 159 s, 4 -> 271 s): dal 19/11 vale solo dove il filtro resta a un passaggio
+OSPITE_ESP_DUE = (0.73, 0.42)  # 19/11, due fasi: esponente sotto e sopra gli 8 processori. SRR4875279, passo intero, due
+                               # corse per punto, PC a corrente: 4 -> 265,0 e 261,5 s; 8 -> 159,6 e 157,3 s; 24 -> 95,5
+                               # e 105,0 s. Un esponente solo (0,49), dal tempo misurato a 8, dava il 16 % in meno a 4
+                               # processori e l'8 % in meno a 24. Un PC solo: 24 core, 8 veloci e 16 lenti, da qui il
+                               # gomito a 8
 OSPITE_S_PER_M_UNO, OSPITE_PROC_RIF_UNO = 155, 24   # dove il filtro resta a un passaggio (solo l'uomo, very-sensitive:
                                # bin/run.sh, HOST_PREFILTER) la regola di prima, non toccata: 1.2, salume vero 1.916 s
                                # per 12,0 M coppie, altro salume 5.778 s per 37,0 M, a 24 processori
@@ -211,7 +215,8 @@ def piano(camp, cfg, quote=None):
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
         q = quote.get(n, quota)   # una coppia dell'ospite costa più del doppio di una che resta
-        per_m = (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q)) * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP \
+        per_m = (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q)) \
+            * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP_DUE[processori(cfg) > OSPITE_PROC_RIF] \
             if due_fasi(cfg) else OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
         out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * per_m)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
