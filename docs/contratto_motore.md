@@ -293,16 +293,21 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   |---|---|---|
   | `download` | byte delle read gz (ENA) / 4,1 MB/s; 0 per le read locali | 533,5 MB in 129 s (rete di casa) |
   | `pulizia` | 5,6 s per milione di coppie | fastp 18 s per 3,24 M |
-  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 70 s × quota dell'ospite + 31 s × (1 − quota); con altri processori × (8 / processori)^0,73 sotto gli 8 e ^0,42 sopra **[19/11/2026]** | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
+  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 66 s × quota dell'ospite + 31 s × (1 − quota), più 8 s fissi a campione **[19/11/2026]**; con altri processori tutto × (8 / processori)^0,73 sotto gli 8 e ^0,42 sopra **[19/11/2026]** | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
   | `metaphlan` | 86,2 s per milione di coppie **senza ospite** + 230 s fissi per campione | 357 s per 1,51 M |
   | `kraken` | coppie **senza ospite** / (37.000 al minuto × √(processori / 8)); rapido 10 M al minuto | 40 min 47 s con 8 (K2), 1.415 s con 24 |
   | `controllo_qualita`, `riepilogo`, `referto` | 15 s, 10 s, 10 s fissi; triage (se attivo) 60 s per campione, non misurato | MultiQC 3-16 s, tabelle 4 s, referto 1 s |
 
 - **[18/11/2026]** Quota dell'ospite nel passo `ospite`: la stessa che conta le coppie senza ospite (triage o ospite
   già tolto, per campione; se no 0,67; 0 se si toglie solo l'uomo). I due costi: una coppia che resta 31 µs (fase 1
-  5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 70 µs (il resto del tempo
-  del passo diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di ospite dà 18 minuti a 8
-  processori. **[19/11/2026]** Processori, filtro in due fasi: due esponenti, 0,73 sotto gli 8 processori e 0,42
+  5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 66 µs (il resto del tempo
+  del passo, meno il costo fisso, diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di
+  ospite dà 17 minuti a 8 processori (misurati 13 minuti il 19/11). **[19/11/2026]** Costo fisso a campione, filtro
+  in due fasi: 8 s a 8 processori (tre lanci di Bowtie 2 e di samtools, ripresa delle coppie). Misura: analisi
+  d'esempio, 183.178 coppie pulite, 66,8 % tolte, passo intero 16 e 17 s a 8 processori e 11 s a 24; le sole coppie
+  danno 10 e 6 s. Fino al 19/11 il costo fisso stava dentro il costo della coppia tolta (70 µs): sul campione
+  grande la stima non cambia (168,6 s), su un campione piccolo era bassa (11 s invece di 16-17). Ora l'esempio dà
+  19 s a 8 processori e 12 s a 24. **[19/11/2026]** Processori, filtro in due fasi: due esponenti, 0,73 sotto gli 8 processori e 0,42
   sopra, misurati il 19/11 su SRR4875279 (passo intero, due corse per punto: 4 processori 265,0 e 261,5 s; 8
   processori 159,6 e 157,3 s; 24 processori 95,5 e 105,0 s). Un esponente solo non descrive la curva: 0,49, a
   partire dal tempo misurato a 8 processori, dava il 16 % in meno a 4 processori e l'8 % in meno a 24. Limiti: un PC

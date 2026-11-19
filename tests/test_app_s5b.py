@@ -258,7 +258,7 @@ def test_tempo_lungo_ambra_e_screening_rapido(qtbot, f, monkeypatch):
     s = vai_alle_scelte(qtbot, f)
     assert s.completo.pulsante.isChecked()
     assert f.aiuto.property("livello") == "avviso" and "Ci vorrà molto" in f.aiuto.text()
-    assert "Ci vorrà molto tempo." in scritte(s) and "da 81 minuti a 5,8 ore" in scritte(s)
+    assert "Ci vorrà molto tempo." in scritte(s) and "da 79 minuti a 5,8 ore" in scritte(s)
     secondario(f, "Passa allo screening rapido").click()
     assert s.rapido.pulsante.isChecked()
     assert f.contesto.progetto.leggi()["motore"]["kraken_db"] == "rapido"

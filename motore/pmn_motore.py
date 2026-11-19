@@ -48,13 +48,18 @@ FASE2_NON_COMPRESSE = 4.5      # 19/11, filtro in due fasi: le coppie che passan
                                # BYTE_PER_COPPIA. La stima dello spazio conta il caso peggiore: passano tutte
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
-OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 70, 31   # 18/11, filtro in due fasi, 8 processori (misure del 14/11 su
+OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 66, 31   # 18/11, filtro in due fasi, 8 processori (misure del 14/11 su
                                # SRR4875279, 2.955.015 coppie, 66,7 % tolte, passo intero 167,2 e 169,7 s): una coppia che
                                # resta costa 31 microsecondi (fase 1 5,0 + fase 2 10,5, misurati; uomo 15,2 = da 12,7 a
-                               # 17,3 s per 986.045 coppie); una coppia tolta 70 (il resto del tempo diviso per
-                               # 1.970.140 coppie tolte). Controllo: 15,5 M coppie al 99 % danno 1.081 s; la stima
-                               # fatta fase per fase il 14/11 dava 18 min. Prima (un passaggio) 155 s per milione a
-                               # 24 processori, senza la quota: un campione al 99 % di ospite durava 5 volte la stima.
+                               # 17,3 s per 986.045 coppie); una coppia tolta 66 (il resto del tempo, meno il costo
+                               # fisso, diviso per 1.970.140 coppie tolte; 70 fino al 19/11, quando il costo fisso
+                               # stava qui dentro). Controllo: 15,5 M coppie al 99 % danno 1.027 s (misurati 783 il
+                               # 19/11). Prima (un passaggio) 155 s per milione a 24 processori, senza la quota: un
+                               # campione al 99 % di ospite durava 5 volte la stima.
+OSPITE_FISSI_S = 8             # 19/11, due fasi: costo fisso a campione (tre lanci di Bowtie 2 e di samtools, ripresa
+                               # delle coppie), a 8 processori. Esempio da 183.178 coppie pulite, 66,8 % tolte, passo
+                               # intero: 16 e 17 s a 8 processori, 11 s a 24; le sole coppie danno 10,0 s e 6,3 s,
+                               # mancano 6-7 s e 5 s. Messo 8 per non stare sotto il vero a 24 processori
 OSPITE_PROC_RIF, OSPITE_ESP = 8, 0.49   # esponente del 6/11 (un passaggio, 946.123 coppie di un salume vero: 24 -> 113 s,
                                # 8 -> 159 s, 4 -> 271 s): dal 19/11 vale solo dove il filtro resta a un passaggio
 OSPITE_ESP_DUE = (0.73, 0.42)  # 19/11, due fasi: esponente sotto e sopra gli 8 processori. SRR4875279, passo intero, due
@@ -215,10 +220,10 @@ def piano(camp, cfg, quote=None):
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
         q = quote.get(n, quota)   # una coppia dell'ospite costa più del doppio di una che resta
-        per_m = (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q)) \
+        ospite_s = (OSPITE_FISSI_S + c / 1e6 * (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q))) \
             * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP_DUE[processori(cfg) > OSPITE_PROC_RIF] \
-            if due_fasi(cfg) else OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * per_m)]
+            if due_fasi(cfg) else c / 1e6 * OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, ospite_s)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:
