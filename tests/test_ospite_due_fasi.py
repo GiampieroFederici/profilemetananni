@@ -249,6 +249,68 @@ def test_annullamento_non_lascia_file(tmp_path, fase):
     assert not list((tmp_path / "uscita").glob("*.fastq.gz*"))
 
 
+@linux
+@pytest.mark.parametrize("dette, record, messaggio", [
+    (400, 100, "phase 1 listed 200 pairs for phase 2 but 50 were found in the reads (file 1)"),
+    (300, 400, "phase 1: Bowtie2 read 300 pairs but 400 are in its output")])
+def test_conti_che_non_tornano_fermano_il_passo(tmp_path, dette, record, messaggio):
+    """19/11/2026: se le coppie riprese per la fase 2 non sono quante quelle elencate dalla fase 1, o se Bowtie2 non
+    le ha viste tutte, il passo si ferma con un errore che lo dice: mai un campione vuoto o più corto in silenzio
+    (uno script di misura che confrontava i nomi perdeva tutte le coppie con le read chiamate nome/1 e nome/2)."""
+    finti = tmp_path / "finti"
+    finti.mkdir()
+    bowtie2 = BOWTIE2_LENTO.replace("400 reads", f"{dette} reads").replace("sleep 30\n", "")   # 200 coppie elencate su 400
+    for nome, testo in (("bowtie2", bowtie2), ("samtools", SAMTOOLS_FINTO)):
+        (finti / nome).write_text(testo, encoding="utf-8")
+        (finti / nome).chmod(0o755)
+    for m in (1, 2):
+        with gzip.open(tmp_path / f"r_{m}.fastq.gz", "wt") as g:
+            g.write("".join(f"@r{i} {m}\nACGT\n+\nIIII\n" for i in range(1, record + 1)))
+    (tmp_path / "maiale.1.bt2").write_bytes(b"x")
+    (tmp_path / "t").mkdir()
+    p = subprocess.run(["bash", str(RADICE / "steps" / "21_hostfilter.sh"), "--sample", "S1",
+                        "--in1", str(tmp_path / "r_1.fastq.gz"), "--in2", str(tmp_path / "r_2.fastq.gz"),
+                        "--index", str(tmp_path / "maiale"), "--out", str(tmp_path / "uscita"), "--threads", "1",
+                        "--prefilter", "very-fast"], capture_output=True, text=True, timeout=60,
+                       env={**os.environ, "PATH": f"{finti}:{os.environ['PATH']}", "PMN_BT2_MM": "no",
+                            "TMPDIR": str(tmp_path / "t"), "NO_COLOR": "1"})
+    assert p.returncode != 0
+    assert messaggio in p.stdout + p.stderr, p.stdout + p.stderr
+    assert not list((tmp_path / "uscita").glob("*.fastq.gz*")) and list((tmp_path / "t").iterdir()) == []
+
+
+@linux
+@pytest.mark.parametrize("liberi_kb, lo_dice", [(0, True), (5_000_000, False)])
+def test_disco_pieno_nella_fase_2_lo_dice(tmp_path, liberi_kb, lo_dice):
+    """19/11/2026: se la fase 2 fallisce e il disco della cartella temporanea è pieno, il passo scrive "No space left
+    on device" (il motore lo traduce in SPAZIO_INSUFFICIENTE). Riprodotto con Bowtie 2 e samtools veri su un disco in
+    memoria di 10 MB: il messaggio di samtools si perde, perché il suo file degli errori sta su quel disco. Qui la
+    fase 2 fallisce con un samtools finto e lo spazio libero lo dice un df finto. Nessuna uscita a metà."""
+    finti = tmp_path / "finti"
+    finti.mkdir()
+    for nome, testo in (("bowtie2", BOWTIE2_LENTO.replace("sleep 30\n", "")),
+                        ("samtools", SAMTOOLS_FINTO.replace("cat > /dev/null", "cat > /dev/null; exit 1")),
+                        ("df", '#!/bin/bash\nprintf "Filesystem 1024-blocks Used Available Capacity Mounted on\\n'
+                               f'finto 100 100 {liberi_kb} 100%% /\\n"\n')):
+        (finti / nome).write_text(testo, encoding="utf-8")
+        (finti / nome).chmod(0o755)
+    for m in (1, 2):
+        with gzip.open(tmp_path / f"r_{m}.fastq.gz", "wt") as g:
+            g.write("".join(f"@r{i} {m}\nACGT\n+\nIIII\n" for i in range(1, 401)))
+    (tmp_path / "maiale.1.bt2").write_bytes(b"x")
+    (tmp_path / "t").mkdir()
+    p = subprocess.run(["bash", str(RADICE / "steps" / "21_hostfilter.sh"), "--sample", "S1",
+                        "--in1", str(tmp_path / "r_1.fastq.gz"), "--in2", str(tmp_path / "r_2.fastq.gz"),
+                        "--index", str(tmp_path / "maiale"), "--out", str(tmp_path / "uscita"), "--threads", "1",
+                        "--prefilter", "very-fast"], capture_output=True, text=True, timeout=60,
+                       env={**os.environ, "PATH": f"{finti}:{os.environ['PATH']}", "PMN_BT2_MM": "no",
+                            "TMPDIR": str(tmp_path / "t"), "NO_COLOR": "1"})
+    testo = p.stdout + p.stderr
+    assert p.returncode != 0 and "phase 2, failed" in testo, testo
+    assert ("No space left on device: the disk of the temporary folder" in testo) == lo_dice, testo
+    assert not list((tmp_path / "uscita").glob("*.fastq.gz*")) and list((tmp_path / "t").iterdir()) == []
+
+
 # ---------------- motore e referto (girano ovunque) ----------------
 LOG = ("{n} reads; of these:\n  {n} (100.00%) were paired; of these:\n"
        "    {zero} (50.00%) aligned concordantly 0 times\n    0 (0.00%) aligned concordantly exactly 1 time\n")

@@ -25,6 +25,7 @@ for l in ${STUB_ETICHETTE:-size dl_S1 tq_S1 th_S1 trim_S1 hf_S1 multiqc mpa_S1 k
   case "${STUB_MODO:-ok}" in
     lento) sleep 1 ;;
     spazio) [ "$l" = size ] && { echo "[FAIL] Not enough space: need ~9.0 GB, have 1.0 GB."; exit 1; } ;;
+    disco) [ "$l" = hf_S1 ] && { echo "[FAIL] No space left on device: the disk of the temporary folder /x is full"; echo "[FAIL] bowtie2 pass 1 (sus_scrofa), phase 2, failed"; exit 1; } ;;
     rete) [ "$l" = size ] && { echo "[FAIL] ENA and NCBI could not be reached - nothing to download."; exit 1; } ;;
     memoria) [ "$l" = mpa_S1 ] && { echo "Killed"; echo "(ERR): bowtie2-align exited with value 137"; echo "[FAIL] step failed: mpa_S1"; exit 1; } ;;
     ospite) case "$l" in hf_*) mkdir -p "$work/hostfilter_logs"   # come steps/21: 80 % delle coppie e' ospite
@@ -101,6 +102,15 @@ def test_spazio_e_rete(ambiente):
     ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="rete")
     assert codice == 1 and ev[-2]["codice"] == "DOWNLOAD_FALLITO"
     assert [e["codice"] for e in ev if e["tipo"] == "avviso"] == ["RETE_INTERROTTA", "RETE_INTERROTTA"]   # 3 tentativi
+
+
+def test_spazio_finito_a_meta_non_e_errore_imprevisto(ambiente):
+    """19/11/2026: lo spazio che finisce durante il filtro dell'ospite (steps/21: "No space left on device") era
+    "errore imprevisto"; ora è SPAZIO_INSUFFICIENTE, con il passo e con che cosa fare."""
+    env, progetto = ambiente
+    ev, codice = lancia(env, "esegui", "--progetto", str(progetto), STUB_MODO="disco")
+    assert codice == 1 and ev[-2]["codice"] == "SPAZIO_INSUFFICIENTE" and ev[-2]["passo"] == "ospite"
+    assert "spazio sul disco" in ev[-2]["messaggio"] and "Riprova l'analisi" in ev[-2]["cosa_fare"]
 
 
 def test_memoria_finita_non_e_errore_imprevisto(ambiente):

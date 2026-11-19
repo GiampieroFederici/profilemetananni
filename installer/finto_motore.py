@@ -35,7 +35,7 @@ sys.path.insert(0, str(MOTORE))
 import lingua  # noqa: E402
 import system_one  # noqa: E402  (regole vere di System One v0: consigliano, non calcolano)
 from lingua import N_, _  # noqa: E402
-from pmn_motore import CITAZIONI, ESEMPIO, messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
+from pmn_motore import CITAZIONI, ESEMPIO, estremi, messaggio_fine, sezione, tempi  # noqa: E402  (stesso testo di fine e stesse regole di stima del vero)
 STATO = Path(tempfile.gettempdir()) / "pmn_finto"
 CAMPIONE = "SRR4875279"   # SF3RAt7 (Felino), scaricato da NCBI con il suo codice SRR
 COPPIE, BYTE = 3240847, 533522098   # SF3RAt7 su ENA: coppie prima dell'ospite e byte delle read gz
@@ -239,7 +239,8 @@ class Motore:
         for c in consigli:
             self.evento("avviso", c["messaggio"], codice=c["codice"])
         return "ok", {"campioni": 1, "nomi_campioni": [CAMPIONE], "coppie_totali": coppie, "tempo_s": tempo,
-                      "tempo_totale_s": sum(tempo.values()), "spazio_gb": 12,
+                      "tempo_totale_s": sum(tempo.values()),
+                      **estremi([(CAMPIONE, coppie, BYTE * coppie / COPPIE)], self.cfg(), {}), "spazio_gb": 12,
                       "spazio_libero_gb": INFO["spazio_libero_gb"], "consigli": consigli}, _("Stima pronta.")
 
     def esegui(self):

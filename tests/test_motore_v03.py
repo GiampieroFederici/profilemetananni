@@ -87,6 +87,19 @@ def test_2_stima_tempo_totale(tmp_path):
         assert rc == 0 and r["tempo_totale_s"] == sum(r["tempo_s"].values()) > 0
 
 
+def test_2_stima_con_gli_estremi(tmp_path):
+    """19/11/2026: con un ospite del prodotto e nessuna quota misurata la stima ha tempo_minimo_s e tempo_massimo_s;
+    con solo l'uomo non li ha (l'interfaccia funziona in tutti e due i casi, contratto §5.2)."""
+    read_finte(tmp_path / "read", ["C1_R1.fastq.gz", "C1_R2.fastq.gz"])
+    for ospiti, attesi in (("hosts: [sus_scrofa]\n", True), ("hosts: []\n", False)):
+        cfg = progetto(tmp_path, f"data_source: local\n{ospiti}paths:\n  local_reads_dir: {tmp_path / 'read'}\n")
+        ev, rc = vero(tmp_path, "stima", "--progetto", str(cfg))
+        r = ev[-1]["risultato"]
+        assert rc == 0 and ("tempo_minimo_s" in r) == ("tempo_massimo_s" in r) == attesi
+        if attesi:
+            assert r["tempo_minimo_s"] <= r["tempo_totale_s"] == r["tempo_massimo_s"]
+
+
 # ---------------- 3. Bracken -t dal progetto ----------------
 @pytest.mark.skipif(os.name == "nt", reason="bin/run.sh: Linux/WSL only")
 @pytest.mark.parametrize("scritto, atteso", [("", "10"), ("25", "25")])

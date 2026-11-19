@@ -326,6 +326,23 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 - **[v0.3]** `tempo_totale_s`: la somma di `tempo_s`, già pronta (**[17/10]** download compreso); `nomi_campioni`: i
   nomi con cui il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine
   del conteggio.
+- **[19/11/2026]** `tempo_minimo_s` e `tempo_massimo_s` (secondi, facoltativi): i due estremi del totale quando di
+  qualche campione la quota di ospite non è misurata (niente triage, ospite non ancora tolto) e il progetto toglie un
+  ospite del prodotto. Sono il totale alla quota di partenza (0,67, cioè `tempo_totale_s`) e il totale con il 99 % di
+  ospite, il più basso e il più alto. Con più ospite il filtro dura un po' di più, ma MetaPhlAn e Kraken ricevono
+  meno coppie: SRR4875279 a 8 processori, 30 minuti al 67 % e 7 minuti al 99 %. L'interfaccia scrive "da ... a ..."
+  se ci sono tutti e due e danno durate diverse; se mancano (solo l'uomo, quota misurata, motore di prima) scrive
+  "circa" con `tempo_totale_s`. `tempo_s` e `tempo_totale_s` non cambiano.
+- **[19/11/2026]** `spazio_gb`: 6 volte le read gz di tutti i campioni, come prima; dove il filtro dell'ospite è in
+  due fasi, in più 4,5 volte le read gz del campione più grande. Sono le coppie che passano la fase 1 e aspettano la
+  fase 2 non compresse nella cartella temporanea (misurati 735 byte per coppia su SRR4875279, 852.770.900 byte per
+  1.160.921 coppie): la stima conta il caso peggiore, tutte le coppie, e un campione solo perché la cartella si
+  svuota a ogni campione. SRR4875279: 3,2 GB prima, 5,6 GB ora.
+- **[19/11/2026]** Spazio finito a metà analisi: una riga "No space left on device" nel registro della corsa dà
+  l'errore `SPAZIO_INSUFFICIENTE` nel passo in corso (prima `ERRORE_INTERNO`). Nel filtro dell'ospite la riga la
+  scrive `steps/21_hostfilter.sh` quando un passaggio fallisce e il disco della cartella temporanea ha meno di 1 MB
+  libero: il messaggio di samtools si perde, perché il suo file degli errori sta su quel disco. Il passo non lascia
+  uscite a metà e cancella la cartella temporanea; dopo aver liberato spazio l'analisi si riprende dai passi finiti.
 - **[17/10]** `tempo_s` ha una chiave per ogni passo di `esegui` (più `referto`), nell'ordine in cui girano; chi è 0
   non gira (per esempio `kraken` con solo MetaPhlAn). Nessuna chiave tolta: le 3 di prima restano.
 

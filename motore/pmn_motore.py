@@ -42,6 +42,10 @@ CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "READ_NON_DISPON
                  "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
+FASE2_NON_COMPRESSE = 4.5      # 19/11, filtro in due fasi: le coppie che passano la fase 1 aspettano la fase 2 non
+                               # compresse nella cartella temporanea, un campione per volta. Misurato il 18/11 su
+                               # SRR4875279: 852.770.900 byte per 1.160.921 coppie, 735 byte per coppia = 4,5 volte
+                               # BYTE_PER_COPPIA. La stima dello spazio conta il caso peggiore: passano tutte
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
 OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 70, 31   # 18/11, filtro in due fasi, 8 processori (misure del 14/11 su
@@ -61,6 +65,7 @@ OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2):
                                # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
                                # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
+OSPITE_QUOTA_ALTA = 0.99       # l'altro estremo della stima quando la quota non è misurata (19/11): i salumi veri (98-99 %)
 MPA_S_PER_M, MPA_FISSI_S = 170, 55     # 6/11, PC libero, database ridotto (F3, N1): fissi 58-62 s sull'esempio (60.727
                                # coppie); per M dalla corsa del 17/10 (SF3RAt7, 1,51 M coppie, 357 s col .pkl intero meno 50 s);
                                # prudente su salumi veri (0,2-0,36 M: 59-66 s veri). Prima 86,2 per M (C03_1) e 135 fissi
@@ -104,6 +109,10 @@ ERRORI = [
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
     (r"Not enough space", "SPAZIO_INSUFFICIENTE", N_("Lo spazio libero non basta per scaricare le read."),
      N_("Libera spazio sul disco e riprova.")),
+    # 19/11: lo spazio finito a metà analisi (messaggio di sistema; steps/21 lo scrive lui quando quello si perde)
+    (r"No space left on device", "SPAZIO_INSUFFICIENTE",
+     N_("L'analisi si è fermata perché lo spazio sul disco è finito."),
+     N_("Libera spazio sul disco e premi \"Riprova l'analisi\": i passi già finiti restano salvati.")),
     # P16 (13/11): la corsa esiste, ma ENA e NCBI non hanno ancora le sue read (steps/05, stato EMPTY). Prima della
     # riga dei codici sbagliati: il suo messaggio contiene anche "runs were not found"
     (r"neither ENA nor NCBI has their reads yet", "READ_NON_DISPONIBILI",
@@ -175,6 +184,13 @@ def processori(cfg):
     return KRAKEN_PROC_RIF
 
 
+def due_fasi(cfg):
+    """Filtro dell'ospite in due fasi (18/11): dove le chiede bin/run.sh (un ospite del prodotto,
+    very-sensitive-local); altrove un passaggio."""
+    return bool([h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]) and \
+        cfg.get("host_sensitivity", "very-sensitive-local") == "very-sensitive-local"
+
+
 def piano(camp, cfg, quote=None):
     """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
     per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
@@ -193,13 +209,10 @@ def piano(camp, cfg, quote=None):
     if sezione(cfg, "triage").get("enabled") is True:
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
-    # 18/11: due fasi dove le chiede bin/run.sh (un ospite del prodotto, very-sensitive-local); altrove un passaggio
-    due_fasi = bool([h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]) and \
-        cfg.get("host_sensitivity", "very-sensitive-local") == "very-sensitive-local"
     for n, c, _ in camp:
         q = quote.get(n, quota)   # una coppia dell'ospite costa più del doppio di una che resta
         per_m = (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q)) * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP \
-            if due_fasi else OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
+            if due_fasi(cfg) else OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
         out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * per_m)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
@@ -224,6 +237,25 @@ def tempi(camp, cfg, quote=None):
     for _, passo, _, s in piano(camp, cfg, quote):
         out[passo] += s
     return {p: round(s) for p, s in out.items()}
+
+
+def estremi(camp, cfg, quote):
+    """{tempo_minimo_s, tempo_massimo_s} di stima (19/11): quando di qualche campione la quota di ospite non è misurata,
+    il totale con la quota di partenza (quello di tempi) e il totale con OSPITE_QUOTA_ALTA, il più basso e il più
+    alto. Con molto ospite il filtro dura un po' di più, ma MetaPhlAn e Kraken ricevono poche coppie: SRR4875279 a
+    8 processori, 30 minuti al 67 % e 7 al 99 %. Vuoto se la quota non conta (solo l'uomo) o è misurata per tutti."""
+    if not [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] or all(n in quote for n, _, _ in camp):
+        return {}
+    alta = {**dict.fromkeys((n for n, _, _ in camp), OSPITE_QUOTA_ALTA), **quote}
+    due = [sum(tempi(camp, cfg, q).values()) for q in (quote, alta)]
+    return {"tempo_minimo_s": min(due), "tempo_massimo_s": max(due)}
+
+
+def spazio_analisi(camp, cfg):
+    """GB di spazio per l'analisi (spazio_gb di stima): 6 volte le read gz di tutti i campioni; con il filtro in due
+    fasi anche le coppie non compresse che aspettano la fase 2, per un campione solo, il più grande (19/11)."""
+    fase2 = FASE2_NON_COMPRESSE * max(max(b, c * BYTE_PER_COPPIA) for _, c, b in camp) if due_fasi(cfg) else 0
+    return round((max(sum(b for _, _, b in camp), sum(c for _, c, _ in camp) * BYTE_PER_COPPIA) * 6 + fase2) / 1e9, 1)
 
 
 def quote_triage(lavoro):
@@ -611,9 +643,9 @@ class Motore:
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
-        tempo = tempi(camp, cfg, {**quote_triage(lavoro), **quote_ospite(lavoro)})   # come esegui (F3, L5)
-        scaricare = sum(b for _, _, b in camp)
-        spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
+        quote = {**quote_triage(lavoro), **quote_ospite(lavoro)}
+        tempo = tempi(camp, cfg, quote)   # come esegui (F3, L5)
+        spazio_gb = spazio_analisi(camp, cfg)
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
             lavoro = lavoro.parent
         libero = round(shutil.disk_usage(lavoro).free / 1e9, 1)
@@ -623,7 +655,7 @@ class Motore:
             consigli += system_one.database(kraken_db, {d["nome"]: d["installato"] for d in elenco_database(env)})
         return "ok", {"campioni": len(camp), "nomi_campioni": [n for n, _, _ in camp], "coppie_totali": coppie,
                       "tempo_s": tempo, "tempo_totale_s": sum(tempo.values()), "spazio_gb": spazio_gb,
-                      "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
+                      "spazio_libero_gb": libero, "consigli": self.consigli(consigli), **estremi(camp, cfg, quote)}, \
             _("Stima pronta per {n} processori (dipende anche dalla rete e dalla quantità di DNA dell'ospite).",
               n=processori(cfg))
 

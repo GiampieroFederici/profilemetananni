@@ -21,6 +21,8 @@
  "Controlla la connessione a internet e riprova fra qualche minuto.": "Check the internet connection and try again in a few minutes.",
  "Lo spazio libero non basta per scaricare le read.": "There is not enough free space to download the reads.",
  "Libera spazio sul disco e riprova.": "Free some disk space and try again.",
+ "L'analisi si è fermata perché lo spazio sul disco è finito.": "The analysis stopped because the disk ran out of space.",
+ "Libera spazio sul disco e premi \"Riprova l'analisi\": i passi già finiti restano salvati.": "Free some disk space and press \"Retry the analysis\": the steps already finished are kept.",
  "Non trovo le read di uno o più campioni.": "I cannot find the reads of one or more samples.",
  "Controlla i codici SRR o la cartella delle read nel progetto.": "Check the SRR codes or the reads folder in the project.",
  "Uno o più campioni esistono negli archivi (ENA e NCBI), ma le loro read non ci sono ancora.": "One or more samples exist in the archives (ENA and NCBI), but their reads are not there yet.",

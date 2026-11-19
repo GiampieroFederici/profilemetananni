@@ -152,6 +152,14 @@ ferma_avanzamento() {
 }
 trap 'ferma_avanzamento; rm -rf "$tmp"' EXIT INT TERM
 
+# A pass failed (19/11/2026): if the disk of the temporary folder is full (less than 1 MB free), say it. The tools
+# cannot: the error file of samtools is on that disk and stays empty, Bowtie2 only reports the closed pipe (141).
+fallito() {
+  local liberi; liberi="$(df -Pk "$tmp" 2> /dev/null | awk 'NR == 2 { print $4 + 0 }')"
+  [ "${liberi:-1024}" -ge 1024 ] || err "No space left on device: the disk of the temporary folder $(dirname "$tmp") is full"
+  die "$1"
+}
+
 # One Bowtie2 pass that keeps the UNALIGNED (non-host) reads, and optionally saves the
 # ALIGNED (host) reads. Args: index, r1, r2(or ""), out-basename, index-name, pairs that entered phase 1 (only when
 # this is phase 2 of a two-phase pass: the Bowtie2 log is then <sample>.<index>_fase2.bowtie2.log).
@@ -208,7 +216,7 @@ run_pass() {
 # Args: index, r1, r2, index-name. Writes $tmp/f1_1.fastq and $tmp/f1_2.fastq (not compressed, as measured); sets
 # entrate1 (pairs that entered) and letti, peso (progress of phase 2: its bytes counted as the bytes of R1 they were).
 fase1() {
-  local index="$1" r1="$2" r2="$3" idxname="$4" k tenute byte a b
+  local index="$1" r1="$2" r2="$3" idxname="$4" k tenute byte a b viste righe
   local log="$LOGDIR/${SAMPLE}.${idxname}.bowtie2.log"
   # pairs of the list (v = 0), or the others with the name only, as samtools -n writes it (v = 1); FASTQ on stdin
   local scegli='BEGIN { if ((getline n < f) <= 0) n = 0 }
@@ -223,13 +231,18 @@ fase1() {
   ferma_avanzamento
   # every pair must have been seen, or the positions mean nothing
   entrate1="$(sed -n 's/^\([0-9]*\) reads; of these:$/\1/p' "$log" | head -n 1)"
-  [ -n "$entrate1" ] && [ "$(cat "$tmp/f1.viste")" = "$entrate1" ] || return 1
+  viste="$(cat "$tmp/f1.viste")"
+  [ -n "$entrate1" ] && [ "$viste" = "$entrate1" ] \
+    || { err "phase 1: Bowtie2 read ${entrate1:-no} pairs but ${viste:-no} are in its output: stopped, no reads written"; return 1; }
   tenute="$(wc -l < "$tmp/f1.n")" || return 1
   gzip -dcf "$r1" | awk -v f="$tmp/f1.n" -v v=0 "$scegli" > "$tmp/f1_1.fastq" & a=$!
   gzip -dcf "$r2" | awk -v f="$tmp/f1.n" -v v=0 "$scegli" > "$tmp/f1_2.fastq" & b=$!
-  wait "$a" && wait "$b" || return 1
+  wait "$a" && wait "$b" || { err "phase 1: cannot write the pairs for phase 2 (see the lines above)"; return 1; }
+  # the pairs taken again must be as many as the pairs listed: never an empty or shorter sample in silence (19/11/2026)
   for k in 1 2; do
-    [ "$(wc -l < "$tmp/f1_$k.fastq")" -eq $((4 * tenute)) ] || return 1
+    righe="$(wc -l < "$tmp/f1_$k.fastq")" || return 1
+    [ "$righe" -eq $((4 * tenute)) ] \
+      || { err "phase 1 listed $tenute pairs for phase 2 but $((righe / 4)) were found in the reads (file $k): stopped, no reads written"; return 1; }
   done
   if [ -n "$HOST_OUT" ]; then   # the pairs removed here; those removed by phase 2 are added after it
     gzip -dcf "$r1" | awk -v f="$tmp/f1.n" -v v=1 "$scegli" | gzip -c > "$tmp/f1_host_1.fastq.gz" & a=$!
@@ -253,12 +266,12 @@ for index in "${INDEXES[@]}"; do
   if [ "$paired" -eq 1 ] && [ "$i" -eq 1 ] && [ -n "$BT2_PRE" ]; then
     info "$(say "Host filtering $SAMPLE: pass $i, phase 1 of 2 (Bowtie2 $BT2_PRE on all the pairs) ..." \
                 "Filtro host di $SAMPLE: passo $i, fase 1 di 2 (Bowtie2 $BT2_PRE su tutte le coppie) ...")"
-    fase1 "$index" "$cur1" "$cur2" "$idxname" || die "bowtie2 pass $i ($idxname), phase 1, failed"
+    fase1 "$index" "$cur1" "$cur2" "$idxname" || fallito "bowtie2 pass $i ($idxname), phase 1, failed"
     info "$(say "Host filtering $SAMPLE: pass $i, phase 2 of 2 (Bowtie2 $BT2_PRESET on the pairs left) ..." \
                 "Filtro host di $SAMPLE: passo $i, fase 2 di 2 (Bowtie2 $BT2_PRESET sulle coppie rimaste) ...")"
     prima="$tmp/f1_1.fastq"
     run_pass "$index" "$tmp/f1_1.fastq" "$tmp/f1_2.fastq" "$tmp/p${i}" "$idxname" "$entrate1" \
-      || die "bowtie2 pass $i ($idxname), phase 2, failed"
+      || fallito "bowtie2 pass $i ($idxname), phase 2, failed"
     if [ -n "$HOST_OUT" ]; then   # removed by phase 1, then removed by phase 2: one file per read, as in a single pass
       for k in 1 2; do
         cat "$HOST_OUT/${SAMPLE}.${idxname}_$k.fastq.gz" >> "$tmp/f1_host_$k.fastq.gz" \
@@ -267,10 +280,10 @@ for index in "${INDEXES[@]}"; do
     fi
     cur1="$tmp/p${i}_1.fastq.gz"; cur2="$tmp/p${i}_2.fastq.gz"
   elif [ "$paired" -eq 1 ]; then
-    run_pass "$index" "$cur1" "$cur2" "$tmp/p${i}" "$idxname" || die "bowtie2 pass $i ($idxname) failed"
+    run_pass "$index" "$cur1" "$cur2" "$tmp/p${i}" "$idxname" || fallito "bowtie2 pass $i ($idxname) failed"
     cur1="$tmp/p${i}_1.fastq.gz"; cur2="$tmp/p${i}_2.fastq.gz"
   else
-    run_pass "$index" "$cur1" "" "$tmp/p${i}" "$idxname" || die "bowtie2 pass $i ($idxname) failed"
+    run_pass "$index" "$cur1" "" "$tmp/p${i}" "$idxname" || fallito "bowtie2 pass $i ($idxname) failed"
     cur1="$tmp/p${i}.fastq.gz"
   fi
 done
