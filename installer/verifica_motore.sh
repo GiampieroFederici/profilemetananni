@@ -7,6 +7,9 @@
 #   non e' un motore da reinstallare. PMN_MEMINFO solo per le prove.
 # Uso: bash installer/verifica_motore.sh   (PMN_HOME predefinita ~/.pmn)
 set -euo pipefail
+# P2 (PC con Ubuntu in italiano, 12/11): "sort" seguiva la lingua del sistema e l'MD5 delle righe ordinate di
+# mini.mapout non era piu' quello di riferimenti.tsv (ordine "C"): ROSSO a un motore che funziona. Qui tutto in "C".
+export LC_ALL=C
 PMN_HOME=${PMN_HOME:-$HOME/.pmn}
 . "$PMN_HOME/installazione.env"
 mem_kb=$(awk '/^(MemTotal|SwapTotal):/ {s += $2} END {printf "%.0f\n", s}' "${PMN_MEMINFO:-/proc/meminfo}")

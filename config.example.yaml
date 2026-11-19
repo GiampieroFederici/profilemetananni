@@ -27,6 +27,10 @@ filter_human: true
 #   very-sensitive-local (default) = Bowtie2 local mode, as the standard KneadData 0.12.5;
 #   very-sensitive = end-to-end. Either way a pair is removed if EITHER read aligns to a host
 #   (KneadData "strict" rule) / la coppia si toglie se anche una sola read si allinea.
+#   With very-sensitive-local, paired reads and a host of the product in `hosts` (not only human), the FIRST
+#   genome is filtered in two phases: Bowtie2 --very-fast on all the pairs, then the full command on the pairs
+#   with both reads unaligned (steps/21_hostfilter.sh --prefilter). parameters.tsv then has host_prefilter.
+#   / primo genoma in due fasi: --very-fast su tutte le coppie, poi il comando completo sulle coppie rimaste.
 host_sensitivity: very-sensitive-local
 
 # ---------------------------------------------------------------------------

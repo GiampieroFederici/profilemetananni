@@ -11,6 +11,18 @@ if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
   return 1 2>/dev/null || exit 1
 fi
 
+# --- same order of the samples on every PC, whatever the language of the system (13/11/2026) ---
+# bash sorts the names a glob finds (*.gz, *_profile.txt) with the language of the system: with it_IT "a" comes before
+# "B" and "C1_a" before "C1-b", with C the other way round. The order of the samples is the order of the columns of
+# metaphlan_merged.tsv, so the same analysis gave another table on a PC in Italian. C.UTF-8 = order of the character
+# codes, as sorted() in the Python engine, and paths with accented letters keep working; plain C where it is missing
+# (old clusters). The texts for the person follow PMN_LANG, not this. Read in a variable, not "locale -a | grep -q":
+# with pipefail, grep closing at the first match could stop locale and the line chose C although C.UTF-8 was there.
+case $'\n'"$(locale -a 2> /dev/null)"$'\n' in
+  *$'\n'C.[Uu][Tt][Ff]8$'\n'* | *$'\n'C.[Uu][Tt][Ff]-8$'\n'*) export LC_ALL=C.UTF-8 ;;
+  *) export LC_ALL=C ;;
+esac
+
 # --- output language: en (default) or it ---
 PMN_LANG="${PMN_LANG:-en}"
 

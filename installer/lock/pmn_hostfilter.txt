@@ -40,7 +40,7 @@ https://conda.anaconda.org/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda#69
 https://conda.anaconda.org/conda-forge/linux-64/krb5-1.22.2-hbc21106_2.conda#53318d715316929a574f83591308b1f8
 https://conda.anaconda.org/conda-forge/linux-64/libpsl-0.23.1-hd9e3e90_1.conda#77be60417aa572afcb48cbe0f967401d
 https://conda.anaconda.org/conda-forge/linux-64/python-3.14.8-hcd007b5_101_cp314.conda#5cb98b237dfc2c64a65e660d7b99cfa5
-https://conda.anaconda.org/bioconda/linux-64/bowtie2-2.5.5-h63e9258_1.conda#75b849619e6a685fc0322bf113b8df35
+https://conda.anaconda.org/bioconda/linux-64/bowtie2-2.5.5-h63e9258_2.conda#4af3e31e3f1166a7a54021f9790fd261
 https://conda.anaconda.org/conda-forge/linux-64/libcurl-8.22.0-ha042cf0_0.conda#e617deee7af8eb0c04f6296d12b54157
 https://conda.anaconda.org/bioconda/linux-64/htslib-1.24-ha79157c_0.conda#232775112c6fea38e9e7c25d2a58d7d2
 https://conda.anaconda.org/bioconda/linux-64/samtools-1.24-h9dcdb79_1.conda#9cbf5a1cbce4f7d997a4e3e2a27343f1

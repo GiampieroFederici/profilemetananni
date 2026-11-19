@@ -1,6 +1,6 @@
 # La prima analisi con ProfileMetaNanni: il campione d'esempio
 
-Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.3 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
+Questa guida accompagna un'analisi completa, dalla pagina iniziale al referto, sul campione d'esempio che arriva con il programma. Si fa tutto dall'app: niente terminale, niente comandi. I numeri e le immagini qui sotto vengono da una corsa vera di ProfileMetaNanni 1.3 su un PC Windows (24 processori, 11,7 GB di memoria per il motore). Su Ubuntu l'app e i passi sono gli stessi. Sul tuo PC i tempi possono cambiare; i risultati sono gli stessi.
 
 Versione inglese: [guida_analisi_esempio_EN.md](guida_analisi_esempio_EN.md).
 
@@ -33,8 +33,10 @@ Nella pagina **I miei progetti**, nel riquadro **Vuoi provare subito?**, premi *
 Le scelte consigliate sono già pronte: **Database completo** per Kraken e **Batteri, archei e lieviti**. Non serve cambiare nulla. In fondo alla pagina, **Prima di partire** dice che cosa si aspetta il motore su questo PC:
 
 - campioni: 1, mini_SF3RAt7, 0,2 milioni di coppie di read;
-- tempo stimato: circa 4 minuti (MetaPhlAn 66 secondi, Kraken 2 minuti);
+- tempo stimato: da 3 minuti a 4 minuti (MetaPhlAn 66 secondi, Kraken 2 minuti);
 - spazio che serve: meno di 1 GB.
+
+Il tempo è un intervallo perché prima di partire il programma non sa quanto DNA dell'ospite c'è nel campione.
 
 Premi **Avvia l'analisi**.
 
@@ -44,9 +46,9 @@ Premi **Avvia l'analisi**.
 
 La pagina **Analisi in corso** mostra il passo, la percentuale fatta e il tempo che manca. I passi sono sempre gli stessi: scarico o lettura dei file, controllo della qualità, pulizia delle read, rimozione del DNA dell'ospite, profilo con MetaPhlAn, profilo con Kraken, referto e tabelle. Intanto puoi usare il PC per altro. Se lo spegni, i passi già finiti restano salvati: riapri il progetto e premi **Riprendi l'analisi**.
 
-Sul PC di prova l'analisi è durata 5 minuti e 12 secondi (corsa in italiano) e 4 minuti e 59 secondi (corsa in inglese). I passi più lunghi sono stati MetaPhlAn (2 minuti e 4 secondi e 1 minuto e 53 secondi) e Kraken (2 minuti e 2 minuti e 1 secondo); la rimozione del DNA dell'ospite è durata 33 secondi. La stima era di circa 4 minuti: il tempo vero è stato di circa un minuto in più.
+Sul PC di prova l'analisi è durata 2 minuti e 46 secondi (corsa in italiano) e 2 minuti e 26 secondi (corsa in inglese). I passi più lunghi sono stati Kraken (67 e 66 secondi) e MetaPhlAn (56 e 53 secondi); la rimozione del DNA dell'ospite è durata 14 secondi. La stima era da 3 a 4 minuti: il tempo vero è stato poco sotto.
 
-![Analisi in corso: profilo con MetaPhlAn, 45 % fatto](guida_esempio/it/03_esecuzione.png)
+![Analisi in corso: profilo con Kraken, 45 % fatto](guida_esempio/it/03_esecuzione.png)
 
 Alla fine premi **Vedi i risultati**.
 
@@ -61,9 +63,19 @@ Nella pagina Risultati premi **Apri il controllo qualità**: si apre nel browser
 | Duplicati (read grezze) | 0,2 % |
 | Lunghezza media delle read dopo fastp | 140 basi |
 | DNA di maiale e uomo tolto | 66,8 % |
-| Coppie di read rimaste per i profili | 60.727 |
+| Coppie di read rimaste per i profili | 60.726 |
 
-Q30 vuol dire al massimo 1 errore ogni 1.000 basi: 95,3 % è un buon valore. Pochi duplicati vogliono dire che la libreria non è stata amplificata troppo. fastp taglia la fine di una read dove la qualità media su 4 basi scende sotto 20 e scarta le read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque: per questo restano 183.178 coppie su 200.000. Poi Bowtie 2 toglie una coppia se anche una sola delle sue due read somiglia al DNA del maiale o dell'uomo. Due terzi delle coppie sono DNA dell'ospite: per un salume è normale. È anche il motivo per cui per i taxa restano solo 60.727 coppie.
+Q30 vuol dire al massimo 1 errore ogni 1.000 basi: 95,3 % è un buon valore. Pochi duplicati vogliono dire che la libreria non è stata amplificata troppo. fastp taglia la fine di una read dove la qualità media su 4 basi scende sotto 20 e scarta le read più corte di 70 basi, che MetaPhlAn ignorerebbe comunque: per questo restano 183.178 coppie su 200.000. Poi Bowtie 2 toglie una coppia se anche una sola delle sue due read somiglia al DNA del maiale o dell'uomo. Due terzi delle coppie sono DNA dell'ospite: per un salume è normale. È anche il motivo per cui per i taxa restano solo 60.726 coppie.
+
+Nel report MultiQC Bowtie 2 ha tre righe per questo campione, perché il DNA del maiale si toglie in due fasi: prima un'impostazione veloce guarda tutte le coppie, poi l'impostazione completa guarda solo le coppie rimaste.
+
+| Riga di Bowtie 2 nel MultiQC | Coppie entrate | Allineamento totale |
+|---|---|---|
+| `mini_SF3RAt7.sus_scrofa` (maiale, fase 1) | 183.178 | 59,43 % |
+| `mini_SF3RAt7.sus_scrofa_fase2` (maiale, fase 2) | 71.803 | 14,51 % |
+| `mini_SF3RAt7.homo_sapiens` (uomo) | 60.792 | 0,09 % |
+
+Le coppie scendono così: 183.178 dopo fastp, 71.803 dopo la fase 1, 60.792 dopo la fase 2, 60.726 dopo l'uomo. Le tre percentuali contano read allineate su tre insiemi diversi di coppie: non si sommano. La quota di DNA dell'ospite tolto è quella della tabella sopra, 66,8 %.
 
 ## 7. Risultati
 
@@ -96,19 +108,19 @@ In questo campione Kraken mostra 29 taxa sopra la soglia (37 in tutto). I primi 
 
 ### Come è stata fatta l'analisi
 
-La terza scheda elenca il DNA dell'ospite tolto (maiale Sscrofa11.1 e uomo GRCh38), le coppie rimaste (60.727), le versioni (MetaPhlAn 4.2.4 con il database mpa_vJan25_CHOCOPhlAnSGB_202503 in 6 parti; Kraken 2.17.2 e Bracken 3.1 con il database k2_pluspf_20260626) e le impostazioni di Kraken (confidence 0,5, almeno 10 read per specie, soglia 0,1 %). La sezione 7 del referto aggiunge come si toglie l'ospite (Bowtie 2 very-sensitive-local, strict) e come si puliscono le read (fastp, 4:20, almeno 70 basi).
+La terza scheda elenca il DNA dell'ospite tolto (maiale Sscrofa11.1 e uomo GRCh38), le coppie rimaste (60.726), le versioni (MetaPhlAn 4.2.4 con il database mpa_vJan25_CHOCOPhlAnSGB_202503 in 6 parti; Kraken 2.17.2 e Bracken 3.1 con il database k2_pluspf_20260626) e le impostazioni di Kraken (confidence 0,5, almeno 10 read per specie, soglia 0,1 %). La sezione 7 del referto aggiunge come si toglie l'ospite (Bowtie 2 very-sensitive-local, strict), il filtro dell'ospite in due fasi (Bowtie 2 very-fast, poi Bowtie 2 very-sensitive-local) e come si puliscono le read (fastp, 4:20, almeno 70 basi).
 
 ![Risultati, come è stata fatta l'analisi](guida_esempio/it/07_risultati_come.png)
 
 ## 8. Il referto
 
-**Apri il referto** lo mostra dentro l'app; **Apri il referto in PDF** e **Apri le tabelle in Excel** aprono i file con i programmi di Windows. Il referto ha 9 sezioni: in breve, MetaPhlAn, Kraken, diversità alfa, virus, qualità delle read, parametri, strumenti e database con il modo di citarli, parole usate.
+**Apri il referto** lo mostra dentro l'app; **Apri il referto in PDF** e **Apri le tabelle in Excel** aprono i file con i programmi del tuo computer. Il referto ha 9 sezioni: in breve, MetaPhlAn, Kraken, diversità alfa, virus, qualità delle read, parametri, strumenti e database con il modo di citarli, parole usate.
 
 Per questo campione la diversità alfa (sezione 4) è:
 
 | | Read usate | Taxa | Shannon | Simpson |
 |---|---|---|---|---|
-| MetaPhlAn | 121.454 | 6 specie | 1,17 | 0,603 |
+| MetaPhlAn | 121.452 | 6 specie | 1,17 | 0,603 |
 | Kraken + Bracken | 51.819 | 29 taxa | 1,96 | 0,753 |
 
 ![Prima pagina del referto](guida_esempio/it/08_referto.png)
@@ -117,7 +129,7 @@ Se usi questi risultati in un documento, cita gli strumenti e i database della s
 
 ## 9. Che cosa non si può concludere da un campione di 200.000 coppie
 
-- **Non trovato non vuol dire assente.** Dopo la rimozione dell'ospite restano 60.727 coppie. Con così poche read i taxa sotto pochi decimi di punto percentuale possono mancare. Il referto dà la misura (sezione 2): nelle comunità simulate *Listeria monocytogenes* allo 0,1 % è stata trovata con circa 1.800 coppie di read sue e persa con circa 900. Lo stesso campione analizzato intero con ProfileMetaNanni (versione 1.0, 1.507.887 coppie dopo l'ospite) dà 27 specie con MetaPhlAn invece di 6. Con Kraken dà 37 taxa invece di 29.
+- **Non trovato non vuol dire assente.** Dopo la rimozione dell'ospite restano 60.726 coppie. Con così poche read i taxa sotto pochi decimi di punto percentuale possono mancare. Il referto dà la misura (sezione 2): nelle comunità simulate *Listeria monocytogenes* allo 0,1 % è stata trovata con circa 1.800 coppie di read sue e persa con circa 900. Lo stesso campione analizzato intero con ProfileMetaNanni (versione 1.0, 1.507.887 coppie dopo l'ospite) dà 27 specie con MetaPhlAn invece di 6. Con Kraken dà 37 taxa invece di 29.
 - **Le percentuali sono DNA, non cellule vive.** Dicono quanto DNA di ogni taxon c'è nel campione, non quante cellule sono vive. Non sono nemmeno unità formanti colonia per grammo.
 - **Un campione non è un confronto.** Senza altri campioni e repliche non c'è nessun test fra prodotti, lotti o tempi. Ricchezza e Shannon dipendono dal numero di read: confrontale solo con campioni alla stessa profondità. Per più campioni usa l'analisi multicampione del programma, con i gruppi scritti nella tabella della pagina Risultati.
 - **Kraken è un prototipo** e anche la previsione della sicurezza alimentare è un prototipo: non usarli per decidere. Per *Listeria* serve un'analisi mirata.

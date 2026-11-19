@@ -22,6 +22,6 @@ def test_verifica_senza_memoria_non_propone_installa(qtbot, f, monkeypatch):
     premi(f)
     m = f.pagine["motore"]
     qtbot.waitUntil(lambda: "memoria non basta" in scritte(m), timeout=30000)
-    assert "ROSSO: La prova si è fermata perché la memoria non basta" in scritte(m)
+    assert "La prova si è fermata perché la memoria non basta" in scritte(m) and "ROSSO" not in scritte(m)   # P6
     assert "non serve reinstallarlo" in scritte(m)
     assert f.principale.text() == "Controlla il motore" and not m.da_installare

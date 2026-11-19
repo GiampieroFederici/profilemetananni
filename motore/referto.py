@@ -578,6 +578,15 @@ def righe_parametri(d):
                       "comunità simulate funghi e lieviti perdono circa l'1 % delle loro coppie, i batteri meno "
                       "dello 0,1 %"),
                     _("impostazioni predefinite di KneadData 0.12.5; Langmead & Salzberg 2012")))
+    if p.get("host_prefilter"):   # 18/11/2026: filtro in due fasi sul primo genoma (steps/21_hostfilter.sh)
+        out.append((_("Filtro dell'ospite in due fasi"),
+                    f"Bowtie2 {p['host_prefilter']}, Bowtie2 {p.get('host_sensitivity', '')}",
+                    _("read a coppie, primo genoma: prima Bowtie 2 con l'impostazione veloce (end-to-end) guarda "
+                      "tutte le coppie; solo le coppie con le due read non allineate passano all'impostazione "
+                      "completa, riprese dai file puliti con la riga di intestazione intera. Gli altri genomi e le "
+                      "read singole passano una volta sola, con l'impostazione completa"),
+                    _("misura su SRR4875279, 2.955.015 coppie: rispetto a un solo passaggio nessuna coppia tenuta "
+                      "in più, 3 tolte in più")))
     if p.get("trim"):
         out.append((_("Pulizia delle read"), p["trim"],
                     _("fastp taglia la coda della read dove la qualità media su 4 basi scende sotto 20 e scarta le "
@@ -662,6 +671,12 @@ def senza_html(testo):
     return re.sub(r"<[^>]+>", "", testo)
 
 
+def corsivo(testo, nomi):
+    """Un testo in HTML sicuro con i nomi dei taxa in corsivo, come nelle tabelle (P14: in "In breve" erano in tondo)."""
+    nomi = sorted({e(n) for n in nomi if n}, key=len, reverse=True)   # i più lunghi per primi, in un solo passaggio
+    return re.sub("|".join(map(re.escape, nomi)), lambda m: f"<i>{m.group(0)}</i>", e(testo)) if nomi else e(testo)
+
+
 def riquadro(testo, colore="#fff4d6"):
     return f'<table border="0" cellpadding="8" width="100%"><tr><td bgcolor="{colore}">{testo}</td></tr></table>'
 
@@ -694,9 +709,10 @@ def html_referto(d):
             t = esiti[c["nome"]]
             h.append(_("<li>Controllo iniziale (triage): <b>{esito}</b>", esito=e(_(t['esito'])))
                      + (f" ({e('; '.join(t['motivi']))})" if t["motivi"] else "") + "</li>")
-        for metodo in ("metaphlan", "kraken"):   # stessa frase del risultati.json (sintesi)
+        nomi = [x["nome"] for m in c["sintesi"].values() for x in m["dominanti"] + m.get("non_microbi", [])]
+        for metodo in ("metaphlan", "kraken"):   # stessa frase del risultati.json (sintesi), coi nomi in corsivo
             if metodo in c["sintesi"]:
-                h.append(f"<li>{e(c['sintesi'][metodo]['frase'])}</li>")
+                h.append(f"<li>{corsivo(c['sintesi'][metodo]['frase'], nomi)}</li>")
         h.append("</ul>")
     # MetaPhlAn
     h.append(f"<h2>2. {_('Specie trovate con MetaPhlAn')}</h2>")

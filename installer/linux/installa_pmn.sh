@@ -3,7 +3,8 @@
 # Un solo comando, rilanciabile: il motore riprende da dove era (installer/installa_motore.sh), l'ambiente dell'app
 # non si rifa' se c'e' gia'.
 #   1. controlla Linux a 64 bit e i programmi di sistema che servono al motore: se uno manca dice la riga apt e si ferma
-#   2. installa il motore: bash installer/installa_motore.sh con gli argomenti ricevuti (--si, --catalogo FILE, ...)
+#   2. copia il programma nella cartella fissa PMN_HOME/programma (la cartella scaricata si puo' poi cancellare) e da
+#      li' installa il motore: bash installer/installa_motore.sh con gli argomenti ricevuti (--si, --catalogo FILE, ...)
 #   3. crea l'ambiente dell'app (pmn_app: Python 3.12 + le versioni di PySide6 e PyYAML di app/requirements.txt) con il
 #      micromamba che l'installatore del motore ha messo in PMN_HOME/bin
 #   4. prova che l'app si apre senza schermo; se manca una libreria di sistema di Qt dice la riga apt
@@ -24,9 +25,12 @@ declare -A EN=(
   ["Non lanciare questo script con sudo: installa tutto nella tua cartella personale, senza permessi di amministratore."]="Do not run this script with sudo: it installs everything in your home folder, without administrator rights."
   ["Serve Linux a 64 bit (x86_64): questo computer è %s %s."]="64-bit Linux (x86_64) is needed: this computer is %s %s."
   ["PMN_HOME deve essere un percorso assoluto, non %s."]="PMN_HOME must be an absolute path, not %s."
+  ["In questa cartella manca la parte per Linux: forse è lo zip di Windows. Scarica il pacchetto per Linux dalla pagina della Release su GitHub."]="The Linux part is missing in this folder: perhaps this is the Windows zip. Download the Linux package from the Release page on GitHub."
   ["Mancano programmi di sistema che servono al motore. Lancia questa riga, poi di nuovo questo script:"]="Some system programs needed by the engine are missing. Run this line, then this script again:"
   ["Installo il motore: programmi e database. Può durare ore; se si interrompe, rilancia questo script e riprende."]="Installing the engine: programs and databases. It can take hours; if it stops, run this script again and it resumes."
-  ["Il motore non è ancora installato (codice %s). Quando hai risolto, rilancia questo script: riprende da dove era."]="The engine is not installed yet (code %s). When you have solved the problem, run this script again: it resumes from where it stopped."
+  ["Non riesco a copiare il programma in %s. Controlla lo spazio libero e rilancia questo script."]="I cannot copy the program to %s. Check the free space and run this script again."
+  ["L'installazione del motore si è fermata (codice %s). Se il motivo non è scritto qui sopra, manda a noi i file della cartella %s."]="The installation of the engine stopped (code %s). If the reason is not written above, send us the files of the folder %s."
+  ["Il programma è installato in %s. La cartella da cui hai lanciato l'installazione (%s) non serve più: puoi cancellarla."]="The program is installed in %s. The folder you ran the installation from (%s) is not needed any more: you can delete it."
   ["Non trovo i programmi del motore in %s: rilancia questo script senza --solo-database."]="I cannot find the engine programs in %s: run this script again without --solo-database."
   ["Non trovo le versioni di PySide6 e PyYAML in %s."]="I cannot find the PySide6 and PyYAML versions in %s."
   ["L'ambiente dell'app c'è già (%s)."]="The app environment is already there (%s)."
@@ -48,6 +52,8 @@ fallisci() { printf '[PMN] %s: %s\n' "$(T 'ERRORE')" "$(T "$@")" >&2; exit 1; }
 [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] \
   || fallisci 'Serve Linux a 64 bit (x86_64): questo computer è %s %s.' "$(uname -s)" "$(uname -m)"
 [[ $PMN_HOME = /* ]] || fallisci 'PMN_HOME deve essere un percorso assoluto, non %s.' "$PMN_HOME"
+# lo zip di Windows ha questo script ma non la cartella app: fermarsi qui, prima di scaricare 139 GB
+[ -f "$PMN_ROOT/app/main.py" ] || fallisci 'In questa cartella manca la parte per Linux: forse è lo zip di Windows. Scarica il pacchetto per Linux dalla pagina della Release su GitHub.'
 # stesso elenco di installer/installa_motore.sh (tests/test_app_linux.py li confronta), come programma:pacchetto di Ubuntu
 PROGRAMMI="curl:curl tar:tar gzip:gzip md5sum:coreutils sha256sum:coreutils awk:gawk df:coreutils ps:procps mkfifo:coreutils"
 MANCANO=""
@@ -62,15 +68,40 @@ if [ -n "$MANCANO" ]; then
   exit 1
 fi
 
-# ===================== 2. motore =====================
+# ===================== 2. programma e motore =====================
 STIMA=0
 for a in "$@"; do if [ "$a" = --stima ]; then STIMA=1; fi; done
+# P8 (PC con Ubuntu, 12/11): il comando e la voce di menu puntavano alla cartella scaricata (per esempio sulla
+# Scrivania): spostata o cancellata, il programma non partiva piu'. Come su Windows, il programma si copia in una
+# cartella fissa (gli stessi file del pacchetto di Windows, piu' l'app) e motore, comando e voce di menu partono da
+# li'. Si sostituisce solo se e' cambiato; lanciato da li' (o con --stima) questo script non copia nulla.
+FISSA=$PMN_HOME/programma
+SCARICATA=""
+if [ "$STIMA" = 0 ] && [[ $PMN_ROOT/ != "$FISSA"/* ]] && ! [ "$PMN_ROOT" -ef "$FISSA" ]; then
+  SCARICATA=$PMN_ROOT
+  rm -rf "$FISSA.nuova" "$FISSA.vecchia"; mkdir -p "$FISSA.nuova"
+  tar -C "$PMN_ROOT" --exclude=__pycache__ --exclude=.venv -cf - app bin installer motore refs steps | tar -C "$FISSA.nuova" -xf - \
+    || fallisci 'Non riesco a copiare il programma in %s. Controlla lo spazio libero e rilancia questo script.' "$FISSA"
+  if [ -d "$FISSA" ] && diff -rq -x __pycache__ "$FISSA" "$FISSA.nuova" > /dev/null; then
+    rm -rf "$FISSA.nuova"   # stesso programma: resta com'e'
+  else
+    # il programma di un motore gia' installato cambia: l'installatore del motore non dira' "non ho cambiato nulla"
+    if [ -d "$FISSA" ]; then export PMN_PROGRAMMA_SOSTITUITO=1; mv "$FISSA" "$FISSA.vecchia"; fi
+    mv "$FISSA.nuova" "$FISSA"; rm -rf "$FISSA.vecchia"
+  fi
+  PMN_ROOT=$FISSA
+fi
 if [ "$STIMA" = 0 ]; then
   dice 'Installo il motore: programmi e database. Può durare ore; se si interrompe, rilancia questo script e riprende.'
 fi
 r=0; bash "$PMN_ROOT/installer/installa_motore.sh" "$@" || r=$?
 if [ "$r" != 0 ]; then
-  dice 'Il motore non è ancora installato (codice %s). Quando hai risolto, rilancia questo script: riprende da dove era.' "$r"
+  # P3, P7: con 2 (errore) e 3 (interrotta o annullata) l'installatore del motore ha gia' detto che cosa e' successo e
+  # che cosa fare. Prima qui si aggiungeva "Il motore non è ancora installato ... Quando hai risolto, rilancia": falso
+  # con un motore gia' installato, senza senso dopo un Ctrl+C. Una riga solo per un arresto senza spiegazione.
+  if [ "$r" != 2 ] && [ "$r" != 3 ]; then
+    dice "L'installazione del motore si è fermata (codice %s). Se il motivo non è scritto qui sopra, manda a noi i file della cartella %s." "$r" "$PMN_HOME/log"
+  fi
   exit "$r"
 fi
 if [ "$STIMA" = 1 ]; then exit 0; fi   # solo la stima: non si installa nulla
@@ -168,4 +199,7 @@ if [ -n "$PACCHETTI" ]; then
   printf '    sudo apt install%s\n' "$PACCHETTI"
 fi
 if [ -n "$IGNOTE" ]; then dice 'Librerie mancanti senza un pacchetto che conosco: %s' "${IGNOTE# }"; fi
+if [ -n "$SCARICATA" ]; then
+  dice "Il programma è installato in %s. La cartella da cui hai lanciato l'installazione (%s) non serve più: puoi cancellarla." "$PMN_ROOT" "$SCARICATA"
+fi
 dice 'Installazione finita. Avvia ProfileMetaNanni dal menu delle applicazioni, oppure con il comando: %s' "$LANCIATORE"

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """1.2 (6/11, sessione G1 sulle guide): due difetti visti sul campione d'esempio.
-1. Stima tarata sul PC libero: l'esempio dura 200-226 s; servono la velocità dell'ospite local, il fisso di Kraken
-   (database) e quello di MetaPhlAn col database ridotto. La stima non sta sotto il tempo vero e non lo supera del 30 %.
+1. Stima tarata sul PC libero: l'esempio durava 200-226 s (app, 1.2; con la 1.3 vedi il test); servono la velocità
+   dell'ospite local, il fisso di Kraken (database) e quello di MetaPhlAn col database ridotto. La stima non sta
+   sotto il tempo vero e non lo supera del 30 %.
 2. Il referto diceva sempre che mammiferi e virus sono "nella tabella successiva, a parte", anche quando quella
    tabella non c'era (con 0,5 + 0,1 % è il caso normale).
 Gira con l'app o con la suite del motore:  python -m pytest tests/test_stima_e_nota_kraken.py"""
@@ -18,11 +19,17 @@ NOTA_LUNGA = "nella tabella successiva"
 
 
 def test_stima_dell_esempio_non_sotto_il_tempo_vero():
+    """Il riferimento (226 s) è la misura del 6/11 dall'app su Windows con la 1.2: 226,8 s (IT) e 200,3 s (EN), 24
+    processori, PC libero (Kraken 126 e 97 s, ospite 27 s). Il 19/11 il motore con la 1.3 impiega 140 s a caldo e
+    146 s a freddo a 24 processori (esito_S9.md: Kraken 64-66 s, ospite 11-13 s). Oggi la stima (227 s) è quindi
+    prudente di circa il 55 % sull'esempio: le regole di Kraken e delle voci fisse sono ancora quelle tarate sulla
+    1.2. Il tempo dall'app con la 1.3 si misura nelle prove finali (parte B di S9): fino ad allora i numeri di
+    questo test non cambiano."""
     import pmn_motore as pm
     camp = [("mini_SF3RAt7", 200_000, 0)]                 # 200.000 coppie, read locali (nessuno scarico)
     cfg = {"hosts": ["sus_scrofa"], "filter_human": True, "motore": {"processori": 24}}
     stima = sum(pm.tempi(camp, cfg).values())
-    assert 226 <= stima <= 1.3 * 226, stima               # vero: 200-226 s (6/11, IT e EN, 24 processori, PC libero)
+    assert 226 <= stima <= 1.3 * 226, stima               # vero del 6/11: 200-226 s (app, 1.2, IT e EN, PC libero)
 
 
 def referto_finto(tmp_path):

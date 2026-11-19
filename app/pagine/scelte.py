@@ -427,6 +427,9 @@ class PaginaScelte(Pagina):
         if cosa:                                                  # F3, L6: risultati fatti con altre scelte
             self.zona_stima.addWidget(riquadro(*avviso_da_rifare(cosa, tempi), "info"))
         totale = r.get("tempo_totale_s") or sum(v for v in tempi.values() if v)    # v0.3: totale del motore
+        # 19/11: se la quota di ospite non è misurata il motore dà i due estremi; senza (motore di prima) resta "circa"
+        minimo, massimo = r.get("tempo_minimo_s"), r.get("tempo_massimo_s")
+        estremi = bool(minimo and massimo) and durata(minimo) != durata(massimo)
         nomi = {"download": _("download"), "pulizia": _("pulizia"), "ospite": _("ospite"),
                 "controllo_qualita": _("controlli"), "metaphlan": "MetaPhlAn", "kraken": "Kraken",
                 "riepilogo": _("tabelle"), "referto": _("referto")}
@@ -441,7 +444,8 @@ class PaginaScelte(Pagina):
         nomi_campioni = r.get("nomi_campioni") or []                            # v0.3: i nomi del motore
         elenco = f": {', '.join(nomi_campioni[:6])}{'...' if len(nomi_campioni) > 6 else ''}" if nomi_campioni else ""
         righe = [(_("Campioni"), campioni_in_parole(campioni, elenco, coppie)),
-                 (_("Tempo stimato"), _("circa {durata}", durata=durata(totale))
+                 (_("Tempo stimato"), (_("da {minimo} a {massimo}", minimo=durata(minimo), massimo=durata(massimo))
+                                       if estremi else _("circa {durata}", durata=durata(totale)))
                   + (f" ({dettaglio})" if dettaglio else "")),
                  (_("Spazio che serve"), gb(r.get("spazio_gb", 0))
                   + (_(", ne hai {gb} liberi", gb=numero(r['spazio_libero_gb'], 0))
@@ -456,7 +460,9 @@ class PaginaScelte(Pagina):
         if self._profilo() == "completo" and tempi.get("kraken"):
             self.completo.spiega.setText(_("Trova anche le specie poco abbondanti. Più lento: per questo progetto "
                                            "circa {durata}.", durata=durata(tempi['kraken'])))
-        aiuto = _("Tempo stimato: circa {durata}. Spazio: {gb}.", durata=durata(totale), gb=gb(r.get('spazio_gb', 0)))
+        aiuto = _("Tempo stimato: da {minimo} a {massimo}. Spazio: {gb}.", minimo=durata(minimo), massimo=durata(massimo),
+                  gb=gb(r.get('spazio_gb', 0))) if estremi else \
+            _("Tempo stimato: circa {durata}. Spazio: {gb}.", durata=durata(totale), gb=gb(r.get('spazio_gb', 0)))
         if lungo:
             aiuto += _(" Ci vorrà molto: leggi l'avviso qui sopra.")
         elif self.avvisi:

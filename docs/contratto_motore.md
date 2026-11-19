@@ -132,6 +132,48 @@ semplice con `--lingua en`. Codici, `tipo`, `passo` ed `esito` non cambiano mai 
   se il passo sfora (SF3RAt3: download previsto 3 min, durato 37 con la rete lenta) tempo e barra si fermano a quello
   che resta dopo il passo, con la nota "tempo che manca dopo questo passo, che sta durando più del previsto".
   Senza `passo_s` (motore più vecchio) vale la regola di prima. Il finto motore lo manda anche lui.
+- **[13/11/2026]** In `esegui`, dentro il passo `ospite`, un `avanzamento` circa ogni 30 s mentre Bowtie 2 lavora
+  (prima: un solo evento all'inizio del passo, poi nulla anche per ore). Stessi campi dell'evento d'inizio passo;
+  `messaggio` è lo stesso testo più "(questo passo è al N %)". `passo_s` = secondi che mancano alla fine del passo
+  al ritmo visto finora (tempo passato × (100 − N) / N), `eta_s` = `passo_s` più i passi non ancora partiti,
+  `percentuale` ricalcolata con la durata vera del passo e mai indietro. Senza le dimensioni dei campioni `eta_s` e
+  `passo_s` restano `null`, come negli altri eventi. Da dove viene N: `steps/21_hostfilter.sh` scrive nel registro la
+  riga `[progress] N` (N da 1 a 99, del passo intero: i passaggi su più genomi contano per i byte compressi che
+  leggono; quelli dopo il primo pesano un decimo, perché leggono solo le read rimaste e Bowtie 2 le passa circa
+  dieci volte più in fretta, e quelli ancora da fare si contano su ciò che il passaggio in corso sta tenendo). Il
+  passo guarda da fuori
+  dove è arrivato Bowtie 2 nel suo file d'ingresso (`/proc/<pid>/fdinfo`): nel flusso `bowtie2 | samtools` non entra
+  nulla, quindi uscite e velocità non cambiano. `PMN_AVANZAMENTO_S` cambia i secondi fra due righe (prove). Se
+  `/proc` non si legge, nessun evento in più. L'interfaccia non deve fare nulla: mostra `messaggio`, barra e tempo
+  come per ogni `avanzamento`.
+- **[18/11/2026]** Filtro dell'ospite in due fasi (`steps/21_hostfilter.sh --prefilter very-fast`). Nessun campo
+  nuovo negli eventi; cambia come il passo `ospite` lavora sul **primo genoma**, e solo dove è stato misurato: read a
+  coppie, `host_sensitivity: very-sensitive-local` (predefinita) e almeno un ospite del prodotto in `hosts`
+  (`bin/run.sh`, `HOST_PREFILTER`). Read singole, `very-sensitive`, i genomi dopo il primo (l'uomo) e i progetti che
+  tolgono solo l'uomo restano con un solo passaggio, come prima.
+  - Fase 1: Bowtie 2 `--very-fast --reorder` (end-to-end) su tutte le coppie. Non scrive read: scrive la posizione nel
+    file delle coppie con le due read non allineate.
+  - Fase 2: il comando di ogni passaggio (`--very-sensitive-local --reorder`, regola strict) sulle sole coppie
+    rimaste, riprese dai file puliti in ingresso con la riga di intestazione intera (Bowtie 2 ricava le sue scelte
+    casuali ripetibili anche da quella riga). Le coppie si riprendono per posizione, non per nome.
+  - Misura del 14/11/2026 su SRR4875279 (2.955.015 coppie pulite, 8 processori): 167-170 s contro 370-372 s; rispetto
+    a un solo passaggio nessuna coppia tenuta in più, 3 tolte in più. Le read senza ospite non sono identiche al byte
+    a quelle di un solo passaggio.
+  - Registri in `hostfilter_logs/`: `<campione>.<indice>.bowtie2.log` è la fase 1 (tutte le coppie entrate),
+    `<campione>.<indice>_fase2.bowtie2.log` la fase 2. `<campione>.<indice>.coppie.tsv` resta uno per genoma: coppie
+    entrate nella fase 1, coppie tenute dopo la fase 2. `coppie_ospite()` non cambia e non conta due volte.
+  - `tabelle/parameters.tsv` e il timbro dell'ospite hanno la riga `host_prefilter` (`very-fast`) solo quando le due
+    fasi si usano. Il referto la mostra come "Filtro dell'ospite in due fasi". Un progetto fatto con un solo
+    passaggio non ha la riga: se viene rilanciato rifà ospite, MetaPhlAn e Kraken, come ogni cambio del timbro.
+  - `[progress] N` attraversa le due fasi: per lo stesso numero di coppie la fase 1 pesa 3, la fase 2 pesa 4, i
+    passaggi dopo 1 (tempi del 14/11: circa 60 %, 30 % e 9 % del passo). Durante la fase 1 la quota di coppie che
+    passerà alla fase 2 si legge dall'elenco che la fase 1 sta scrivendo.
+  - Con `keep_host_reads` le coppie tolte dal primo genoma sono nello stesso file di prima, tutte: prima quelle tolte
+    dalla fase 1, poi quelle tolte dalla fase 2 (non più nell'ordine delle read in ingresso).
+- **[13/11/2026]** L'ordine dei campioni non dipende dalla lingua del sistema: `bin/lib/common.sh` fissa
+  `LC_ALL=C.UTF-8` per `run.sh` e per ogni passo (ordine dei codici dei caratteri, lo stesso di `sorted()` nel
+  motore; prima, con Ubuntu in italiano, `a` veniva prima di `B` e le colonne di `metaphlan_merged.tsv` cambiavano).
+  I testi per la persona seguono `--lingua`, non questa variabile.
 - **[v0.2]** `errore.passo`: il passo dell'ultimo `avanzamento` (o quello in cui l'errore è nato, per esempio
   `kraken` per `DB_MANCANTE` di Kraken). **[22/10]** Anche l'installatore: il passo in corso (`controllo`,
   `programmi`, `database`, `verifica`), e `risultato` = `{"codice", "passo"}` nel `fine` (D068: ora obbligatorio).
@@ -160,6 +202,22 @@ Dall'installatore: errori `SISTEMA_NON_ADATTO` (non Linux a 64 bit), `PROGRAMMA_
 `VERIFICA_ROSSA` (prova finale fallita); avvisi `RETE_NON_MISURATA`, `RETE_INTERROTTA` (riprova da sola).
 `ERRORE_INTERNO` (codice di uscita 4: un errore nostro, non dell'utente; `cosa_fare` indica il log da mandarci).
 
+**[13/11/2026] Installatore, dopo la prova su Ubuntu in italiano:**
+- `installa`, evento `fine` con esito `errore`: il messaggio è "Installazione non completata." oppure "Installazione
+  non completata. Non ho cambiato nulla: il motore già installato resta com'era e, se funzionava, puoi continuare a
+  usarlo." (prima: "Rilanciala quando hai risolto: riprende da qui.").
+- `DB_ROVINATO` nel passo `programmi` (ambiente diverso dal file di blocco subito dopo una creazione riuscita):
+  `cosa_fare` è "Manda a noi il file <log>."; il segnalino `stato/<ambiente>.diverso` evita di ricreare l'ambiente a
+  ogni rilancio (con un file di blocco nuovo si reinstalla).
+- Il log `installazione_*.log` contiene anche le righe `errore <codice>: ...`, `avviso <codice>: ...`,
+  `fine <esito>: ...`.
+- Senza `--json` la riga di avanzamento dello scarico si riscrive sul posto (terminale) o esce una volta ogni 5
+  minuti (uscita su file); con `--json` resta "almeno ogni 30 s".
+- Variabile `PMN_PROGRAMMA_SOSTITUITO` (la mette `installer/linux/installa_pmn.sh` quando ha appena sostituito il
+  programma); su Linux il programma installato sta in `PMN_HOME/programma`.
+- `installa_motore.sh` e `verifica_motore.sh` lavorano con `LC_ALL=C`: l'ordine di `sort` e i numeri degli eventi
+  non dipendono dalla lingua del sistema.
+
 **Codice dell'interfaccia, non del motore (S5a, D077):** `MOTORE_NON_AVVIATO` lo crea `app/motore.py` quando il motore
 non parte o si chiude senza aver mandato `inizio` (per esempio manca la WSL `pmn`); se si chiude dopo `inizio` senza `fine`,
 l'app crea un `ERRORE_INTERNO`. Così ogni corsa vista dalle pagine finisce sempre con un solo `fine`.
@@ -179,6 +237,8 @@ Anche `RAM_INSUFFICIENTE`, `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`, `TEMPO_LUNGO` 
 da `info` e `stima` (consigli di System One v0, §5.5): consigliano, non fermano nulla.
 **[v1.1]** In `esegui`, se Linux chiude un programma perché la memoria è finita (`Killed`, codice 137 di bowtie2 o MetaPhlAn) l'errore è `RAM_INSUFFICIENTE`, non `ERRORE_INTERNO`: "L'analisi si è fermata perché la memoria del computer non basta.", con che cosa fare (chiudere gli altri programmi e riprovare; requisito dichiarato: 8 GB, con Linux e con Windows).
 In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_INTERROTTA` e **riprova da solo** (3 tentativi, 2 minuti fra l'uno e l'altro) prima di arrendersi con `DOWNLOAD_FALLITO`.
+**[13/11/2026]** Dopo `annulla`, nel registro di `esegui` una riga dice che l'analisi è stata fermata dalla persona; le righe che i programmi fermati scrivono dopo (`Terminated ...` della shell, `[FAIL] step failed` di `run.sh`) non si scrivono: non sono guasti. Gli eventi e la ripresa non cambiano.
+**[13/11/2026]** `READ_NON_DISPONIBILI` (uscita 1): il codice SRR è giusto e la corsa esiste, ma né ENA né NCBI hanno ancora le sue read (campione pubblicato da pochi giorni: `steps/05` dà lo stato `EMPTY`, che si richiede alla corsa dopo). Errore in `stima` (dice quale campione) e in `esegui`; `cosa_fare` dice di riprovare fra qualche giorno, non di controllare i codici (quello resta `READ_NON_TROVATE`). L'interfaccia non ha una pagina dove risolverlo: il pulsante resta "Riprova". Lo stesso codice arriva come **avviso** da `stima` quando un campione risulta con 0 coppie di read (la stima non è affidabile). Se ENA conosce la corsa senza read e NCBI le ha, dimensione e coppie sono quelle di NCBI, come quando ENA non la conosce.
 
 ## 5. Uscite
 
@@ -233,11 +293,28 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   |---|---|---|
   | `download` | byte delle read gz (ENA) / 4,1 MB/s; 0 per le read locali | 533,5 MB in 129 s (rete di casa) |
   | `pulizia` | 5,6 s per milione di coppie | fastp 18 s per 3,24 M |
-  | `ospite` | 101 s per milione di coppie (non scala con i processori) | 325 s (S2.2), 327 s con 24 processori |
+  | `ospite` | **[18/11/2026]** per milione di coppie, a 8 processori: 66 s × quota dell'ospite + 31 s × (1 − quota), più 8 s fissi a campione **[19/11/2026]**; con altri processori tutto × (8 / processori)^0,73 sotto gli 8 e ^0,42 sopra **[19/11/2026]** | filtro in due fasi su SRR4875279 (2.955.015 coppie, 66,7 % tolte): 167,2 e 169,7 s |
   | `metaphlan` | 86,2 s per milione di coppie **senza ospite** + 230 s fissi per campione | 357 s per 1,51 M |
   | `kraken` | coppie **senza ospite** / (37.000 al minuto × √(processori / 8)); rapido 10 M al minuto | 40 min 47 s con 8 (K2), 1.415 s con 24 |
   | `controllo_qualita`, `riepilogo`, `referto` | 15 s, 10 s, 10 s fissi; triage (se attivo) 60 s per campione, non misurato | MultiQC 3-16 s, tabelle 4 s, referto 1 s |
 
+- **[18/11/2026]** Quota dell'ospite nel passo `ospite`: la stessa che conta le coppie senza ospite (triage o ospite
+  già tolto, per campione; se no 0,67; 0 se si toglie solo l'uomo). I due costi: una coppia che resta 31 µs (fase 1
+  5,0 + fase 2 10,5 + passaggio dell'uomo 15,2, misurati il 14/11/2026), una coppia tolta 66 µs (il resto del tempo
+  del passo, meno il costo fisso, diviso per le coppie tolte). Un campione di 15,5 milioni di coppie al 99 % di
+  ospite dà 17 minuti a 8 processori (misurati 13 minuti il 19/11). **[19/11/2026]** Costo fisso a campione, filtro
+  in due fasi: 8 s a 8 processori (tre lanci di Bowtie 2 e di samtools, ripresa delle coppie). Misura: analisi
+  d'esempio, 183.178 coppie pulite, 66,8 % tolte, passo intero 16 e 17 s a 8 processori e 11 s a 24; le sole coppie
+  danno 10 e 6 s. Fino al 19/11 il costo fisso stava dentro il costo della coppia tolta (70 µs): sul campione
+  grande la stima non cambia (168,6 s), su un campione piccolo era bassa (11 s invece di 16-17). Ora l'esempio dà
+  19 s a 8 processori e 12 s a 24. **[19/11/2026]** Processori, filtro in due fasi: due esponenti, 0,73 sotto gli 8 processori e 0,42
+  sopra, misurati il 19/11 su SRR4875279 (passo intero, due corse per punto: 4 processori 265,0 e 261,5 s; 8
+  processori 159,6 e 157,3 s; 24 processori 95,5 e 105,0 s). Un esponente solo non descrive la curva: 0,49, a
+  partire dal tempo misurato a 8 processori, dava il 16 % in meno a 4 processori e l'8 % in meno a 24. Limiti: un PC
+  solo (24 core, 8 veloci e 16 lenti, senza legare i processori a core precisi), un campione al 67 % di ospite. Dove
+  il filtro resta a un solo passaggio (`very-sensitive`, progetti con solo l'uomo) il metodo non cambia e
+  la regola nemmeno: 155 s per milione di coppie a 24 processori, × (24 / processori)^0,49. Le read singole restano a
+  un passaggio, ma `stima` non sa se le read sono singole: per loro vale la regola del progetto.
 - Coppie senza ospite: dal triage (`results/triage.tsv`, colonna `host_pct`) se c'è; altrimenti il 53 % delle coppie
   è dell'ospite quando il progetto ne toglie uno (`hosts:` non vuoto: SF3RAt7, maiale, 3,24 M → 1,51 M; bovino e
   pecora non ancora misurati), 0 % se si toglie solo l'uomo (prudente).
@@ -253,10 +330,28 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
   referto non c'erano: SF3RAt7 era stimato 1,7 ore contro 37 min veri.
 - **[v0.2]** In più: `spazio_libero_gb` (disco dove andrà il lavoro) e `consigli` (§5.5: `TEMPO_LUNGO`,
   `SPAZIO_INSUFFICIENTE`, `DB_MANCANTE`). Le dimensioni si chiedono **a gruppi**: una richiesta a ENA ogni 100
-  campioni, e una a NCBI ogni 100 per quelli che ENA non conosce o se ENA non risponde (94 campioni in ~1 s).
+  campioni, e una a NCBI ogni 100 per quelli che ENA non conosce, **[13/11/2026]** per quelli che ENA ha senza read,
+  o se ENA non risponde (94 campioni in ~1 s).
 - **[v0.3]** `tempo_totale_s`: la somma di `tempo_s`, già pronta (**[17/10]** download compreso); `nomi_campioni`: i
   nomi con cui il motore chiamerà i campioni (codici SRR, e per le read locali le regole del §3), nello stesso ordine
   del conteggio.
+- **[19/11/2026]** `tempo_minimo_s` e `tempo_massimo_s` (secondi, facoltativi): i due estremi del totale quando di
+  qualche campione la quota di ospite non è misurata (niente triage, ospite non ancora tolto) e il progetto toglie un
+  ospite del prodotto. Sono il totale alla quota di partenza (0,67, cioè `tempo_totale_s`) e il totale con il 99 % di
+  ospite, il più basso e il più alto. Con più ospite il filtro dura un po' di più, ma MetaPhlAn e Kraken ricevono
+  meno coppie: SRR4875279 a 8 processori, 30 minuti al 67 % e 7 minuti al 99 %. L'interfaccia scrive "da ... a ..."
+  se ci sono tutti e due e danno durate diverse; se mancano (solo l'uomo, quota misurata, motore di prima) scrive
+  "circa" con `tempo_totale_s`. `tempo_s` e `tempo_totale_s` non cambiano.
+- **[19/11/2026]** `spazio_gb`: 6 volte le read gz di tutti i campioni, come prima; dove il filtro dell'ospite è in
+  due fasi, in più 4,5 volte le read gz del campione più grande. Sono le coppie che passano la fase 1 e aspettano la
+  fase 2 non compresse nella cartella temporanea (misurati 735 byte per coppia su SRR4875279, 852.770.900 byte per
+  1.160.921 coppie): la stima conta il caso peggiore, tutte le coppie, e un campione solo perché la cartella si
+  svuota a ogni campione. SRR4875279: 3,2 GB prima, 5,6 GB ora.
+- **[19/11/2026]** Spazio finito a metà analisi: una riga "No space left on device" nel registro della corsa dà
+  l'errore `SPAZIO_INSUFFICIENTE` nel passo in corso (prima `ERRORE_INTERNO`). Nel filtro dell'ospite la riga la
+  scrive `steps/21_hostfilter.sh` quando un passaggio fallisce e il disco della cartella temporanea ha meno di 1 MB
+  libero: il messaggio di samtools si perde, perché il suo file degli errori sta su quel disco. Il passo non lascia
+  uscite a metà e cancella la cartella temporanea; dopo aver liberato spazio l'analisi si riprende dai passi finiti.
 - **[17/10]** `tempo_s` ha una chiave per ogni passo di `esegui` (più `referto`), nell'ordine in cui girano; chi è 0
   non gira (per esempio `kraken` con solo MetaPhlAn). Nessuna chiave tolta: le 3 di prima restano.
 
@@ -287,7 +382,8 @@ In `esegui`, se ENA e NCBI non rispondono il motore lo dice con l'avviso `RETE_I
 
 - `citazioni`: gli strumenti e i database davvero usati nella corsa (D036), da mostrare in fondo al referto.
   **[v0.2]** con DOI, verificate su PubMed; `parametri` = le righe di `tabelle/parameters.tsv` (`metaphlan_mode`,
-  `kraken_profile`, `kraken_confidence`, `bracken_min_reads`, `abundance_threshold_pct`, `hosts`, ...);
+  `kraken_profile`, `kraken_confidence`, `bracken_min_reads`, `abundance_threshold_pct`, `hosts`, ...;
+  **[18/11/2026]** `host_prefilter` quando il filtro dell'ospite lavora in due fasi, §4);
   `versioni` anche di Bracken, Bowtie 2, fastp e il database di Kraken.
 - **[v0.2]** Per ogni campione `sintesi` (l'interfaccia mostra, non calcola, D006), MetaPhlAn e Kraken separati:
 

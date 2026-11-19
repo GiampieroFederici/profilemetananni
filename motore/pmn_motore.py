@@ -38,20 +38,43 @@ STATO = PMN_HOME / "stato"
 RUN_SH = os.environ.get("PMN_RUN_SH", str(ROOT / "bin" / "run.sh"))   # sostituibile solo nei test
 ATTESA_RETE = float(os.environ.get("PMN_ATTESA_RETE", "120"))          # secondi prima di riprovare il download
 TENTATIVI_RETE = 3
-CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
+CODICE_USCITA = {"CONFIG_NON_VALIDA": 1, "READ_NON_TROVATE": 1, "READ_NON_DISPONIBILI": 1, "GIA_IN_CORSO": 1, "SPAZIO_INSUFFICIENTE": 1,
                  "DOWNLOAD_FALLITO": 1, "INGRESSO_NON_VALIDO": 1, "RAM_INSUFFICIENTE": 1, "DB_MANCANTE": 2, "VERIFICA_ROSSA": 2, "ERRORE_INTERNO": 4}
 # regole di stima misurate (S2.2, S3, filone pipeline; L1a 17/10: SF3RAt7 su NVMe con 24 processori, 37 min 39 s)
 BYTE_PER_COPPIA = 164.6        # read gz di SF3RAt7: 533.522.098 byte per 3.240.847 coppie (ENA)
+FASE2_NON_COMPRESSE = 4.5      # 19/11, filtro in due fasi: le coppie che passano la fase 1 aspettano la fase 2 non
+                               # compresse nella cartella temporanea, un campione per volta. Misurato il 18/11 su
+                               # SRR4875279: 852.770.900 byte per 1.160.921 coppie, 735 byte per coppia = 4,5 volte
+                               # BYTE_PER_COPPIA. La stima dello spazio conta il caso peggiore: passano tutte
 DOWNLOAD_BYTE_S = 4.1e6        # 533,5 MB (gz di ENA) scaricati e convertiti in FASTQ in 129 s (rete di casa, 17/10)
 PULIZIA_S_PER_M = 13.4         # fastp + FastQC: 43 s per 3,24 M coppie (v1.1 VELOCITA, 30/10; prima solo fastp, 5,6)
-OSPITE_S_PER_M = 155           # 1.2, Bowtie2 local + strict (F1): salume vero 1.916 s per 12,0 M coppie, altro salume 5.778 s per 37,0 M,
-                               # esempio 27 s per 0,2 M (6/11, PC libero); prima 101 (end-to-end). Nessun costo fisso misurabile.
-OSPITE_PROC_RIF, OSPITE_ESP = 24, 0.49   # Bowtie2 con meno processori (6/11, 946.123 coppie di un salume vero, uscite identiche):
-                               # 24 -> 113 s, 8 -> 159 s (x1,41), 4 -> 271 s (x2,40); (24/p)^0,49 = x2,40 a 4 e x1,71 a 8 (prudente)
+OSPITE_S_PER_M_OSPITE, OSPITE_S_PER_M_ALTRE = 66, 31   # 18/11, filtro in due fasi, 8 processori (misure del 14/11 su
+                               # SRR4875279, 2.955.015 coppie, 66,7 % tolte, passo intero 167,2 e 169,7 s): una coppia che
+                               # resta costa 31 microsecondi (fase 1 5,0 + fase 2 10,5, misurati; uomo 15,2 = da 12,7 a
+                               # 17,3 s per 986.045 coppie); una coppia tolta 66 (il resto del tempo, meno il costo
+                               # fisso, diviso per 1.970.140 coppie tolte; 70 fino al 19/11, quando il costo fisso
+                               # stava qui dentro). Controllo: 15,5 M coppie al 99 % danno 1.027 s (misurati 783 il
+                               # 19/11). Prima (un passaggio) 155 s per milione a 24 processori, senza la quota: un
+                               # campione al 99 % di ospite durava 5 volte la stima.
+OSPITE_FISSI_S = 8             # 19/11, due fasi: costo fisso a campione (tre lanci di Bowtie 2 e di samtools, ripresa
+                               # delle coppie), a 8 processori. Esempio da 183.178 coppie pulite, 66,8 % tolte, passo
+                               # intero: 16 e 17 s a 8 processori, 11 s a 24; le sole coppie danno 10,0 s e 6,3 s,
+                               # mancano 6-7 s e 5 s. Messo 8 per non stare sotto il vero a 24 processori
+OSPITE_PROC_RIF, OSPITE_ESP = 8, 0.49   # esponente del 6/11 (un passaggio, 946.123 coppie di un salume vero: 24 -> 113 s,
+                               # 8 -> 159 s, 4 -> 271 s): dal 19/11 vale solo dove il filtro resta a un passaggio
+OSPITE_ESP_DUE = (0.73, 0.42)  # 19/11, due fasi: esponente sotto e sopra gli 8 processori. SRR4875279, passo intero, due
+                               # corse per punto, PC a corrente: 4 -> 265,0 e 261,5 s; 8 -> 159,6 e 157,3 s; 24 -> 95,5
+                               # e 105,0 s. Un esponente solo (0,49), dal tempo misurato a 8, dava il 16 % in meno a 4
+                               # processori e l'8 % in meno a 24. Un PC solo: 24 core, 8 veloci e 16 lenti, da qui il
+                               # gomito a 8
+OSPITE_S_PER_M_UNO, OSPITE_PROC_RIF_UNO = 155, 24   # dove il filtro resta a un passaggio (solo l'uomo, very-sensitive:
+                               # bin/run.sh, HOST_PREFILTER) la regola di prima, non toccata: 1.2, salume vero 1.916 s
+                               # per 12,0 M coppie, altro salume 5.778 s per 37,0 M, a 24 processori
 OSPITE_QUOTA = 0.67            # coppie tolte con l'ospite, regola strict (1.2): esempio mini_SF3RAt7 66,8 % (6/11; con
                                # end-to-end 53 %, 17/10); salumi veri 98-99 %, quindi prudente; bovino e pecora
                                # non misurati (stessa quota); senza ospite (solo uomo) 0, prudente. Vale solo finché non
                                # c'è una quota misurata (triage, ospite già tolto): poi la media di quelle (F3, L5)
+OSPITE_QUOTA_ALTA = 0.99       # l'altro estremo della stima quando la quota non è misurata (19/11): i salumi veri (98-99 %)
 MPA_S_PER_M, MPA_FISSI_S = 170, 55     # 6/11, PC libero, database ridotto (F3, N1): fissi 58-62 s sull'esempio (60.727
                                # coppie); per M dalla corsa del 17/10 (SF3RAt7, 1,51 M coppie, 357 s col .pkl intero meno 50 s);
                                # prudente su salumi veri (0,2-0,36 M: 59-66 s veri). Prima 86,2 per M (C03_1) e 135 fissi
@@ -95,6 +118,15 @@ ERRORI = [
      N_("Controlla la connessione a internet e riprova fra qualche minuto.")),
     (r"Not enough space", "SPAZIO_INSUFFICIENTE", N_("Lo spazio libero non basta per scaricare le read."),
      N_("Libera spazio sul disco e riprova.")),
+    # 19/11: lo spazio finito a metà analisi (messaggio di sistema; steps/21 lo scrive lui quando quello si perde)
+    (r"No space left on device", "SPAZIO_INSUFFICIENTE",
+     N_("L'analisi si è fermata perché lo spazio sul disco è finito."),
+     N_("Libera spazio sul disco e premi \"Riprova l'analisi\": i passi già finiti restano salvati.")),
+    # P16 (13/11): la corsa esiste, ma ENA e NCBI non hanno ancora le sue read (steps/05, stato EMPTY). Prima della
+    # riga dei codici sbagliati: il suo messaggio contiene anche "runs were not found"
+    (r"neither ENA nor NCBI has their reads yet", "READ_NON_DISPONIBILI",
+     N_("Uno o più campioni esistono negli archivi (ENA e NCBI), ma le loro read non ci sono ancora."),
+     N_("I codici sono giusti: succede con i campioni pubblicati da pochi giorni. Riprova fra qualche giorno.")),
     (r"runs were not found|skipping invalid accession|no FASTQ produced", "READ_NON_TROVATE",
      N_("Non trovo le read di uno o più campioni."), N_("Controlla i codici SRR o la cartella delle read nel progetto.")),
     # R8: genoma di un ospite non installato (vite, ospite aggiunto dalla persona), steps/11_host_index.sh
@@ -161,6 +193,13 @@ def processori(cfg):
     return KRAKEN_PROC_RIF
 
 
+def due_fasi(cfg):
+    """Filtro dell'ospite in due fasi (18/11): dove le chiede bin/run.sh (un ospite del prodotto,
+    very-sensitive-local); altrove un passaggio."""
+    return bool([h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI]) and \
+        cfg.get("host_sensitivity", "very-sensitive-local") == "very-sensitive-local"
+
+
 def piano(camp, cfg, quote=None):
     """[(etichetta di run.sh, passo, gruppo, secondi)] nell'ordine di bin/run.sh: download, triage, pulizia e ospite
     per campione, MultiQC, poi MetaPhlAn e Kraken alternati per campione, riepilogo, referto. MetaPhlAn e Kraken
@@ -180,7 +219,11 @@ def piano(camp, cfg, quote=None):
         out += [(f"{x}_{n}", "controllo_qualita", 1, TRIAGE_S / 2) for n, _, _ in camp for x in ("tq", "th")]
         out.append(("triage", "controllo_qualita", 1, 0))
     for n, c, _ in camp:
-        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, c / 1e6 * OSPITE_S_PER_M * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP)]
+        q = quote.get(n, quota)   # una coppia dell'ospite costa più del doppio di una che resta
+        ospite_s = (OSPITE_FISSI_S + c / 1e6 * (OSPITE_S_PER_M_OSPITE * q + OSPITE_S_PER_M_ALTRE * (1 - q))) \
+            * (OSPITE_PROC_RIF / processori(cfg)) ** OSPITE_ESP_DUE[processori(cfg) > OSPITE_PROC_RIF] \
+            if due_fasi(cfg) else c / 1e6 * OSPITE_S_PER_M_UNO * (OSPITE_PROC_RIF_UNO / processori(cfg)) ** OSPITE_ESP
+        out += [(f"trim_{n}", "pulizia", 2, c / 1e6 * PULIZIA_S_PER_M), (f"hf_{n}", "ospite", 2, ospite_s)]
     out.append(("multiqc", "controllo_qualita", 3, ALTRI_S["controllo_qualita"]))
     resto = {n: c * (1 - quote.get(n, quota)) for n, c, _ in camp}
     for n, _, _ in camp:
@@ -204,6 +247,25 @@ def tempi(camp, cfg, quote=None):
     for _, passo, _, s in piano(camp, cfg, quote):
         out[passo] += s
     return {p: round(s) for p, s in out.items()}
+
+
+def estremi(camp, cfg, quote):
+    """{tempo_minimo_s, tempo_massimo_s} di stima (19/11): quando di qualche campione la quota di ospite non è misurata,
+    il totale con la quota di partenza (quello di tempi) e il totale con OSPITE_QUOTA_ALTA, il più basso e il più
+    alto. Con molto ospite il filtro dura un po' di più, ma MetaPhlAn e Kraken ricevono poche coppie: SRR4875279 a
+    8 processori, 30 minuti al 67 % e 7 al 99 %. Vuoto se la quota non conta (solo l'uomo) o è misurata per tutti."""
+    if not [h for h in cfg.get("hosts") or [] if h not in ospiti.UMANI] or all(n in quote for n, _, _ in camp):
+        return {}
+    alta = {**dict.fromkeys((n for n, _, _ in camp), OSPITE_QUOTA_ALTA), **quote}
+    due = [sum(tempi(camp, cfg, q).values()) for q in (quote, alta)]
+    return {"tempo_minimo_s": min(due), "tempo_massimo_s": max(due)}
+
+
+def spazio_analisi(camp, cfg):
+    """GB di spazio per l'analisi (spazio_gb di stima): 6 volte le read gz di tutti i campioni; con il filtro in due
+    fasi anche le coppie non compresse che aspettano la fase 2, per un campione solo, il più grande (19/11)."""
+    fase2 = FASE2_NON_COMPRESSE * max(max(b, c * BYTE_PER_COPPIA) for _, c, b in camp) if due_fasi(cfg) else 0
+    return round((max(sum(b for _, _, b in camp), sum(c for _, c, _ in camp) * BYTE_PER_COPPIA) * 6 + fase2) / 1e9, 1)
 
 
 def quote_triage(lavoro):
@@ -559,6 +621,12 @@ class Motore:
                                                    "download."),
                              _("Controlla la connessione e riprova fra qualche minuto."))
             for e in esiti:
+                if e["status"] == "EMPTY":   # P16: il codice è giusto, le read non sono ancora negli archivi
+                    raise Errore("READ_NON_DISPONIBILI",
+                                 _("Il campione {codice} esiste, ma gli archivi (ENA e NCBI) non hanno ancora le sue "
+                                   "read.", codice=e['accession']),
+                                 _("Il codice è giusto: succede con i campioni pubblicati da pochi giorni. Riprova fra "
+                                   "qualche giorno, oppure togli questo campione dal progetto."))
                 if e["status"] != "OK":
                     raise Errore("READ_NON_TROVATE", _("Non trovo il campione {codice} su ENA né su NCBI.",
                                                        codice=e['accession']),
@@ -577,13 +645,17 @@ class Motore:
     def stima(self):
         cfg = leggi_progetto(self.a.progetto)
         camp = self.campioni(cfg)
+        for nome in [n for n, c, _b in camp if not c]:   # P16: mai una stima su 0 coppie senza dirlo
+            self.evento("avviso", _("Il campione {nome} risulta senza read (0 coppie): la stima non è affidabile. "
+                                    "Controlla le read di questo campione prima di avviare l'analisi.", nome=nome),
+                        codice="READ_NON_DISPONIBILI")
         coppie = sum(c for _, c, _ in camp)
         strumento = sezione(cfg, "profiling").get("tool", "both")
         kraken_db = sezione(cfg, "motore").get("kraken_db") or "completo"
         lavoro = Path(self.a.progetto).resolve().parent / str(sezione(cfg, "paths").get("work_dir") or "./pmn_work")
-        tempo = tempi(camp, cfg, {**quote_triage(lavoro), **quote_ospite(lavoro)})   # come esegui (F3, L5)
-        scaricare = sum(b for _, _, b in camp)
-        spazio_gb = round(max(scaricare, coppie * BYTE_PER_COPPIA) * 6 / 1e9, 1)
+        quote = {**quote_triage(lavoro), **quote_ospite(lavoro)}
+        tempo = tempi(camp, cfg, quote)   # come esegui (F3, L5)
+        spazio_gb = spazio_analisi(camp, cfg)
         while not lavoro.exists() and lavoro != lavoro.parent:   # lo spazio del disco dove andra' il lavoro
             lavoro = lavoro.parent
         libero = round(shutil.disk_usage(lavoro).free / 1e9, 1)
@@ -593,7 +665,7 @@ class Motore:
             consigli += system_one.database(kraken_db, {d["nome"]: d["installato"] for d in elenco_database(env)})
         return "ok", {"campioni": len(camp), "nomi_campioni": [n for n, _, _ in camp], "coppie_totali": coppie,
                       "tempo_s": tempo, "tempo_totale_s": sum(tempo.values()), "spazio_gb": spazio_gb,
-                      "spazio_libero_gb": libero, "consigli": self.consigli(consigli)}, \
+                      "spazio_libero_gb": libero, "consigli": self.consigli(consigli), **estremi(camp, cfg, quote)}, \
             _("Stima pronta per {n} processori (dipende anche dalla rete e dalla quantità di DNA dell'ospite).",
               n=processori(cfg))
 
@@ -680,13 +752,34 @@ class Motore:
         blocco.write_text(json.dumps({"corsa": self.corsa, "pid": os.getpid(), "pgid": p.pid}), encoding="utf-8")
         if annulla.exists():   # arrivato fra il Popen e il lock col pgid: lo si ferma qui, poi p.wait() alza Annullata
             os.killpg(p.pid, signal.SIGTERM)
-        coda = []
+        coda, fermata = [], False
+        corrente = None   # il passo in corso: (etichetta, passo, messaggio, campione, fatto, istante d'inizio)
         for riga in p.stdout:
             riga = riga.rstrip()
+            if not fermata and annulla.exists():   # P23: il segno c'è da prima del segnale (comando annulla)
+                fermata = True
+                self.scrivi("annulla: analisi fermata dalla persona; le ultime righe dei programmi fermati non sono "
+                            "guasti e non si scrivono")
+            if fermata:   # "Terminated ..." della shell e "[FAIL] step failed" di run.sh per il passo fermato
+                continue
             self.scrivi(riga)
             coda = (coda + [riga])[-40:]
             m = re.search(r"\[(?:local|locale)\] (\S+)", riga)
             if not m:
+                # 13/11: un passo lungo dice a che punto è ("[progress] 37", steps/21_hostfilter.sh). Il tempo che
+                # manca si rifà sul ritmo vero del passo, non sulla regola di stima: su un portatile il filtro
+                # dell'ospite è durato 2 h 24 min contro i 26 min previsti, senza un segno a schermo
+                a = re.search(r"\[progress\] (\d+)$", riga)
+                if a and corrente and 0 < int(a.group(1)) < 100:
+                    etichetta, passo, testo, campione, fatto, t0 = corrente
+                    passati = time.monotonic() - t0
+                    intero = passati * 100 / int(a.group(1))            # durata del passo, al ritmo visto finora
+                    resta = intero - passati + sum(s for e, s in secondi.items() if e not in fatti)
+                    tutto = totale - secondi.get(etichetta, 0) + intero
+                    ultimo = max(ultimo, 100 * (tutto - resta) / tutto)   # la barra non torna mai indietro
+                    self.avanza(passo, _("{frase} (questo passo è al {p} %)", frase=testo, p=a.group(1)), ultimo,
+                                campione=campione, fatto=fatto, totale=n, eta_s=round(resta) if camp else None,
+                                passo_s=round(intero - passati) if camp else None)
                 continue
             for regola, passo in ETICHETTE:
                 mm = re.fullmatch(regola, m.group(1))
@@ -716,6 +809,7 @@ class Motore:
                     chi = _("Campione {i} di {n}: ", i=min(fatto, n), n=n) if campione else ""
                     self.avanza(passo, f"{chi}{testo}", pct, campione=campione, fatto=fatto, totale=n, eta_s=resta,
                                 passo_s=questo)   # 17/10: l'app non fa scendere il tempo oltre questo passo
+                    corrente = (m.group(1), passo, f"{chi}{testo}", campione, fatto, time.monotonic())
                     break
         self.ultimo_pct, self.eta_referto = ultimo, secondi["referto"] if camp else None
         codice = p.wait()

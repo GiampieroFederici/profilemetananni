@@ -1,30 +1,91 @@
 # ProfileMetaNanni 1.3
 
+**English** · [Italiano](#scarica-o-aggiorna)
+
+## Download or update
+
+**You need:** Windows 11, or Ubuntu 24.04 or 26.04 (there is no Mac version), 8 GB of RAM, about 180 GB free on the internal disk and a few hours for the download of the databases.
+
+### Windows 11
+
+**[Download ProfileMetaNanni for Windows](https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/profilemetananni_v1.3.0.zip)** (zip, 50 MB)
+
+1. Click the link above. The browser saves the zip in the **Downloads** folder.
+2. Open **Downloads**, right-click the zip, choose **Extract All**, then **Extract**.
+3. A window opens with one folder, **profilemetananni**: open it and double-click **Installa profilemetananni**. Answer the questions (each one is explained in [How to install](#how-to-install)) and wait for the message **All ready**.
+
+### Ubuntu 24.04 or 26.04
+
+1. Open the **Terminal**.
+2. Paste this line and press Enter:
+
+   ```bash
+   wget -nv -O- https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/installa_profilemetananni_linux.sh | bash
+   ```
+
+3. When it asks "Shall I go ahead with the installation? (y/n)", type `y` and press Enter. At the end it writes **GREEN**.
+
+If you prefer a file to a command: [download the Linux package](https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/profilemetananni_v1.3.0_linux.tar.gz) (1 MB), extract it, open the Terminal in the extracted folder and run `bash installer/linux/installa_pmn.sh`.
+
+### If ProfileMetaNanni is already on your PC
+
+Your projects, your results and the databases stay where they are in every case. The version you have is written at the bottom of the first page of the program, in the box **Version and updates**.
+
+| You have | What to do |
+|---|---|
+| **Windows, version 1.2 or older** | Open the program. At the bottom of the first page press **Check for updates**, then **Update now**. If your version has no such button, repeat the three Windows steps above. |
+| **Windows, version 1.3.0** | The button finds nothing, because the number is still 1.3.0. Close the program, then repeat the three Windows steps above. The installer says that the databases are already on the PC and asks to go ahead: answer **Yes**. It does not download them again. |
+| **Ubuntu** | Repeat the three Ubuntu steps above. |
+
+**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) too.
+
+## Scarica o aggiorna
+
+**Serve:** Windows 11, oppure Ubuntu 24.04 o 26.04 (non c'è una versione per Mac), 8 GB di RAM, circa 180 GB liberi sul disco interno e alcune ore per scaricare i database.
+
+### Windows 11
+
+**[Scarica ProfileMetaNanni per Windows](https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/profilemetananni_v1.3.0.zip)** (zip, 50 MB)
+
+1. Clicca il collegamento qui sopra. Il browser salva lo zip nella cartella **Download**.
+2. Apri **Download**, clic destro sullo zip, scegli **Estrai tutto**, poi **Estrai**.
+3. Si apre una finestra con una sola cartella, **profilemetananni**: aprila e fai doppio clic su **Installa profilemetananni**. Rispondi alle domande (sono spiegate una per una in [Come si installa](#come-si-installa)) e aspetta il messaggio **Tutto pronto**.
+
+### Ubuntu 24.04 o 26.04
+
+1. Apri il **Terminale**.
+2. Incolla questa riga e premi Invio:
+
+   ```bash
+   wget -nv -O- https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/installa_profilemetananni_linux.sh | bash
+   ```
+
+3. Quando chiede "Procedo con l'installazione? (s/n)", scrivi `s` e premi Invio. Alla fine scrive **VERDE**.
+
+Se preferisci un file a un comando: [scarica il pacchetto per Linux](https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/profilemetananni_v1.3.0_linux.tar.gz) (1 MB), estrailo, apri il Terminale nella cartella estratta e lancia `bash installer/linux/installa_pmn.sh`.
+
+### Se ProfileMetaNanni è già sul tuo PC
+
+I tuoi progetti, i tuoi risultati e i database restano dove sono, in ogni caso. La versione che hai è scritta in fondo alla prima pagina del programma, nel riquadro **Versione e aggiornamenti**.
+
+| Hai | Che cosa fare |
+|---|---|
+| **Windows, versione 1.2 o precedente** | Apri il programma. In fondo alla prima pagina premi **Cerca aggiornamenti**, poi **Aggiorna adesso**. Se la tua versione non ha questo pulsante, ripeti i tre passi per Windows qui sopra. |
+| **Windows, versione 1.3.0** | Il pulsante non trova nulla, perché il numero è ancora 1.3.0. Chiudi il programma, poi ripeti i tre passi per Windows qui sopra. L'installatore dice che i database sono già sul PC e chiede se procedere: rispondi **Sì**. Non li scarica di nuovo. |
+| **Ubuntu** | Ripeti i tre passi per Ubuntu qui sopra. |
+
+**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0).
+
 **New in 1.3 / Novità della 1.3**
 
 | English | Italiano |
 |---|---|
-| **Now also for Linux (Ubuntu 24.04)**, with one installation command. | **Ora anche per Linux (Ubuntu 24.04)**, con un solo comando di installazione. |
+| **Now also for Linux (Ubuntu 24.04 and 26.04)**, with one installation command. | **Ora anche per Linux (Ubuntu 24.04 e 26.04)**, con un solo comando di installazione. |
 | **Faster: a whole analysis takes 34 % less time** than with version 1.2 (22.1 minutes instead of 33.5; the Kraken step 62 % less). | **Più veloce: un'analisi intera dura il 34 % in meno** rispetto alla versione 1.2 (22,1 minuti invece di 33,5; il passo di Kraken il 62 % in meno). |
 | **8 GB of RAM are enough** (they were 16). | **Bastano 8 GB di RAM** (erano 16). |
-| **Same results**: all the output files are byte-identical to those of version 1.2. | **Stessi risultati**: tutti i file in uscita sono identici al byte a quelli della versione 1.2. |
+| **Same results**: with the four changes of version 1.3 all the output files are byte-identical to those of version 1.2. The faster host step added afterwards removes 3 more read pairs out of 2,955,015 on the test sample: same species, same percentages to the second decimal. | **Stessi risultati**: con le quattro modifiche della versione 1.3 tutti i file in uscita sono identici al byte a quelli della versione 1.2. Il passo dell'ospite più veloce, aggiunto dopo, toglie 3 coppie di read in più su 2.955.015 nel campione di prova: stesse specie, stesse percentuali fino al secondo decimale. |
 
 Measured on the same computer limited to 4 processors and 8 GB, on a whole salami sample (public run SRR4875279, 3.24 million read pairs). / Misurato sullo stesso computer limitato a 4 processori e 8 GB, su un salame intero (corsa pubblica SRR4875279, 3,24 milioni di coppie di read).
-
-## Download / Scarica
-
-| | English | Italiano |
-|---|---|---|
-| **Ubuntu 24.04** | [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip), extract it, then run `bash installer/linux/installa_pmn.sh` in the folder. [Ubuntu guide](docs/guida_ubuntu_EN.md). | [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip), estraila, poi lancia `bash installer/linux/installa_pmn.sh` nella cartella. [Guida per Ubuntu](docs/guida_ubuntu_IT.md). |
-| **Windows 11** | [Download the zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), extract it, double-click **Installa profilemetananni**. If you already have version 1.2: open the program and press **Cerca aggiornamenti** (check for updates). | [Scarica lo zip](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0.zip) (50 MB), estrailo, doppio clic su **Installa profilemetananni**. Se hai già la versione 1.2: apri il programma e premi **Cerca aggiornamenti**. |
-
-**You need** Windows 11 or Ubuntu 24.04 (not Mac), 8 GB of RAM, about 180 GB free on the internal disk, a few hours of download. Every window explained: [How to install](#how-to-install).
-
-**First analysis:** [step-by-step guide on the example sample](docs/guida_analisi_esempio_EN.md) (also as [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_EN.pdf)). The two example read files are in the [release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0) too.
-
-**Serve** Windows 11 o Ubuntu 24.04 (non Mac), 8 GB di RAM, circa 180 GB liberi sul disco interno, alcune ore di download. Ogni finestra spiegata: [Come si installa](#come-si-installa).
-
-**Prima analisi:** [guida passo passo sul campione d'esempio](docs/guida_analisi_esempio_IT.md) (anche in [PDF](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/guida_analisi_esempio_IT.pdf)). I due file di read dell'esempio sono anche nella [Release](https://github.com/GiampieroFederici/profilemetananni/releases/tag/v1.3.0).
 
 <p align="center">
   <img src="ProfileMetaNanni-Avatar.jpg" alt="ProfileMetaNanni" width="320">
@@ -45,11 +106,19 @@ Measured on the same computer limited to 4 processors and 8 GB, on a whole salam
 
 ## How to install
 
-### On Ubuntu 24.04 (version 1.3)
+### On Ubuntu 24.04 or 26.04
 
-1. [Download version 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip) and extract it in a fixed place, for example `~/profilemetananni`: the program runs from there.
-2. Open the terminal in that folder and run `bash installer/linux/installa_pmn.sh`. The script says what it will download and asks before starting; at the end it tests the engine on a small sample and writes VERDE (green).
+1. Open the Terminal, paste this line and press Enter:
+
+   ```bash
+   wget -nv -O- https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/installa_profilemetananni_linux.sh | bash
+   ```
+
+   It downloads the Linux package of the latest release (1 MB), checks that it is the published one (SHA-256) and starts the installation.
+2. The script says what it will download and asks before starting: answer `s` (yes). At the end it tests the engine on a small sample and writes VERDE (green).
 3. Start the program from the applications menu (**ProfileMetaNanni**) or with the command `profilemetananni`.
+
+If you prefer not to paste a command: [download the Linux package](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0_linux.tar.gz), extract it, open the Terminal in the extracted folder and run `bash installer/linux/installa_pmn.sh`. In both cases the program is copied to `~/.pmn/programma`: what you downloaded is not needed afterwards.
 
 You need 8 GB of RAM, about 180 GB free in your home folder and no administrator rights (except for system programs that Ubuntu may lack: the script names them). Everything else, with the measured times: [Ubuntu guide](docs/guida_ubuntu_EN.md).
 
@@ -108,7 +177,7 @@ It starts from shotgun sequencing reads (`.fastq.gz` files from the sequencing l
 | Step | Tool |
 |---|---|
 | Read cleaning and quality control | fastp, FastQC, MultiQC |
-| Host read removal | Bowtie 2 (`--very-sensitive-local`; a read pair is removed if either read aligns, as in KneadData 0.12.5) against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
+| Host read removal | Bowtie 2 (`--very-sensitive-local`; a read pair is removed if either read aligns, as in KneadData 0.12.5; on the first host genome a fast first screen with `--very-fast`, then the full command on the pairs it did not remove) against pig (Sscrofa11.1), cattle (ARS-UCD1.2), sheep (ARS-UI_Ramb_v2.0), grapevine (T2T-PN40024) and human (GRCh38), none, or a host you add from an NCBI assembly accession or a FASTA file |
 | Marker-gene taxonomic profiling | MetaPhlAn 4.2.4 with the `mpa_vJan25_CHOCOPhlAnSGB_202503` database |
 | k-mer taxonomic profiling (prototype) | Kraken 2 + Bracken with PlusPF (full) or PlusPF-8 (quick screening) |
 | Alpha diversity at equal depth | richness, Shannon, Simpson, for each method |
@@ -139,17 +208,17 @@ Standard MetaPhlAn with vJan25 needs about 33 GB of RAM. ProfileMetaNanni splits
 
 | What | Value |
 |---|---|
-| System | Windows 11 (tested) or Ubuntu 24.04 with an x86_64 processor (tested on a clean Ubuntu inside a virtual machine, not on a physical PC). Not available for macOS |
+| System | Windows 11 (tested), or Ubuntu 24.04 or 26.04 with an x86_64 processor (24.04 tested on a clean Ubuntu inside a virtual machine, 26.04 on a physical PC with the LXQt desktop). Not available for macOS |
 | RAM | 8 GB (they were 16 with version 1.2). On Windows the installer checks that the PC shows at least 7.9 GB; a PC sold as "8 GB" with integrated graphics can show less, and then the installer stops at once and says so. An analysis uses at most about 5 GB |
-| Time | Measured with version 1.3 on Ubuntu, 4 processors and 8 GB: the example sample (0.2 million read pairs) 3 min 10 s; a whole salami sample (3.24 million pairs) 24 minutes, almost half of it removing pig DNA; a community with no host (ZymoBIOMICS standard, 7.9 million pairs) 2 h 34 min, most of it in Kraken. The same salami sample with version 1.2 on the same machine: 33.5 minutes instead of 22.1 (without the download of the reads). On a Windows 11 virtual machine with 8 GB the salami sample took 59 minutes |
-| Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download; on Windows the file of the Linux disk then grows more than the data it holds (measured: 242 GB for 179 GB of data), and the installer says it before starting |
-| Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 42.1 GB of ProfileMetaNanni packages; the installer shows it as "about 130 GB" because it counts in binary units). Measured: 3 h 18 min at about 11 MB/s, 5 h 56 min at about 6 MB/s |
+| Time | Measured with version 1.3 on Ubuntu, 4 processors and 8 GB: the example sample (0.2 million read pairs) 3 min 10 s; a whole salami sample (3.24 million pairs) 24 minutes, almost half of it removing pig DNA; a community with no host (ZymoBIOMICS standard, 7.9 million pairs) 2 h 34 min, most of it in Kraken. The same salami sample with version 1.2 on the same machine: 33.5 minutes instead of 22.1 (without the download of the reads). On a Windows 11 virtual machine with 8 GB the salami sample took 59 minutes. These times were measured with the host step in one pass. The step now works in two phases: measured alone on the same salami sample, on another PC with 8 processors, it takes 168 s instead of 370; on a sample with 99 % pig DNA (15.5 million pairs) it takes 13 minutes instead of 40 |
+| Disk | internal, about 180 GB free during installation (about 180 GB once installed). With much more free space the downloaded pieces are kept until they are checked, so an interruption never costs a new download; on Windows the file of the Linux disk then grows more than the data it holds (measured: 242 GB for 179 GB of data), and the installer says it before starting; on Ubuntu the pieces are deleted after the check (on the physical test PC, with 416 GB free: about 257 GB announced before starting, about 170 GB in use at the end) |
+| Network | to download about 139 GB of databases (96.9 GB of public Kraken indexes + 42.1 GB of ProfileMetaNanni packages; the installer shows it as "about 130 GB" because it counts in binary units). Measured: 3 h 18 min at about 11 MB/s, 3 h 23 min at about 10 MB/s (physical PC with Ubuntu 26.04), 5 h 56 min at about 6 MB/s |
 
 On Windows the installer enables WSL2 (it asks once for administrator permission and one restart) and creates a dedicated Linux space; on Ubuntu everything goes in `~/.pmn`. On both it installs the programs from lock files with pinned versions and the databases with MD5 checks.
 
 ## Status
 
-Version 1.3. It runs on native Ubuntu, it needs 8 GB of RAM instead of 16, and it is faster, with the same results. Four changes, each one kept only because the output files stayed byte-identical to those of version 1.2: the step that merges the six slices of MetaPhlAn uses a fixed amount of memory; when free memory is short Bowtie 2 reads its index from the disk instead of loading it; Kraken tells Linux that it reads its 110 GB table in scattered pieces, so Linux stops reading the neighbouring pieces that nobody needs; the reduced MetaPhlAn database is downloaded ready-made instead of being built on the PC.
+Version 1.3. It runs on native Ubuntu, it needs 8 GB of RAM instead of 16, and it is faster, with the same results. Four changes, each one kept only because the output files stayed byte-identical to those of version 1.2: the step that merges the six slices of MetaPhlAn uses a fixed amount of memory; when free memory is short Bowtie 2 reads its index from the disk instead of loading it; Kraken tells Linux that it reads its 110 GB table in scattered pieces, so Linux stops reading the neighbouring pieces that nobody needs; the reduced MetaPhlAn database is downloaded ready-made instead of being built on the PC. After these four changes, host DNA is removed in two phases on the first host genome, with paired reads. Bowtie 2 first looks at all the pairs with its fast setting (`--very-fast`); only the pairs with both reads unaligned go to the full command (`--very-sensitive-local`, a pair is removed if either read aligns), taken again from the cleaned files with their whole header line. On the test salami sample (2,955,015 cleaned pairs, 67 % host, 8 processors) the step takes 168 s instead of 370 and removes 3 more pairs: same species, same percentages to the second decimal. The human pass, single reads and the projects that remove only human DNA work as before. Projects analysed before this change redo host removal, MetaPhlAn and Kraken by themselves, because the method changed. Before an analysis the app gives the time as a range ("from ... to ...") when the share of host DNA is not known yet, and the space it asks for counts the temporary files of the second phase.
 
 | Whole salami sample (SRR4875279), 4 processors, same machine | Version 1.3 | Version 1.2 | Time saved |
 |---|---|---|---|
@@ -160,7 +229,7 @@ Version 1.3. It runs on native Ubuntu, it needs 8 GB of RAM instead of 16, and i
 
 In all three rows the 13 output files of the two versions have the same MD5. Times are without the download of the reads.
 
-Limits of version 1.3, stated as they are. Ubuntu was tested on a clean Ubuntu 24.04 inside a virtual machine, not on a physical PC. Windows with 8 GB was tested on a clean Windows 11 virtual machine (installation GREEN in 3 h 28 min, whole sample from the app in 59 minutes, identical outputs): a real 8 GB PC is not tested yet. Times depend on the machine and on the line, so the installer gives the download time as a range (for example "from 2.2 to 3.1 hours"): a few seconds of measurement cannot tell how the line will be shared between the two download sources, and in the two installations measured from scratch the real time falls inside the range. The time of an analysis is estimated for a real Windows PC (example sample: about 6 minutes announced, 5 and a half measured); on the two virtual test machines the same analysis took 3 and 10 minutes.
+Limits of version 1.3, stated as they are. Ubuntu was tested on a clean Ubuntu 24.04 inside a virtual machine and on one physical PC with Ubuntu 26.04 (LXQt desktop on X11, system in Italian). Windows with 8 GB was tested on a clean Windows 11 virtual machine (installation GREEN in 3 h 28 min, whole sample from the app in 59 minutes, identical outputs): a real 8 GB PC is not tested yet. Times depend on the machine and on the line, so the installer gives the download time as a range (for example "from 2.2 to 3.1 hours"): a few seconds of measurement cannot tell how the line will be shared between the two download sources, and in the two installations measured from scratch the real time falls inside the range. The time of an analysis is estimated for a real Windows PC (example sample on a PC with 24 processors: from 3 to 4 minutes announced, 2 minutes 46 seconds and 2 minutes 26 seconds measured); on the two virtual test machines the same analysis took 3 and 10 minutes. The two-phase host step was measured on four real samples and on one PC, with 4, 8 and 24 processors: two samples with pig DNA (67 % and 99 % host) and two of dry-aged beef with cattle DNA (9 % and 99.9 % host). A fermented beef product was not measured, because no public shotgun data were found; sheep, grapevine and added hosts use the two phases without a measurement of their own.
 
 Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, a pair is removed if either read aligns), and MetaPhlAn computes the profile from a database reduced to the clades with reads: the profiles are byte-identical to a classic MetaPhlAn 4.2.4 run with the full database, and the memory peak of an analysis goes from 8.4 to 5.4 GB. Validated on simulated cured-meat communities with known truth (0.18 % of the true taxa read pairs removed by the host filter), on the ZymoBIOMICS D6300 standard (8 of 8 bacteria, no unexpected species above 0.1 % with MetaPhlAn or Kraken) and on real cured-meat samples compared with the previous version. Installation from scratch was tested on a clean Windows 11 virtual machine with the real downloads (Stop and resume, restart, the engine check GREEN, the example analysis); each correction found there was checked again on the same machine before this release. The full Kraken index does not fit on the test machine's disk, so on the virtual machine Kraken was run with the quick index; the full index was used on a real PC. Projects analysed with 1.1 redo cleaning, host removal, MetaPhlAn and Kraken by themselves, because the method changed.
 
@@ -169,6 +238,8 @@ Version 1.2. Host and human reads are removed as in KneadData 0.12.5 (Bowtie 2 `
 | App versus command line, same sample | byte-identical |
 | Version 1.3 versus 1.2, same samples, 8, 6 and 4 GB of RAM | 13 output files out of 13 byte-identical, every time |
 | ZymoBIOMICS D6300 with version 1.3 | 11 comparisons out of 11 identical to version 1.2 |
+| Host step in two phases versus one pass, same salami sample | no extra pair kept, 3 extra pairs removed out of 2,955,015; Kraken and Bracken byte-identical; MetaPhlAn same 27 species, Bray-Curtis 0.000027 |
+| Host step in two phases versus one pass, three more real samples | sample with 99 % pig DNA: no extra pair kept, 1 extra pair removed out of 15,525,290; two dry-aged beef samples (8,252,337 cattle pairs in all): reads byte-identical |
 | ZymoBIOMICS D6300 control community | MetaPhlAn 8 expected species out of 8, 0 extra species, Bray-Curtis 0.068 |
 | Simulated cured-meat communities (12) | MetaPhlAn 0 false species in 12 out of 12; sensitivity criterion met in 4 out of 12, because rare taxa with few reads are lost (limit declared in the report) |
 | Kraken calibration (confidence 0.5 + 0.1 % threshold) | F1 1.00 on the control community |
@@ -207,11 +278,19 @@ MIT (see `LICENSE`).
 
 ## Come si installa
 
-### Su Ubuntu 24.04 (versione 1.3)
+### Su Ubuntu 24.04 o 26.04
 
-1. [Scarica la versione 1.3](https://github.com/GiampieroFederici/profilemetananni/archive/refs/heads/main.zip) ed estraila in un posto fisso, per esempio `~/profilemetananni`: il programma gira da lì.
-2. Apri il terminale in quella cartella e lancia `bash installer/linux/installa_pmn.sh`. Lo script dice che cosa scaricherà e chiede prima di partire; alla fine prova il motore su un piccolo campione e scrive VERDE.
+1. Apri il Terminale, incolla questa riga e premi Invio:
+
+   ```bash
+   wget -nv -O- https://github.com/GiampieroFederici/profilemetananni/releases/latest/download/installa_profilemetananni_linux.sh | bash
+   ```
+
+   Scarica il pacchetto per Linux dell'ultima Release (1 MB), controlla che sia quello pubblicato (SHA-256) e avvia l'installazione.
+2. Lo script dice che cosa scaricherà e chiede prima di partire: rispondi `s`. Alla fine prova il motore su un piccolo campione e scrive VERDE.
 3. Avvia il programma dal menu delle applicazioni (**ProfileMetaNanni**) o con il comando `profilemetananni`.
+
+Se preferisci non incollare un comando: [scarica il pacchetto per Linux](https://github.com/GiampieroFederici/profilemetananni/releases/download/v1.3.0/profilemetananni_v1.3.0_linux.tar.gz), estrailo, apri il Terminale nella cartella estratta e lancia `bash installer/linux/installa_pmn.sh`. In tutti e due i casi il programma viene copiato in `~/.pmn/programma`: ciò che hai scaricato dopo non serve più.
 
 Servono 8 GB di RAM, circa 180 GB liberi nella tua cartella personale e nessun permesso di amministratore (tranne per i programmi di sistema che a Ubuntu possono mancare: lo script dice quali). Tutto il resto, con i tempi misurati: [guida per Ubuntu](docs/guida_ubuntu_IT.md).
 
@@ -270,7 +349,7 @@ Parte dalle read di sequenziamento shotgun (file `.fastq.gz` del laboratorio, op
 | Passo | Strumento |
 |---|---|
 | Pulizia e controllo qualità delle read | fastp, FastQC, MultiQC |
-| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 (`--very-sensitive-local`; una coppia di read si toglie se anche una sola read si allinea, come in KneadData 0.12.5) su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
+| Rimozione del DNA dell'ospite (host read removal) | Bowtie 2 (`--very-sensitive-local`; una coppia di read si toglie se anche una sola read si allinea, come in KneadData 0.12.5; sul primo genoma dell'ospite un primo vaglio veloce con `--very-fast`, poi il comando completo sulle coppie che il vaglio non ha tolto) su maiale (Sscrofa11.1), bovino (ARS-UCD1.2), pecora (ARS-UI_Ramb_v2.0), vite (T2T-PN40024) e uomo (GRCh38), nessuno, oppure un ospite che aggiungi tu con il codice di un assembly NCBI o un file FASTA |
 | Profilo tassonomico con geni marcatori | MetaPhlAn 4.2.4 con il database `mpa_vJan25_CHOCOPhlAnSGB_202503` |
 | Profilo tassonomico per k-mer (prototipo) | Kraken 2 + Bracken con PlusPF (completo) o PlusPF-8 (screening rapido) |
 | Diversità alfa a profondità uguale | ricchezza, Shannon, Simpson, per ciascun metodo |
@@ -301,17 +380,17 @@ MetaPhlAn standard con vJan25 chiede circa 33 GB di RAM. ProfileMetaNanni divide
 
 | Cosa | Valore |
 |---|---|
-| Sistema | Windows 11 (provato) oppure Ubuntu 24.04 con processore x86_64 (provato su un Ubuntu pulito dentro una macchina virtuale, non su un PC fisico). Non disponibile per macOS |
+| Sistema | Windows 11 (provato), oppure Ubuntu 24.04 o 26.04 con processore x86_64 (24.04 provato su un Ubuntu pulito dentro una macchina virtuale, 26.04 su un PC fisico con il desktop LXQt). Non disponibile per macOS |
 | RAM | 8 GB (erano 16 con la versione 1.2). Su Windows l'installatore controlla che il PC ne mostri almeno 7,9; un PC venduto come "da 8 GB" con la grafica integrata può mostrarne meno, e allora l'installatore si ferma subito e lo dice. Un'analisi usa al massimo circa 5 GB |
-| Tempo | Misurato con la versione 1.3 su Ubuntu, 4 processori e 8 GB: il campione d'esempio (0,2 milioni di coppie di read) 3 min 10 s; un salame intero (3,24 milioni di coppie) 24 minuti, quasi la metà per togliere il DNA del maiale; una comunità senza ospite (standard ZymoBIOMICS, 7,9 milioni di coppie) 2 h 34 min, quasi tutti in Kraken. Lo stesso salame con la versione 1.2 sulla stessa macchina: 33,5 minuti invece di 22,1 (senza lo scarico delle read). Su Windows 11 in una macchina virtuale con 8 GB il salame ha richiesto 59 minuti |
-| Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico; su Windows il file del disco di Linux cresce allora più dei dati che contiene (misurato: 242 GB per 179 GB di dati), e l'installatore lo dice prima di partire |
-| Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 42,1 GB di pacchetti ProfileMetaNanni; l'installatore li mostra come "circa 130 GB" perché conta in unità binarie). Misurato: 3 h 18 min a circa 11 MB/s, 5 h 56 min a circa 6 MB/s |
+| Tempo | Misurato con la versione 1.3 su Ubuntu, 4 processori e 8 GB: il campione d'esempio (0,2 milioni di coppie di read) 3 min 10 s; un salame intero (3,24 milioni di coppie) 24 minuti, quasi la metà per togliere il DNA del maiale; una comunità senza ospite (standard ZymoBIOMICS, 7,9 milioni di coppie) 2 h 34 min, quasi tutti in Kraken. Lo stesso salame con la versione 1.2 sulla stessa macchina: 33,5 minuti invece di 22,1 (senza lo scarico delle read). Su Windows 11 in una macchina virtuale con 8 GB il salame ha richiesto 59 minuti. Questi tempi sono misurati con il passo dell'ospite a un solo passaggio. Ora il passo lavora in due fasi: misurato da solo sullo stesso salame, su un altro PC con 8 processori, dura 168 s invece di 370; su un campione con il 99 % di DNA di maiale (15,5 milioni di coppie) dura 13 minuti invece di 40 |
+| Disco | interno, circa 180 GB liberi durante l'installazione (circa 180 GB a installazione finita). Con molto più spazio libero i pezzi scaricati restano fino al controllo, così un'interruzione non costa mai un nuovo scarico; su Windows il file del disco di Linux cresce allora più dei dati che contiene (misurato: 242 GB per 179 GB di dati), e l'installatore lo dice prima di partire; su Ubuntu i pezzi si cancellano dopo il controllo (sul PC fisico di prova, con 416 GB liberi: circa 257 GB annunciati prima di partire, circa 170 GB occupati alla fine) |
+| Rete | per scaricare circa 139 GB di database (96,9 GB di indici Kraken pubblici + 42,1 GB di pacchetti ProfileMetaNanni; l'installatore li mostra come "circa 130 GB" perché conta in unità binarie). Misurato: 3 h 18 min a circa 11 MB/s, 3 h 23 min a circa 10 MB/s (PC fisico con Ubuntu 26.04), 5 h 56 min a circa 6 MB/s |
 
 Su Windows l'installatore attiva WSL2 (una volta chiede il permesso di amministratore e un riavvio) e crea uno spazio Linux dedicato; su Ubuntu tutto va in `~/.pmn`. In tutti e due i casi installa i programmi da file di blocco con versioni fisse e i database con controllo MD5.
 
 ## Stato
 
-Versione 1.3. Gira su Ubuntu nativo, chiede 8 GB di RAM invece di 16 ed è più veloce, con gli stessi risultati. Quattro modifiche, ognuna tenuta solo perché i file in uscita sono rimasti identici al byte a quelli della versione 1.2: il passo che unisce le sei fette di MetaPhlAn usa una quantità fissa di memoria; quando la memoria libera è poca Bowtie 2 legge il suo indice dal disco invece di caricarlo; Kraken dice a Linux che legge la sua tabella da 110 GB a pezzi sparsi, così Linux smette di leggere i pezzi vicini che non servono a nessuno; il database ridotto di MetaPhlAn si scarica già pronto invece di essere costruito sul PC.
+Versione 1.3. Gira su Ubuntu nativo, chiede 8 GB di RAM invece di 16 ed è più veloce, con gli stessi risultati. Quattro modifiche, ognuna tenuta solo perché i file in uscita sono rimasti identici al byte a quelli della versione 1.2: il passo che unisce le sei fette di MetaPhlAn usa una quantità fissa di memoria; quando la memoria libera è poca Bowtie 2 legge il suo indice dal disco invece di caricarlo; Kraken dice a Linux che legge la sua tabella da 110 GB a pezzi sparsi, così Linux smette di leggere i pezzi vicini che non servono a nessuno; il database ridotto di MetaPhlAn si scarica già pronto invece di essere costruito sul PC. Dopo queste quattro modifiche il DNA dell'ospite si toglie in due fasi sul primo genoma dell'ospite, con read a coppie. Bowtie 2 guarda prima tutte le coppie con l'impostazione veloce (`--very-fast`); solo le coppie con tutte e due le read non allineate passano al comando completo (`--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), riprese dai file puliti con la riga di intestazione intera. Sul salame di prova (2.955.015 coppie pulite, 67 % di ospite, 8 processori) il passo dura 168 s invece di 370 e toglie 3 coppie in più: stesse specie, stesse percentuali fino al secondo decimale. Il passaggio sull'uomo, le read singole e i progetti che tolgono solo il DNA umano lavorano come prima. I progetti analizzati prima di questa modifica rifanno da soli rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato. Prima di un'analisi l'app dà il tempo come intervallo ("da ... a ...") quando la quota di DNA dell'ospite non è ancora nota, e lo spazio che chiede conta i file temporanei della seconda fase.
 
 | Salame intero (SRR4875279), 4 processori, stessa macchina | Versione 1.3 | Versione 1.2 | Tempo in meno |
 |---|---|---|---|
@@ -322,7 +401,7 @@ Versione 1.3. Gira su Ubuntu nativo, chiede 8 GB di RAM invece di 16 ed è più 
 
 In tutte e tre le righe i 13 file in uscita delle due versioni hanno lo stesso MD5. I tempi sono senza lo scarico delle read.
 
-Limiti della versione 1.3, detti come sono. Ubuntu è stato provato su un Ubuntu 24.04 pulito dentro una macchina virtuale, non su un PC fisico. Windows con 8 GB è stato provato su Windows 11 pulito in una macchina virtuale (installazione VERDE in 3 h 28 min, campione intero dall'app in 59 minuti, uscite identiche): un PC vero da 8 GB non è ancora provato. I tempi dipendono dalla macchina e dalla linea, quindi l'installatore dà il tempo dello scarico come intervallo (per esempio "da 2,2 ore a 3,1 ore"): pochi secondi di misura non dicono come la linea si dividerà fra le due sorgenti dello scarico, e nelle due installazioni da zero misurate il tempo vero cade dentro l'intervallo. Il tempo di un'analisi è stimato per un PC Windows vero (campione d'esempio: circa 6 minuti annunciati, 5 e mezzo misurati); sulle due macchine virtuali di prova la stessa analisi ha richiesto 3 e 10 minuti.
+Limiti della versione 1.3, detti come sono. Ubuntu è stato provato su un Ubuntu 24.04 pulito dentro una macchina virtuale e su un PC fisico con Ubuntu 26.04 (desktop LXQt su X11, sistema in italiano). Windows con 8 GB è stato provato su Windows 11 pulito in una macchina virtuale (installazione VERDE in 3 h 28 min, campione intero dall'app in 59 minuti, uscite identiche): un PC vero da 8 GB non è ancora provato. I tempi dipendono dalla macchina e dalla linea, quindi l'installatore dà il tempo dello scarico come intervallo (per esempio "da 2,2 ore a 3,1 ore"): pochi secondi di misura non dicono come la linea si dividerà fra le due sorgenti dello scarico, e nelle due installazioni da zero misurate il tempo vero cade dentro l'intervallo. Il tempo di un'analisi è stimato per un PC Windows vero (campione d'esempio su un PC con 24 processori: da 3 a 4 minuti annunciati, 2 minuti e 46 secondi e 2 minuti e 26 secondi misurati); sulle due macchine virtuali di prova la stessa analisi ha richiesto 3 e 10 minuti. Il passo dell'ospite in due fasi è stato misurato su quattro campioni veri e su un solo PC, con 4, 8 e 24 processori: due campioni con DNA di maiale (67 % e 99 % di ospite) e due di manzo frollato con DNA bovino (9 % e 99,9 % di ospite). Un salume di manzo non è stato misurato, perché non sono stati trovati dati shotgun pubblici; pecora, vite e ospiti aggiunti usano le due fasi senza una misura propria.
 
 Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.5 (Bowtie 2 `--very-sensitive-local`, una coppia si toglie se anche una sola read si allinea), e MetaPhlAn calcola il profilo da un database ridotto ai clade che hanno read: i profili sono identici al byte a quelli di MetaPhlAn 4.2.4 classico con il database intero, e il picco di memoria di un'analisi scende da 8,4 a 5,4 GB. Validata su comunità simulate di salume a composizione nota (lo 0,18 % delle coppie di read dei taxa veri tolto dal filtro dell'ospite), sullo standard ZymoBIOMICS D6300 (8 batteri su 8, nessuna specie inattesa sopra lo 0,1 % con MetaPhlAn e con Kraken) e su campioni veri di salume confrontati con la versione precedente. L'installazione da zero è stata provata su Windows 11 pulito in una macchina virtuale con gli scarichi veri (Interrompi e ripresa, riavvio, controllo del motore VERDE, analisi d'esempio); ogni correzione trovata lì è stata riprovata sulla stessa macchina prima di questa Release. L'indice Kraken completo non sta sul disco della macchina di prova: lì Kraken ha usato l'indice rapido; l'indice completo è stato usato su un PC vero. I progetti analizzati con la 1.1 rifanno da soli pulizia, rimozione dell'ospite, MetaPhlAn e Kraken, perché il metodo è cambiato.
 
@@ -331,6 +410,8 @@ Versione 1.2. Le read dell'ospite e dell'uomo si tolgono come in KneadData 0.12.
 | App contro riga di comando, stesso campione | identici al byte |
 | Versione 1.3 contro 1.2, stessi campioni, 8, 6 e 4 GB di RAM | 13 file in uscita su 13 identici al byte, ogni volta |
 | ZymoBIOMICS D6300 con la versione 1.3 | 11 confronti su 11 identici alla versione 1.2 |
+| Passo dell'ospite in due fasi contro un solo passaggio, stesso salame | nessuna coppia in più tenuta, 3 in più tolte su 2.955.015; Kraken e Bracken identici al byte; MetaPhlAn stesse 27 specie, Bray-Curtis 0,000027 |
+| Passo dell'ospite in due fasi contro un solo passaggio, altri tre campioni veri | campione con il 99 % di DNA di maiale: nessuna coppia in più tenuta, 1 in più tolta su 15.525.290; due campioni di manzo frollato (8.252.337 coppie bovine in tutto): read identiche al byte |
 | Comunità di controllo ZymoBIOMICS D6300 | MetaPhlAn 8 specie attese su 8, 0 specie in più, Bray-Curtis 0,068 |
 | Comunità simulate di salume (12) | MetaPhlAn 0 specie false in 12 su 12; criterio di sensibilità superato in 4 su 12, perché i taxa rari con poche read si perdono (limite dichiarato nel referto) |
 | Taratura di Kraken (confidence 0,5 + soglia 0,1 %) | F1 1,00 sulla comunità di controllo |

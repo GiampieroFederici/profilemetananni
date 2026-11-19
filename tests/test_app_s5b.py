@@ -98,9 +98,9 @@ def test_da_nuovo_progetto_ad_avvia_l_analisi(qtbot, f, ambiente, monkeypatch):
     assert f.attuale == "scelte"
     assert "15,6 GB di memoria, 8 processori" in scritte(f.pagine["scelte"])
     aspetta_stima(qtbot, f)
-    assert f.aiuto.text() == "Tempo stimato: circa 47 minuti. Spazio: 12 GB."     # riassunto anche nella barra
+    assert f.aiuto.text() == "Tempo stimato: da 10 minuti a 35 minuti. Spazio: 12 GB."     # riassunto anche nella barra
     assert "1: SRR4875279 (3,2 milioni di coppie di read)" in scritte(f.pagine["scelte"])   # nomi_campioni (v0.3)
-    assert "circa 47 minuti (download 2 minuti, ospite 14 minuti, MetaPhlAn 4 minuti, Kraken 25 minuti)" in scritte(f.pagine["scelte"])
+    assert "da 10 minuti a 35 minuti (download 2 minuti, ospite 3 minuti, MetaPhlAn 4 minuti, Kraken 25 minuti)" in scritte(f.pagine["scelte"])
     assert f.principale.text() == "Avvia l'analisi"
     premi(f)
     assert f.attuale == "esecuzione" and avvio == [True]        # passaggio a S6 (Contesto.avvia_analisi)
@@ -258,7 +258,7 @@ def test_tempo_lungo_ambra_e_screening_rapido(qtbot, f, monkeypatch):
     s = vai_alle_scelte(qtbot, f)
     assert s.completo.pulsante.isChecked()
     assert f.aiuto.property("livello") == "avviso" and "Ci vorrà molto" in f.aiuto.text()
-    assert "Ci vorrà molto tempo." in scritte(s) and "circa 7,8 ore" in scritte(s)
+    assert "Ci vorrà molto tempo." in scritte(s) and "da 79 minuti a 5,8 ore" in scritte(s)
     secondario(f, "Passa allo screening rapido").click()
     assert s.rapido.pulsante.isChecked()
     assert f.contesto.progetto.leggi()["motore"]["kraken_db"] == "rapido"
@@ -300,6 +300,21 @@ def test_tempo_totale_dal_motore(qtbot, f):
     assert f.aiuto.text() == "Tempo stimato: circa 50 minuti. Spazio: 1 GB."
     s._mostra_stima({"campioni": 1, "coppie_totali": 2e5, "tempo_s": {}, "tempo_totale_s": 389, "spazio_gb": 0.2}, "")
     assert f.aiuto.text() == "Tempo stimato: circa 6 minuti. Spazio: meno di 1 GB."        # campione d'esempio
+
+
+def test_tempo_da_a_quando_il_motore_da_gli_estremi(qtbot, f):
+    """19/11/2026: senza una quota di ospite misurata il motore dà tempo_minimo_s e tempo_massimo_s e la pagina scrive
+    "da ... a ..."; se i campi mancano (motore di prima) o dicono la stessa durata resta "circa"."""
+    s = vai_alle_scelte(qtbot, f)
+    base = {"campioni": 1, "coppie_totali": 3e6, "tempo_s": {"kraken": 1360}, "tempo_totale_s": 1825, "spazio_gb": 1}
+    s._mostra_stima({**base, "tempo_minimo_s": 440, "tempo_massimo_s": 1825}, "")
+    assert f.aiuto.text() == "Tempo stimato: da 7 minuti a 30 minuti. Spazio: 1 GB."
+    assert "da 7 minuti a 30 minuti (Kraken 23 minuti)" in scritte(s)
+    s._mostra_stima(base, "")
+    assert f.aiuto.text() == "Tempo stimato: circa 30 minuti. Spazio: 1 GB."
+    assert "circa 30 minuti (Kraken 23 minuti)" in scritte(s)
+    s._mostra_stima({**base, "tempo_minimo_s": 1810, "tempo_massimo_s": 1825}, "")       # stessa durata in parole
+    assert f.aiuto.text() == "Tempo stimato: circa 30 minuti. Spazio: 1 GB."
 
 
 def test_virus_nascosto_finche_non_arriva_al_motore(qtbot, f):
@@ -411,7 +426,7 @@ def test_verifica_rossa_porta_a_installa(qtbot, f, monkeypatch):
     premi(f)
     qtbot.waitUntil(lambda: f.principale.text() == "Installa o completa", timeout=30000)
     m = f.pagine["motore"]
-    assert "ROSSO: Manca il database di Kraken." in scritte(m)
+    assert "Manca il database di Kraken." in scritte(m) and "ROSSO" not in scritte(m)   # P6: ROSSO lo dice il motore
     monkeypatch.setenv("PMN_FINTO_OPZIONI", "--velocita 0")
     premi(f)                                                  # installa, con la barra
     qtbot.waitUntil(lambda: "VERDE: il motore è installato e funziona." in scritte(m), timeout=30000)

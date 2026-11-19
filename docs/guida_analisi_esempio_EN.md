@@ -1,6 +1,6 @@
 # Your first analysis with ProfileMetaNanni: the example sample
 
-This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.3 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On your PC the times can be different; the results are the same.
+This guide walks through one complete analysis, from the home page to the report, on the example sample that comes with the program. Everything happens in the app: no terminal, no commands. The numbers and the pictures below come from a real run of ProfileMetaNanni 1.3 on a Windows PC (24 processors, 11.7 GB of memory for the engine). On Ubuntu the app and the steps are the same. On your PC the times can be different; the results are the same.
 
 Italian version: [guida_analisi_esempio_IT.md](guida_analisi_esempio_IT.md).
 
@@ -33,8 +33,10 @@ On the **My projects** page, in the box **Want to try right away?**, press **Try
 The recommended choices are already selected: **Full database** for Kraken and **Bacteria, archaea and yeasts**. You do not need to change anything. At the bottom of the page, **Before starting** shows what the engine expects for this PC:
 
 - samples: 1, mini_SF3RAt7, 0.2 million read pairs;
-- estimated time: about 4 minutes (MetaPhlAn 66 seconds, Kraken 2 minutes);
+- estimated time: from 3 minutes to 4 minutes (MetaPhlAn 66 seconds, Kraken 2 minutes);
 - space needed: less than 1 GB.
+
+The time is a range because before starting the program does not know how much host DNA is in the sample.
 
 Press **Start the analysis**.
 
@@ -44,9 +46,9 @@ Press **Start the analysis**.
 
 The page **Analysis running** shows the step, the percentage done and the time left. The steps are always the same: download or read the files, quality check, cleaning of the reads, removal of the host DNA, profile with MetaPhlAn, profile with Kraken, report and tables. You can use the PC for something else meanwhile. If you switch it off, the steps already finished are kept: open the project again and press **Resume the analysis**.
 
-On the test PC the analysis took 5 minutes 12 seconds (Italian run) and 4 minutes 59 seconds (English run). The longest steps were MetaPhlAn (2 minutes 4 seconds and 1 minute 53 seconds) and Kraken (2 minutes and 2 minutes 1 second); the removal of the host DNA took 33 seconds. The estimate was about 4 minutes: the real time was about one minute longer.
+On the test PC the analysis took 2 minutes 46 seconds (Italian run) and 2 minutes 26 seconds (English run). The longest steps were Kraken (67 and 66 seconds) and MetaPhlAn (56 and 53 seconds); the removal of the host DNA took 14 seconds. The estimate was from 3 to 4 minutes: the real time was a little below it.
 
-![Analysis running: profile with MetaPhlAn, 45 % done](guida_esempio/en/03_esecuzione.png)
+![Analysis running: profile with Kraken, 45 % done](guida_esempio/en/03_esecuzione.png)
 
 When it ends, press **See the results**.
 
@@ -61,9 +63,19 @@ Press **Open the quality check** on the Results page: the MultiQC report opens i
 | Duplicates (raw reads) | 0.2 % |
 | Mean read length after fastp | 140 bases |
 | Pig and human DNA removed | 66.8 % |
-| Read pairs left for the profiles | 60,727 |
+| Read pairs left for the profiles | 60,726 |
 
-Q30 means at most 1 error every 1,000 bases: 95.3 % is good. Few duplicates mean that the library was not over-amplified. fastp cuts the end of a read where the mean quality over 4 bases drops below 20, and it drops reads shorter than 70 bases, which MetaPhlAn would ignore anyway: this is why 183,178 pairs are left out of 200,000. Then Bowtie 2 removes a pair if even one of its two reads looks like pig or human DNA. Two thirds of the pairs are host DNA: this is normal for a cured meat product. It is also the reason why only 60,727 pairs are left for the taxa.
+Q30 means at most 1 error every 1,000 bases: 95.3 % is good. Few duplicates mean that the library was not over-amplified. fastp cuts the end of a read where the mean quality over 4 bases drops below 20, and it drops reads shorter than 70 bases, which MetaPhlAn would ignore anyway: this is why 183,178 pairs are left out of 200,000. Then Bowtie 2 removes a pair if even one of its two reads looks like pig or human DNA. Two thirds of the pairs are host DNA: this is normal for a cured meat product. It is also the reason why only 60,726 pairs are left for the taxa.
+
+In the MultiQC report Bowtie 2 has three rows for this sample, because pig DNA is removed in two phases: first a fast setting looks at all the pairs, then the full setting looks only at the pairs that are left.
+
+| Bowtie 2 row in MultiQC | Pairs in | Overall alignment |
+|---|---|---|
+| `mini_SF3RAt7.sus_scrofa` (pig, phase 1) | 183,178 | 59.43 % |
+| `mini_SF3RAt7.sus_scrofa_fase2` (pig, phase 2) | 71,803 | 14.51 % |
+| `mini_SF3RAt7.homo_sapiens` (human) | 60,792 | 0.09 % |
+
+The pairs go down like this: 183,178 after fastp, 71,803 after phase 1, 60,792 after phase 2, 60,726 after the human pass. The three percentages count aligned reads on three different sets of pairs: do not add them. The share of host DNA removed is the one of the table above, 66.8 %.
 
 ## 7. Results
 
@@ -96,19 +108,19 @@ In this sample Kraken shows 29 taxa above the threshold (37 in total). The first
 
 ### How the analysis was done
 
-The third tab lists the host DNA removed (pig Sscrofa11.1 and human GRCh38), the pairs left (60,727), the versions (MetaPhlAn 4.2.4 with database mpa_vJan25_CHOCOPhlAnSGB_202503 in 6 parts; Kraken 2.17.2 and Bracken 3.1 with database k2_pluspf_20260626) and the Kraken settings (confidence 0.5, at least 10 reads per species, threshold 0.1 %). Section 7 of the report adds how the host is removed (Bowtie 2 very-sensitive-local, strict) and how the reads are cleaned (fastp, 4:20, at least 70 bases).
+The third tab lists the host DNA removed (pig Sscrofa11.1 and human GRCh38), the pairs left (60,726), the versions (MetaPhlAn 4.2.4 with database mpa_vJan25_CHOCOPhlAnSGB_202503 in 6 parts; Kraken 2.17.2 and Bracken 3.1 with database k2_pluspf_20260626) and the Kraken settings (confidence 0.5, at least 10 reads per species, threshold 0.1 %). Section 7 of the report adds how the host is removed (Bowtie 2 very-sensitive-local, strict), the two-phase host filter (Bowtie 2 very-fast, then Bowtie 2 very-sensitive-local) and how the reads are cleaned (fastp, 4:20, at least 70 bases).
 
 ![Results, how the analysis was done](guida_esempio/en/07_risultati_come.png)
 
 ## 8. The report
 
-**Open the report** shows it inside the app; **Open the report as PDF** and **Open the tables in Excel** open the files with the programs of Windows. The report has 9 sections: in brief, MetaPhlAn, Kraken, alpha diversity, viruses, quality of the reads, parameters, tools and databases with how to cite them, words used.
+**Open the report** shows it inside the app; **Open the report as PDF** and **Open the tables in Excel** open the files with the programs of your computer. The report has 9 sections: in brief, MetaPhlAn, Kraken, alpha diversity, viruses, quality of the reads, parameters, tools and databases with how to cite them, words used.
 
 For this sample, alpha diversity (section 4) is:
 
 | | Reads used | Taxa | Shannon | Simpson |
 |---|---|---|---|---|
-| MetaPhlAn | 121,454 | 6 species | 1.17 | 0.603 |
+| MetaPhlAn | 121,452 | 6 species | 1.17 | 0.603 |
 | Kraken + Bracken | 51,819 | 29 taxa | 1.96 | 0.753 |
 
 ![First page of the report](guida_esempio/en/08_referto.png)
@@ -117,7 +129,7 @@ If you use these results in a document, cite the tools and databases listed in s
 
 ## 9. What one sample of 200,000 pairs cannot tell
 
-- **Absent is not the same as not found.** After the host removal 60,727 pairs are left. With so few reads, taxa below a few tenths of a percent can be missing. The report gives the measure (section 2): in simulated communities *Listeria monocytogenes* at 0.1 % was found with about 1,800 of its own read pairs and lost with about 900. The same sample analysed whole with ProfileMetaNanni (version 1.0, 1,507,887 pairs after the host) gives 27 species with MetaPhlAn instead of 6. With Kraken it gives 37 taxa instead of 29.
+- **Absent is not the same as not found.** After the host removal 60,726 pairs are left. With so few reads, taxa below a few tenths of a percent can be missing. The report gives the measure (section 2): in simulated communities *Listeria monocytogenes* at 0.1 % was found with about 1,800 of its own read pairs and lost with about 900. The same sample analysed whole with ProfileMetaNanni (version 1.0, 1,507,887 pairs after the host) gives 27 species with MetaPhlAn instead of 6. With Kraken it gives 37 taxa instead of 29.
 - **Percentages are DNA, not live cells.** They say how much DNA of each taxon is in the sample, not how many cells are alive. They are not colony-forming units per gram either.
 - **One sample is not a comparison.** Without other samples and replicates there is no test between products, batches or times. Richness and Shannon depend on the number of reads: compare them only with samples at the same depth. For several samples use the multi-sample analysis of the program, with the groups written in the table of the Results page.
 - **Kraken is a prototype** and the food safety prediction is a prototype too: do not use them for decisions. For *Listeria* a targeted analysis is needed.

@@ -2,6 +2,8 @@
 motore" (`verifica`, VERDE o ROSSO con i controlli) e "Installa o completa" (`installa`, con la barra).
 Durante un lavoro lungo l'avatar della testata respira (D046). Gli errori mostrano `messaggio` e `cosa_fare` (R8).
 """
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QProgressBar, QScrollArea, QVBoxLayout
 
 from app.lingua import N_, _
@@ -46,6 +48,8 @@ class PaginaMotore(Pagina):
         self.errore_info = None
         self.errore_corsa = None
         self.da_installare = False
+        self.manda_registro = False              # prova ROSSA con tutto installato: prima il registro, non installa
+        self.percorso_log = ""
         self._in_fondo = False
         self._barra_scorre = None
         self.corpo.addWidget(etichetta(_("Il motore fa i calcoli su questo computer. Si installa una volta e si "
@@ -129,6 +133,9 @@ class PaginaMotore(Pagina):
         if manca:
             self._pallino("ambra")
             self.stato_titolo.setText(_("Installato, ma manca qualcosa: premi Installa o completa"))
+        elif self.contesto.verifica_rossa:       # come il titolo dell'errore e il pallino della testata
+            self._pallino("rosso")
+            self.stato_titolo.setText(_("Installato, ma l'ultimo controllo non è riuscito"))
         else:
             self._pallino("verde")
             self.stato_titolo.setText(_("Installato e pronto") + (_(" (motore di prova)") if i.get("finto") else ""))
@@ -171,7 +178,7 @@ class PaginaMotore(Pagina):
         svuota(self.zona_esito)
         self._in_fondo = False
         self.errore_corsa = None
-        self.da_installare = False
+        self.da_installare = self.manda_registro = False
         self.barra.setValue(0)
         self.messaggio.setText(_("Controllo il motore...") if comando == "verifica" else _("Preparo l'installazione..."))
         self._lavoro(True)
@@ -184,8 +191,19 @@ class PaginaMotore(Pagina):
     def ferma(self):
         self.client.annulla()
 
+    def apri_registro(self):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(self.percorso_log))
+
+    def _tutto_installato(self):
+        """Programmi e database tutti al loro posto, secondo l'ultimo `info` del motore."""
+        i = self.contesto.info or {}
+        programmi = i.get("programmi") or {}
+        return bool(programmi) and all(programmi.values()) and all(d.get("installato") for d in i.get("database", []))
+
     def _evento(self, e):
-        if e["tipo"] == "avanzamento":
+        if e["tipo"] == "inizio":
+            self.percorso_log = e.get("log", "")
+        elif e["tipo"] == "avanzamento":
             self.messaggio.setText(e["messaggio"])
             if e.get("percentuale") is not None:
                 self.barra.setValue(round(e["percentuale"]))
@@ -208,9 +226,13 @@ class PaginaMotore(Pagina):
                 self.zona_esito.addWidget(riquadro(_("Su questo computer il motore non c'è ancora, o non parte."),
                                                    _(NON_AVVIATO_LINUX if su_linux() else NON_AVVIATO), "errore"))
             else:
-                self.da_installare = e.get("codice") in DA_INSTALLARE
-                titolo = _("ROSSO: {messaggio}", messaggio=e['messaggio']) if comando == "verifica" else e["messaggio"]
-                self.zona_esito.addWidget(riquadro(titolo, e.get("cosa_fare", ""), "errore"))
+                rossa = e.get("codice") == "VERIFICA_ROSSA"
+                self.contesto.verifica_rossa = self.contesto.verifica_rossa or rossa
+                # prova ROSSA con programmi e database tutti installati: reinstallare non è la prima cosa da fare
+                self.manda_registro = rossa and self._tutto_installato()
+                self.da_installare = e.get("codice") in DA_INSTALLARE and not self.manda_registro
+                # il messaggio del motore dice già "ROSSO:" quando la prova è rossa
+                self.zona_esito.addWidget(riquadro(e["messaggio"], e.get("cosa_fare", ""), "errore"))
             self._esito_in_vista()                     # B4-9: anche il ROSSO, non solo il VERDE (B2 P7)
             return
         if fine.get("esito") == "annullata":
@@ -223,6 +245,7 @@ class PaginaMotore(Pagina):
         controlli = r.get("controlli") or []
         righe = "\n".join(f"{'✓' if c.get('esito') == 'ok' else '✗'} {c.get('nome', '')}" for c in controlli)
         rosso = r.get("esito") == "rosso"
+        self.contesto.verifica_rossa = rosso       # VERDE (controllo o installazione): il motore è di nuovo pronto
         self.da_installare = rosso
         self.zona_esito.addWidget(riquadro(fine.get("messaggio", ""), righe, "errore" if rosso else "info"))
         self._esito_in_vista()
@@ -262,6 +285,11 @@ class PaginaMotore(Pagina):
         elif self.da_installare:
             self.secondari = [(_("Controlla il motore"), self.verifica)]
             self.aiuto = _("Per risolvere il problema scritto qui sopra installa o completa il motore.")
+        elif self.manda_registro:
+            self.secondari = ([(_("Apri il registro"), self.apri_registro)] if self.percorso_log else []) + [
+                (_("Installa o completa"), self.installa)]
+            self.aiuto = _("Il motore risulta installato: prima di reinstallarlo, manda a noi il file scritto qui "
+                           "sopra.")
         else:
             self.secondari = [(_("Installa o completa"), self.installa)]
             self.aiuto = _("Il controllo prova i database e un piccolo campione (qualche minuto).")

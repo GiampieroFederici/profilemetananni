@@ -23,6 +23,12 @@ The analysis is the same for every environment; only the host genome changes.
 - **Host removal**: Bowtie 2 [T2] in `--very-sensitive-local` mode against the host genome(s), then always
   against the human genome GRCh38 (D021). A pair is removed if either read aligns (strict rule, as the
   KneadData 0.12.5 defaults). The filter itself (`steps/21_hostfilter.sh`) is the same in every environment.
+  With paired reads, the first genome is filtered in two phases when it is a host that is not human
+  (here: grapevine): Bowtie 2 `--very-fast` on all the pairs, then the full command on the pairs with
+  both reads unaligned, taken again from the cleaned files. Faeces, skin and soil remove only human DNA
+  and keep the single pass. The two phases were measured on pig DNA (3 more pairs removed out of
+  2,955,015, none more kept) and on cattle DNA (identical reads on two samples); for grapevine there is no
+  measurement yet.
 - **Profiling**: MetaPhlAn 4 [T3] with the pinned database `mpa_vJan25_CHOCOPhlAnSGB_202503`, never
   filtered; Kraken 2 [T4] with Bracken [T5] on the PlusPF index (complete, or PlusPF-8 for the quick
   screening), abundance threshold on Kraken only. MetaPhlAn and Kraken results are always kept
@@ -187,7 +193,10 @@ sempre separati, soglia di abbondanza solo su Kraken. Cambia solo l'ospite: l'uo
 nessuno per suolo e rizosfera (si toglie comunque il DNA umano di chi ha toccato il campione), la vite
 (genoma T2T PN40024 con cloroplasto e mitocondrio) più l'uomo per mosto, acino, foglia e radice. La
 matrice della vite non cambia il metodo, cambia la quota attesa di DNA della pianta e quindi quante read
-servono.
+servono. Con read a coppie il primo genoma si toglie in due fasi quando è un ospite diverso dall'uomo (qui la
+vite): prima Bowtie 2 `--very-fast` su tutte le coppie, poi il comando completo sulle coppie con tutte e due
+le read non allineate. Feci, cute e suolo tolgono solo il DNA umano e restano a un solo passaggio. Le due
+fasi sono misurate sul DNA di maiale e, su due campioni, sul DNA bovino: per la vite non c'è ancora una misura.
 
 I limiti principali, misurati sui database installati o presi dalle fonti: nel suolo solo una piccola
 parte delle specie ha un nome (14 % in media), quindi il profilo descrive i taxa noti; sulla cute la

@@ -113,6 +113,15 @@ validate_decimal "$PMN_THRESHOLD"    || die "invalid abundance_threshold_pct"
 validate_uint "$PMN_THREADS"         || die "invalid threads"
 validate_yesno "$PMN_FILTER_HUMAN"   || die "invalid filter_human"
 validate_in_set "$PMN_HOST_PRESET" very-sensitive very-sensitive-local || die "invalid host_sensitivity (very-sensitive|very-sensitive-local)"
+# Two-phase host filter (18/11/2026, steps/21_hostfilter.sh --prefilter): only where it was measured, when the first
+# genome is a host of the product (the human pass stays as it was) and the preset is the default one.
+HOST_PREFILTER=""
+if [ "$PMN_HOST_PRESET" = very-sensitive-local ]; then
+  read -ra _PMN_PRE_ARR <<< "$PMN_HOSTS"
+  for h in ${_PMN_PRE_ARR[@]+"${_PMN_PRE_ARR[@]}"}; do
+    case "$h" in grch38|chm13) ;; *) HOST_PREFILTER="very-fast" ;; esac
+  done
+fi
 validate_yesno "$PMN_KEEP_TRIMMED"   || die "invalid cleanup.keep_trimmed"
 validate_yesno "$PMN_KEEP_HOST_READS" || die "invalid cleanup.keep_host_reads"
 validate_in_set "$PMN_LAYOUT" managed custom || die "invalid paths.layout (managed|custom)"
@@ -344,8 +353,12 @@ if [ "$DRY" -eq 0 ]; then
     # The cleaning (fastp) and the pair rule (strict, KneadData 0.12.5) are in the stamp too: a project made with the
     # 1.1 engine (--un-conc, fastp defaults) redoes host removal, MetaPhlAn and Kraken (D154), with its trimmed reads
     # and their FastQC reports (the raw reads' reports stay).
+    # 18/11/2026: the two-phase filter is in the stamp as well (host_prefilter), so the methods of a report are true
+    # for every sample of the project.
     ospite_timbro="$(printf 'hosts=%s\nfilter_human=%s\nhost_sensitivity=%s\nhost_pairs=strict\ntrim=fastp cut_right 4:20 length_required 70' \
-                       "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")$OSPITI_TIMBRO"
+                       "$PMN_HOSTS" "$PMN_FILTER_HUMAN" "$PMN_HOST_PRESET")"
+    [ -z "$HOST_PREFILTER" ] || ospite_timbro+="$(printf '\nhost_prefilter=%s' "$HOST_PREFILTER")"
+    ospite_timbro+="$OSPITI_TIMBRO"
     QT="$(pmn_glob_quote "$TRIM_DIR")"
     trim_di() { printf '%s\n' "$QT/$1_trim_[12].fastq.gz" "$QT/$1_trim_[12]_fastqc.*" "$QT/$1_fastp.json" "$QT/$1_fastp.html"; }
     rifatti=1
@@ -421,6 +434,7 @@ fi
   printf 'hosts\t%s\nfilter_human\t%s\n' "$PMN_HOSTS" "$PMN_FILTER_HUMAN"
   # How host and human DNA were removed and the reads cleaned (F1, KneadData 0.12.5 defaults): same values as the stamp.
   printf 'host_sensitivity\t%s\nhost_pairs\tstrict\ntrim\tfastp cut_right 4:20, length_required 70\n' "$PMN_HOST_PRESET"
+  if [ -n "$HOST_PREFILTER" ]; then printf 'host_prefilter\t%s\n' "$HOST_PREFILTER"; fi
 } > "$RES_DIR/parameters.tsv"
 
 # Result matrix paths: computed unconditionally (not just inside Phase B) so Phase C can
@@ -566,6 +580,7 @@ hostfilter_sample() {  # hostfilter_sample <sample> <trim_r1> <trim_r2|"">
   for idx in "${INDEX_LIST[@]}"; do a+=(--index "$idx"); done
   [ "$PMN_KEEP_HOST_READS" = "yes" ] && a+=(--host-out "$HOST_READS_DIR")
   a+=(--out "$NONHOST_DIR" --threads "$PMN_THREADS" --log-dir "$HF_LOG_DIR" --preset "$PMN_HOST_PRESET")
+  [ -n "$HOST_PREFILTER" ] && a+=(--prefilter "$HOST_PREFILTER")
   # do_step aborts the pipeline if host filtering fails, so the cleanup below only ever
   # runs after a SUCCESSFUL host-filter (the trimmed reads are then safe to remove).
   do_step pmn_hostfilter "hf_${s}" -- bash "$PMN_ROOT/steps/21_hostfilter.sh" "${a[@]}"

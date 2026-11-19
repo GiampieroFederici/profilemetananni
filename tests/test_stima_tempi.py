@@ -82,3 +82,76 @@ def test_quote_dal_triage(tmp_path):
                                                      encoding="utf-8")
     assert pm.quote_triage(tmp_path) == {"A": 0.625}
     assert pm.quote_triage(tmp_path / "manca") == {}
+
+
+def test_ospite_costa_secondo_la_quota():
+    """18/11/2026, filtro in due fasi: a 8 processori una coppia tolta costa 66 microsecondi, una che resta 31, più
+    8 s fissi a campione (misure del 14/11 su SRR4875279; fino al 19/11 70 microsecondi e nessun costo fisso).
+    Prima: 155 s per milione a 24 processori, uguale per ogni quota."""
+    otto = {"hosts": ["sus_scrofa"], "execution": {"threads": 8}}
+
+    def ospite(coppie, cfg=otto, quote=None):
+        return {e: sec for e, _passo, _gruppo, sec in pm.piano([("A", coppie, 0)], cfg, quote)}["hf_A"]
+
+    assert abs(ospite(2_955_015, quote={"A": 1_970_140 / 2_955_015}) - 168.45) <= 0.5     # misurati 167,2 e 169,7 s
+    assert abs(ospite(15_525_290, quote={"A": 0.99}) - 1027) <= 1          # misurati 783 s il 19/11; un passaggio 2.402 s
+    # senza una quota misurata: 0,67
+    assert abs(ospite(1_000_000) - (8 + 66 * pm.OSPITE_QUOTA + 31 * (1 - pm.OSPITE_QUOTA))) <= 1e-6
+    # dove il filtro resta a un passaggio (solo l'uomo, very-sensitive) il metodo non cambia e la regola nemmeno:
+    # 155 s per milione a 24 processori, con l'esponente di prima
+    uno = 155 * (24 / 8) ** 0.49
+    assert abs(ospite(1_000_000, {**otto, "hosts": []}) - uno) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "hosts": ["grch38"]}) - uno) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "host_sensitivity": "very-sensitive"}, {"A": 0.99}) - uno) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "hosts": [], "execution": {"threads": 24}}) - 155) <= 1e-6
+    # processori (19/11): due esponenti misurati sulle due fasi, 0,73 sotto gli 8 processori e 0,42 sopra
+    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 4}}) / ospite(1_000_000) - 2 ** 0.73) <= 1e-6
+    assert abs(ospite(1_000_000, {**otto, "execution": {"threads": 24}}) / ospite(1_000_000) - 3 ** -0.42) <= 1e-6
+    # contro le misure del 19/11 (SRR4875279, 66,7 % tolte): 4 processori 265,0 e 261,5 s, 24 processori 95,5 e 105,0 s
+    misurata = {"A": 1_970_140 / 2_955_015}
+    for processori, secondi in ((4, 263.25), (24, 100.25)):
+        stimati = ospite(2_955_015, {**otto, "execution": {"threads": processori}}, misurata)
+        assert abs(stimati - secondi) <= 0.10 * secondi, (processori, stimati)
+
+
+def test_ospite_dell_esempio_non_sotto_il_tempo_vero():
+    """19/11/2026: su un campione piccolo conta il costo fisso del passo (tre lanci di Bowtie 2). Analisi d'esempio
+    (200.000 coppie, 183.178 dopo la pulizia, 66,8 % tolte), passo dell'ospite intero con il filtro in due fasi:
+    16 e 17 s a 8 processori, 11 s a 24 (tre corse del 19/11, orari del registro, al secondo). Senza il costo fisso
+    la stima dava 11 e 7 s. Non sotto il vero, non oltre il 30 % in più."""
+    def ospite(processori):
+        cfg = {"hosts": ["sus_scrofa"], "filter_human": True, "execution": {"threads": processori}}
+        return {e: sec for e, _passo, _gruppo, sec in pm.piano([("mini_SF3RAt7", 200_000, 0)], cfg)}["hf_mini_SF3RAt7"]
+
+    assert 17 <= ospite(8) <= 1.3 * 16, ospite(8)
+    assert 11 <= ospite(24) <= 1.3 * 11, ospite(24)
+
+
+def test_estremi_quando_la_quota_non_e_misurata():
+    """19/11/2026: senza una quota di ospite misurata la stima dà due estremi, il totale alla quota di partenza (0,67)
+    e quello al 99 %. Con più ospite il totale scende: MetaPhlAn e Kraken ricevono meno coppie."""
+    otto = {"hosts": ["sus_scrofa"], "profiling": {"tool": "both"}, "motore": {"kraken_db": "completo"},
+            "execution": {"threads": 8}}
+    camp = [("A", 2_955_015, 0)]
+    e = pm.estremi(camp, otto, {})
+    assert e == {"tempo_minimo_s": totale(camp, otto, {"A": 0.99}), "tempo_massimo_s": totale(camp, otto)}
+    assert (round(e["tempo_minimo_s"] / 60), round(e["tempo_massimo_s"] / 60)) == (7, 30)
+    assert pm.estremi(camp, otto, {"A": 0.8}) == {}                 # quota misurata (triage, ospite già tolto)
+    assert pm.estremi(camp, {**otto, "hosts": []}, {}) == {}        # solo l'uomo: la quota non conta
+    # due campioni, uno misurato: per l'altro la quota di partenza (qui la media dei misurati) e il 99 %
+    due = [("A", 1_000_000, 0), ("B", 1_000_000, 0)]
+    assert pm.estremi(due, otto, {"A": 0.5}) == {"tempo_minimo_s": totale(due, otto, {"A": 0.5, "B": 0.99}),
+                                                 "tempo_massimo_s": totale(due, otto, {"A": 0.5})}
+
+
+def test_spazio_conta_le_coppie_della_fase_2():
+    """19/11/2026: con il filtro in due fasi le coppie che passano la fase 1 aspettano la fase 2 non compresse
+    (misurati 735 byte per coppia, 4,5 volte le read gz). La stima conta il caso peggiore, tutte le coppie, per un
+    campione solo: la cartella temporanea si svuota a ogni campione. Dove il filtro resta a un passaggio: 6 volte."""
+    maiale = {"hosts": ["sus_scrofa"]}
+    assert pm.spazio_analisi(SF3RAT7, {"hosts": []}) == 3.2                     # 533,5 MB x 6, come prima
+    assert pm.spazio_analisi(SF3RAT7, {"hosts": ["grch38"]}) == 3.2
+    assert pm.spazio_analisi(SF3RAT7, {**maiale, "host_sensitivity": "very-sensitive"}) == 3.2
+    assert pm.spazio_analisi(SF3RAT7, maiale) == 5.6                            # + 533,5 MB x 4,5 = 2,4 GB
+    # due campioni (il secondo locale, 1 milione di coppie): 698,1 MB x 6 = 4,2 GB, più la fase 2 del più grande
+    assert pm.spazio_analisi(SF3RAT7 + [("B", 1_000_000, 0)], maiale) == 6.6

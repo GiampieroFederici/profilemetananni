@@ -20,6 +20,10 @@
 # Range, CONN connessioni insieme, un file <nome>.pezzo.<i> per pezzo; le sorgenti diverse lavorano insieme (kraken e
 # pmn, 4 file pmn alla volta); gli archivi si estraggono mentre arrivano, con l'MD5 calcolato nello stesso passaggio.
 set -euo pipefail
+# P1 (PC con Ubuntu in italiano, 12/11): sort, awk e l'ordine dei file seguivano la lingua del sistema. Un ambiente
+# giusto risultava diverso dal file di blocco (cancellato e ricreato a ogni rilancio, per sempre) e con mawk i numeri
+# degli eventi uscivano con la virgola (non piu' JSON). Qui tutto in "C": i testi per la persona seguono PMN_LINGUA.
+export LC_ALL=C
 
 PMN_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PMN_HOME=${PMN_HOME:-$HOME/.pmn}
@@ -61,7 +65,8 @@ fi
 # --- B2 (P12): testi per la persona in italiano o in inglese. Come _() dell'app e del motore: la frase italiana e' la
 #     chiave (%s al posto dei valori) e le traduzioni stanno tutte qui (termini: docs/lingua_termini_da_controllare.md).
 declare -A EN=(
-  ["Installazione non completata. Rilanciala quando hai risolto: riprende da qui."]="Installation not completed. Run it again when you have solved the problem: it resumes from here."
+  ["Installazione non completata."]="Installation not completed."
+  ["Installazione non completata. Non ho cambiato nulla: il motore già installato resta com'era e, se funzionava, puoi continuare a usarlo."]="Installation not completed. I have not changed anything: the engine already installed is as it was and, if it worked, you can go on using it."
   ["Installazione interrotta. Rilancia lo stesso comando: riprende da dove era rimasta."]="Installation interrupted. Run the same command again: it resumes from where it stopped."
   ["Installazione del motore di profilemetananni. Dettagli tecnici in %s"]="Installation of the profilemetananni engine. Technical details in %s"
   ["Serve Linux a 64 bit (anche dentro WSL2 su Windows)."]="64-bit Linux is needed (also inside WSL2 on Windows)."
@@ -121,6 +126,7 @@ declare -A EN=(
   ["Installa ProfileMetaNanni su un PC con almeno 8 GB di memoria."]="Install ProfileMetaNanni on a PC with at least 8 GB of memory."
   ["La prova finale si è fermata perché la memoria non basta: Linux ha chiuso un programma di MetaPhlAn."]="The final test stopped because there is not enough memory: Linux closed a MetaPhlAn program."
   ["Chiudi gli altri programmi e riapri l'installazione. ProfileMetaNanni chiede un PC con almeno 8 GB di memoria. Se si ripete, manda a noi il file %s."]="Close the other programs and open the installation again. ProfileMetaNanni needs a PC with at least 8 GB of memory. If it happens again, send us the file %s."
+  ["Procedo con l'installazione? (s/n)"]="Shall I go ahead with the installation? (y/n)"
   ["ERRORE"]="ERROR"
   ["Cosa fare"]="What to do"
   ["Attenzione"]="Warning"
@@ -132,10 +138,23 @@ num() { awk -v x="$1" -v d="$2" -v c="$3" -v l="$LINGUA" 'BEGIN {s = sprintf("%.
 # avanzamento usa FATTO e TOTALE (pezzi del passo) ed ETA (secondi, o null), piu' AV_EXTRA (campi nuovi facoltativi
 # v1.1: byte_fatti, byte_totali, velocita_mb_s, sorgente, sorgenti); fine usa ESITO e RISULTATO (oggetto JSON).
 PASSO=controllo; FATTO=0; TOTALE=1; ETA=null; ESITO=ok; RISULTATO='{}'; AV_EXTRA=""
+# P3: TOCCATO=1 da quando questa corsa cambia qualcosa del motore installato (un ambiente rifatto o diverso dal blocco,
+# i database, le impostazioni; oppure installa_pmn.sh ha appena sostituito il programma): prima, a un errore si puo'
+# dire che il motore gia' installato e' rimasto com'era.
+TOCCATO=0; [ -z "${PMN_PROGRAMMA_SOSTITUITO:-}" ] || TOCCATO=1
+# P10: senza --json, in un terminale la riga di avanzamento dello scarico si riscrive sul posto (SUL_POSTO=1 mentre la
+# manda conta); se l'uscita non e' un terminale (un file) esce una riga ogni 5 minuti (PROSSIMA_RIGA).
+TERMINALE=0; if [ "$JSON" = 0 ] && [ -t 1 ] && [ "${TERM:-dumb}" != dumb ]; then TERMINALE=1; fi
+SUL_POSTO=0; PROSSIMA_RIGA=0
 CORSA=$(date +%Y-%m-%dT%H-%M-%S)
 js() { local t=${1//\\/\\\\}; printf '%s' "${t//\"/\\\"}"; }   # testo dentro una stringa JSON
 mb_s() { num "$1" 1e6 1; }   # B2 (P5): byte/s -> "57,2" (in inglese "57.2")
 evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
+  case "$1" in   # P4: nel log anche gli errori, gli avvisi e la fine, come li ha letti la persona
+    errore) echo "$(date -Iseconds) errore $4: $3 Cosa fare: ${5:-}" >> "${LOG:-/dev/null}" ;;
+    avviso) echo "$(date -Iseconds) avviso $4: $3" >> "${LOG:-/dev/null}" ;;
+    fine) echo "$(date -Iseconds) fine $ESITO: $3" >> "${LOG:-/dev/null}" ;;
+  esac
   if [ "$JSON" = 1 ]; then
     local extra=""
     case "$1" in
@@ -148,10 +167,12 @@ evento() {  # tipo percentuale messaggio [codice] [cosa_fare]
     printf '{"tipo":"%s","ora":"%s","comando":"installa","passo":"%s","percentuale":%s,"messaggio":"%s"%s}\n' \
       "$1" "$(date -Iseconds)" "$PASSO" "${2:-null}" "$(js "$3")" "$extra"
   else
+    local via=""; [ "$TERMINALE" = 0 ] || via=$'\r\033[K'   # P10: ogni riga prende il posto della riga di avanzamento
     case "$1" in
-      errore) printf '\n[PMN] %s: %s\n[PMN] %s: %s\n' "$(T 'ERRORE')" "$3" "$(T 'Cosa fare')" "${5:-}" ;;
-      avviso) printf '[PMN] %s: %s\n' "$(T 'Attenzione')" "$3" ;;
-      *) printf '[PMN] %s\n' "$3" ;;
+      errore) printf '%s\n[PMN] %s: %s\n[PMN] %s: %s\n' "$via" "$(T 'ERRORE')" "$3" "$(T 'Cosa fare')" "${5:-}" ;;
+      avviso) printf '%s[PMN] %s: %s\n' "$via" "$(T 'Attenzione')" "$3" ;;
+      *) if [ "$SUL_POSTO" = 1 ]; then printf '%s\033[?7l[PMN] %s\033[?7h' "$via" "$3"   # senza andare a capo
+         else printf '%s[PMN] %s\n' "$via" "$3"; fi ;;
     esac
   fi
 }
@@ -161,7 +182,12 @@ fallisci() {  # codice messaggio cosa_fare
   fi
   evento errore null "$2" "$1" "$3"
   RISULTATO="{\"codice\":\"$1\",\"passo\":\"$PASSO\"}"; PASSO=fine; ESITO=errore   # contratto v0.3: {"codice", "passo"}
-  evento fine null "$(T 'Installazione non completata. Rilanciala quando hai risolto: riprende da qui.')"
+  # P3: una sola chiusura, e vera (che cosa fare lo ha gia' detto l'errore; prima "Rilanciala quando hai risolto")
+  if [ "$TOCCATO" = 0 ] && [ -s "$PMN_HOME/installazione.env" ]; then
+    evento fine null "$(T "Installazione non completata. Non ho cambiato nulla: il motore già installato resta com'era e, se funzionava, puoi continuare a usarlo.")"
+  else
+    evento fine null "$(T 'Installazione non completata.')"
+  fi
   exit 2
 }
 # v1.1 (R6): all'uscita, per qualunque motivo, si fermano anche le code di scarico, curl e tar nati da questo script:
@@ -172,7 +198,11 @@ discendenti() {  # pid: tutti i processi nati da pid (figli, nipoti...)
 }
 ferma_figli() { local l; l=$(discendenti "$$") || true; if [ -n "$l" ]; then kill $l 2> /dev/null || true; fi; }
 BLOCCO=""
-alla_fine() { ferma_figli; rm -rf "${ST:-}"; if [ -n "$BLOCCO" ]; then rm -f "$BLOCCO"; fi; }
+alla_fine() {
+  ferma_figli; rm -rf "${ST:-}"; if [ -n "$BLOCCO" ]; then rm -f "$BLOCCO"; fi
+  # P7: dopo un Ctrl+C restava <archivio>.fifo (flusso). Solo se questa corsa scaricava: una --stima non li tocca
+  if [ "$TOCCATO" = 1 ]; then find "$PMN_HOME/tmp" "$PMN_HOME/db" -name '*.fifo' -type p -delete 2> /dev/null || true; fi
+}
 trap alla_fine EXIT
 trap 'PASSO=fine; ESITO=annullata; evento fine null "$(T "Installazione interrotta. Rilancia lo stesso comando: riprende da dove era rimasta.")"; exit 3' INT TERM
 trap 'exit 3' PIPE HUP
@@ -215,7 +245,9 @@ riconosci() {  # gruppo destinazione md5
   while read -r x f; do
     [ -f "$dir/$f" ] || return 0
     if [ "$(cat "$(segnalino "$2/$f")" 2> /dev/null)" != "$x" ]; then
-      (cd "$dir" && md5sum -c --quiet "$lista") >> "$LOG" 2>&1 || return 0
+      # P11: le righe di md5sum ("FAILED", "WARNING") nel log sembravano errori: una riga sola
+      (cd "$dir" && md5sum -c --quiet "$lista") > /dev/null 2>&1 \
+        || { echo "$(date -Iseconds) $2: non riconosciuto come archivio gia' estratto (normale dopo uno scarico interrotto): si scarica" >> "$LOG"; return 0; }
       break
     fi
   done < "$lista"
@@ -288,11 +320,14 @@ peso() {  # byte -> "5,9 GB", "16 MB", "meno di 1 MB"
 LIBERI=$(( $(df -Pk "$PMN_HOME" | awk 'NR==2 {print $4}') * 1024 ))
 if [ -n "$SPAZIO_VERO" ] && [ "$SPAZIO_VERO" -lt "$LIBERI" ]; then LIBERI=$SPAZIO_VERO; fi
 export MAMBA_ROOT_PREFIX=$PMN_HOME/mamba
-uguale_al_blocco() {  # env: i pacchetti installati sono esattamente quelli del file di blocco?
-  local d=$MAMBA_ROOT_PREFIX/envs/$1
+uguale_al_blocco() {  # env [log]: i pacchetti installati sono esattamente quelli del file di blocco?
+  local d=$MAMBA_ROOT_PREFIX/envs/$1 dove=/dev/null   # con "log" (P4) i pacchetti diversi vanno nel log
   [ -d "$d/conda-meta" ] || return 1
-  diff -q <(grep '^https://' "$PMN_ROOT/installer/lock/$1.txt" | sed 's|.*/||; s|#.*||; s|\.conda$||; s|\.tar\.bz2$||' | sort) \
-          <(cd "$d/conda-meta" && ls -- *.json | sed 's|\.json$||' | sort) > /dev/null
+  if [ -n "${2:-}" ]; then
+    dove=$LOG; echo "$(date -Iseconds) $1: pacchetti solo nel file di blocco (<) e solo nell'ambiente installato (>):" >> "$LOG"
+  fi
+  diff <(grep '^https://' "$PMN_ROOT/installer/lock/$1.txt" | sed 's|.*/||; s|#.*||; s|\.conda$||; s|\.tar\.bz2$||' | sort) \
+       <(cd "$d/conda-meta" && ls -- *.json | sed 's|\.json$||' | sort) >> "$dove" 2>&1
 }
 if [ "$SOLO_DB" = 0 ]; then
   for e in "${ENVS[@]}"; do   # 22/10: lo spazio dei programmi serve solo se un ambiente manca o va rifatto
@@ -421,8 +456,8 @@ if [ "$STIMA" = 1 ]; then
   PASSO=fine; evento fine null "$(T 'Stima pronta: non ho scaricato nulla.')"; exit 0
 fi
 if [ "$SI" != 1 ]; then
-  read -r -p "[PMN] Procedo con l'installazione? (s/n) " r || r=n
-  [ "$r" = s ] || [ "$r" = S ] || { PASSO=fine; ESITO=annullata; evento fine null "$(T 'Installazione annullata: non ho scaricato nulla.')"; exit 3; }
+  read -r -p "[PMN] $(T "Procedo con l'installazione? (s/n)") " r || r=n
+  [ "$r" = s ] || [ "$r" = S ] || [ "$r" = y ] || [ "$r" = Y ] || { PASSO=fine; ESITO=annullata; evento fine null "$(T 'Installazione annullata: non ho scaricato nulla.')"; exit 3; }
 fi
 
 # ===================== 2. programmi =====================
@@ -441,12 +476,22 @@ fi
 i=0
 for e in "${ENVS[@]}"; do
   i=$((i + 1))
-  if uguale_al_blocco "$e"; then continue; fi
-  FATTO=$((i - 1)); evento avanzamento $((5 + i * 2)) "$(T 'Installo i programmi: ambiente %s di %s (%s)...' "$i" "${#ENVS[@]}" "$e")"
-  rm -rf "${MAMBA_ROOT_PREFIX:?}/envs/$e"
-  "$MM" create -y -q -n "$e" -f "$PMN_ROOT/installer/lock/$e.txt" >> "$LOG" 2>&1 \
-    || fallisci DOWNLOAD_FALLITO "$(T "Non riesco a installare l'ambiente %s." "$e")" "$(T 'Controlla la connessione e rilancia.')"
-  uguale_al_blocco "$e" || fallisci DB_ROVINATO "$(T "L'ambiente %s non corrisponde alle versioni previste." "$e")" "$(T "Rilancia l'installazione.")"
+  # P3: un ambiente diverso dal blocco subito dopo una creazione riuscita non si cancella e non si ricrea a ogni
+  # rilancio (rilanciare non serve: si manda il log, come per un MD5 sbagliato, R18). Il segnalino <env>.diverso ha
+  # l'MD5 del file di blocco: con un file di blocco nuovo (una correzione) l'ambiente si rifa'.
+  segno=$PMN_HOME/stato/$e.diverso; md5_blocco=$(md5sum < "$PMN_ROOT/installer/lock/$e.txt" | cut -d' ' -f1)
+  if uguale_al_blocco "$e"; then rm -f "$segno"; continue; fi
+  FATTO=$((i - 1)); TOCCATO=1
+  if [ "$(cat "$segno" 2> /dev/null)" != "$md5_blocco" ] || [ ! -d "$MAMBA_ROOT_PREFIX/envs/$e/conda-meta" ]; then
+    evento avanzamento $((5 + i * 2)) "$(T 'Installo i programmi: ambiente %s di %s (%s)...' "$i" "${#ENVS[@]}" "$e")"
+    rm -rf "${MAMBA_ROOT_PREFIX:?}/envs/$e"
+    "$MM" create -y -q -n "$e" -f "$PMN_ROOT/installer/lock/$e.txt" >> "$LOG" 2>&1 \
+      || fallisci DOWNLOAD_FALLITO "$(T "Non riesco a installare l'ambiente %s." "$e")" "$(T 'Controlla la connessione e rilancia.')"
+    echo "$md5_blocco" > "$segno"
+    if uguale_al_blocco "$e"; then rm -f "$segno"; continue; fi
+  fi
+  uguale_al_blocco "$e" log || true   # P4: che cosa e' diverso, nel log
+  fallisci DB_ROVINATO "$(T "L'ambiente %s non corrisponde alle versioni previste." "$e")" "$(T 'Manda a noi il file %s.' "$LOG")"
 done
 "$MM" clean -a -y >> "$LOG" 2>&1 || true   # la cache dei pacchetti non serve piu'
 FATTO=${#ENVS[@]}; evento avanzamento 22 "$(T 'Programmi installati (%s ambienti, MetaPhlAn %s).' "${#ENVS[@]}" "$(ls "$MAMBA_ROOT_PREFIX/envs/pmn_metaphlan/conda-meta" | sed -n 's/^metaphlan-\([0-9.]*\)-.*/\1/p')")"
@@ -456,7 +501,7 @@ fi
 # Una coda per sorgente, tutte insieme (R2): kraken un file alla volta a CONN connessioni, le altre FILE_INSIEME file
 # alla volta. Le code annunciano cosa iniziano; il ciclo principale conta i byte sul disco ogni OGNI_S secondi e manda
 # l'avanzamento con velocita' (media degli ultimi ~60 s) e tempo che manca per sorgente (R4).
-PASSO=database; FATTO=0; TOTALE=$(righe | wc -l); ETA=null
+PASSO=database; FATTO=0; TOTALE=$(righe | wc -l); ETA=null; TOCCATO=1
 TOT=$(righe | awk -F'\t' '{s+=$5} END {printf "%.0f", s}')
 echo "22 null 0" > "$ST/stato"
 # A6: i pezzi gia' letti e cancellati da un giro interrotto si riscaricano (il lettore riparte dal primo): il loro conto
@@ -612,6 +657,11 @@ uno() {  # gruppo tipo sorgente percorso byte md5 destinazione url_alternativo: 
 }
 coda() {  # sorgente: le righe di una sorgente, nell'ordine del catalogo
   local s=$1 max=$FILE_INSIEME n=0 g t s2 p b bf m d alt
+  # P7: il Ctrl+C del terminale arriva a tutto il gruppo. curl moriva subito, la coda si disfaceva da sola e i
+  # processi dei pezzi, rimasti orfani, non erano piu' fra i discendenti che ferma_figli chiude: continuavano a
+  # riprovare da soli ("La connessione si è interrotta" dopo "Installazione interrotta"). La coda e i suoi programmi
+  # ignorano il Ctrl+C: lo riceve solo il processo principale, che li ferma tutti in ordine (ferma_figli)
+  trap '' INT
   [ "$s" != kraken ] || max=1
   while IFS=$'\t' read -r g t s2 p b bf m d alt; do
     [ "$s2" = "$s" ] && ! fatto "$d" "$m" || continue
@@ -658,7 +708,10 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
   echo "$P $eta $nf" > "$ST/stato.t" && mv -f "$ST/stato.t" "$ST/stato"
   FATTO=$nf; ETA=$eta
   AV_EXTRA=",\"byte_fatti\":$fatti,\"byte_totali\":$TOT,\"velocita_mb_s\":$(awk -v v="$vtot" 'BEGIN {printf "%.2f", v/1e6}'),\"sorgente\":$lenta,\"sorgenti\":[$sorg]"
-  if [ -n "$parti" ]; then   # B4-e: un totale piccolo era "0,0 di 0,0 GB": in MB, sotto 1 MB senza numeri
+  # P10 (813 righe in 3,5 ore nel terminale): sul posto in un terminale, una ogni 5 minuti in un file; --json come prima
+  if [ -n "$parti" ] && { [ "$JSON" = 1 ] || [ "$TERMINALE" = 1 ] || [ "$adesso" -ge "$PROSSIMA_RIGA" ]; }; then
+    PROSSIMA_RIGA=$(( adesso + 300 )); SUL_POSTO=$TERMINALE
+    # B4-e: un totale piccolo era "0,0 di 0,0 GB": in MB, sotto 1 MB senza numeri
     if [ "$TOT" -ge "$GIB" ]; then
       evento avanzamento "$P" "$(T 'Scarico i database: %s di %s GB (%s).' "$(num "$fatti" "$GIB" 1)" "$(num "$TOT" "$GIB" 1)" "$parti")"
     elif [ "$TOT" -ge 1048576 ]; then
@@ -666,6 +719,7 @@ conta() {  # ogni OGNI_S secondi: byte per sorgente sul disco, velocita' (media 
     else
       evento avanzamento "$P" "$(T 'Scarico i database (%s).' "$parti")"
     fi
+    SUL_POSTO=0
   fi
   AV_EXTRA=""
 }
@@ -674,7 +728,8 @@ if [ "$RISPARMIO" = 1 ] && [ "$ARCHIVIO" -gt 0 ]; then
   annuncia "$(T "Spazio stretto: estraggo gli archivi mentre arrivano e cancello ogni pezzo appena letto. Se l'installazione si interrompe, l'archivio in corso riparte da capo.")"
 fi
 CODE=()
-for s in $(righe | cut -f3 | awk '!visto[$0]++'); do coda "$s" & CODE+=($!); done
+# P7: i messaggi tecnici delle code (tar, e bash "Terminated curl ..." per ogni scarico fermato da un Ctrl+C) nel log
+for s in $(righe | cut -f3 | awk '!visto[$0]++'); do coda "$s" 2>> "$LOG" & CODE+=($!); done
 prossimo=0
 while :; do
   if compgen -G "$ST/errore.*" > /dev/null; then break; fi
