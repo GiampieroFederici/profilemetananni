@@ -67,10 +67,14 @@ def test_il_motore_manda_l_avanzamento_dentro_il_filtro_dell_ospite(tmp_path, mo
     inizio, quarto, meta = ospite
     assert "questo passo è al 25 %" in quarto["messaggio"] and "questo passo è al 50 %" in meta["messaggio"]
     assert quarto["messaggio"].startswith(inizio["messaggio"])      # stesso testo del passo, più il punto dov'è
-    dopo = inizio["eta_s"] - inizio["passo_s"]          # i passi che vengono dopo l'ospite, dalla regola di stima
+    # i passi che vengono dopo l'ospite, dalla regola di stima. Dal piano, non da eta_s - passo_s dell'inizio: quelli
+    # sono due numeri arrotondati al secondo e la loro differenza può sbagliare di 1 s (19/11, con il costo fisso del
+    # filtro: ospite 62,45 s, dopo 646,1 s; 709 - 62 = 647, mentre il motore conta 1.800 + 646,1 = 2.446)
+    dopo = sum(s for e, _passo, _gruppo, s in pm.piano([("S1", 1_000_000, 0)], cfg) if e not in ("trim_S1", "hf_S1"))
+    assert abs(inizio["eta_s"] - inizio["passo_s"] - dopo) <= 1
     # un quarto in 600 s: il passo dura 2.400 s, ne mancano 1.800; a metà ne mancano 1.200
     assert (quarto["passo_s"], meta["passo_s"]) == (1800, 1200)
-    assert (quarto["eta_s"], meta["eta_s"]) == (1800 + dopo, 1200 + dopo)
+    assert (quarto["eta_s"], meta["eta_s"]) == (round(1800 + dopo), round(1200 + dopo))
     assert inizio["percentuale"] <= quarto["percentuale"] < meta["percentuale"] < 100   # la barra non torna indietro
     for e in (quarto, meta):                           # stessi campi dell'avanzamento di inizio passo (contratto §4)
         assert set(e) == set(inizio) and (e["campione"], e["fatto"], e["totale"]) == ("S1", 1, 1)
